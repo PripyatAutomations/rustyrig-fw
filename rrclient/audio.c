@@ -238,6 +238,8 @@ static void rx_sink_set_fd(int new_fd) {
 /* Used by local SDR setup before its definition below. */
 static void audio_input_gain_load(rr_audio_engine_t *engine, const char *id);
 static gboolean audio_lv2_feed(const char *source, const void *samples, size_t bytes);
+static gboolean audio_lv2_property_target(const char *worker, const char *element, char *host, size_t host_size, char *stage, size_t stage_size);
+static void audio_lv2_reconcile_chains(void);
 static void audio_lv2_stop(unsigned slot, gboolean forget);
 static void audio_lv2_restore(void);
 static void audio_lv2_route_source(const char *id, char output);
@@ -832,11 +834,6 @@ static void audio_restore_effect_parameters(const char *worker) {
       char *target = rrclient_database_setting_get(key);
       g_free(key);
 
-      if (g_strcmp0(target, worker)) {
-         g_free(target);
-         g_free(prefix);
-         continue;
-      }
       key = g_strconcat(prefix, "element", NULL);
       char *element = rrclient_database_setting_get(key);
       g_free(key);
@@ -852,15 +849,27 @@ static void audio_restore_effect_parameters(const char *worker) {
       key = g_strconcat(prefix, "selected-string", NULL);
       char *selected_string = rrclient_database_setting_get(key);
       g_free(key);
+      char host[64] = {0}, stage[128] = {0};
+      audio_lv2_property_target(target, element, host, sizeof(host), stage, sizeof(stage));
+      if (g_strcmp0(host, worker)) {
+         g_free(element);
+         g_free(property);
+         g_free(value);
+         g_free(kind);
+         g_free(selected_string);
+         g_free(target);
+         g_free(prefix);
+         continue;
+      }
 
       if (element && *element && property && *property && !g_strcmp0(kind, "enum") && selected_string && *selected_string) {
-         fwdsp_processor_set_property_string(worker, element, property, selected_string);
+         fwdsp_processor_set_property_string(worker, stage, property, selected_string);
       } else if (element && *element && property && *property && value && *value) {
          char *end = NULL;
          double setting = g_ascii_strtod(value, &end);
 
          if (end != value && !*end && isfinite(setting)) {
-            fwdsp_processor_set_property(worker, element, property, setting);
+            fwdsp_processor_set_property(worker, stage, property, setting);
          }
       }
       g_free(element);
@@ -1171,18 +1180,49 @@ typedef struct {
    GThread *writer;
    int input_fd;
    gint active, failed;
+   guint chain_host, chain_tail; /* 1-based worker owner / final stage, zero for legacy solo */
    guint64 dropped;
 } rr_lv2_effect_t;
 static rr_lv2_effect_t lv2_effects[RR_AUDIO_EFFECT_MAX];
 static GMutex lv2_effect_lock;
 static gboolean lv2_effect_ready;
+static gboolean lv2_chain_rebuild_blocked; /* Avoid restarting solo fallbacks on every watchdog tick. */
+/* Preserve public slot/element addresses even when multiple LV2 stages share
+ * one fwdsp worker. Controls continue to persist against their original slots. */
+static gboolean audio_lv2_property_target(const char *worker, const char *element,
+   char *host, size_t host_size, char *stage, size_t stage_size) {
+   if (!worker || !element || !host_size || !stage_size) return FALSE;
+   g_strlcpy(host, worker, host_size);
+   g_strlcpy(stage, element, stage_size);
+   guint slot = 0;
+   char extra = 0;
+   if (sscanf(worker, "proc.lv2.%u%c", &slot, &extra) != 1 ||
+       slot < 1 || slot > RR_AUDIO_EFFECT_MAX || strcmp(element, "effect"))
+      return TRUE;
+   rr_lv2_effect_t *fx = &lv2_effects[slot - 1];
+   if (!g_atomic_int_get(&fx->active) || !fx->chain_host ||
+       fx->chain_host > RR_AUDIO_EFFECT_MAX) return TRUE;
+   rr_lv2_effect_t *root = &lv2_effects[fx->chain_host - 1];
+   if (fx->chain_host != slot || root->chain_tail != slot) {
+      g_strlcpy(host, root->name, host_size);
+      g_snprintf(stage, stage_size, "effect_%u", slot);
+   }
+   return TRUE;
+}
+/* A virtual stage shares the health of its actual subprocess owner. */
+static gboolean audio_lv2_stage_failed(const rr_lv2_effect_t *fx) {
+   if (g_atomic_int_get(&fx->failed)) return TRUE;
+   if (!fx->chain_host || fx->chain_host > RR_AUDIO_EFFECT_MAX) return FALSE;
+   const rr_lv2_effect_t *host = &lv2_effects[fx->chain_host - 1];
+   return host != fx && (!g_atomic_int_get(&host->active) || g_atomic_int_get(&host->failed));
+}
 /* Resolve real, active effect outputs rather than treating a processor node ID
  * as an arbitrary decoded stream. */
 static gint audio_lv2_output_owner(const char *id) {
    if (!id || !*id) return -1;
    for (guint i = 0 ; i < RR_AUDIO_EFFECT_MAX ; i++) {
       rr_lv2_effect_t *fx = &lv2_effects[i];
-      if (!g_atomic_int_get(&fx->active) || g_atomic_int_get(&fx->failed)) continue;
+      if (!g_atomic_int_get(&fx->active) || audio_lv2_stage_failed(fx)) continue;
       for (guint ch = 0 ; ch < fx->channels ; ch++) {
          if (fx->output_stream[ch][0] && !strcmp(id, fx->output_stream[ch])) return (gint)i;
       }
@@ -1255,11 +1295,16 @@ static void audio_lv2_result(const char *name, const void *samples, size_t bytes
       return;
    }
 
+   /* A consolidated subprocess produces only the final stage's PCM. */
+   rr_lv2_effect_t *last = fx->chain_tail && fx->chain_tail <= RR_AUDIO_EFFECT_MAX ?
+      &lv2_effects[fx->chain_tail - 1] : fx;
+   if (!g_atomic_int_get(&last->active) || !last->output_stream[0][0]) return;
    if (fx->channels == 1) {
-      if (!audio_lv2_feed(fx->output_stream[0], samples, bytes)) {
-         rr_audio_engine_push(rx_engine, fx->output_stream[0], (const int16_t *)samples, bytes / sizeof(int16_t));
+      if (!audio_lv2_feed(last->output_stream[0], samples, bytes)) {
+         rr_audio_engine_push(rx_engine, last->output_stream[0], (const int16_t *)samples, bytes / sizeof(int16_t));
       }
    } else {
+      if (!last->output_stream[1][0] || (bytes % (2 * sizeof(int16_t)))) return;
       const int16_t *pcm = samples;
       size_t frames = bytes / (2 * sizeof(int16_t));
       int16_t left[1024], right[1024];
@@ -1272,11 +1317,11 @@ static void audio_lv2_result(const char *name, const void *samples, size_t bytes
             right[i] = pcm[2 * (offset + i) + 1];
          }
 
-         if (!audio_lv2_feed(fx->output_stream[0], left, n * sizeof(int16_t))) {
-            rr_audio_engine_push(rx_engine, fx->output_stream[0], left, n);
+         if (!audio_lv2_feed(last->output_stream[0], left, n * sizeof(int16_t))) {
+            rr_audio_engine_push(rx_engine, last->output_stream[0], left, n);
          }
-         if (!audio_lv2_feed(fx->output_stream[1], right, n * sizeof(int16_t))) {
-            rr_audio_engine_push(rx_engine, fx->output_stream[1], right, n);
+         if (!audio_lv2_feed(last->output_stream[1], right, n * sizeof(int16_t))) {
+            rr_audio_engine_push(rx_engine, last->output_stream[1], right, n);
          }
       }
    }
@@ -1310,7 +1355,7 @@ static gpointer audio_lv2_writer(gpointer user) {
 }
 
 static gboolean audio_lv2_feed(const char *source, const void *samples, size_t bytes) {
-   if (!lv2_effect_ready || !source || !samples || !bytes || bytes > sizeof(((rr_lv2_pcm_packet_t *) 0)->pcm) || (bytes & 1)) {
+   if (!lv2_effect_ready || !source || !*source || !samples || !bytes || bytes > sizeof(((rr_lv2_pcm_packet_t *) 0)->pcm) || (bytes & 1)) {
       return FALSE;
    }
 
@@ -1452,6 +1497,7 @@ static void audio_lv2_stop(unsigned slot, gboolean forget) {
    fx->factory[0] = fx->name[0] = 0;
    fx->output[0] = fx->output[1] = 'M';
    fx->channels = 0;
+   fx->chain_host = fx->chain_tail = 0;
    fx->pending_frames[0] = fx->pending_frames[1] = 0;
    g_atomic_int_set(&fx->failed, FALSE);
    g_mutex_unlock(&lv2_effect_lock);
@@ -1517,6 +1563,7 @@ static gboolean audio_lv2_start(const rr_audio_effect_request_t *req) {
    audio_lv2_stop(slot, FALSE);
    rr_lv2_effect_t *fx = &lv2_effects[slot - 1];
    fx->input_fd = -1;
+   fx->chain_host = fx->chain_tail = slot;
    g_snprintf(fx->name, sizeof(fx->name), "proc.lv2.%u", slot);
    char *channels_key = g_strdup_printf("audio.lv2.%u.channels", slot);
    char *saved_channels = rrclient_database_setting_get(channels_key);
@@ -1645,6 +1692,255 @@ static gboolean audio_lv2_start(const rr_audio_effect_request_t *req) {
    return TRUE;
 }
 
+/* Only linear, format-compatible, unbranched links can be collapsed without inventing a
+ * mixer or silently dropping an independently routable effect output. Other
+ * topologies retain the existing one-worker-per-effect implementation. */
+typedef struct {
+   gboolean present;
+   char factory[96], source[2][64], output[2];
+   guint channels;
+} rr_lv2_chain_config_t;
+
+static gint audio_lv2_chain_next(const rr_lv2_chain_config_t *cfg, guint parent) {
+   const guint channels = cfg[parent].channels;
+   if (!cfg[parent].present || (channels != 1 && channels != 2))
+      return -1;
+   char output[2][48] = {{0}};
+   for (guint ch = 0 ; ch < channels ; ch++) {
+      if (cfg[parent].output[ch] != 'M') return -1;
+      if (channels == 2)
+         g_snprintf(output[ch], sizeof(output[ch]), "proc.lv2.%u.%c", parent + 1, ch ? 'R' : 'L');
+      else
+         g_snprintf(output[ch], sizeof(output[ch]), "proc.lv2.%u", parent + 1);
+   }
+   gint consumer = -1;
+   for (guint i = 0 ; i < RR_AUDIO_EFFECT_MAX ; i++) {
+      if (!cfg[i].present || i == parent) continue;
+      gboolean matched = FALSE;
+      for (guint ch = 0 ; ch < cfg[i].channels ; ch++)
+         for (guint src = 0 ; src < channels ; src++)
+            matched |= !strcmp(cfg[i].source[ch], output[src]);
+      if (!matched) continue;
+      /* Reject fan-out, channel swaps and mono/stereo conversion. Those
+       * topologies retain separately addressable fwdsp processes. */
+      if (consumer >= 0 || cfg[i].channels != channels) return -1;
+      for (guint ch = 0 ; ch < channels ; ch++)
+         if (strcmp(cfg[i].source[ch], output[ch])) return -1;
+      consumer = (gint)i;
+   }
+   return consumer;
+}
+
+/* One appsrc/appsink boundary for a complete chain. Each stage keeps a
+ * slot-qualified GStreamer element name for independent parameter control. */
+static gboolean audio_lv2_launch_chain(const rr_lv2_chain_config_t *cfg, const guint *slots, guint count) {
+   if (count < 2 || count > RR_AUDIO_EFFECT_MAX || !rx_engine) return FALSE;
+   guint root_slot = slots[0], last_slot = slots[count - 1];
+   guint channels = cfg[root_slot - 1].channels;
+   if (channels != 1 && channels != 2) return FALSE;
+   GString *pipeline = g_string_new(NULL);
+   g_string_append_printf(pipeline, "appsrc name=processor-src is-live=true format=time do-timestamp=true "
+      "caps=audio/x-raw,format=S16LE,rate=16000,channels=%u,layout=interleaved ! "
+      "queue max-size-buffers=8 leaky=downstream ! audioconvert ! audioresample ! ", channels);
+   for (guint j = 0 ; j < count ; j++) {
+      guint slot = slots[j];
+      if (!slot || slot > RR_AUDIO_EFFECT_MAX || !cfg[slot - 1].present ||
+          cfg[slot - 1].channels != channels || !audio_lv2_factory_safe(cfg[slot - 1].factory)) {
+         g_string_free(pipeline, TRUE);
+         return FALSE;
+      }
+      g_string_append_printf(pipeline, "%s name=effect_%u ! audioconvert ! audioresample ! ",
+         cfg[slot - 1].factory, slot);
+   }
+   g_string_append_printf(pipeline, "audio/x-raw,format=S16LE,rate=16000,channels=%u,layout=interleaved ! "
+      "appsink name=processor-sink sync=false max-buffers=8 drop=true", channels);
+
+   for (guint j = 0 ; j < count ; j++) {
+      guint slot = slots[j];
+      rr_lv2_effect_t *fx = &lv2_effects[slot - 1];
+      fx->input_fd = -1;
+      fx->channels = channels;
+      fx->chain_host = root_slot;
+      fx->chain_tail = last_slot;
+      g_snprintf(fx->name, sizeof(fx->name), "proc.lv2.%u", slot);
+      g_strlcpy(fx->factory, cfg[slot - 1].factory, sizeof(fx->factory));
+      for (guint ch = 0 ; ch < channels ; ch++) {
+         if (channels == 2)
+            g_snprintf(fx->output_stream[ch], sizeof(fx->output_stream[ch]), "proc.lv2.%u.%c", slot, ch ? 'R' : 'L');
+         else
+            g_snprintf(fx->output_stream[ch], sizeof(fx->output_stream[ch]), "proc.lv2.%u", slot);
+         g_strlcpy(fx->source[ch], cfg[slot - 1].source[ch], sizeof(fx->source[ch]));
+         fx->output[ch] = cfg[slot - 1].output[ch];
+         if (!audio_local_rx_start(fx->output_stream[ch])) goto failed;
+         rr_audio_engine_route(rx_engine, fx->output_stream[ch], fx->output[ch]);
+      }
+   }
+
+   rr_lv2_effect_t *root = &lv2_effects[root_slot - 1];
+   if (!fwdsp_processor_start(root->name, pipeline->str, audio_lv2_result, root))
+      goto failed;
+   root->input_fd = fwdsp_processor_dup_input(root->name);
+   if (root->input_fd < 0) goto failed;
+   int flags = fcntl(root->input_fd, F_GETFL, 0);
+   if (flags >= 0) fcntl(root->input_fd, F_SETFL, flags | O_NONBLOCK);
+   root->queue = g_async_queue_new();
+   root->available = g_async_queue_new();
+   for (guint j = 0 ; j < G_N_ELEMENTS(root->packets) ; j++)
+      g_async_queue_push(root->available, &root->packets[j]);
+   for (guint j = 0 ; j < count ; j++)
+      g_atomic_int_set(&lv2_effects[slots[j] - 1].active, TRUE);
+   root->writer = g_thread_new("lv2-chain-input", audio_lv2_writer, root);
+   audio_restore_effect_parameters(root->name);
+   Log(LOG_INFO, "audio.lv2", "Consolidated %u directly connected %u-channel LV2 stages into %s", count, channels, root->name);
+   g_string_free(pipeline, TRUE);
+   return TRUE;
+
+failed:
+   /* Stop the partial worker before releasing its stream aliases. */
+   if (lv2_effects[root_slot - 1].name[0])
+      fwdsp_processor_stop(lv2_effects[root_slot - 1].name);
+   if (lv2_effects[root_slot - 1].input_fd >= 0)
+      close(lv2_effects[root_slot - 1].input_fd);
+   for (guint j = 0 ; j < count ; j++)
+      for (guint ch = 0 ; ch < channels ; ch++)
+         if (lv2_effects[slots[j] - 1].output_stream[ch][0])
+            audio_local_rx_stop(lv2_effects[slots[j] - 1].output_stream[ch]);
+   for (guint j = 0 ; j < count ; j++) {
+      rr_lv2_effect_t *fx = &lv2_effects[slots[j] - 1];
+      memset(fx->source, 0, sizeof(fx->source));
+      memset(fx->output_stream, 0, sizeof(fx->output_stream));
+      fx->name[0] = fx->factory[0] = 0;
+      fx->chain_host = fx->chain_tail = fx->channels = 0;
+      fx->input_fd = -1;
+   }
+   g_string_free(pipeline, TRUE);
+   return FALSE;
+}
+
+/* Rebuild only when the set of worker owners changes. Slot IDs, saved control
+ * bindings and output routes survive consolidation and subsequent splitting. */
+static void audio_lv2_reconcile_chains(void) {
+   if (!lv2_effect_ready || !audio_enabled || !rx_engine) return;
+   rr_lv2_chain_config_t cfg[RR_AUDIO_EFFECT_MAX] = {0};
+   gint successor[RR_AUDIO_EFFECT_MAX], predecessor[RR_AUDIO_EFFECT_MAX];
+   guint desired[RR_AUDIO_EFFECT_MAX] = {0};
+   gboolean used[RR_AUDIO_EFFECT_MAX] = {FALSE};
+   for (guint i = 0 ; i < RR_AUDIO_EFFECT_MAX ; i++) {
+      rr_lv2_effect_t *fx = &lv2_effects[i];
+      cfg[i].present = g_atomic_int_get(&fx->active) && !audio_lv2_stage_failed(fx);
+      cfg[i].channels = fx->channels;
+      g_strlcpy(cfg[i].factory, fx->factory, sizeof(cfg[i].factory));
+      memcpy(cfg[i].source, fx->source, sizeof(cfg[i].source));
+      memcpy(cfg[i].output, fx->output, sizeof(cfg[i].output));
+      successor[i] = predecessor[i] = -1;
+   }
+   for (guint i = 0 ; i < RR_AUDIO_EFFECT_MAX ; i++)
+      successor[i] = audio_lv2_chain_next(cfg, i);
+   for (guint i = 0 ; i < RR_AUDIO_EFFECT_MAX ; i++) {
+      gint next = successor[i];
+      if (next < 0) continue;
+      if (predecessor[next] >= 0) {
+         successor[i] = -1;
+         successor[predecessor[next]] = -1;
+         predecessor[next] = -1;
+      } else predecessor[next] = (gint)i;
+   }
+   for (guint i = 0 ; i < RR_AUDIO_EFFECT_MAX ; i++) {
+      if (!cfg[i].present || predecessor[i] >= 0) continue;
+      gboolean seen[RR_AUDIO_EFFECT_MAX] = {FALSE};
+      gint n = (gint)i;
+      while (n >= 0 && !seen[n]) {
+         seen[n] = TRUE;
+         desired[n] = i + 1;
+         n = successor[n];
+      }
+   }
+   gboolean changed = FALSE;
+   gboolean affected_roots[RR_AUDIO_EFFECT_MAX] = {FALSE};
+   gboolean restart[RR_AUDIO_EFFECT_MAX] = {FALSE};
+   for (guint i = 0 ; i < RR_AUDIO_EFFECT_MAX ; i++) {
+      if (!cfg[i].present) continue;
+      if (!desired[i]) desired[i] = i + 1;
+      guint actual = lv2_effects[i].chain_host ? lv2_effects[i].chain_host : i + 1;
+      gboolean different = actual != desired[i];
+      if (desired[i] == i + 1) {
+         guint tail = i + 1;
+         gboolean seen[RR_AUDIO_EFFECT_MAX] = {FALSE};
+         gint n = (gint)i;
+         while (n >= 0 && !seen[n]) {
+            seen[n] = TRUE;
+            tail = n + 1;
+            n = successor[n];
+         }
+         if ((lv2_effects[i].chain_tail ? lv2_effects[i].chain_tail : i + 1) != tail)
+            different = TRUE;
+      }
+      if (different) {
+         changed = TRUE;
+         affected_roots[actual - 1] = TRUE;
+         affected_roots[desired[i] - 1] = TRUE;
+      }
+   }
+   if (!changed || lv2_chain_rebuild_blocked) return;
+
+   /* Expand affected roots to their complete old and new chains. This
+    * prevents a worker from retaining a removed stage without disturbing
+    * independent effects that are not part of the change. */
+   for (guint i = 0 ; i < RR_AUDIO_EFFECT_MAX ; i++) {
+      if (!cfg[i].present) continue;
+      guint actual = lv2_effects[i].chain_host ? lv2_effects[i].chain_host : i + 1;
+      restart[i] = affected_roots[actual - 1] || affected_roots[desired[i] - 1];
+   }
+
+   /* Tear down the actual subprocesses first; an in-flight callback must not
+    * refer to a virtual tail whose stream has already been removed. */
+   for (guint i = 0 ; i < RR_AUDIO_EFFECT_MAX ; i++)
+      if (restart[i] && (!lv2_effects[i].chain_host ||
+          lv2_effects[i].chain_host == i + 1)) audio_lv2_stop(i + 1, FALSE);
+   for (guint i = 0 ; i < RR_AUDIO_EFFECT_MAX ; i++)
+      if (restart[i] && lv2_effects[i].name[0]) audio_lv2_stop(i + 1, FALSE);
+
+   /* Roots whose inputs are unavailable stay configured in the database and
+    * are retried by audio_lv2_restore when their streams arrive. */
+   for (guint pass = 0 ; pass < RR_AUDIO_EFFECT_MAX ; pass++) {
+      gboolean progressed = FALSE;
+      for (guint i = 0 ; i < RR_AUDIO_EFFECT_MAX ; i++) {
+         if (!restart[i] || used[i] || desired[i] != i + 1) continue;
+         if (cfg[i].source[0][0] && !audio_lv2_source_present(cfg[i].source[0]))
+            continue;
+         guint slots[RR_AUDIO_EFFECT_MAX], count = 0;
+         gboolean seen[RR_AUDIO_EFFECT_MAX] = {FALSE};
+         gint n = (gint)i;
+         while (n >= 0 && !seen[n]) {
+            seen[n] = TRUE;
+            used[n] = TRUE;
+            slots[count++] = n + 1;
+            n = successor[n];
+         }
+         gboolean ok = FALSE;
+         if (count > 1) {
+            ok = audio_lv2_launch_chain(cfg, slots, count);
+            if (!ok) {
+               lv2_chain_rebuild_blocked = TRUE;
+               Log(LOG_WARN, "audio.lv2", "Chain worker unavailable; retaining separate LV2 workers until topology changes");
+            }
+         }
+         if (!ok) {
+            /* Safe fallback: preserve existing independent-worker behavior. */
+            for (guint j = 0 ; j < count ; j++) {
+               guint slot = slots[j];
+               rr_audio_effect_request_t req = {.action = 'A', .slot = slot, .channels = cfg[slot - 1].channels};
+               g_strlcpy(req.factory, cfg[slot - 1].factory, sizeof(req.factory));
+               g_strlcpy(req.source, cfg[slot - 1].source[0], sizeof(req.source));
+               audio_lv2_start(&req);
+            }
+         }
+         progressed = TRUE;
+      }
+      if (!progressed) break;
+   }
+}
+
 static void audio_lv2_request(const rr_event_message_t *msg, void *unused) {
    (void)unused;
 
@@ -1672,7 +1968,17 @@ static void audio_lv2_request(const rr_event_message_t *msg, void *unused) {
          Log(LOG_WARN, "audio.lv2", "Cannot start LV2 effect %s on %s", req.factory, req.source);
       }
    } else if (req.action == 'D') {
-      audio_lv2_stop(req.slot, TRUE);
+      if (req.slot && req.slot <= RR_AUDIO_EFFECT_MAX) {
+         /* Removing the host must also retire its virtual stages. Their
+          * saved configurations survive for a later explicit reconnection. */
+         gboolean host = lv2_effects[req.slot - 1].chain_host == req.slot;
+         audio_lv2_stop(req.slot, TRUE);
+         if (host) {
+            for (guint i = 0 ; i < RR_AUDIO_EFFECT_MAX ; i++)
+               if (i + 1 != req.slot && lv2_effects[i].chain_host == req.slot)
+                  audio_lv2_stop(i + 1, FALSE);
+         }
+      }
    } else if (req.action == 'O' && req.slot && req.slot <= RR_AUDIO_EFFECT_MAX) {
       rr_lv2_effect_t *fx = &lv2_effects[req.slot - 1];
 
@@ -1740,6 +2046,8 @@ static void audio_lv2_request(const rr_event_message_t *msg, void *unused) {
          Log(LOG_WARN, "audio.lv2", "Cannot patch input channel %u on LV2 slot %u", req.channel, req.slot);
       }
    }
+   lv2_chain_rebuild_blocked = FALSE;
+   audio_lv2_reconcile_chains();
    event_emit(RRCLIENT_AUDIO_EFFECT_CHANGED, NULL, NULL);
    event_emit("client.audio.route.changed", NULL, NULL);
 }
@@ -1770,7 +2078,13 @@ static void audio_lv2_restore(void) {
       rr_lv2_effect_t *fx = &lv2_effects[slot - 1];
 
       if (g_atomic_int_get(&fx->active)) {
-         if ((!fx->source[0][0] || audio_lv2_source_present(fx->source[0])) && !g_atomic_int_get(&fx->failed)) {
+         if (audio_lv2_stage_failed(fx) && fx->chain_host &&
+             (fx->chain_host != slot || fx->chain_tail != slot)) {
+            if (!lv2_chain_rebuild_blocked)
+               Log(LOG_WARN, "audio.lv2", "Consolidated LV2 worker failed; recovering with independent workers");
+            lv2_chain_rebuild_blocked = TRUE;
+         }
+         if ((!fx->source[0][0] || audio_lv2_source_present(fx->source[0])) && !audio_lv2_stage_failed(fx)) {
             continue;
          }
          /* Stream UUIDs can survive a reconnect even when the decoder's temporary client-rx-N identity has changed. */
@@ -1824,6 +2138,7 @@ static void audio_lv2_restore(void) {
       g_free(factory);
       g_free(source);
    }
+   audio_lv2_reconcile_chains();
 }
 
 static void client_channel_pcm(const char *name, const void *samples, size_t len, void *user) {
@@ -2356,7 +2671,7 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
       if (!rr_audio_graph_add_node(graph, fx->name, RR_AG_PROCESSOR)) {
          continue;
       }
-      rr_audio_graph_set_health(graph, fx->name, g_atomic_int_get(&fx->failed) ? RR_AG_FAILED : RR_AG_HEALTHY);
+      rr_audio_graph_set_health(graph, fx->name, audio_lv2_stage_failed(fx) ? RR_AG_FAILED : RR_AG_HEALTHY);
 
       if (g_atomic_int_get(&fx->failed)) {
          continue;
@@ -2932,7 +3247,9 @@ static void audio_control_request(const rr_event_message_t *message, void *unuse
              !memchr(req->element, 0, sizeof(req->element)) ||
              !memchr(req->property, 0, sizeof(req->property)) ||
              !memchr(req->string_value, 0, sizeof(req->string_value))) break;
-         if (!fwdsp_processor_set_property_string(req->stream, req->element, req->property, req->string_value)) {
+         char host[64] = {0}, stage[128] = {0};
+         audio_lv2_property_target(req->stream, req->element, host, sizeof(host), stage, sizeof(stage));
+         if (!fwdsp_processor_set_property_string(host, stage, req->property, req->string_value)) {
             Log(LOG_WARN, "audio.effects", "String effect control failed: %.60s / %.60s / %.60s", req->stream, req->element, req->property);
          }
          break;
@@ -2943,7 +3260,9 @@ static void audio_control_request(const rr_event_message_t *message, void *unuse
             break;
          }
 
-         if (!fwdsp_processor_set_property(req->stream, req->element, req->property, req->gain_db)) {
+         char host[64] = {0}, stage[128] = {0};
+         audio_lv2_property_target(req->stream, req->element, host, sizeof(host), stage, sizeof(stage));
+         if (!fwdsp_processor_set_property(host, stage, req->property, req->gain_db)) {
             Log(LOG_WARN, "audio.effects", "Effect control failed: %.60s / %.60s / %.60s", req->stream, req->element, req->property);
          }
          break;
