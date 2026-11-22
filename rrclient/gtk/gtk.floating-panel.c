@@ -1640,11 +1640,16 @@ static void panel_raise(RRFloatPanel *p) {
    for (GList *it = floating_panels ; it ; it = it->next) {
       RRFloatPanel *q = it->data;
 
-      if (q->pinned && !q->minimized && !q->modal && q->overlay == p->overlay &&
+      if (q != p && q->pinned && !q->minimized && !q->modal && q->overlay == p->overlay &&
          gtk_widget_get_parent(q->frame) == GTK_WIDGET(q->overlay) && gtk_widget_get_visible(q->frame)) {
          gtk_overlay_reorder_overlay(q->overlay, q->frame, -1);
       }
    }
+
+   /* An active utility stays above other pinned utilities, rather than
+    * older ones unexpectedly covering the newly opened editor. */
+   if (p->pinned && !p->modal && gtk_widget_get_parent(p->frame) == GTK_WIDGET(p->overlay))
+      gtk_overlay_reorder_overlay(p->overlay, p->frame, -1);
 
    for (GList *it = floating_panels ; it ; it = it->next) {
       RRFloatPanel *q = it->data;
