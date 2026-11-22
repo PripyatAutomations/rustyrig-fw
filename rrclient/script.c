@@ -10,6 +10,106 @@
 #include <glib.h>
 #include <stdint.h>
 #include <string.h>
+#include <glib/gstdio.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/stat.h>
+
+/* Capture colorized IRC art without exposing arbitrary script filesystem I/O.
+ * Sequential colored lines from the same sender/room form one artwork. */
+typedef struct {
+   char *path;
+   gint64 updated_at;
+   unsigned lines;
+} rr_art_session_t;
+static GHashTable *rr_art_sessions;
+static GMutex rr_art_lock;
+static char *rr_art_slug(const char *src) {
+   GString *out=g_string_sized_new(40);
+   for (const unsigned char *s=(const unsigned char *)src;*s&&out->len<48;s++)
+      g_string_append_c(out,g_ascii_isalnum(*s)||*s=='_'||*s=='-'?(char)*s:'_');
+   if(!out->len)g_string_append(out,"unknown");
+   return g_string_free(out,FALSE);
+}
+static bool rr_art_colored(const char *text) {
+   for (const unsigned char *p=(const unsigned char *)text;*p;p++) {
+      if(*p==3 && g_ascii_isdigit(p[1]))return true;
+      if(*p==4) {
+         bool valid=true;
+         for(unsigned i=1;i<=6;i++) {
+            if(!p[i]||!g_ascii_isxdigit(p[i])){valid=false;break;}
+         }
+         if(valid)return true;
+      }
+   }
+   return false;
+}
+static void rr_art_session_free(gpointer data) {
+   rr_art_session_t *session=data;
+   g_free(session->path);
+   g_free(session);
+}
+static rrs_value_t *native_art_capture(rrs_vm_t *vm,int argc,
+   const rrs_value_t *const argv[],void *user) {
+   (void)user;
+   if(argc!=3 || rrs_value_type(argv[0])!=RRS_STRING ||
+      rrs_value_type(argv[1])!=RRS_STRING || rrs_value_type(argv[2])!=RRS_STRING) {
+      rrs_vm_raise(vm,"art.capture(text, nick, room) expects three strings");
+      return NULL;
+   }
+   const char *line=rrs_value_string(argv[0]);
+   const char *nick=rrs_value_string(argv[1]);
+   const char *room=rrs_value_string(argv[2]);
+   size_t len=strlen(line);
+   if(!len||len>4096||!rr_art_colored(line) || !nick[0] || !room[0])
+      return rrs_boolean(false);
+   char *folder=g_build_filename(g_get_user_data_dir(),"rustyrig","artwork",NULL);
+   if(g_mkdir_with_parents(folder,0700)<0) {
+      g_free(folder);
+      rrs_vm_raise(vm,"Cannot create artwork archive directory");
+      return NULL;
+   }
+   char *key=g_strdup_printf("%s\n%s",room,nick);
+   gint64 now=g_get_monotonic_time();
+   g_mutex_lock(&rr_art_lock);
+   if(!rr_art_sessions)
+      rr_art_sessions=g_hash_table_new_full(g_str_hash,g_str_equal,g_free,rr_art_session_free);
+   rr_art_session_t *session=g_hash_table_lookup(rr_art_sessions,key);
+   if(!session||now-session->updated_at>15*G_USEC_PER_SEC||session->lines>=100) {
+      char *safe_nick=rr_art_slug(nick),*safe_room=rr_art_slug(room);
+      GDateTime *date=g_date_time_new_now_local();
+      char *stamp=g_date_time_format(date,"%Y%m%d-%H%M%S");
+      char *filename=g_strdup_printf("%s-%s-%s-%08x.ircart",stamp,safe_room,safe_nick,g_random_int());
+      rr_art_session_t *fresh=g_new0(rr_art_session_t,1);
+      fresh->path=g_build_filename(folder,filename,NULL);
+      g_hash_table_replace(rr_art_sessions,g_strdup(key),fresh);
+      session=fresh;
+      g_free(filename);g_free(stamp);g_date_time_unref(date);
+      g_free(safe_nick);g_free(safe_room);
+   }
+   /* Store the actual IRC control bytes. Never reinterpret or strip colors. */
+   int fd=g_open(session->path,O_WRONLY|O_APPEND|O_CREAT|O_NOFOLLOW,0600);
+   bool ok=fd>=0;
+   if(ok) {
+      size_t off=0;
+      while(off<len) {
+         ssize_t n=write(fd,line+off,len-off);
+         if(n<0 && errno==EINTR)continue;
+         if(n<=0){ok=false;break;}
+         off+=(size_t)n;
+      }
+      if(ok && write(fd,"\n",1)!=1)ok=false;
+      if(close(fd)<0)ok=false;
+   }
+   if(ok){session->updated_at=now;session->lines++;}
+   else g_hash_table_remove(rr_art_sessions,key);
+   g_mutex_unlock(&rr_art_lock);
+   g_free(folder);g_free(key);
+   if(!ok){rrs_vm_raise(vm,"Unable to append artwork");return NULL;}
+   return rrs_boolean(true);
+}
+
 
 /* Scripts only see immutable IDs and properties; no GTK pointers escape.
  * These operations use the same GTK floating panel manager as drag/drop. */
@@ -306,7 +406,8 @@ static bool register_gui_api(rrs_vm_t *vm) {
 }
 
 static bool register_window_api(rrs_vm_t *vm) {
-   return rrs_vm_register_native(vm,"window.find",native_window_find,NULL) &&
+   return rrs_vm_register_native(vm,"art.capture",native_art_capture,NULL) &&
+       rrs_vm_register_native(vm,"window.find",native_window_find,NULL) &&
       rrs_vm_register_native(vm,"window.move",native_window_move,NULL) &&
       rrs_vm_register_native(vm,"window.zoom",native_window_percent,GINT_TO_POINTER(1)) &&
       rrs_vm_register_native(vm,"window.opacity",native_window_percent,NULL) &&
@@ -334,6 +435,9 @@ void rrclient_script_init(void) {
 void rrclient_script_shutdown(void) {
    rrscript_host_close(rrclient_script_host);
    rrclient_script_host=NULL;
+   g_mutex_lock(&rr_art_lock);
+   g_clear_pointer(&rr_art_sessions,g_hash_table_destroy);
+   g_mutex_unlock(&rr_art_lock);
    if(script_gui_value_token){event_off_token(script_gui_value_token);script_gui_value_token=0;}
    if(script_gui_command_token){event_off_token(script_gui_command_token);script_gui_command_token=0;}
    g_clear_pointer(&script_gui_values,g_hash_table_destroy);
