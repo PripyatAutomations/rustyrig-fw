@@ -31,4 +31,9 @@ void rrscript_host_list(rrscript_host_t *host,
 bool rrscript_host_has_command(rrscript_host_t *host, const char *line);
 bool rrscript_host_command(rrscript_host_t *host, const char *line);
 bool rrscript_host_hotkey(rrscript_host_t *host, const char *sequence);
+/* Evaluate code in a separate console VM. Variables persist until host closes;
+ * loaded scripts are not modified. Diagnostic/error strings are caller-owned. */
+bool rrscript_host_console_eval(rrscript_host_t *host,const char *source,
+                                 char **output,char **error);
+
 #endif
