@@ -124,7 +124,9 @@ static void *kiwi_create(const rrp_sdr_host_t *host) {
    k->man_gain = 50;
    k->nb_gate = 100;
    k->nb_thresh = 50;
-   k->hz = k->wanted_hz = 14074000;
+   /* Used only when no host frequency was supplied. Client-hosted Kiwi bridges
+    * load the last successful tune from client.db into their config. */
+   k->hz = k->wanted_hz = 7100000;
    strcpy(k->mode, "USB");
    strcpy(k->wanted_mode, "USB");
 

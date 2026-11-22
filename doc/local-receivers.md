@@ -6,6 +6,15 @@ Local PCM travels over a UNIX `SOCK_SEQPACKET` socket, is resampled through fwds
 
 **GTK controls:** Connect locally / Disconnect local; Tune local (frequency in Hz, USB/LSB/AM/CW); normal RX Routing for audio placement. HTTP and HTTPS directory URLs select the Kiwi bridge's WS or WSS connection respectively. An omitted URL port uses 80 (HTTP) or 443 (HTTPS), not the direct Kiwi receiver default 8073.
 
+**Initial Kiwi frequency:** Newly connected local KiwiSDR VFOs reuse the most
+recent frequency successfully tuned through the Kiwi plugin, regardless of
+which Kiwi receiver was used. This single plugin preference is persisted in
+`client.db` as `sdr.plugin.kiwi.last_frequency_hz`. No per-receiver tuning
+history is maintained. Until a successful tune is recorded, the initial
+frequency is 7.100 MHz instead of the former 14.074 MHz default. A rejected
+tune does not overwrite the preference. This affects client-hosted Kiwi
+bridges, not hardware rig VFOs.
+
 **Install:** rrclient needs `rrbridge` on PATH (or `./bin/rrbridge` from a source checkout) and the driver module in `/usr/lib/rustyrig/modules/rrbridge`. The local process uses an ephemeral configuration file; it does not edit the rrserver configuration.
 
 **Current limitations:** The first implementation hosts one local SDR at a time, and does not yet register a full local VFO/resource in Explorer or expose a standalone TUI command. A child process supplies PCM while the GTK event loop polls its bounded IPC sockets; further work should move the PCM drain off the GUI thread. It does not implicitly publish the local receiver into the mesh. The existing server-backed SDR path is unchanged.
