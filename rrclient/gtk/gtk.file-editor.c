@@ -1024,12 +1024,6 @@ gboolean gtk_pipeline_editor_apply_output(GtkWidget *parent, const gchar *output
    return ok;
 }
 
-static void on_edit_pipelines_button(GtkButton *button, gpointer user_data) {
-   (void)button;
-   (void)user_data;
-   gtk_audio_graph_present_pipeline(NULL);
-}
-
 static void on_save_config_button(GtkButton *button, gpointer user_data) {
    (void)user_data;
    GtkWindow *parent = GTK_WINDOW(gtk_widget_get_toplevel(GTK_WIDGET(button)));
@@ -1284,6 +1278,125 @@ static void gtk_backup_alert(const char *message) {
    gtk_widget_destroy(dialog);
 }
 
+/* Compact directory/file picker for .rrbk files, sized to fit small screens.
+ * Directory entry supports arbitrary paths; file entry supports pasted paths. */
+typedef struct {
+   GtkWidget *dialog, *folder, *filename, *list;
+} backup_pick_t;
+static void backup_pick_scan(backup_pick_t *p) {
+   GList *rows=gtk_container_get_children(GTK_CONTAINER(p->list));
+   for(GList *it=rows;it;it=it->next)gtk_widget_destroy(GTK_WIDGET(it->data));
+   g_list_free(rows);
+   const char *folder=gtk_entry_get_text(GTK_ENTRY(p->folder));
+   GDir *dir=g_dir_open(folder,0,NULL);
+   if(!dir)return;
+   const char *name;
+   while((name=g_dir_read_name(dir))) {
+      if(!strcmp(name,".")||!strcmp(name,".."))continue;
+      char *path=g_build_filename(folder,name,NULL);
+      bool is_dir=g_file_test(path,G_FILE_TEST_IS_DIR);
+      if(is_dir||(g_str_has_suffix(name,".rrbk")&&g_file_test(path,G_FILE_TEST_IS_REGULAR))) {
+         GtkWidget *row=gtk_list_box_row_new();
+         char *label=g_strdup_printf("%s %s",is_dir?"[DIR]":"     ",name);
+         GtkWidget *text=gtk_label_new(label);
+         gtk_label_set_xalign(GTK_LABEL(text),0);
+         gtk_widget_set_margin_start(text,6);
+         gtk_container_add(GTK_CONTAINER(row),text);
+         g_object_set_data_full(G_OBJECT(row),"file-path",g_strdup(path),g_free);
+         g_object_set_data(G_OBJECT(row),"is-dir",GINT_TO_POINTER(is_dir));
+         gtk_container_add(GTK_CONTAINER(p->list),row);
+         g_free(label);
+      }
+      g_free(path);
+   }
+   g_dir_close(dir);
+   gtk_widget_show_all(p->list);
+}
+static void backup_pick_go(GtkEntry *entry,gpointer data) {
+   (void)entry;
+   backup_pick_scan(data);
+}
+static void backup_pick_up(GtkButton *button,gpointer data) {
+   (void)button;
+   backup_pick_t *p=data;
+   char *parent=g_path_get_dirname(gtk_entry_get_text(GTK_ENTRY(p->folder)));
+   gtk_entry_set_text(GTK_ENTRY(p->folder),parent);
+   gtk_entry_set_text(GTK_ENTRY(p->filename),"");
+   backup_pick_scan(p);
+   g_free(parent);
+}
+static void backup_pick_select(GtkListBox *list,GtkListBoxRow *row,gpointer data) {
+   (void)list;
+   backup_pick_t *p=data;
+   if(row&&!GPOINTER_TO_INT(g_object_get_data(G_OBJECT(row),"is-dir")))
+      gtk_entry_set_text(GTK_ENTRY(p->filename),
+         g_object_get_data(G_OBJECT(row),"file-path"));
+}
+static void backup_pick_activate(GtkListBox *list,GtkListBoxRow *row,gpointer data) {
+   (void)list;
+   backup_pick_t *p=data;
+   const char *path=g_object_get_data(G_OBJECT(row),"file-path");
+   if(GPOINTER_TO_INT(g_object_get_data(G_OBJECT(row),"is-dir"))) {
+      gtk_entry_set_text(GTK_ENTRY(p->folder),path);
+      gtk_entry_set_text(GTK_ENTRY(p->filename),"");
+      backup_pick_scan(p);
+   } else {
+      gtk_entry_set_text(GTK_ENTRY(p->filename),path);
+      gtk_dialog_response(GTK_DIALOG(p->dialog),GTK_RESPONSE_ACCEPT);
+   }
+}
+static char *backup_choose_import_file(void) {
+   backup_pick_t p={0};
+   p.dialog=gtk_dialog_new_with_buttons("Select Encrypted RustyRig Backup",
+      GTK_WINDOW(main_window),GTK_DIALOG_MODAL,"_Cancel",GTK_RESPONSE_CANCEL,
+      "_Open",GTK_RESPONSE_ACCEPT,NULL);
+   GtkWidget *box=gtk_dialog_get_content_area(GTK_DIALOG(p.dialog));
+   gtk_container_set_border_width(GTK_CONTAINER(box),8);
+   GtkWidget *row=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,5);
+   gtk_box_pack_start(GTK_BOX(row),gtk_label_new("Folder:"),FALSE,FALSE,0);
+   p.folder=gtk_entry_new();
+   const char *downloads=g_get_user_special_dir(G_USER_DIRECTORY_DOWNLOAD);
+   gtk_entry_set_text(GTK_ENTRY(p.folder),downloads?downloads:g_get_home_dir());
+   gtk_box_pack_start(GTK_BOX(row),p.folder,TRUE,TRUE,0);
+   GtkWidget *up=gtk_button_new_with_label("Up");
+   gtk_box_pack_start(GTK_BOX(row),up,FALSE,FALSE,0);
+   gtk_box_pack_start(GTK_BOX(box),row,FALSE,FALSE,4);
+   GtkWidget *scroll=gtk_scrolled_window_new(NULL,NULL);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll),
+      GTK_POLICY_AUTOMATIC,GTK_POLICY_AUTOMATIC);
+   gtk_widget_set_vexpand(scroll,TRUE);
+   p.list=gtk_list_box_new();
+   gtk_container_add(GTK_CONTAINER(scroll),p.list);
+   gtk_box_pack_start(GTK_BOX(box),scroll,TRUE,TRUE,3);
+   p.filename=gtk_entry_new();
+   gtk_entry_set_placeholder_text(GTK_ENTRY(p.filename),"Select or paste an absolute .rrbk path");
+   gtk_box_pack_start(GTK_BOX(box),p.filename,FALSE,FALSE,3);
+   g_signal_connect(p.folder,"activate",G_CALLBACK(backup_pick_go),&p);
+   g_signal_connect(up,"clicked",G_CALLBACK(backup_pick_up),&p);
+   g_signal_connect(p.list,"row-selected",G_CALLBACK(backup_pick_select),&p);
+   g_signal_connect(p.list,"row-activated",G_CALLBACK(backup_pick_activate),&p);
+   GdkDisplay *display=gtk_widget_get_display(p.dialog);
+   GdkMonitor *monitor=display?gdk_display_get_primary_monitor(display):NULL;
+   GdkRectangle rect={0,0,640,480};
+   if(monitor)gdk_monitor_get_workarea(monitor,&rect);
+   gtk_window_set_default_size(GTK_WINDOW(p.dialog),MIN(520,MAX(290,rect.width-50)),
+      MIN(410,MAX(220,rect.height-90)));
+   backup_pick_scan(&p);
+   gtk_widget_show_all(p.dialog);
+   char *path=NULL;
+   while(gtk_dialog_run(GTK_DIALOG(p.dialog))==GTK_RESPONSE_ACCEPT) {
+      const char *name=gtk_entry_get_text(GTK_ENTRY(p.filename));
+      if(g_path_is_absolute(name)&&g_str_has_suffix(name,".rrbk")&&
+         g_file_test(name,G_FILE_TEST_IS_REGULAR)) {
+         path=g_strdup(name);
+         break;
+      }
+      gtk_backup_alert("Select an existing .rrbk file or enter its full path.");
+   }
+   gtk_widget_destroy(p.dialog);
+   return path;
+}
+
 static void gtk_backup_action(GtkButton *unused, gpointer user_data) {
    (void)unused;
    bool importing = GPOINTER_TO_INT(user_data) != 0;
@@ -1291,17 +1404,7 @@ static void gtk_backup_action(GtkButton *unused, gpointer user_data) {
    char *import_path = NULL;
 
    if (importing) {
-      GtkFileChooserNative *pick = gtk_file_chooser_native_new("Select Encrypted RustyRig Backup", GTK_WINDOW(main_window), GTK_FILE_CHOOSER_ACTION_OPEN,
-         "_Open", "_Cancel");
-      GtkFileFilter *filter = gtk_file_filter_new();
-      gtk_file_filter_set_name(filter, "RustyRig backup (*.rrbk)");
-      gtk_file_filter_add_pattern(filter, "*.rrbk");
-      gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(pick), filter);
-
-      if (gtk_native_dialog_run(GTK_NATIVE_DIALOG(pick)) == GTK_RESPONSE_ACCEPT) {
-         import_path = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(pick));
-      }
-      g_object_unref(pick);
+      import_path = backup_choose_import_file();
 
       if (!import_path) {
          return;
@@ -1911,10 +2014,6 @@ GtkWidget *init_config_tab(void) {
 
    GtkWidget *btn_certificates = gtk_certificates_button_new();
    gtk_box_pack_start(GTK_BOX(buttons), btn_certificates, FALSE, FALSE, 0);
-
-   GtkWidget *btn_pipelines = config_action_button("Edit Pipelines…", "applications-multimedia-symbolic", "Edit or compose GStreamer pipelines");
-   g_signal_connect(btn_pipelines, "clicked", G_CALLBACK(on_edit_pipelines_button), NULL);
-   gtk_box_pack_start(GTK_BOX(buttons), btn_pipelines, FALSE, FALSE, 0);
 
    GtkWidget *btn_fullscreen = config_action_button("Toggle Fullscreen", "view-fullscreen-symbolic", "Toggle fullscreen mode");
    g_signal_connect(btn_fullscreen, "clicked", G_CALLBACK(on_fullscreen_button), NULL);
