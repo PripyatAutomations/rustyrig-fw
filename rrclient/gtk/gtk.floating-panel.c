@@ -14,6 +14,7 @@ struct rr_floating_panel {
       *menu_close, *menu_on_top, *menu_minimize, *resize_grip;
    GtkCssProvider *scale_css;
    GtkWidget *min_width_widget;
+   GtkWidget *script_zoom_scale, *script_opacity_scale;
    gboolean fit_content;
    gint zoom;
    void (*zoom_callback)(double, gpointer);
@@ -2381,6 +2382,7 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    gtk_widget_set_size_request(zoom, 170, -1);
    gtk_box_pack_start(GTK_BOX(settings), zoom, FALSE, FALSE, 0);
    g_signal_connect(zoom, "value-changed", G_CALLBACK(panel_zoom_changed), p);
+   p->script_zoom_scale = zoom;
    GtkWidget *zoom_reset = gtk_button_new_with_label("Reset zoom (100%)");
    gtk_button_set_relief(GTK_BUTTON(zoom_reset), GTK_RELIEF_NONE);
    gtk_box_pack_start(GTK_BOX(settings), zoom_reset, FALSE, FALSE, 0);
@@ -2393,6 +2395,7 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    gtk_scale_set_value_pos(GTK_SCALE(opacity), GTK_POS_RIGHT);
    gtk_box_pack_start(GTK_BOX(settings), opacity, FALSE, FALSE, 0);
    g_signal_connect(opacity, "value-changed", G_CALLBACK(panel_opacity_changed), p);
+   p->script_opacity_scale = opacity;
    p->menu_on_top = gtk_check_button_new_with_label("Always on Top");
    gtk_widget_set_tooltip_text(p->menu_on_top, "Keep this panel above other non-modal floating panels in RustyRig");
    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(p->menu_on_top), p->pinned);
@@ -2568,19 +2571,15 @@ gboolean rr_floating_panel_move_named(const char *id,const char *location,gint x
 gboolean rr_floating_panel_zoom_named(const char *id,gint percent) {
    RRFloatPanel *p=script_panel_by_id(id);
    if(!p||p->modal||percent<10||percent>200)return FALSE;
-   gint previous=p->zoom;
-   gint width=gtk_widget_get_allocated_width(p->frame);
-   gint height=gtk_widget_get_allocated_height(p->frame);
-   p->zoom=percent-100;
-   panel_zoom_apply(p,previous,width,height);
+   if(!GTK_IS_RANGE(p->script_zoom_scale))return FALSE;
+   gtk_range_set_value(GTK_RANGE(p->script_zoom_scale),percent-100);
    return TRUE;
 }
 gboolean rr_floating_panel_opacity_named(const char *id,gint percent) {
    RRFloatPanel *p=script_panel_by_id(id);
    if(!p||p->modal||percent<30||percent>100)return FALSE;
-   p->opacity=percent;
-   gtk_widget_set_opacity(p->frame,percent/100.0);
-   panel_state_save(p);
+   if(!GTK_IS_RANGE(p->script_opacity_scale))return FALSE;
+   gtk_range_set_value(GTK_RANGE(p->script_opacity_scale),percent);
    return TRUE;
 }
 
