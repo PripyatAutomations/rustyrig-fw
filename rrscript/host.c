@@ -175,30 +175,40 @@ static gint script_name_compare(gconstpointer a,gconstpointer b) {
    const char *const *right=b;
    return g_strcmp0(*left,*right);
 }
+/* The parent directory holds scripts for future manual loading.
+ * Only .rrs files immediately inside autoload/ run at startup.
+ * Never recurse into other directories. */
 rrscript_host_t *rrscript_host_open(const char *directory,bool client) {
    rrscript_host_t *host=g_new0(rrscript_host_t,1);
    host->client=client;
    host->scripts=g_ptr_array_new_with_free_func(release_script);
    if(!directory||!*directory)return host;
+   char *autoload=g_build_filename(directory,"autoload",NULL);
    GError *err=NULL;
-   GDir *dir=g_dir_open(directory,0,&err);
+   GDir *dir=g_dir_open(autoload,0,&err);
    if(!dir) {
       if(!g_error_matches(err,G_FILE_ERROR,G_FILE_ERROR_NOENT))
-         Log(LOG_WARN,"scripting","Cannot read %s: %s",directory,err?err->message:"unknown error");
+         Log(LOG_WARN,"scripting","Cannot read %s: %s",autoload,
+             err?err->message:"unknown error");
       g_clear_error(&err);
+      g_free(autoload);
       return host;
    }
    GPtrArray *names=g_ptr_array_new_with_free_func(g_free);
    const char *entry;
    while((entry=g_dir_read_name(dir))) {
-      if(g_str_has_suffix(entry,".rrs"))
+      if(!g_str_has_suffix(entry,".rrs"))continue;
+      char *full=g_build_filename(autoload,entry,NULL);
+      if(g_file_test(full,G_FILE_TEST_IS_REGULAR))
          g_ptr_array_add(names,g_strdup(entry));
+      g_free(full);
    }
    g_dir_close(dir);
    g_ptr_array_sort(names,script_name_compare);
    for(guint i=0;i<names->len;i++)
-      load_script(host,directory,g_ptr_array_index(names,i));
+      load_script(host,autoload,g_ptr_array_index(names,i));
    g_ptr_array_unref(names);
+   g_free(autoload);
    return host;
 }
 void rrscript_host_close(rrscript_host_t *host) {
