@@ -11,7 +11,7 @@
 
 event irc.privmsg {
     if (string.regex(event.room, "^[#&]")) {
-        char[] key = "capture-" + string.hash(event.room + "|" + event.nick)
+        char[] key = "artwork.capture-" + string.hash(event.room + "|" + event.nick)
         char[] line = event.text
         bool colored = string.regex(line, string.chr(3) + "[0-9]{1,2}") ||
                        string.regex(line, string.chr(4) + "[0-9A-Fa-f]{6}") ||
@@ -38,7 +38,7 @@ event irc.privmsg {
 
 // One-shot timer: commit the completed burst, then clear its state.
 event ui.timer {
-    if (string.regex(event.id, "^capture-")) {
+    if (string.regex(event.id, "^artwork[.]capture-")) {
         char[] body = state.get(event.id + ".body")
         if (body != null) {
             if (state.get(event.id + ".count") >= 2) {
@@ -63,33 +63,33 @@ event ui.timer {
         }
     }
     if (event.id == "artwork-play") {
-        char[] body = state.get("play.body")
+        char[] body = state.get("artwork.play.body")
         if (body != null) {
-            int cursor = state.get("play.cursor")
+            int cursor = state.get("artwork.play.cursor")
             if (cursor >= string.lines(body)) {
                 timer.cancel("artwork-play")
-                state.set("play.body", null)
+                state.set("artwork.play.body", null)
                 ui.set("artwork_status", "Finished sending macro")
             } else {
                 char[] line = string.line(body, cursor)
                 if (line == "") {
-                    state.set("play.cursor", cursor + 1)
+                    state.set("artwork.play.cursor", cursor + 1)
                 } else {
                     if (string.length(line) > 400) {
                         // IRC has a message size limit; never retry forever.
-                        state.set("play.cursor", cursor + 1)
+                        state.set("artwork.play.cursor", cursor + 1)
                         ui.set("artwork_status", "Skipped oversized artwork line")
                     } else {
-                        if (chat.send(state.get("play.target"), line, "artwork",
-                                      1000 / state.get("play.rate"))) {
-                            state.set("play.cursor", cursor + 1)
-                            state.set("play.errors", 0)
+                        if (chat.send(state.get("artwork.play.target"), line, "artwork",
+                                      1000 / state.get("artwork.play.rate"))) {
+                            state.set("artwork.play.cursor", cursor + 1)
+                            state.set("artwork.play.errors", 0)
                         } else {
-                            state.set("play.errors", state.get("play.errors") + 1)
-                            if (state.get("play.errors") >= 20) {
+                            state.set("artwork.play.errors", state.get("artwork.play.errors") + 1)
+                            if (state.get("artwork.play.errors") >= 20) {
                                 timer.cancel("artwork-play")
                                 chat.cancel("artwork")
-                                state.set("play.body", null)
+                                state.set("artwork.play.body", null)
                                 ui.set("artwork_status", "Playback stopped: destination unavailable or queue full")
                             }
                         }
@@ -159,11 +159,11 @@ event ui.click {
             timer.cancel("artwork-play")
             chat.cancel("artwork")
             char[] dest = env.data_dir() + "/rustyrig/artwork/" + ui.val("artwork_files")
-            state.set("play.body", file.read(dest))
-            state.set("play.cursor", 0)
-            state.set("play.errors", 0)
-            state.set("play.target", ui.val("artwork_target"))
-            state.set("play.rate", ui.val("artwork_rate"))
+            state.set("artwork.play.body", file.read(dest))
+            state.set("artwork.play.cursor", 0)
+            state.set("artwork.play.errors", 0)
+            state.set("artwork.play.target", ui.val("artwork_target"))
+            state.set("artwork.play.rate", ui.val("artwork_rate"))
             timer.every("artwork-play", 1000 / ui.val("artwork_rate"))
             ui.set("artwork_status", "Sending artwork")
         }
@@ -171,7 +171,7 @@ event ui.click {
     if (event.id == "artwork_stop") {
         timer.cancel("artwork-play")
         chat.cancel("artwork")
-        state.set("play.body", null)
+        state.set("artwork.play.body", null)
         ui.set("artwork_status", "Playback stopped")
     }
     if (event.id == "artwork_save_rate") {
@@ -230,6 +230,6 @@ event ui.close {
     if (event.id == "artwork") {
         timer.cancel("artwork-play")
         chat.cancel("artwork")
-        state.set("play.body", null)
+        state.set("artwork.play.body", null)
     }
 }
