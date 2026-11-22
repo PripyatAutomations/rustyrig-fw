@@ -34,6 +34,9 @@ static rr_logic_sink_attach_cb sink_attach;
 static gpointer callback_user;
 static gboolean initialized;
 static gint drag_block=-1,drag_wire=-1;
+static gboolean reverse_drag;
+static char reverse_to[RR_CONTROL_NAME_LEN];
+static unsigned reverse_pin;
 static double drag_dx,drag_dy,mouse_x,mouse_y;
 static char drag_from[RR_CONTROL_NAME_LEN];
 static void changed(void) {
@@ -244,19 +247,25 @@ void rr_logic_canvas_draw(cairo_t *cr) {
       cairo_stroke(cr);
    }
    if (drag_wire>=0) {
-      double sx,sy;
-      if (rr_logic_canvas_output_position(drag_from,&sx,&sy) ||
-          (source_position && source_position(drag_from,&sx,&sy,callback_user))) {
-         cairo_set_source_rgb(cr,.96,.20,.20);
-         cairo_set_line_width(cr,2.);
-         const double dash[]={5.,4.};
-         cairo_set_dash(cr,dash,2,0.);
-         cairo_move_to(cr,sx,sy);
-         cairo_curve_to(cr,(sx+mouse_x)/2.,sy,(sx+mouse_x)/2.,mouse_y,mouse_x,mouse_y);
-         cairo_stroke(cr);
-         cairo_set_dash(cr,NULL,0,0);
-      }
+      double sx=mouse_x,sy=mouse_y,dx=mouse_x,dy=mouse_y;
+      if (reverse_drag) {
+         gate_view_t *dest=find_gate(reverse_to);
+         if (!dest) goto skip_preview;
+         dx=dest->x;dy=pin_y(dest,reverse_pin);
+      } else if (!rr_logic_canvas_output_position(drag_from,&sx,&sy) &&
+                 (!source_position || !source_position(drag_from,&sx,&sy,callback_user)))
+         goto skip_preview;
+      cairo_new_path(cr);
+      cairo_set_source_rgb(cr,.96,.20,.20);
+      cairo_set_line_width(cr,2.);
+      const double dash[]={5.,4.};
+      cairo_set_dash(cr,dash,2,0.);
+      cairo_move_to(cr,sx,sy);
+      cairo_curve_to(cr,(sx+dx)/2.,sy,(sx+dx)/2.,dy,dx,dy);
+      cairo_stroke(cr);
+      cairo_set_dash(cr,NULL,0,0);
    }
+skip_preview:;
    for (unsigned i=0;i<block_count;i++) {
       gate_view_t *b=&blocks[i];
       bool valid=false,high=false;
@@ -284,6 +293,7 @@ void rr_logic_canvas_draw(cairo_t *cr) {
       cairo_set_source_rgb(cr,valid?(high?.38:.84):.48,
                                 valid?(high?.94:.84):.48,
                                 valid?(high?.38:.84):.48);
+      cairo_new_path(cr);
       cairo_arc(cr,b->x+RR_GTK_GRAPH_NODE_W-20.,b->y+56.,4.,0,2*G_PI);
       cairo_fill(cr);
    }
@@ -399,10 +409,20 @@ gboolean rr_logic_canvas_press(double x,double y,GdkEventButton *event) {
          continue;
       if (hypot(x-b->x-RR_GTK_GRAPH_NODE_W,y-b->y-56.)<16.) {
          drag_wire=i;
+         reverse_drag=FALSE;
          g_strlcpy(drag_from,b->id,sizeof(drag_from));
          mouse_x=x;mouse_y=y;
          return TRUE;
       }
+      for (unsigned pin=0;pin<b->inputs;pin++)
+         if (hypot(x-b->x,y-pin_y(b,pin))<16.) {
+            drag_wire=i;
+            reverse_drag=TRUE;
+            reverse_pin=pin;
+            g_strlcpy(reverse_to,b->id,sizeof(reverse_to));
+            mouse_x=x;mouse_y=y;
+            return TRUE;
+         }
       if (x>=b->x && y>=b->y &&
           rr_gtk_graph_shape_contains(shape_for(b->kind),x-b->x,y-b->y)) {
          drag_block=i;drag_dx=x-b->x;drag_dy=y-b->y;
@@ -439,11 +459,17 @@ gboolean rr_logic_canvas_release(double x,double y,gboolean at_onair) {
       drag_block=-1;save_model();return TRUE;
    }
    if (drag_wire>=0) {
-      char from[RR_CONTROL_NAME_LEN];
-      g_strlcpy(from,drag_from,sizeof(from));
+      char from[RR_CONTROL_NAME_LEN]={0};
+      if (reverse_drag) {
+         if (output_hit(x,y,from))
+            connect_one(from,reverse_to,reverse_pin,TRUE);
+      } else {
+         g_strlcpy(from,drag_from,sizeof(from));
+         if (!rr_logic_canvas_connect_source(from,x,y) && at_onair && sink_attach)
+            sink_attach(from,callback_user);
+      }
+      reverse_drag=FALSE;
       drag_wire=-1;
-      if (!rr_logic_canvas_connect_source(from,x,y) && at_onair && sink_attach)
-         sink_attach(from,callback_user);
       changed();
       return TRUE;
    }
