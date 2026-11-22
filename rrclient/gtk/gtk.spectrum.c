@@ -1981,70 +1981,65 @@ static gboolean rf_context_menu(GdkEventButton *event, rf_strip_t *p) {
 
 static gboolean rf_click(GtkWidget *widget, GdkEventButton *event, gpointer user) {
    rf_strip_t *p = user;
-
-   if (rf_context_menu(event, p)) {
-      return TRUE;
-   }
-
-   if (event->button != 1) {
-      return FALSE;
-   }
-
+   if (rf_context_menu(event,p)) return TRUE;
+   if (event->button != GDK_BUTTON_PRIMARY) return FALSE;
    if (event->type == GDK_BUTTON_PRESS) {
       p->dragging = true;
+      p->drag_moved = false;
       p->drag_x = event->x;
       p->drag_pan_hz = p->pan_hz;
-
       return TRUE;
    }
-
-   if (event->type != GDK_2BUTTON_PRESS) {
-      return FALSE;
-   }
+   if (event->type != GDK_2BUTTON_PRESS) return FALSE;
    p->dragging = false;
-
-   /* A remote spectrum is a display only; a local bridge CAT request must never accidentally tune an unrelated remote receiver. */
-   if (p->remote_id[0] && !(event->state & GDK_CONTROL_MASK)) {
-      return TRUE;
+   p->drag_moved = false;
+   if (p->click_timer) {
+      g_source_remove(p->click_timer);
+      p->click_timer = 0;
    }
 
+   /* Ctrl+double-click still toggles fullscreen. Otherwise a double-click
+    * zooms the RF display at the clicked frequency but does not tune CAT. */
    if (!(event->state & GDK_CONTROL_MASK)) {
-      if (!p->rf_enabled || !p->count) {
-         return TRUE;
-      }
-      int width = gtk_widget_get_allocated_width(widget);
-      int height = gtk_widget_get_allocated_height(widget);
-
-      if (width < 2 || event->x < 0 || event->x >= width || event->y < 0 || event->y >= height - 19) {
-         return TRUE;
-      }
-      const rr_bridge_spectrum_row *row = &p->rows[(p->head + G_N_ELEMENTS(p->rows) - 1) % G_N_ELEMENTS(p->rows)];
-      double low, high;
-      rf_view_bounds(p, row, &low, &high);
-
-      if (high <= low) {
-         return TRUE;
-      }
-      double hz = low + (high - low) * event->x / (width - 1);
-
-      if (rrclient_local_bridge_request_tune(RR_LOCAL_TUNE_FREQUENCY, rf_selected_vfo(p), (uint64_t) (hz + .5), NULL)) {
-         unsigned min_zoom, max_zoom;
-
-         if (rf_ui_caps(p, &min_zoom, &max_zoom) && p->zoom < max_zoom && rf_request(p, p->rf_enabled, p->zoom + 1, 0)) {
+      if (!p->rf_enabled || !p->count) return TRUE;
+      int width=gtk_widget_get_allocated_width(widget);
+      int height=gtk_widget_get_allocated_height(widget);
+      if (width < 2 || event->x < 0 || event->x >= width ||
+         event->y < 0 || event->y >= height-19) return TRUE;
+      const rr_bridge_spectrum_row *row =
+         &p->rows[(p->head + G_N_ELEMENTS(p->rows) - 1) % G_N_ELEMENTS(p->rows)];
+      double low,high;
+      rf_view_bounds(p,row,&low,&high);
+      if (high <= low) return TRUE;
+      double hz=low+(high-low)*event->x/(width-1);
+      if (p->remote_id[0]) {
+         double next=CLAMP(p->zoom_fraction+1.,0.,6.);
+         double span=((double)row->high_hz-row->low_hz)/exp2(next);
+         double center=((double)row->low_hz+row->high_hz)/2.;
+         p->zoom_fraction=next;
+         p->pan_hz=hz-span*event->x/(width-1)-(center-span/2.);
+      } else {
+         unsigned min_zoom,max_zoom;
+         if (rf_ui_caps(p,&min_zoom,&max_zoom) && p->zoom < max_zoom &&
+             rf_request(p,p->rf_enabled,p->zoom+1,(uint64_t)(hz+.5))) {
             p->zoom++;
-            p->zoom_fraction = 0;
-            p->pan_hz = 0;
-            gtk_widget_queue_draw(p->drawing);
-
-            if (p->fullscreen_drawing) {
-               gtk_widget_queue_draw(p->fullscreen_drawing);
-            }
+            p->zoom_fraction=0;
+            p->pan_hz=0;
+         } else if (rf_ui_caps(p,&min_zoom,&max_zoom) && p->zoom == max_zoom) {
+            /* Keep fractional display zoom at the backend's native limit. */
+            double next=CLAMP(p->zoom_fraction+.4,0.,.99);
+            double span=((double)row->high_hz-row->low_hz)/exp2(next);
+            rr_local_bridge_ui_state_t state={0};
+            double center=rf_selected_state(p,&state)?(double)state.frequency_hz:
+               ((double)row->low_hz+row->high_hz)/2.;
+            p->zoom_fraction=next;
+            p->pan_hz=hz-span*event->x/(width-1)-(center-span/2.);
          }
       }
-
+      gtk_widget_queue_draw(p->drawing);
+      if (p->fullscreen_drawing) gtk_widget_queue_draw(p->fullscreen_drawing);
       return TRUE;
    }
-
    if (p->fullscreen) {
       gtk_widget_destroy(p->fullscreen);
 
@@ -2078,6 +2073,9 @@ static void rf_destroy(gpointer data) {
       gtk_widget_destroy(p->fullscreen);
    }
 
+   if (p->click_timer) {
+      g_source_remove(p->click_timer);
+   }
    if (p->draw_timer) {
       g_source_remove(p->draw_timer);
    }
