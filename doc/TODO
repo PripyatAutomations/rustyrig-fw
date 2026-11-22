@@ -1,19 +1,22 @@
 Immediate needs
 ---------------
-rrclient: Ctrl-0 should reset zoom to 100%
+[Completed / pending verification]
+- Ctrl+0 resets global UI zoom to precisely 100%.
+- RF spectrum panel can be resized below its previous 420x190 minimum.
+- Floating panels no longer snap to unrelated dock-local coordinates and clear guides on reparenting.
+- Unknown TLS identity explanation and fingerprints wrap within the panel width.
+- Debian first-install remote-admin Debconf prompts already exist and accept future
+  user@site or user@* identities; grants do not enroll or trust a certificate.
 
-rrclient: make RF spectrum resizable
-
-rrclient: Fix snapping and other placement issues in sub-panels
+[Still to verify / refine]
+- Test panel snapping, undocking, and saved coordinates in multiple dock layouts.
+- Verify the remote-admin policy is enforced only after authenticated/pinned
+  mesh origin identity; never treat an installer-supplied site name as proof.
 
 rrclient: Finish remote controls (brightness etc)
   - protocol
   - ability to add in Add Control
   - pins / blocks to expose remote controls
-
-rrclient/Unknown TLS identity window: Wrap the last line of text, its way too long
-
-We should make debs ask if we want to grant remote access and ask for usernames, that would probably be the best if that can be done without the users having to exist at that point. either username@* or username@server - in which case perhaps defer identity confirmation (for the cert) to the @server listed
 
 [Audio rooms]
 * Implement rooms without VFO but mixed audio bus and PTT for audio chats
