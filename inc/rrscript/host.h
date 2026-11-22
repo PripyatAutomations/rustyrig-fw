@@ -20,6 +20,8 @@ void rrscript_host_list(rrscript_host_t *host,
                         void (*visit)(const char *name, bool loaded, void *user),
                         void *user);
 /* Return true if a script binding consumed the command or shortcut. */
+/* Lookup only, with no execution; allows local script commands while offline. */
+bool rrscript_host_has_command(rrscript_host_t *host, const char *line);
 bool rrscript_host_command(rrscript_host_t *host, const char *line);
 bool rrscript_host_hotkey(rrscript_host_t *host, const char *sequence);
 #endif
