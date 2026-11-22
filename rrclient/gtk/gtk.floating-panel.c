@@ -1767,13 +1767,22 @@ static void panel_menu_add_action(RRFloatPanel *p, GtkWidget *box, const char *l
    gtk_box_pack_start(GTK_BOX(box), button, FALSE, FALSE, 0);
 }
 
+/* Opening a popover after reparenting it to the toplevel during the
+ * button's clicked signal can immediately dismiss it as an outside click.
+ * Defer popup until the button event has finished dispatching. */
+static gboolean panel_menu_popup_idle(gpointer data) {
+   GtkWidget *menu = data;
+   GtkWidget *relative = gtk_popover_get_relative_to(GTK_POPOVER(menu));
+   if (GTK_IS_WIDGET(relative) && gtk_widget_get_visible(relative)) {
+      gtk_widget_show_all(menu);
+      gtk_popover_popup(GTK_POPOVER(menu));
+   }
+   return G_SOURCE_REMOVE;
+}
 static void panel_menu_open(GtkButton *button, gpointer data) {
-   (void)button;
    RRFloatPanel *p = data;
-   /* Reanchor to the stable toplevel, not the panel's menu button.
-    * A zoom change can move and resize the panel beneath the popover, but
-    * the rectangle used for popup placement will remain fixed. Recompute
-    * on each open so subsequent opens follow the button's new location. */
+   /* Keep a fixed anchor while zoom changes the size of the panel, but
+    * calculate its position anew for each subsequent opening. */
    GtkWidget *top = gtk_widget_get_toplevel(GTK_WIDGET(button));
    gint x = 0, y = 0;
    if (GTK_IS_WINDOW(top) &&
@@ -1782,9 +1791,11 @@ static void panel_menu_open(GtkButton *button, gpointer data) {
          gtk_widget_get_allocated_height(GTK_WIDGET(button))};
       gtk_popover_set_relative_to(GTK_POPOVER(p->menu), top);
       gtk_popover_set_pointing_to(GTK_POPOVER(p->menu), &anchor);
+   } else {
+      gtk_popover_set_relative_to(GTK_POPOVER(p->menu), GTK_WIDGET(button));
    }
-   gtk_widget_show_all(p->menu);
-   gtk_popover_popup(GTK_POPOVER(p->menu));
+   g_idle_add_full(G_PRIORITY_DEFAULT_IDLE, panel_menu_popup_idle,
+                   g_object_ref(p->menu), g_object_unref);
 }
 
 static void panel_chrome(RRFloatPanel *p) {
