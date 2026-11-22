@@ -1,7 +1,7 @@
-// RustyScript: react to modem callsign matches. SPDX-License-Identifier: GPL-2.0-only
+// RustyScript: react to generic callsign watch matches. SPDX-License-Identifier: GPL-2.0-only
 // Copy to ~/.config/rustyrig/scripts/ and /script load callsign-alert.rrs.
-// Alerts are emitted by the decoder core even when Terminal is not visible.
-event modem.callsign {
+// Events can originate from modems or other future callsign match sources.
+event watch.callsign {
     if (event.kind == "own") {
         log.info("My callsign " + event.callsign + " heard on " + event.band +
                  " (" + event.mode + "): " + event.text)
