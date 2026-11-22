@@ -397,6 +397,7 @@ typedef struct {
    dict *message;
    bool irc;
    char *script_tag; /* NULL for ordinary chat */
+   guint script_interval_ms;
 } chat_pending_t;
 static GQueue *chat_queue;
 static guint chat_timer;
@@ -420,6 +421,7 @@ static int chat_queue_limit(void) {
 }
 
 static gint64 chat_updated;
+static gint64 script_next_send_at;
 
 static gboolean chat_flush(gpointer unused) {
    (void)unused;
@@ -430,9 +432,16 @@ static gboolean chat_flush(gpointer unused) {
    }
    chat_updated = stamp;
    chat_tokens = MIN(chat_tokens, (double)chat_burst());
-   while (chat_queue && !g_queue_is_empty(chat_queue) && chat_tokens >= 1.0) {
+   while(chat_queue && !g_queue_is_empty(chat_queue)) {
+      chat_pending_t *head=g_queue_peek_head(chat_queue);
+      if(head->script_tag) {
+         if(stamp<script_next_send_at)break;
+         script_next_send_at=stamp+(gint64)CLAMP(head->script_interval_ms,100u,10000u)*1000;
+      } else {
+         if(chat_tokens<1.0)break;
+         chat_tokens-=1.0;
+      }
       chat_pending_t *next=g_queue_pop_head(chat_queue);
-      chat_tokens-=1.0;
       if (next->connection && next->profile && rrclient_connection_find(next->profile) == next->connection && next->connection->authenticated) {
          if (next->irc) {
             irc_send_dict(next->connection, next->message);
@@ -458,7 +467,7 @@ static gboolean chat_flush(gpointer unused) {
    return G_SOURCE_CONTINUE;
 }
 
-static bool chat_send_paced(rrconn_t *connection, dict *message, bool irc, const char *script_tag) {
+static bool chat_send_paced(rrconn_t *connection, dict *message, bool irc, const char *script_tag, guint interval_ms) {
    if (!connection || !message) {
       return false;
    }
@@ -479,6 +488,7 @@ static bool chat_send_paced(rrconn_t *connection, dict *message, bool irc, const
    next->message = message;
    next->irc = irc;
    next->script_tag = g_strdup(script_tag);
+   next->script_interval_ms=interval_ms;
    g_queue_push_tail(chat_queue, next);
    chat_flush(NULL);
 
@@ -491,7 +501,7 @@ static bool chat_send_paced(rrconn_t *connection, dict *message, bool irc, const
 
 /* Script sends share the same bounded IRC/WS queue and flood tokens as chat. */
 bool rrclient_script_chat_send(const char *profile,const char *target,
-                               const char *text,const char *tag) {
+                               const char *text,const char *tag,guint interval_ms) {
    if(!profile||!*profile||!target||!*target||!text||!*text ||
       strlen(text)>400 || strpbrk(target,"\r\n ,") ||
       strchr(text,'\r')||strchr(text,'\n'))return false;
@@ -507,7 +517,7 @@ bool rrclient_script_chat_send(const char *profile,const char *target,
    dict_add(message,"talk.target",target);
    dict_add(message,"talk.msg_type",channel?"pub":"priv");
    dict_add(message,"talk.data",text);
-   if(chat_send_paced(connection,message,!connection->is_ws,tag))return true;
+   if(chat_send_paced(connection,message,!connection->is_ws,tag,interval_ms))return true;
    dict_free(message);
    return false;
 }
@@ -750,7 +760,7 @@ static bool parse_chat_input(const char *msg, bool commands) {
          dict_add(request, "talk.target", target);
          dict_add(request, "talk.msg_type", target[0] == '#' || target[0] == '&' ? "pub" : "priv");
          dict_add(request, "talk.data", msg);
-         bool sent = chat_send_paced(active_connection, request, true, NULL);
+         bool sent = chat_send_paced(active_connection, request, true, NULL, 0);
 
          if (!sent) {
             dict_free(request);
@@ -788,7 +798,7 @@ static bool parse_chat_input(const char *msg, bool commands) {
          }
       }
 
-      if (!chat_send_paced(rrclient_connection_context(), d, false, NULL)) {
+      if (!chat_send_paced(rrclient_connection_context(), d, false, NULL, 0)) {
          dict_free(d);
       }
    }
