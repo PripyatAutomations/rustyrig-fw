@@ -200,6 +200,13 @@ static gboolean art_playback_tick(gpointer unused) {
    }
    return G_SOURCE_CONTINUE;
 }
+static char art_op_dir[]="dir";
+static char art_op_edit[]="edit";
+static char art_op_path[]="path";
+static char art_op_play[]="play";
+static char art_op_stop[]="stop";
+static char art_op_rate_get[]="rate_get";
+static char art_op_rate_set[]="rate_set";
 static rrs_value_t *native_art_control(rrs_vm_t *vm,int argc,
    const rrs_value_t *const argv[],void *user) {
    const char *op=user;
@@ -616,13 +623,13 @@ static bool register_gui_api(rrs_vm_t *vm) {
 }
 
 static bool register_window_api(rrs_vm_t *vm) {
-   return rrs_vm_register_native(vm,"art.dir",native_art_control,"dir") &&
-       rrs_vm_register_native(vm,"art.edit",native_art_control,"edit") &&
-       rrs_vm_register_native(vm,"art.path",native_art_control,"path") &&
-       rrs_vm_register_native(vm,"art.play",native_art_control,"play") &&
-       rrs_vm_register_native(vm,"art.stop",native_art_control,"stop") &&
-       rrs_vm_register_native(vm,"art.rate_get",native_art_control,"rate_get") &&
-       rrs_vm_register_native(vm,"art.rate_set",native_art_control,"rate_set") &&
+   return rrs_vm_register_native(vm,"art.dir",native_art_control,art_op_dir) &&
+       rrs_vm_register_native(vm,"art.edit",native_art_control,art_op_edit) &&
+       rrs_vm_register_native(vm,"art.path",native_art_control,art_op_path) &&
+       rrs_vm_register_native(vm,"art.play",native_art_control,art_op_play) &&
+       rrs_vm_register_native(vm,"art.stop",native_art_control,art_op_stop) &&
+       rrs_vm_register_native(vm,"art.rate_get",native_art_control,art_op_rate_get) &&
+       rrs_vm_register_native(vm,"art.rate_set",native_art_control,art_op_rate_set) &&
        rrs_vm_register_native(vm,"art.capture",native_art_capture,NULL) &&
        rrs_vm_register_native(vm,"window.find",native_window_find,NULL) &&
       rrs_vm_register_native(vm,"window.move",native_window_move,NULL) &&
