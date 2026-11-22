@@ -1705,6 +1705,21 @@ static void routing_modem_connect(unsigned slot, const char *source) {
    routing_queue();
 }
 
+/* A narrowband source is already bridged into the HQ output through
+ * rx.mix -> rx16.resample -> hq.mix. Dropping it on hq.mix is therefore a
+ * valid *listening* route, but the core patch remains on rx.mix. Never
+ * pretend that this changes the source's sample rate or creates an
+ * independent direct HQ feed. The inverse direction has no such bridge. */
+static gboolean routing_source_can_feed_mix(const rr_ag_view_node_t *source,
+                                             const char *mix) {
+   if (!source || source->type != RR_AG_SOURCE || source->read_only ||
+       !mix || (strcmp(mix,"rx.mix") && strcmp(mix,"hq.mix")))
+      return FALSE;
+   const gboolean hq_source = source->downstream_rate_hz > 16000;
+   return (!strcmp(mix,hq_source ? "hq.mix" : "rx.mix")) ||
+          (!hq_source && !strcmp(mix,"hq.mix"));
+}
+
 /* Audio sources can be dragged to modem RX inputs, and modem inputs can be dragged back to a source. The modem path ignores speaker L/R routing. */
 static gboolean routing_drag_target(double x, double y, gint *source_index, double *snap_x, double *snap_y) {
    if (!graph_snapshot || graph_drag_channel < 0) {
@@ -1770,8 +1785,9 @@ static gboolean routing_drag_target(double x, double y, gint *source_index, doub
       gboolean valid = tx_input || rig_target || rig_reverse || modem_connection || lv2_connection ||
          (!from_mic && !from_modem_tx && !from_tx_mix &&
             !from_lv2 && !from_lv2_input && (graph_drag_mixer ?
-               (n->type == RR_AG_SOURCE && !n->read_only && !strcmp(n->downstream_rate_hz > 16000 ? "hq.mix" : "rx.mix", required_bus)) : (n->type ==
-                  RR_AG_MIXER && !strcmp(n->id, required_bus))));
+               routing_source_can_feed_mix(n,required_bus) :
+                  (n->type == RR_AG_MIXER &&
+                   routing_source_can_feed_mix(origin_node,n->id))));
 
       if (!valid) {
          continue;
@@ -1813,6 +1829,8 @@ static gboolean routing_drag_target(double x, double y, gint *source_index, doub
       *source_index = graph_drag_mixer ? (gint) i : origin;
       *snap_x = nx;
       *snap_y = ny;
+      /* The nearest socket must stay the one the user picked. Converting
+       * via the RX bridge doesn't alter left/right destination selection. */
       graph_drag_modem_target = modem_connection ? (gint) (from_modem ? modem_slot : target_slot) : -1;
       graph_drag_rig_target = rig_target ? (gint) i : rig_reverse ? origin : -1;
       graph_drag_tx_mix = tx_input;
