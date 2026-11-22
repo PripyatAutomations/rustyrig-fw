@@ -476,6 +476,8 @@ static void gtk_manage_certificates(GtkWidget *unused, gpointer unused_data) {
                if(moving)rrclient_identity_lock(path);
                if(!rrclient_identity_set_display_name(target,label))
                   identity_message(GTK_WINDOW(rename_dlg),GTK_MESSAGE_ERROR,"Unable to save display name.");
+               else if(moving)
+                  rrclient_identity_set_display_name(path,"");
                g_free(selected_path);
                selected_path=g_strdup(target);
                g_free(target);g_free(base);
@@ -495,6 +497,7 @@ static void gtk_manage_certificates(GtkWidget *unused, gpointer unused_data) {
          gtk_widget_destroy(confirm);
 
          if (yes && unlink(path) == 0) {
+            rrclient_identity_set_display_name(path,"");
             rrclient_identity_lock(path);
             g_clear_pointer(&selected_path, g_free);
          }
