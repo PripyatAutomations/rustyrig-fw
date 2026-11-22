@@ -2352,7 +2352,11 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    gtk_box_pack_end(GTK_BOX(header), menu_button, FALSE, FALSE, 0);
    gtk_box_pack_end(GTK_BOX(header), p->roll, FALSE, FALSE, 0);
    gtk_box_pack_end(GTK_BOX(header), p->minimize, FALSE, FALSE, 0);
-   p->menu = gtk_popover_new(menu_button);
+   /* GtkMenuButton attaches its popover to itself. Construct it unattached:
+    * passing menu_button to gtk_popover_new() first establishes another
+    * ownership/registration path before GtkMenuButton takes control, which
+    * can leave the GTK toplevel's popover registry out of sync. */
+   p->menu = gtk_popover_new(NULL);
    gtk_menu_button_set_popover(GTK_MENU_BUTTON(menu_button), p->menu);
    GtkWidget *settings = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
    gtk_container_set_border_width(GTK_CONTAINER(settings), 10);
