@@ -1106,7 +1106,7 @@ GtkWidget *init_terminal_tab(void) {
       gtk_entry_set_text(GTK_ENTRY(highlight_call), decode_highlight_call);
       g_free(stored_call);
    }
-   gtk_widget_set_tooltip_text(highlight_call, "Highlight decoded rows containing this callsign");
+   gtk_widget_set_tooltip_text(highlight_call, "Highlight this callsign and emit modem.callsign events for scripts; saved across restarts");
    g_signal_connect(highlight_call, "changed", G_CALLBACK(decode_set_call), NULL);
    gtk_box_pack_start(GTK_BOX(toolbar), highlight_call, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(root), toolbar, FALSE, FALSE, 5);
