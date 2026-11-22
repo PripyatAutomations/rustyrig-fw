@@ -122,7 +122,7 @@ endif
 
 # TLS support for the optional legacy Mongoose backend only.
 ifeq (${USE_MONGOOSE},true)
-CFLAGS += -DMG_TLS=MG_TLS_MBED
+CFLAGS += -DMG_TLS=MG_TLS_MBED -Iext/libmongoose
 CFLAGS += $(shell pkg-config --cflags mbedtls)
 # Both executables use Mongoose symbols when this backend is selected;
 # depending on libmongoose.so alone is insufficient without linking it.
