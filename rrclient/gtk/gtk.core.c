@@ -1909,7 +1909,10 @@ static bool gtk_script_panel_opacity(const char *id,int percent) {
    return rr_floating_panel_opacity_named(id,percent) != FALSE;
 }
 
+static bool gtk_script_gui_available(void) { return TRUE; }
+
 const rr_frontend_ops_t gtk_frontend_ops = {
+   .script_gui_available = gtk_script_gui_available,
    .panel_find = gtk_script_panel_find,
    .panel_move = gtk_script_panel_move,
    .panel_zoom = gtk_script_panel_zoom,
