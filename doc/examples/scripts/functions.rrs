@@ -1,0 +1,33 @@
+// RustyScript managed-reference example. SPDX-License-Identifier: GPL-2.0-only
+// Load with /script load functions.rrs, then invoke /references.
+
+void increment(int value) {
+    value++;             // Updates the caller's variable
+}
+
+int twice(const int value) {
+    return value * 2;    // Cannot modify 'value'
+}
+
+script("/references", {
+    int counter = 5;
+    int snapshot = counter;
+    int alias := counter;
+
+    increment(counter);  // counter = 6; alias sees 6
+    alias = 7;            // counter = 7; snapshot stays 5
+
+    const int protected = 10;
+    int doubled = twice(protected); // Const argument is allowed
+
+    char rooms[][] = ["general", "radio"];
+    char letter = 'A';    // Same string type as "A"
+
+    dict memory = runtime.memory();
+    log.info("counter=" + string.str(counter) +
+             " snapshot=" + string.str(snapshot) +
+             " doubled=" + string.str(doubled))
+    log.info("rooms: " + string.str(rooms))
+    log.info("managed bytes: " + string.str(memory.used) +
+             ", peak: " + string.str(memory.peak))
+});
