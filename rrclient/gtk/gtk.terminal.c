@@ -11,6 +11,7 @@
 #include <rrclient/sercom.h>
 #include <rrclient/serial.h>
 #include <rrclient/local.modem.h>
+#include <rrclient/modem.callsign.h>
 #include <rrclient/database.h>
 #include "gtk.serial.h"
 #include "gtk.decoders.h"
@@ -163,28 +164,7 @@ static void decode_set_call(GtkEditable *edit, gpointer unused) {
 }
 
 static gboolean decode_has_call(const char *line, const char *call) {
-   if (!call || !*call) {
-      return FALSE;
-   }
-   size_t n = strlen(call);
-
-   for (const char *p = line ; *p ; p++) {
-      if (g_ascii_strncasecmp(p, call, n)) {
-         continue;
-      }
-
-      if (p != line && (g_ascii_isalnum(p[-1]) || p[-1] == '/')) {
-         continue;
-      }
-
-      if (g_ascii_isalnum(p[n]) || p[n] == '/') {
-         continue;
-      }
-
-      return TRUE;
-   }
-
-   return FALSE;
+   return rr_modem_callsign_in_text(line,call);
 }
 
 /* Match watched calls as complete call tokens, never substrings (K1AB must not match K1ABC). The RF dial determines band; audio offset is not part of the
