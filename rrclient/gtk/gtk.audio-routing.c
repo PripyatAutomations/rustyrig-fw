@@ -1732,7 +1732,8 @@ static gboolean routing_drag_target(double x, double y, gint *source_index, doub
       unsigned target_slot = 0;
       gboolean is_modem = routing_modem_slot(n, &target_slot);
       gboolean modem_connection = from_modem ? routing_modem_source(n) : (!graph_drag_mixer && routing_modem_source(origin_node) && is_modem);
-      gboolean to_lv2 = !graph_drag_mixer && routing_modem_source(origin_node) && n->type == RR_AG_PROCESSOR && g_str_has_prefix(n->id, "proc.lv2.");
+      gboolean to_lv2 = !graph_drag_mixer && (routing_modem_source(origin_node) || from_lv2) &&
+         n->type == RR_AG_PROCESSOR && g_str_has_prefix(n->id, "proc.lv2.") && n != origin_node;
       gboolean lv2_output = from_lv2 && n->type == RR_AG_MIXER && !strcmp(n->id, "rx.mix");
       gboolean lv2_reverse_input = from_lv2_input && routing_modem_source(n);
       gboolean lv2_connection = to_lv2 || lv2_output || lv2_reverse_input;
@@ -1756,6 +1757,8 @@ static gboolean routing_drag_target(double x, double y, gint *source_index, doub
       if (lv2_output) {
          double ny0 = routing_node_y(n);
          dest_channel = fabs(y - ny0 - 79.) < fabs(y - ny0 - 60.) ? 1 : 0;
+      } else if (to_lv2 && n->channels == 1) {
+         dest_channel = 0;
       }
       double nx = routing_node_x(n) + (graph_drag_mixer ? RR_GTK_GRAPH_NODE_W : 0.);
       double ny = routing_node_y(n) + (tx_input ?
@@ -1765,7 +1768,7 @@ static gboolean routing_drag_target(double x, double y, gint *source_index, doub
          lv2_connection ? (lv2_output ? (dest_channel ? 79. : 60.) :
             (to_lv2 && n->channels == 2) ||
             (lv2_reverse_input && origin_node->channels == 2) ?
-            (graph_drag_channel ? 79. : 60.) : 68.) : modem_connection ? (from_modem ? 60. : 68.) : (graph_drag_channel ? 79. : 60.));
+            (dest_channel ? 79. : 60.) : 68.) : modem_connection ? (from_modem ? 60. : 68.) : (graph_drag_channel ? 79. : 60.));
       double dist = hypot(x - nx, y - ny);
 
       if (dist >= best) {
@@ -5480,6 +5483,15 @@ static gboolean routing_disconnect_link(guint index, gint channel) {
       rr_local_modem_request(&modem);
    } else if (!strcmp(src, "src.client.dsp0") && !strcmp(dst, "tx.mix")) {
       audio_request_mic_tx_route("none");
+   } else if (g_str_has_prefix(dst, "proc.lv2.")) {
+      unsigned fx = 0;
+      if (sscanf(dst, "proc.lv2.%u", &fx) != 1 || fx < 1 || fx > RR_AUDIO_EFFECT_MAX) {
+         return FALSE;
+      }
+      rr_audio_effect_request_t req = {
+         .action = 'R', .slot = fx, .channel = (unsigned)channel
+      };
+      audio_request_effect_block(&req);
    } else if (g_str_has_prefix(src, "proc.lv2.")) {
       unsigned fx = 0;
 
@@ -5488,16 +5500,6 @@ static gboolean routing_disconnect_link(guint index, gint channel) {
       }
       rr_audio_effect_request_t req = {
          .action = 'O', .slot = fx, .channel = (unsigned)channel, .output = 'M'
-      };
-      audio_request_effect_block(&req);
-   } else if (g_str_has_prefix(dst, "proc.lv2.")) {
-      unsigned fx = 0;
-
-      if (sscanf(dst, "proc.lv2.%u", &fx) != 1 || fx < 1 || fx > RR_AUDIO_EFFECT_MAX) {
-         return FALSE;
-      }
-      rr_audio_effect_request_t req = {
-         .action = 'R', .slot = fx, .channel = (unsigned)channel
       };
       audio_request_effect_block(&req);
    } else if (graph_snapshot->nodes[link->src].type == RR_AG_SOURCE) {
@@ -6518,12 +6520,18 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
             .action = graph_drag_lv2_output ? 'O' : 'R',
             .slot = (unsigned)graph_drag_lv2_target
          };
-         req.channel = graph_drag_channel;
+         req.channel = (unsigned)graph_drag_lv2_dest_channel;
 
          if (graph_drag_lv2_output) {
             req.output = graph_drag_lv2_dest_channel ? 'R' : 'L';
          } else {
-            g_strlcpy(req.source, graph_snapshot->nodes[source_index].id, sizeof(req.source));
+            const rr_ag_view_node_t *origin = &graph_snapshot->nodes[source_index];
+            if (g_str_has_prefix(origin->id, "proc.lv2.") && origin->channels == 2) {
+               g_snprintf(req.source, sizeof(req.source), "%s.%c", origin->id,
+                  graph_drag_channel ? 'R' : 'L');
+            } else {
+               g_strlcpy(req.source, origin->id, sizeof(req.source));
+            }
          }
          audio_request_effect_block(&req);
          routing_queue();
