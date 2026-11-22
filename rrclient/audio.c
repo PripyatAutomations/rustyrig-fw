@@ -834,11 +834,6 @@ static void audio_restore_effect_parameters(const char *worker) {
       char *target = rrclient_database_setting_get(key);
       g_free(key);
 
-      if (g_strcmp0(target, worker)) {
-         g_free(target);
-         g_free(prefix);
-         continue;
-      }
       key = g_strconcat(prefix, "element", NULL);
       char *element = rrclient_database_setting_get(key);
       g_free(key);
@@ -854,15 +849,27 @@ static void audio_restore_effect_parameters(const char *worker) {
       key = g_strconcat(prefix, "selected-string", NULL);
       char *selected_string = rrclient_database_setting_get(key);
       g_free(key);
+      char host[64] = {0}, stage[128] = {0};
+      audio_lv2_property_target(target, element, host, sizeof(host), stage, sizeof(stage));
+      if (g_strcmp0(host, worker)) {
+         g_free(element);
+         g_free(property);
+         g_free(value);
+         g_free(kind);
+         g_free(selected_string);
+         g_free(target);
+         g_free(prefix);
+         continue;
+      }
 
       if (element && *element && property && *property && !g_strcmp0(kind, "enum") && selected_string && *selected_string) {
-         fwdsp_processor_set_property_string(worker, element, property, selected_string);
+         fwdsp_processor_set_property_string(worker, stage, property, selected_string);
       } else if (element && *element && property && *property && value && *value) {
          char *end = NULL;
          double setting = g_ascii_strtod(value, &end);
 
          if (end != value && !*end && isfinite(setting)) {
-            fwdsp_processor_set_property(worker, element, property, setting);
+            fwdsp_processor_set_property(worker, stage, property, setting);
          }
       }
       g_free(element);
@@ -1179,6 +1186,28 @@ typedef struct {
 static rr_lv2_effect_t lv2_effects[RR_AUDIO_EFFECT_MAX];
 static GMutex lv2_effect_lock;
 static gboolean lv2_effect_ready;
+/* Preserve public slot/element addresses even when multiple LV2 stages share
+ * one fwdsp worker. Controls continue to persist against their original slots. */
+static gboolean audio_lv2_property_target(const char *worker, const char *element,
+   char *host, size_t host_size, char *stage, size_t stage_size) {
+   if (!worker || !element || !host_size || !stage_size) return FALSE;
+   g_strlcpy(host, worker, host_size);
+   g_strlcpy(stage, element, stage_size);
+   guint slot = 0;
+   char extra = 0;
+   if (sscanf(worker, "proc.lv2.%u%c", &slot, &extra) != 1 ||
+       slot < 1 || slot > RR_AUDIO_EFFECT_MAX || strcmp(element, "effect"))
+      return TRUE;
+   rr_lv2_effect_t *fx = &lv2_effects[slot - 1];
+   if (!g_atomic_int_get(&fx->active) || !fx->chain_host ||
+       fx->chain_host > RR_AUDIO_EFFECT_MAX) return TRUE;
+   rr_lv2_effect_t *root = &lv2_effects[fx->chain_host - 1];
+   if (fx->chain_host != slot || root->chain_tail != slot) {
+      g_strlcpy(host, root->name, host_size);
+      g_snprintf(stage, stage_size, "effect_%u", slot);
+   }
+   return TRUE;
+}
 /* Resolve real, active effect outputs rather than treating a processor node ID
  * as an arbitrary decoded stream. */
 static gint audio_lv2_output_owner(const char *id) {
