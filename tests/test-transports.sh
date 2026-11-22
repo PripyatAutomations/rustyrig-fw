@@ -61,6 +61,8 @@ run_profile() {
          make -C "$axe" WITH_MONGOOSE=true \
             MONGOOSE_SOURCE="$checkout_path/ext/libmongoose/mongoose.c" \
             MONGOOSE_INCLUDE_DIR="$checkout_path/ext/libmongoose" \
+            CFLAGS="-DMG_TLS=MG_TLS_MBED" \
+            LDFLAGS="$(pkg-config --libs mbedtls mbedcrypto mbedx509)" \
             PREFIX="$prefix" LIBDIR="$prefix/lib" INCLUDEDIR="$prefix/include" test install
       else
          make -C "$axe" WITH_MONGOOSE=false \
