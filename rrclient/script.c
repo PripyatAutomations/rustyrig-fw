@@ -266,7 +266,16 @@ static rrs_value_t *script_gui_value(rrs_vm_t *vm,int argc,
    return value ? value : rrs_null();
 }
 static bool register_gui_api(rrs_vm_t *vm) {
-   return rrs_vm_register_native(vm,"gui.panel",script_gui_native,GINT_TO_POINTER(RR_GUI_PANEL)) &&
+   /* ui.* is toolkit-neutral; gui.* is retained as a descriptive alias. */
+   return rrs_vm_register_native(vm,"ui.panel",script_gui_native,GINT_TO_POINTER(RR_GUI_PANEL)) &&
+      rrs_vm_register_native(vm,"ui.dialog",script_gui_native,GINT_TO_POINTER(RR_GUI_DIALOG)) &&
+      rrs_vm_register_native(vm,"ui.add",script_gui_native,GINT_TO_POINTER(RR_GUI_ADD)) &&
+      rrs_vm_register_native(vm,"ui.show",script_gui_native,GINT_TO_POINTER(RR_GUI_SHOW)) &&
+      rrs_vm_register_native(vm,"ui.hide",script_gui_native,GINT_TO_POINTER(RR_GUI_HIDE)) &&
+      rrs_vm_register_native(vm,"ui.destroy",script_gui_native,GINT_TO_POINTER(RR_GUI_DESTROY)) &&
+      rrs_vm_register_native(vm,"ui.set",script_gui_native,GINT_TO_POINTER(RR_GUI_SET)) &&
+      rrs_vm_register_native(vm,"ui.val",script_gui_value,NULL) &&
+      rrs_vm_register_native(vm,"gui.panel",script_gui_native,GINT_TO_POINTER(RR_GUI_PANEL)) &&
       rrs_vm_register_native(vm,"gui.dialog",script_gui_native,GINT_TO_POINTER(RR_GUI_DIALOG)) &&
       rrs_vm_register_native(vm,"gui.add",script_gui_native,GINT_TO_POINTER(RR_GUI_ADD)) &&
       rrs_vm_register_native(vm,"gui.show",script_gui_native,GINT_TO_POINTER(RR_GUI_SHOW)) &&
