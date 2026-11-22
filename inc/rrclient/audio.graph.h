@@ -27,6 +27,13 @@ bool rr_audio_graph_add_link(rr_audio_graph_t *graph, const char *src, const cha
 bool rr_audio_graph_add_channel_link(rr_audio_graph_t *graph, const char *src, const char *dst, rr_ag_link_type_t type, unsigned channels);
 bool rr_audio_graph_set_health(rr_audio_graph_t *graph, const char *id, rr_ag_health_t health);
 bool rr_audio_graph_set_route(rr_audio_graph_t *graph, const char *id, char route);
+/* Resolve a listener mix request into an existing, executable PCM bus.
+ * 16 kHz sources requested on hq.mix traverse rx.mix -> rx16.resample ->
+ * hq.mix (the configured HQ output clock). There is currently no reverse
+ * HQ-to-rx.mix conversion; a NULL result means an unsupported route.
+ * This only resolves listening buses, not TX transport or LV2 inputs. */
+const char *rr_audio_graph_listen_bus(unsigned downstream_rate_hz,
+                                      const char *requested_mixer);
 /* Resolve one selected input; NULL means muted/no usable route. The BYPASS input is only selected when the normal source is FAILED, never mixed with it. */
 const char *rr_audio_graph_input(const rr_audio_graph_t *graph, const char *dst);
 /* Value-copy topology for frontends. Indices are local to each snapshot. */
