@@ -139,7 +139,7 @@ int main(int argc, char **argv) {
       GtkWidget *page = gtk_notebook_get_nth_page(notebook, 2);
       gtk_label_set_markup(GTK_LABEL(gtk_notebook_get_tab_label(notebook, page)), "<b>Unread</b>");
       GtkWidget *label = g_object_get_data(G_OBJECT(button_at(flow, 2)), "rr-tab-title");
-      assert(!strcmp(gtk_label_get_text(GTK_LABEL(label)), "Unread"));
+      assert(!strcmp(gtk_label_get_text(GTK_LABEL(label)), "unread")); /* Compact tab labels intentionally lowercase titles. */
       assert(gtk_label_get_use_markup(GTK_LABEL(label)));
       /* Drop a tab across rows, before then after other tabs. The drag source widget survives reordering, and every selector uses the visible order. */
       GtkWidget *drag_button = button_at(flow, 2);
