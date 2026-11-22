@@ -516,6 +516,9 @@ static void kiwi_control_request(const rr_event_message_t *message, void *user) 
 
    if (!rrp_bridge_ipc_send(b->control, &cmd)) {
       Log(LOG_WARN, "local.bridge", "Kiwi VFO %c: failed to queue control %s", req->vfo, req->control);
+   } else if (b->url) {
+      kiwi_session_settings_t *settings=kiwi_settings_for(b->url,TRUE);
+      g_hash_table_replace(settings->controls,g_strdup(req->control),g_strdup(req->value));
    }
 }
 
@@ -1134,6 +1137,8 @@ static void bridge_stop(bridge_instance *b) {
    if (!b) {
       return;
    }
+   /* Preserve the outgoing receiver's last observed settings for this session. */
+   kiwi_settings_capture(b);
 
    if (b->timer) {
       bridge_core_remove_source(b->timer);
@@ -1364,6 +1369,8 @@ static gboolean poll_local(gpointer unused) {
          if (b->online) {
             b->frequency_hz = m.frequency_hz;
             g_strlcpy(b->mode, m.mode, sizeof(b->mode));
+            kiwi_settings_capture(b);
+            if (!was_online) kiwi_settings_restore_controls(b);
          }
          bridge_publish_ui();
 
@@ -1586,10 +1593,14 @@ bool rrclient_local_bridge_connect_driver(const char *url, const char *driver) {
       return false;
    }
    close(tmp);
-   uint64_t start_hz=bridge_plugin_initial_frequency(driver);
+   kiwi_session_settings_t *prior=!strcmp(driver,"kiwi")?
+      kiwi_settings_for(url,FALSE):NULL;
+   uint64_t start_hz=prior && prior->hz ? prior->hz:
+      bridge_plugin_initial_frequency(driver);
+   const char *start_mode=prior && *prior->mode?prior->mode:"USB";
    char *text =
-      g_strdup_printf("[bridge]\nmodules = auto\n[bridge:local]\ndriver=%s\nhost=%s\nport=%d\nsecure=%s\nwaterfall=true\nfrequency=%" G_GUINT64_FORMAT "\nmode=USB\n", driver
-      , host, port, tls ? "true" : "false", start_hz);
+      g_strdup_printf("[bridge]\nmodules = auto\n[bridge:local]\ndriver=%s\nhost=%s\nport=%d\nsecure=%s\nwaterfall=true\nfrequency=%" G_GUINT64_FORMAT "\nmode=%s\n", driver
+      , host, port, tls ? "true" : "false", start_hz,start_mode);
    bool written = g_file_set_contents(config, text, -1, NULL);
    g_free(text);
    g_uri_unref(uri);
