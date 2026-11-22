@@ -29,9 +29,9 @@ run_profile() {
          # Mongoose remains opt-in. A missing source is a build failure,
          # not a reason to silently skip the transport.
          PROFILE=transport-mongoose USE_MONGOOSE=true WITH_FT8=no ./tools/update-optional-sources.sh
-         make PROFILE=transport-mongoose test
+         make PROFILE=transport-mongoose TEST_SUITES="selftest packaging rrserver rrclient rrbridge fwdsp libfwdspmgr" test
       else
-         make PROFILE=radio test
+         make PROFILE=radio TEST_SUITES="selftest packaging rrserver rrclient rrbridge fwdsp libfwdspmgr" test
       fi
    )
 }
