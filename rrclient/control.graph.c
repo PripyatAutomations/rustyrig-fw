@@ -64,20 +64,25 @@ bool rr_control_graph_gate_configure(rr_control_graph_t *g,const char *name,rr_g
    g->nodes[i].valid=false; g->nodes[i].high=false;
    return true;
 }
-static bool reaches(const rr_control_graph_t *g,unsigned at,unsigned target,
-                    unsigned depth) {
+static bool reaches_visit(const rr_control_graph_t *g,unsigned at,
+                          unsigned target,bool visited[RR_CONTROL_MAX_GATES+RR_CONTROL_MAX_SOURCES]) {
    if (at==target) return true;
-   if (depth>=g->n_nodes) return true;
+   if (visited[at]) return false;
+   visited[at]=true;
    for (unsigned i=0;i<g->n_wires;i++)
       if (g->wires[i].src==at &&
-          reaches(g,g->wires[i].dst,target,depth+1)) return true;
+          reaches_visit(g,g->wires[i].dst,target,visited)) return true;
    return false;
+}
+static bool reaches(const rr_control_graph_t *g,unsigned at,unsigned target) {
+   bool seen[RR_CONTROL_MAX_GATES+RR_CONTROL_MAX_SOURCES]={0};
+   return reaches_visit(g,at,target,seen);
 }
 bool rr_control_graph_connect(rr_control_graph_t *g,const char *from,const char *to,unsigned pin) {
    int a=lookup(g,from),b=lookup(g,to);
    if (a<0 || b<0 || a==b || !g->nodes[b].gate ||
        pin>=g->nodes[b].inputs || g->n_wires==RR_CONTROL_MAX_WIRES ||
-       reaches(g,(unsigned)b,(unsigned)a,0)) return false;
+       reaches(g,(unsigned)b,(unsigned)a)) return false;
    for (unsigned i=0;i<g->n_wires;i++)
       if (g->wires[i].src==(unsigned)a &&
           g->wires[i].dst==(unsigned)b && g->wires[i].pin==pin) return false;
@@ -114,23 +119,50 @@ bool rr_control_graph_gate_remove(rr_control_graph_t *g,const char *name) {
    g->n_nodes--;g->n_gates--;
    return true;
 }
-static bool evaluate(rr_control_graph_t *g,unsigned at,unsigned depth,
+typedef struct {
+   bool done[RR_CONTROL_MAX_GATES+RR_CONTROL_MAX_SOURCES];
+   bool visiting[RR_CONTROL_MAX_GATES+RR_CONTROL_MAX_SOURCES];
+   bool valid[RR_CONTROL_MAX_GATES+RR_CONTROL_MAX_SOURCES];
+   bool high[RR_CONTROL_MAX_GATES+RR_CONTROL_MAX_SOURCES];
+} evaluation_t;
+static bool evaluate(rr_control_graph_t *g,unsigned at,evaluation_t *cache,
                      bool *high) {
-   control_node_t *n=&g->nodes[at];
-   if (!n->gate) { *high=n->valid && n->high; return n->valid; }
-   if (depth>=g->n_nodes) { *high=false; return false; }
-   rr_gate_wire_t in[RR_CONTROL_MAX_WIRES];
-   unsigned count=0;
-   for (unsigned i=0;i<g->n_wires;i++) {
-      control_wire_t *w=&g->wires[i];
-      if (w->dst!=at) continue;
-      bool value=false;
-      bool valid=evaluate(g,w->src,depth+1,&value);
-      in[count++]=(rr_gate_wire_t){w->pin,valid,value};
+   if (cache->done[at]) {
+      *high=cache->high[at];
+      return cache->valid[at];
    }
-   bool valid=rr_gate_evaluate_wires(n->kind,n->inputs,in,count,high);
-   n->valid=valid;
-   n->high=valid && *high;
+   /* Defensive guard even though connect() prevents combinational cycles. */
+   if (cache->visiting[at]) {
+      *high=false;
+      return false;
+   }
+   cache->visiting[at]=true;
+   control_node_t *n=&g->nodes[at];
+   bool value=false,valid=false;
+   if (!n->gate) {
+      valid=n->valid;
+      value=valid && n->high;
+   } else {
+      rr_gate_wire_t in[RR_CONTROL_MAX_WIRES];
+      unsigned count=0;
+      for (unsigned i=0;i<g->n_wires;i++) {
+         control_wire_t *w=&g->wires[i];
+         if (w->dst!=at) continue;
+         bool input=false;
+         bool fresh=evaluate(g,w->src,cache,&input);
+         in[count++]=(rr_gate_wire_t){w->pin,fresh,input};
+      }
+      valid=rr_gate_evaluate_wires(n->kind,n->inputs,in,count,&value);
+   }
+   cache->visiting[at]=false;
+   cache->done[at]=true;
+   cache->valid[at]=valid;
+   cache->high[at]=valid && value;
+   if (n->gate) {
+      n->valid=cache->valid[at];
+      n->high=cache->high[at];
+   }
+   *high=cache->high[at];
    return valid;
 }
 bool rr_control_graph_output(rr_control_graph_t *g,const char *name,bool *valid,bool *high) {
@@ -138,7 +170,8 @@ bool rr_control_graph_output(rr_control_graph_t *g,const char *name,bool *valid,
    if (valid) *valid=false;
    if (high) *high=false;
    if (i<0 || !valid || !high) return false;
-   *valid=evaluate(g,(unsigned)i,0,high);
+   evaluation_t cache={0};
+   *valid=evaluate(g,(unsigned)i,&cache,high);
    if (!*valid) *high=false;
    return true;
 }
