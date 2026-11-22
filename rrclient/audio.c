@@ -1186,6 +1186,7 @@ typedef struct {
 static rr_lv2_effect_t lv2_effects[RR_AUDIO_EFFECT_MAX];
 static GMutex lv2_effect_lock;
 static gboolean lv2_effect_ready;
+static gboolean lv2_chain_rebuild_blocked; /* Avoid restarting solo fallbacks on every watchdog tick. */
 /* Preserve public slot/element addresses even when multiple LV2 stages share
  * one fwdsp worker. Controls continue to persist against their original slots. */
 static gboolean audio_lv2_property_target(const char *worker, const char *element,
@@ -1844,7 +1845,7 @@ static void audio_lv2_reconcile_chains(void) {
             changed = TRUE;
       }
    }
-   if (!changed) return;
+   if (!changed || lv2_chain_rebuild_blocked) return;
 
    /* Tear down actual subprocesses first; otherwise an in-flight root
     * callback could reference an already-removed virtual tail stream. */
@@ -1872,7 +1873,13 @@ static void audio_lv2_reconcile_chains(void) {
             n = successor[n];
          }
          gboolean ok = FALSE;
-         if (count > 1) ok = audio_lv2_launch_chain(cfg, slots, count);
+         if (count > 1) {
+            ok = audio_lv2_launch_chain(cfg, slots, count);
+            if (!ok) {
+               lv2_chain_rebuild_blocked = TRUE;
+               Log(LOG_WARN, "audio.lv2", "Chain worker unavailable; retaining separate LV2 workers until topology changes");
+            }
+         }
          if (!ok) {
             /* Safe fallback: preserve existing independent-worker behavior. */
             for (guint j = 0 ; j < count ; j++) {
@@ -1984,6 +1991,7 @@ static void audio_lv2_request(const rr_event_message_t *msg, void *unused) {
          Log(LOG_WARN, "audio.lv2", "Cannot patch input channel %u on LV2 slot %u", req.channel, req.slot);
       }
    }
+   lv2_chain_rebuild_blocked = FALSE;
    audio_lv2_reconcile_chains();
    event_emit(RRCLIENT_AUDIO_EFFECT_CHANGED, NULL, NULL);
    event_emit("client.audio.route.changed", NULL, NULL);
