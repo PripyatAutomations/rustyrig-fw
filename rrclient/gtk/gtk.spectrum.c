@@ -2046,7 +2046,9 @@ GtkWidget *rr_gtk_rf_spectrum_new(void) {
    GtkWidget *overlay = gtk_overlay_new();
    GtkWidget *drawing = gtk_drawing_area_new();
    p->drawing = drawing;
-   gtk_widget_set_size_request(drawing, 320, 82);
+   /* A default drawing height is useful, but a 320px hard minimum prevents
+    * resizing the RF panel when docked beside the VFO. */
+   gtk_widget_set_size_request(drawing, 160, 82);
    gtk_widget_set_vexpand(drawing, TRUE);
    gtk_widget_set_vexpand(overlay, TRUE);
    gtk_widget_add_events(drawing, GDK_BUTTON_PRESS_MASK | GDK_SCROLL_MASK | GDK_SMOOTH_SCROLL_MASK);
