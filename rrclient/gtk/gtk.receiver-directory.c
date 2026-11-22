@@ -1457,6 +1457,8 @@ void gtk_receiver_directory_shutdown(void) {
    g_clear_pointer(&snapshot_rows, g_free);
    g_clear_pointer(&snapshot_entries, g_free);
    snapshot_count = 0;
+   g_clear_pointer(&directory_connection_layout, g_free);
+   directory_connection_layout_count = 0;
 
    if (local_vfo_token) {
       event_off_token(local_vfo_token);
