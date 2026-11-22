@@ -3,6 +3,7 @@
 #include <rrscript/host.h>
 #include <rrclient/script.gui.h>
 #include <rrclient/database.h>
+#include <rrclient/cmd.h>
 #include <librustyaxe/event-bus.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/frontend.h>
@@ -17,6 +18,59 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <stdio.h>
+
+/* Generic script bindings, reusable by IRC and station automation. */
+static rrs_value_t *native_script_settings(rrs_vm_t *vm,int argc,
+   const rrs_value_t *const argv[],void *user) {
+   bool write=GPOINTER_TO_INT(user)!=0;
+   if(argc!=(write?2:1)||rrs_value_type(argv[0])!=RRS_STRING) {
+      rrs_vm_raise(vm,"setting.get(key) / setting.set(key,value)");return NULL;
+   }
+   const char *name=rrs_value_string(argv[0]);
+   if(!*name||strlen(name)>160){rrs_vm_raise(vm,"Invalid setting key");return NULL;}
+   /* Stable across client restarts and script reloads; not generation-scoped. */
+   char *key=g_strconcat("script.",name,NULL);
+   if(!write) {
+      char *value=rrclient_database_setting_get(key);
+      rrs_value_t *ret=value?rrs_string(value):rrs_null();
+      g_free(value);g_free(key);return ret;
+   }
+   char num[G_ASCII_DTOSTR_BUF_SIZE],*value=NULL;
+   switch(rrs_value_type(argv[1])) {
+      case RRS_STRING:value=g_strdup(rrs_value_string(argv[1]));break;
+      case RRS_INT:value=g_strdup_printf("%" G_GINT64_FORMAT,(gint64)rrs_value_int(argv[1]));break;
+      case RRS_FLOAT:g_ascii_dtostr(num,sizeof(num),rrs_value_float(argv[1]));value=g_strdup(num);break;
+      case RRS_BOOL:value=g_strdup(rrs_value_bool(argv[1])?"true":"false");break;
+      default:rrs_vm_raise(vm,"Unsupported setting value");g_free(key);return NULL;
+   }
+   bool ok=rrclient_database_setting_set(key,value);
+   g_free(value);g_free(key);
+   return rrs_boolean(ok);
+}
+static rrs_value_t *native_script_chat(rrs_vm_t *vm,int argc,
+   const rrs_value_t *const argv[],void *user) {
+   bool cancel=GPOINTER_TO_INT(user)!=0;
+   if(argc!=(cancel?1:3)) {
+      rrs_vm_raise(vm,"chat.send(profile|target,text,tag) / chat.cancel(tag)");return NULL;
+   }
+   for(int i=0;i<argc;i++)if(rrs_value_type(argv[i])!=RRS_STRING) {
+      rrs_vm_raise(vm,"Chat arguments must be strings");return NULL;
+   }
+   char owner[32];
+   if(!rrscript_host_vm_owner(vm,owner)){rrs_vm_raise(vm,"Script unavailable");return NULL;}
+   const char *tag=rrs_value_string(argv[cancel?0:2]);
+   if(!*tag||strlen(tag)>40){rrs_vm_raise(vm,"Invalid send tag");return NULL;}
+   char *full_tag=g_strdup_printf("%s:%s",owner,tag);
+   if(cancel){
+      rrclient_script_chat_cancel(full_tag);
+      g_free(full_tag);return rrs_boolean(true);
+   }
+   char **parts=g_strsplit(rrs_value_string(argv[0]),"|",3);
+   bool ok=parts[0]&&*parts[0]&&parts[1]&&*parts[1]&&!parts[2]&&
+      rrclient_script_chat_send(parts[0],parts[1],rrs_value_string(argv[1]),full_tag);
+   g_strfreev(parts);g_free(full_tag);
+   return rrs_boolean(ok);
+}
 
 /* Scripts only see immutable IDs and properties; no GTK pointers escape.
  * These operations use the same GTK floating panel manager as drag/drop. */
@@ -151,6 +205,7 @@ static void script_gui_core_command(const rr_event_message_t *message,void *unus
    memcpy(&cmd,message->payload,sizeof(cmd));
    if(cmd.version!=RR_SCRIPT_GUI_PROTOCOL_VERSION || !memchr(cmd.owner,0,sizeof(cmd.owner)) ||
       !memchr(cmd.id,0,sizeof(cmd.id)))return;
+   if(cmd.action==RR_GUI_RELEASE)rrclient_script_chat_cancel_owner(cmd.owner);
    if(!script_gui_values)return;
    if(cmd.action==RR_GUI_DESTROY) {
       char *key=script_gui_key(cmd.owner,cmd.id);
@@ -317,7 +372,11 @@ static bool register_gui_api(rrs_vm_t *vm) {
 }
 
 static bool register_window_api(rrs_vm_t *vm) {
-   return rrs_vm_register_native(vm,"window.find",native_window_find,NULL) &&
+   return rrs_vm_register_native(vm,"setting.get",native_script_settings,GINT_TO_POINTER(0)) &&
+      rrs_vm_register_native(vm,"setting.set",native_script_settings,GINT_TO_POINTER(1)) &&
+      rrs_vm_register_native(vm,"chat.send",native_script_chat,GINT_TO_POINTER(0)) &&
+      rrs_vm_register_native(vm,"chat.cancel",native_script_chat,GINT_TO_POINTER(1)) &&
+      rrs_vm_register_native(vm,"window.find",native_window_find,NULL) &&
       rrs_vm_register_native(vm,"window.move",native_window_move,NULL) &&
       rrs_vm_register_native(vm,"window.zoom",native_window_percent,GINT_TO_POINTER(1)) &&
       rrs_vm_register_native(vm,"window.opacity",native_window_percent,NULL) &&
