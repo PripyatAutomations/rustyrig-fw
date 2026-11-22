@@ -916,6 +916,7 @@ static void open_browser(const char *event, const char *text, rrconn_t *c, void 
    if (!files_panel) {
       return;
    }
+   rr_floating_panel_set_floating_only(files_panel);
    rr_floating_panel_set_close_callback(files_panel, files_close, NULL);
    browser.window = rr_floating_panel_widget(files_panel);
    GtkWidget *box = rr_floating_panel_body(files_panel);
