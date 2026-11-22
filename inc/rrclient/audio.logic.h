@@ -8,7 +8,7 @@
  * the sole authority for transmitter keying. */
 typedef enum {
    RR_GATE_AND, RR_GATE_OR, RR_GATE_XOR, RR_GATE_NOT,
-   RR_GATE_NAND, RR_GATE_NOR
+   RR_GATE_NAND, RR_GATE_NOR, RR_GATE_XNOR
 } rr_gate_kind_t;
 typedef struct {
    rr_gate_kind_t kind;
