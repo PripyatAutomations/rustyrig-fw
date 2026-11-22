@@ -28,6 +28,21 @@ int main(void) {
    assert(rr_gtk_graph_shape_contains(RR_GTK_GRAPH_SHAPE_RECT,2,2));
    assert(!rr_gtk_graph_shape_contains(RR_GTK_GRAPH_SHAPE_THRESHOLD,2,2));
    assert(!rr_gtk_graph_shape_contains(RR_GTK_GRAPH_SHAPE_AND,2,2));
-   puts("GTK graph logic/threshold/utility silhouettes passed");
+   guint ports_count=0;
+   const rr_gtk_graph_port_t *ports=rr_gtk_graph_threshold_ports(&ports_count);
+   assert(ports && ports_count==7);
+   assert(!g_strcmp0(ports[4].name,"INVERT"));
+   assert(ports[4].signal==RR_GTK_GRAPH_SIGNAL_BOOLEAN && !ports[4].output);
+   assert(!g_strcmp0(ports[6].name,"TRUE"));
+   assert(ports[6].signal==RR_GTK_GRAPH_SIGNAL_BOOLEAN && ports[6].output);
+   cairo_surface_t *surface=cairo_image_surface_create(CAIRO_FORMAT_ARGB32,220,150);
+   cairo_t *cr=cairo_create(surface);
+   rr_gtk_graph_node_t threshold={.x=20,.y=15,.title="THRESHOLD",
+      .shape=RR_GTK_GRAPH_SHAPE_THRESHOLD,.ports=ports,.port_count=ports_count};
+   rr_gtk_graph_draw(cr,&threshold,1,NULL,0);
+   assert(cairo_status(cr)==CAIRO_STATUS_SUCCESS);
+   cairo_destroy(cr);
+   cairo_surface_destroy(surface);
+   puts("GTK graph logic/threshold/utility silhouettes and typed pins passed");
    return 0;
 }
