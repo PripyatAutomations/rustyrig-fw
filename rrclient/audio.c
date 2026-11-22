@@ -2078,6 +2078,12 @@ static void audio_lv2_restore(void) {
       rr_lv2_effect_t *fx = &lv2_effects[slot - 1];
 
       if (g_atomic_int_get(&fx->active)) {
+         if (audio_lv2_stage_failed(fx) && fx->chain_host &&
+             (fx->chain_host != slot || fx->chain_tail != slot)) {
+            if (!lv2_chain_rebuild_blocked)
+               Log(LOG_WARN, "audio.lv2", "Consolidated LV2 worker failed; recovering with independent workers");
+            lv2_chain_rebuild_blocked = TRUE;
+         }
          if ((!fx->source[0][0] || audio_lv2_source_present(fx->source[0])) && !audio_lv2_stage_failed(fx)) {
             continue;
          }
