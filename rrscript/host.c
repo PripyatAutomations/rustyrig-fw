@@ -8,6 +8,8 @@
 #include <glib.h>
 #include <stdio.h>
 #include <string.h>
+#include <errno.h>
+#include <glib/gstdio.h>
 #ifdef RRSCRIPT_CLIENT_HOST
 #include <rrclient/frontend.h>
 #endif
@@ -422,8 +424,25 @@ rrscript_host_t *rrscript_host_open(const char *directory,bool client) {
    host->scripts=g_ptr_array_new_with_free_func(release_script);
    if(!directory||!*directory)return host;
    char *autoload=g_build_filename(directory,"autoload",NULL);
-   GDir *dir=g_dir_open(autoload,0,NULL);
-   if(!dir){g_free(autoload);return host;}
+   /* Create only missing directories; never chmod an existing installation.
+    * Local-user client scripts default to private permissions. Server-side
+    * scripts are managed by an administrator, not through remote uploads. */
+   const int permissions=client?0700:0750;
+   if(g_mkdir_with_parents(autoload,permissions)!=0) {
+      Log(LOG_WARN,"scripting","Cannot create script directories under %s: %s",
+          directory,g_strerror(errno));
+      g_free(autoload);
+      return host;
+   }
+   GError *open_error=NULL;
+   GDir *dir=g_dir_open(autoload,0,&open_error);
+   if(!dir) {
+      Log(LOG_WARN,"scripting","Cannot open script autoload directory %s: %s",
+          autoload,open_error?open_error->message:"unknown error");
+      g_clear_error(&open_error);
+      g_free(autoload);
+      return host;
+   }
    GPtrArray *names=g_ptr_array_new_with_free_func(g_free);
    const char *entry;
    while((entry=g_dir_read_name(dir))) {
