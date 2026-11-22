@@ -68,6 +68,11 @@ extern bool rr_module_token_add(rr_event_token_t token);
 static rr_receiver_directory_snapshot_row_t *snapshot_rows;
 static receiver_directory_entry_t *snapshot_entries;
 static size_t snapshot_count;
+/* Cached tree topology. In-place metadata refresh is safe only while both
+ * roster/group ownership and connected-row duplication are unchanged. */
+static guint8 *directory_connection_layout;
+static size_t directory_connection_layout_count;
+static gboolean directory_update_rows_in_place(gboolean refilter, gboolean selected_changed);
 static char snapshot_status[512], snapshot_info[1024];
 static char snapshot_error[512], snapshot_source[1024];
 static gboolean snapshot_busy;
@@ -247,6 +252,40 @@ static void snapshot_received(const rr_event_message_t *message, void *unused) {
       e->high_hz = r->high_hz;
    }
 
+   gboolean needs_refilter = FALSE;
+   gboolean selected_changed = FALSE;
+   gboolean same_layout = directory_store && directory_page &&
+      directory_connection_layout_count == header.count &&
+      snapshot_count == header.count && directory_connection_layout;
+   for (size_t i = 0 ; same_layout && i < header.count ; ++i) {
+      if (g_strcmp0(snapshot_rows[i].url, rows[i].url) ||
+          g_strcmp0(snapshot_rows[i].country, rows[i].country))
+         same_layout = FALSE;
+      else {
+         if ((favorites_only && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(favorites_only)) &&
+              snapshot_entries[i].favorite != entries[i].favorite) ||
+             (accessible_only && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(accessible_only)) &&
+              receiver_directory_entry_accessible(&snapshot_entries[i]) !=
+                 receiver_directory_entry_accessible(&entries[i])))
+            needs_refilter = TRUE;
+         guint8 connected = (directory_connected_local(rows[i].url) ? 1 : 0) |
+            (directory_connected_remote(rows[i].url) ? 2 : 0);
+         if (directory_connection_layout[i] != connected) same_layout = FALSE;
+      }
+   }
+   if (same_layout) {
+      GtkTreeModel *selected_model=NULL;
+      GtkTreeIter selected_iter;
+      if (gtk_tree_selection_get_selected(
+            gtk_tree_view_get_selection(GTK_TREE_VIEW(directory_tree)),
+            &selected_model,&selected_iter)) {
+         guint selected_index=G_MAXUINT;
+         gtk_tree_model_get(selected_model,&selected_iter,COL_INDEX,&selected_index,-1);
+         if (selected_index < header.count)
+            selected_changed=memcmp(&snapshot_rows[selected_index],
+               &rows[selected_index],sizeof(*rows)) != 0;
+      }
+   }
    g_free(snapshot_entries);
    g_free(snapshot_rows);
    snapshot_rows = rows;
@@ -265,7 +304,13 @@ static void snapshot_received(const rr_event_message_t *message, void *unused) {
    }
 
    if (directory_page && directory_store) {
-      populate();
+      if (!same_layout || !directory_update_rows_in_place(needs_refilter, selected_changed)) populate();
+      else {
+         char *summary=g_strdup_printf("%s\n%s",snapshot_status,snapshot_info);
+         gtk_label_set_text(GTK_LABEL(directory_status),receiver_failure ? receiver_failure : summary);
+         gtk_widget_set_sensitive(refresh_button,!snapshot_busy);
+         g_free(summary);
+      }
    }
 
    if (snapshot_busy) {
@@ -537,6 +582,60 @@ static void filter_changed(GtkWidget *widget, gpointer unused) {
    gtk_tree_model_filter_refilter(directory_filter);
 }
 
+/* Changes to favorites/marks do not change the tree's identity or its
+ * cursor. Update only changed cells; do not clear the store, collapse groups,
+ * reset selection, scroll the view, or re-emit selection-changed. */
+static gboolean directory_update_rows_in_place(gboolean refilter, gboolean selected_changed) {
+   if (!directory_store || !directory_connection_layout ||
+       directory_connection_layout_count != snapshot_count) return FALSE;
+   GtkTreeModel *model=GTK_TREE_MODEL(directory_store);
+   GtkTreeIter group;
+   guint seen=0;
+   for (gboolean g=gtk_tree_model_get_iter_first(model,&group);g;
+        g=gtk_tree_model_iter_next(model,&group)) {
+      GtkTreeIter iter;
+      for (gboolean valid=gtk_tree_model_iter_children(model,&iter,&group);valid;
+           valid=gtk_tree_model_iter_next(model,&iter)) {
+         guint index=G_MAXUINT;
+         gtk_tree_model_get(model,&iter,COL_INDEX,&index,-1);
+         if (index >= snapshot_count) return FALSE;
+         seen++;
+         const receiver_directory_entry_t *r=snapshot_receiver(index);
+         if (!r) return FALSE;
+         gboolean local=directory_connected_local(r->url);
+         gboolean remote=directory_connected_remote(r->url);
+         const char *state=local?"Local":remote?"Connected (server)":receiver_state(r);
+         const char *name=*r->name?r->name:r->url;
+         const char *type=!strcmp(r->driver,"kiwi")?"KiwiSDR":r->driver;
+         const char *color=local||remote?"connected":NULL;
+         char users[32];
+         g_snprintf(users,sizeof(users),"%d / %d",r->users,r->users_max);
+         const char *values[] = {name,r->location,r->country,users,api_policy(r),
+                                  state,r->url,type,color};
+         const gint cols[] = {COL_NAME,COL_LOCATION,COL_COUNTRY,COL_USERS,COL_API,
+                              COL_STATE,COL_URL,COL_TYPE,COL_CONNECTED_COLOR};
+         for (guint j=0;j<G_N_ELEMENTS(cols);++j) {
+            char *old=NULL;
+            gtk_tree_model_get(model,&iter,cols[j],&old,-1);
+            if (g_strcmp0(old,values[j]))
+               gtk_tree_store_set(directory_store,&iter,cols[j],values[j],-1);
+            g_free(old);
+         }
+      }
+   }
+   guint expected=0;
+   for (size_t i=0;i<snapshot_count;++i)
+      expected += directory_connection_layout[i] ? 2 : 1;
+   if (seen != expected) return FALSE;
+
+   /* A filter dependent on updated metadata must be re-evaluated. Otherwise
+    * even filtering would disturb the current selection unnecessarily. */
+   if (refilter)
+      gtk_tree_model_filter_refilter(directory_filter);
+   if (selected_changed || refilter)
+      selection_changed(NULL,NULL); /* Only the affected details/selection change. */
+   return TRUE;
+}
 static void populate(void) {
    if (!directory_page) {
       return;
@@ -552,6 +651,9 @@ static void populate(void) {
     * selection/filter callbacks are running. Keep sort columns stable. */
    gtk_tree_store_clear(directory_store);
    size_t count = snapshot_count;
+   g_free(directory_connection_layout);
+   directory_connection_layout = g_new0(guint8,count);
+   directory_connection_layout_count=count;
    GHashTable *groups = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
    GtkTreeIter connected_group;
    gtk_tree_store_append(directory_store, &connected_group, NULL);
@@ -589,6 +691,7 @@ static void populate(void) {
       }
       bool local = directory_connected_local(r->url);
       bool remote = directory_connected_remote(r->url);
+      directory_connection_layout[i] = (local ? 1 : 0) | (remote ? 2 : 0);
       char users[32];
       g_snprintf(users, sizeof(users), "%d / %d", r->users, r->users_max);
 
@@ -1375,6 +1478,8 @@ void gtk_receiver_directory_shutdown(void) {
    g_clear_pointer(&snapshot_rows, g_free);
    g_clear_pointer(&snapshot_entries, g_free);
    snapshot_count = 0;
+   g_clear_pointer(&directory_connection_layout, g_free);
+   directory_connection_layout_count = 0;
 
    if (local_vfo_token) {
       event_off_token(local_vfo_token);
