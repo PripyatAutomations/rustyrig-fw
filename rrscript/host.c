@@ -107,7 +107,7 @@ static void event_received(const char *name,const char *payload,
    dict *parsed=payload?json2dict(payload):NULL;
    /* Script-generated GUI events are visible only to their owning VM.
     * Cross-script subscriptions must not observe another script's widgets. */
-   if(!strncmp(name,"gui.",4)) {
+   if(!strncmp(name,"gui.",4) || !strncmp(name,"ui.",3)) {
       char owner[32];
       g_snprintf(owner,sizeof(owner),"%p",(void *)sub->owner->vm);
       if(!parsed || g_strcmp0(dict_get(parsed,"owner",""),owner)) {
