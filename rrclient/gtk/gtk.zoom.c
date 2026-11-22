@@ -700,7 +700,7 @@ gboolean gtk_ui_zoom_key(GtkWidget *widget, GdkEventKey *event, gpointer data) {
          if (!control || alt) {
             return FALSE;
          }
-         zoom_key_step(100 - (int)zoom_percent, false);
+         gtk_ui_zoom_set(100);
 
          return TRUE;
       }
