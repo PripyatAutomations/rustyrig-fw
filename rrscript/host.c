@@ -129,7 +129,7 @@ static void release_script(gpointer data) {
    /* On unload/reload, retire all widgets this VM created. Opaque lifetime
     * token is used only for routing, never exposed as a script-side pointer. */
    if(script->vm) {
-      rr_script_gui_command_t command={.action=RR_GUI_RELEASE};
+      rr_script_gui_command_t command={.version=RR_SCRIPT_GUI_PROTOCOL_VERSION,.action=RR_GUI_RELEASE};
       g_snprintf(command.owner,sizeof(command.owner),"%p",(void *)script->vm);
       rr_event_message_t message={
          .name=RR_SCRIPT_GUI_COMMAND,.payload=&command,.length=sizeof(command)
