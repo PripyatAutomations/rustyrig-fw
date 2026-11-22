@@ -5,6 +5,7 @@
 #include <stdint.h>
 #define RR_ARTWORK_LINE_EVENT "client.artwork.line"
 #define RR_ARTWORK_CANCEL_EVENT "client.artwork.cancel"
+#define RR_ARTWORK_EDIT_EVENT "client.artwork.edit"
 #define RR_ARTWORK_MAX_LINE 400
 typedef struct {
    uint64_t playback_id;
@@ -16,6 +17,7 @@ typedef struct {
 typedef struct {
    uint64_t playback_id;
 } rr_artwork_cancel_t;
+typedef struct { char basename[192]; } rr_artwork_edit_t;
 void rrclient_artwork_register_events(void);
 void rrclient_artwork_unregister_events(void);
 #endif
