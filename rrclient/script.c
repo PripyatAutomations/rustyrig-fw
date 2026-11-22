@@ -552,7 +552,7 @@ static rrs_value_t *script_gui_native(rrs_vm_t *vm,int argc,
    /* Two-argument dialog creates a container; adding a message creates
     * the portable standard message/confirmation dialog instead. */
    if(action==RR_GUI_DIALOG && argc>=3)action=RR_GUI_MESSAGE;
-   int wanted=(action==RR_GUI_PANEL||action==RR_GUI_DIALOG)?2:
+   int wanted=(action==RR_GUI_PANEL||action==RR_GUI_DIALOG||action==RR_GUI_UTILITY)?2:
               action==RR_GUI_MESSAGE?3:
               action==RR_GUI_ADD?4:action==RR_GUI_SET?2:1;
    if(argc!=wanted && !(action==RR_GUI_ADD && argc==5) &&
@@ -580,7 +580,7 @@ static rrs_value_t *script_gui_native(rrs_vm_t *vm,int argc,
       return NULL;
    }
    g_strlcpy(command.id,id,sizeof(command.id));
-   if(action==RR_GUI_PANEL||action==RR_GUI_DIALOG) {
+   if(action==RR_GUI_PANEL||action==RR_GUI_DIALOG||action==RR_GUI_UTILITY) {
       g_strlcpy(command.text,rrs_value_string(argv[1]),sizeof(command.text));
    } else if(action==RR_GUI_MESSAGE) {
       const char *buttons=argc==4?rrs_value_string(argv[3]):"ok";
@@ -662,6 +662,7 @@ static rrs_value_t *script_gui_value(rrs_vm_t *vm,int argc,
 static bool register_gui_api(rrs_vm_t *vm) {
    /* ui.* is toolkit-neutral; gui.* is retained as a descriptive alias. */
    return rrs_vm_register_native(vm,"ui.panel",script_gui_native,GINT_TO_POINTER(RR_GUI_PANEL)) &&
+      rrs_vm_register_native(vm,"ui.utility",script_gui_native,GINT_TO_POINTER(RR_GUI_UTILITY)) &&
       rrs_vm_register_native(vm,"ui.dialog",script_gui_native,GINT_TO_POINTER(RR_GUI_DIALOG)) &&
       rrs_vm_register_native(vm,"ui.message",script_gui_native,GINT_TO_POINTER(RR_GUI_MESSAGE)) &&
       rrs_vm_register_native(vm,"ui.add",script_gui_native,GINT_TO_POINTER(RR_GUI_ADD)) &&
