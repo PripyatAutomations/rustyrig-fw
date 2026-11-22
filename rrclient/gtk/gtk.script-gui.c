@@ -25,6 +25,10 @@ static script_widget_t *widget_find(const char *owner,const char *id) {
    if(!script_widgets)return NULL;
    char *key=widget_key(owner,id);
    script_widget_t *found=g_hash_table_lookup(script_widgets,key);
+   if(found && !found->widget) {
+      g_hash_table_remove(script_widgets,key);
+      found=NULL;
+   }
    g_free(key);
    return found;
 }
@@ -187,10 +191,12 @@ static void script_gui_add(const rr_script_gui_command_t *cmd) {
    script_widget_t *parent=widget_find(cmd->owner,cmd->parent);
    if(!parent||!parent->widget || widget_find(cmd->owner,cmd->id))return;
    GtkWidget *box=NULL;
-   if(GTK_IS_BOX(parent->widget))box=parent->widget;
+   /* Floating panel chrome is not a script-owned packing area, even if
+    * its outermost widget happens to implement GtkBox. */
+   if(parent->panel)box=rr_floating_panel_body(parent->panel);
    else if(GTK_IS_DIALOG(parent->widget))
       box=gtk_dialog_get_content_area(GTK_DIALOG(parent->widget));
-   else if(parent->panel)box=rr_floating_panel_body(parent->panel);
+   else if(GTK_IS_BOX(parent->widget))box=parent->widget;
    if(!GTK_IS_BOX(box))return;
    GtkWidget *w=NULL;
    if(!strcmp(cmd->kind,"row"))w=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,6);
