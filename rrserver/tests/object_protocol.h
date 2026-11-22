@@ -2,15 +2,13 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // See doc/LICENSE for the full GNU General Public License version 2 text.
 #include <librrprotocol/wire.h>
-// Live WebSocket harness using production serialization, server protocol,
-// backend instances, and rrclient's generic cache. Authentication is pre-set
-// for this loopback fixture; unauthenticated requests have separate coverage.
+// In-process native protocol harness using production wire serialization,
+// server object handlers, backend instances, and the client object cache.
+// Native TLS/WebSocket transport is covered by the dedicated live suites.
 #include <librrprotocol/objects.h>
 #include <librrprotocol/auth.h>
 #include <rrserver/objects.h>
 #include <rrclient/objects.h>
-static struct mg_mgr object_mgr;
-static struct mg_connection *object_client;
 static rrconn_t object_server_session, object_client_session;
 static rr_object_cache_t *object_cache;
 static unsigned object_results;
@@ -36,51 +34,36 @@ static void object_receive(const char *event, const char *data, rrconn_t *client
    dict_free(d);
 }
 
-static void object_socket(struct mg_connection *c, int ev, void *data) {
-   bool server = c->fn_data != NULL;
-
-   if (server && ev == MG_EV_HTTP_MSG) {
-      mg_ws_upgrade(c, data, NULL);
-      object_server_session.conn = c;
-   }
-
-   if (ev == MG_EV_WS_OPEN && !server) {
-      object_client = c;
-   }
-
-   if (ev == MG_EV_WS_MSG) {
-      struct mg_ws_message *wm = data;
-      char *json = strndup(wm->data.buf, wm->data.len);
-      dict *d = rr_wire_decode(json);
-      assert(d);
-
-      if (server) {
-         assert(rr_object_server_request(&object_server_session, d));
-      } else {
-         assert(rr_object_client_message(&object_client_session, d));
-      }
-      dict_free(d);
-      free(json);
-   }
-
-   if (server && ev == MG_EV_CLOSE && object_server_session.conn == c) {
-      event_emit(RR_OBJECT_CLOSE_EVENT, &object_server_session, "");
-   }
+/* Encode and decode on both sides, preserving the real protocol contract.
+ * The test's authenticated transport endpoints are deliberately in-memory. */
+bool ws_send_dict(rrconn_t *sender, rrconn_t *dest, dict *d, int opcode) {
+   (void)sender;
+   assert(dest == &object_server_session && opcode == WEBSOCKET_OP_TEXT);
+   char *wire = rr_wire_encode(d);
+   assert(wire);
+   dict *received = rr_wire_decode(wire);
+   free(wire);
+   assert(received);
+   bool ok = rr_object_client_message(&object_client_session, received);
+   dict_free(received);
+   return ok;
 }
 
 static void object_pump(void) {
-   for (int i = 0 ; i < 20 ; i++) {
+   for (int i = 0; i < 20; ++i) {
       rrserver_objects_poll();
       rr_backend_drain_all();
-      mg_mgr_poll(&object_mgr, 1);
    }
 }
 
 static void object_request(dict *d) {
-   char *json = rr_wire_encode(d);
-   assert(json && object_client);
-   mg_ws_send(object_client, json, strlen(json), WEBSOCKET_OP_TEXT);
-   free(json);
+   char *wire = rr_wire_encode(d);
+   assert(wire);
+   dict *received = rr_wire_decode(wire);
+   free(wire);
+   assert(received);
+   assert(rr_object_server_request(&object_server_session, received));
+   dict_free(received);
    dict_free(d);
    object_pump();
 }
@@ -128,13 +111,6 @@ static void object_net_init(void) {
    object_server_session.is_ws = true;
    object_server_session.user = &http_users[HTTP_MAX_USERS - 1];
    assert(!rr_rig_registry_foreach(rig.rigs, object_join_rig, NULL));
-   mg_mgr_init(&object_mgr);
-   mg_log_set(MG_LL_ERROR);
-   struct mg_connection *listener = mg_http_listen(&object_mgr, "http://127.0.0.1:0", object_socket, (void *)1);
-   assert(listener);
-   char url[128];
-   snprintf(url, sizeof(url), "ws://127.0.0.1:%u/ws/", mg_ntohs(listener->loc.port));
-   assert(mg_ws_connect(&object_mgr, url, object_socket, NULL, NULL));
    object_pump();
    dict *d = dict_new();
    dict_add(d, "msg.type", "object");
@@ -175,7 +151,7 @@ static void object_net_init(void) {
       }
    }
 
-   puts("PASS: live WebSocket snapshot discovered node, both rigs, and four VFOs in rrclient cache");
+   puts("PASS: wire-protocol snapshot discovered node, both rigs, and four VFOs in rrclient cache");
 }
 
 static rr_control_result_t object_fail(const rr_control_request_t *request, void *user) {
@@ -278,7 +254,6 @@ static void object_validate(rr_server_rig_t *r0, rr_server_rig_t *r1, bool onlin
 
 static void object_net_fini(void) {
    rrserver_objects_fini();
-   mg_mgr_free(&object_mgr);
    rr_object_cache_free(object_cache);
    object_cache = NULL;
 }
