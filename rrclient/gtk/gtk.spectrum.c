@@ -1023,8 +1023,10 @@ static void ear_changed(GtkRange *range, gpointer data) {
 /* Spectrum selectors should not cover the trace when idle. The menu and focused/hovered widget always remain fully opaque and usable. */
 static gboolean spectrum_popup_shown(GtkWidget *widget) {
    gboolean shown = FALSE;
-   g_object_get(widget, "popup-shown", &shown, NULL);
-
+   /* GtkRange and GtkEventBox do not have the GtkComboBox popup property.
+    * All spectrum overlay controls share the same fade handlers. */
+   if (g_object_class_find_property(G_OBJECT_GET_CLASS(widget), "popup-shown"))
+      g_object_get(widget, "popup-shown", &shown, NULL);
    return shown;
 }
 
@@ -1076,7 +1078,8 @@ static void spectrum_selector_fade(GtkWidget *widget) {
    g_signal_connect(widget, "leave-notify-event", G_CALLBACK(spectrum_selector_leave), NULL);
    g_signal_connect(widget, "focus-in-event", G_CALLBACK(spectrum_selector_focus), NULL);
    g_signal_connect(widget, "focus-out-event", G_CALLBACK(spectrum_selector_focus), NULL);
-   g_signal_connect(widget, "notify::popup-shown", G_CALLBACK(spectrum_selector_popup), NULL);
+   if (g_object_class_find_property(G_OBJECT_GET_CLASS(widget), "popup-shown"))
+      g_signal_connect(widget, "notify::popup-shown", G_CALLBACK(spectrum_selector_popup), NULL);
    g_signal_connect(widget, "notify::has-focus", G_CALLBACK(spectrum_selector_popup), NULL);
    gtk_widget_set_opacity(widget, 0.36);
 }
@@ -1085,23 +1088,24 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    spectrum_panel_t *p = g_new0(spectrum_panel_t, 1);
    p->server = g_strdup(server ? server : "");
    p->room = g_strdup(room ? room : "");
-   GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
-   g_object_set_data_full(G_OBJECT(box), "rr-spectrum", p, destroy_panel);
-   GtkWidget *toolbar = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
-   GtkWidget *settings_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
-   /* The controls may need more width than a narrow waterfall. Scroll the
-    * controls rather than forcing GTK to crop the frequency display. */
-   GtkWidget *controls_scroll = gtk_scrolled_window_new(NULL, NULL);
-   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(controls_scroll), GTK_POLICY_AUTOMATIC, GTK_POLICY_NEVER);
-   gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(controls_scroll), 1);
-   gtk_widget_set_hexpand(controls_scroll, TRUE);
-   gtk_container_add(GTK_CONTAINER(controls_scroll), settings_row);
-   gtk_box_pack_start(GTK_BOX(toolbar), controls_scroll, FALSE, FALSE, 0);
+   /* Like RF: the waterfall owns the entire panel. Controls overlay its
+    * surface and do not reserve a separate toolbar row. */
+   GtkWidget *overlay = gtk_overlay_new();
+   g_object_set_data_full(G_OBJECT(overlay), "rr-spectrum", p, destroy_panel);
    p->source_mode = 'M';
    p->zoom = 2;                 /* Default to the most useful lower 0..Nyquist/2 range. */
    p->max_hz = RR_AF_MAX_HZ;
    p->style = waterfall_pref("waterfall.af.style", 0, G_N_ELEMENTS(af_styles) - 1);
    p->palette_index = waterfall_pref("waterfall.af.palette", 0, G_N_ELEMENTS(palettes) - 1);
+
+   p->drawing = gtk_drawing_area_new();
+   gtk_widget_add_events(p->drawing, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_POINTER_MOTION_MASK);
+   gtk_widget_set_size_request(p->drawing, -1, 64);
+   gtk_widget_set_vexpand(p->drawing, TRUE);
+   gtk_widget_set_hexpand(p->drawing, TRUE);
+   gtk_widget_set_vexpand(overlay, TRUE);
+   gtk_container_add(GTK_CONTAINER(overlay), p->drawing);
+
    p->source = gtk_combo_box_text_new();
    spectrum_selector_fade(p->source);
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(p->source), "stereo", "Stereo L/R");
@@ -1110,32 +1114,52 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(p->source), "right", "Right (heard)");
    gtk_combo_box_set_active_id(GTK_COMBO_BOX(p->source), "mixed");
    gtk_widget_set_tooltip_text(p->source, "Select final speaker channels or an individual graph stream (before routing)");
-   gtk_box_pack_start(GTK_BOX(settings_row), p->source, FALSE, FALSE, 0);
-   /* Per-window style/palette are selected by right-click, not global combo boxes; show only stream picker and compact ear/gain controls. */
+   gtk_widget_set_halign(p->source, GTK_ALIGN_START);
+   gtk_widget_set_valign(p->source, GTK_ALIGN_START);
+   gtk_overlay_add_overlay(GTK_OVERLAY(overlay), p->source);
+
+   /* Keep the two compact controls at the right edge in separate rows.
+    * At narrow widths they remain accessible instead of forcing the
+    * floating AF panel wider than the waterfall. */
+   GtkWidget *gain_row = gtk_event_box_new();
+   gtk_event_box_set_visible_window(GTK_EVENT_BOX(gain_row), FALSE);
+   GtkWidget *gain_contents = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 3);
+   gtk_container_add(GTK_CONTAINER(gain_row), gain_contents);
    GtkWidget *gain_label = gtk_label_new("Gain");
-   gtk_box_pack_start(GTK_BOX(settings_row), gain_label, FALSE, FALSE, 4);
+   gtk_box_pack_start(GTK_BOX(gain_contents), gain_label, FALSE, FALSE, 0);
    p->gain = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, -40.0, 60.0, 1.0);
-   gtk_widget_set_size_request(p->gain, 105, -1);
+   gtk_widget_set_size_request(p->gain, 94, -1);
    gtk_range_set_value(GTK_RANGE(p->gain), 0.0);
    p->display_gain_db = 0.0;
-   gtk_scale_set_draw_value(GTK_SCALE(p->gain), TRUE);
-   gtk_widget_set_tooltip_text(p->gain, "Display gain in dB; does not change received audio or RF gain");
-   gtk_box_pack_start(GTK_BOX(settings_row), p->gain, FALSE, FALSE, 0);
+   gtk_scale_set_draw_value(GTK_SCALE(p->gain), FALSE);
+   gtk_widget_set_tooltip_text(gain_row, "AF display gain in dB; does not change received audio or RF gain");
+   gtk_box_pack_start(GTK_BOX(gain_contents), p->gain, FALSE, FALSE, 0);
+   gtk_widget_set_halign(gain_row, GTK_ALIGN_END);
+   gtk_widget_set_valign(gain_row, GTK_ALIGN_START);
+   gtk_widget_set_margin_top(gain_row, 27);
+   gtk_widget_set_margin_end(gain_row, 3);
+   spectrum_selector_fade(gain_row);
+   gtk_overlay_add_overlay(GTK_OVERLAY(overlay), gain_row);
+
+   GtkWidget *ear_row = gtk_event_box_new();
+   gtk_event_box_set_visible_window(GTK_EVENT_BOX(ear_row), FALSE);
+   GtkWidget *ear_contents = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 3);
+   gtk_container_add(GTK_CONTAINER(ear_row), ear_contents);
    GtkWidget *ear_label = gtk_label_new("Ear");
-   gtk_box_pack_start(GTK_BOX(settings_row), ear_label, FALSE, FALSE, 3);
+   gtk_box_pack_start(GTK_BOX(ear_contents), ear_label, FALSE, FALSE, 0);
    p->ear = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 2, 1);
    gtk_range_set_value(GTK_RANGE(p->ear), 1);
    gtk_scale_set_draw_value(GTK_SCALE(p->ear), FALSE);
-   gtk_widget_set_size_request(p->ear, 90, -1);
-   gtk_widget_set_tooltip_text(p->ear, "Ear: Left / Mix / Right");
-   gtk_box_pack_start(GTK_BOX(settings_row), p->ear, FALSE, FALSE, 0);
-   gtk_box_pack_start(GTK_BOX(box), toolbar, FALSE, FALSE, 0);
-   p->drawing = gtk_drawing_area_new();
-   gtk_widget_add_events(p->drawing, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_POINTER_MOTION_MASK);
-   /* Allow the panel height to shrink; 210px here was a hard GTK minimum. */
-   gtk_widget_set_size_request(p->drawing, -1, 64);
-   gtk_widget_set_vexpand(p->drawing, TRUE);
-   gtk_box_pack_start(GTK_BOX(box), p->drawing, TRUE, TRUE, 0);
+   gtk_widget_set_size_request(p->ear, 94, -1);
+   gtk_widget_set_tooltip_text(ear_row, "Ear: Left / Mix / Right");
+   gtk_box_pack_start(GTK_BOX(ear_contents), p->ear, FALSE, FALSE, 0);
+   gtk_widget_set_halign(ear_row, GTK_ALIGN_END);
+   gtk_widget_set_valign(ear_row, GTK_ALIGN_START);
+   gtk_widget_set_margin_top(ear_row, 53);
+   gtk_widget_set_margin_end(ear_row, 3);
+   spectrum_selector_fade(ear_row);
+   gtk_overlay_add_overlay(GTK_OVERLAY(overlay), ear_row);
+
    g_signal_connect(p->drawing, "draw", G_CALLBACK(draw_spectrum), p);
    g_signal_connect(p->drawing, "button-press-event", G_CALLBACK(af_click), p);
    g_signal_connect(p->drawing, "motion-notify-event", G_CALLBACK(af_motion), p);
@@ -1147,7 +1171,7 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    p->streams_token = event_on_message_domain_token(RRCLIENT_AUDIO_SNAPSHOT_RESULT, source_snapshot, p, "gtk");
    p->timer = g_timeout_add(250, update, p);
 
-   return box;
+   return overlay;
 }
 
 /* RF rows arrive on the GTK event domain with an explicit local VFO identity. */
