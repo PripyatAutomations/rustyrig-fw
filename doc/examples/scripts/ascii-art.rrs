@@ -128,3 +128,9 @@ event ui.response {
         }
     }
 }
+
+event ui.close {
+    if (event.id == "artwork") {
+        art.stop()
+    }
+}
