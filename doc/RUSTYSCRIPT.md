@@ -347,6 +347,9 @@ produce both if the callsign is also on the watchlist.
 | `event.callsign` | Matched callsign, retaining the configured case |
 | `event.kind` | `"own"` or `"watchlist"` |
 | `event.text` | Decoded text, without FT8 JSON envelope |
+| `event.raw` | Original worker decode record (including JSON when supplied) |
+| `event.time_ms` | Client timestamp in Unix epoch milliseconds |
+| `event.own` | Boolean, true for the operator callsign match |
 | `event.engine` | Decoder engine (`ft8`, `olivia`, `psk`) |
 | `event.mode` | Normalized mode used for watchlist matching (e.g. `FT8`) |
 | `event.band` | RF amateur band name, or empty if unavailable |
