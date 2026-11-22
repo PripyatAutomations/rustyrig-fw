@@ -23,6 +23,7 @@ struct script_file {
    rrs_vm_t *vm;
    char *filename;
    char *name;
+   bool client;
    GRecMutex mutex; /* Nested synchronous event emissions must not deadlock. */
    event_subscription_t *subscriptions;
 };
@@ -158,7 +159,7 @@ static bool install_event(script_file_t *script,const rrscript_binding_t *b) {
    event_subscription_t *sub=g_new0(event_subscription_t,1);
    sub->owner=script;sub->name=g_strndup(b->name,b->name_length);
    if(!sub->name){g_free(sub);return false;}
-   sub->token=event_on_token(sub->name,event_received,sub);
+   sub->token=script->client ? event_on_domain_token(sub->name,event_received,sub,"core") : event_on_token(sub->name,event_received,sub);
    if(!sub->token){g_free(sub->name);g_free(sub);return false;}
    sub->next=script->subscriptions;
    script->subscriptions=sub;
@@ -234,7 +235,7 @@ static bool activate_script(rrscript_host_t *host,const char *name,bool replacin
       g_free(source);g_free(path);g_free(relative);return false;
    }
    script_file_t *script=g_new0(script_file_t,1);
-   script->filename=path;script->name=relative;
+   script->filename=path;script->name=relative;script->client=host->client;
    g_rec_mutex_init(&script->mutex);
    script->vm=rrs_vm_new();
    if(!script->vm||!rrs_vm_load(script->vm,source)) {
