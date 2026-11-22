@@ -2252,6 +2252,7 @@ static gboolean panel_resize_press(GtkWidget *widget, GdkEventButton *event, gpo
    if (!p->resize_edges)
       return FALSE;
    p->resizing = TRUE;
+   p->snapped_x = p->snapped_y = FALSE;
    p->resize_x = event->x_root;
    p->resize_y = event->y_root;
    p->resize_width = gtk_widget_get_allocated_width(p->frame);
@@ -2262,6 +2263,63 @@ static gboolean panel_resize_press(GtkWidget *widget, GdkEventButton *event, gpo
    return TRUE;
 }
 
+/* Magnetic guides for a dragged resize edge. Only align to another panel
+ * when their projections overlap; never snap to unrelated distant widgets.
+ * The viewport is the boundary, not the potentially oversized GtkFixed. */
+static gint panel_resize_snap(RRFloatPanel *p, GtkWidget *area, gint raw,
+   gint other_start, gint other_size, gboolean horizontal, gint boundary) {
+   gboolean *engaged = horizontal ? &p->snapped_x : &p->snapped_y;
+   gint *anchor = horizontal ? &p->snap_x : &p->snap_y;
+   if (p->snap_disabled) {
+      *engaged = FALSE;
+      return raw;
+   }
+   if (*engaged && abs(raw - *anchor) <= SNAP_RELEASE)
+      return *anchor;
+   *engaged = FALSE;
+   gint closest = SNAP_DISTANCE + 1, target = raw;
+   gint guides[] = {0, boundary};
+   for (guint i = 0; i < G_N_ELEMENTS(guides); i++) {
+      gint delta = abs(raw - guides[i]);
+      if (delta < closest) {
+         closest = delta;
+         target = guides[i];
+      }
+   }
+   for (GList *it = floating_panels; it; it = it->next) {
+      RRFloatPanel *q = it->data;
+      if (q == p || !q->frame || gtk_widget_get_parent(q->frame) != area ||
+          !gtk_widget_get_visible(q->frame) || q->minimized)
+         continue;
+      gint cross = horizontal
+         ? (q->dock_edge >= 0 ? q->dock_y : gtk_widget_get_margin_top(q->frame))
+         : (q->dock_edge >= 0 ? q->dock_x : gtk_widget_get_margin_start(q->frame));
+      gint cross_size = horizontal ? gtk_widget_get_allocated_height(q->frame)
+                                   : gtk_widget_get_allocated_width(q->frame);
+      if (other_start >= cross + cross_size || cross >= other_start + other_size)
+         continue;
+      gint edge = horizontal
+         ? (q->dock_edge >= 0 ? q->dock_x : gtk_widget_get_margin_start(q->frame))
+         : (q->dock_edge >= 0 ? q->dock_y : gtk_widget_get_margin_top(q->frame));
+      gint size = horizontal ? gtk_widget_get_allocated_width(q->frame)
+                             : gtk_widget_get_allocated_height(q->frame);
+      gint candidates[] = {edge, edge + size};
+      for (guint i = 0; i < G_N_ELEMENTS(candidates); i++) {
+         gint delta = abs(raw - candidates[i]);
+         if (delta < closest) {
+            closest = delta;
+            target = candidates[i];
+         }
+      }
+   }
+   if (closest <= SNAP_DISTANCE) {
+      *anchor = target;
+      *engaged = TRUE;
+      return target;
+   }
+   return raw;
+}
+
 static gboolean panel_resize_to(RRFloatPanel *p, double x_root, double y_root) {
    if (!p || !p->resizing || !p->frame)
       return FALSE;
@@ -2270,11 +2328,21 @@ static gboolean panel_resize_to(RRFloatPanel *p, double x_root, double y_root) {
       return FALSE;
    gint area_w = gtk_widget_get_allocated_width(area);
    gint area_h = gtk_widget_get_allocated_height(area);
+   if (p->dock_edge >= 0 && active_chat_docks) {
+      area_w = gtk_widget_get_allocated_width(active_chat_docks->scroll[p->dock_edge]);
+      area_h = gtk_widget_get_allocated_height(active_chat_docks->scroll[p->dock_edge]);
+   } else {
+      area_w -= GPOINTER_TO_INT(g_object_get_data(G_OBJECT(p->overlay), "rr-panel-right-inset"));
+   }
+   area_w = MAX(1, area_w);
+   area_h = MAX(1, area_h);
    gint min_w = p->dock_edge >= 0 ? 90 : panel_minimum_width(p);
    gint min_h = p->dock_edge >= 0 ? 48 : 90;
    gint x = p->resize_start_x, y = p->resize_start_y;
    gint w = p->resize_width, h = p->resize_height;
    gint dx = (gint)(x_root - p->resize_x), dy = (gint)(y_root - p->resize_y);
+   /* Shift bypasses magnetic alignment without affecting the size limits. */
+   p->snap_disabled = FALSE;
    if (p->resize_edges & PANEL_RESIZE_LEFT) {
       w = CLAMP(p->resize_width - dx, min_w,
                 MAX(min_w, p->resize_width + p->resize_start_x));
@@ -2290,6 +2358,28 @@ static gboolean panel_resize_to(RRFloatPanel *p, double x_root, double y_root) {
    } else if (p->resize_edges & PANEL_RESIZE_BOTTOM) {
       h = CLAMP(p->resize_height + dy, min_h,
                 MAX(min_h, area_h - p->resize_start_y - 8));
+   }
+   if (p->resize_edges & (PANEL_RESIZE_LEFT | PANEL_RESIZE_RIGHT)) {
+      gint edge = panel_resize_snap(p, area,
+         (p->resize_edges & PANEL_RESIZE_LEFT) ? x : x + w,
+         y, h, TRUE, area_w);
+      if (p->resize_edges & PANEL_RESIZE_LEFT) {
+         gint right = x + w;
+         x = CLAMP(edge, 0, right - min_w);
+         w = right - x;
+      } else
+         w = CLAMP(edge - x, min_w, MAX(min_w, area_w - x));
+   }
+   if (p->resize_edges & (PANEL_RESIZE_TOP | PANEL_RESIZE_BOTTOM)) {
+      gint edge = panel_resize_snap(p, area,
+         (p->resize_edges & PANEL_RESIZE_TOP) ? y : y + h,
+         x, w, FALSE, area_h);
+      if (p->resize_edges & PANEL_RESIZE_TOP) {
+         gint bottom = y + h;
+         y = CLAMP(edge, 0, bottom - min_h);
+         h = bottom - y;
+      } else
+         h = CLAMP(edge - y, min_h, MAX(min_h, area_h - y));
    }
    gtk_widget_set_size_request(p->frame, w, h);
    if (p->dock_edge >= 0 && GTK_IS_FIXED(area)) {
