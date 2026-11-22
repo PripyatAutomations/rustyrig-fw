@@ -11,7 +11,7 @@
 #include <rrclient/sercom.h>
 #include <rrclient/serial.h>
 #include <rrclient/local.modem.h>
-#include <rrclient/watch.callsign.h>
+#include <rrclient/watch.h>
 #include <rrclient/database.h>
 #include "gtk.serial.h"
 #include "gtk.decoders.h"
