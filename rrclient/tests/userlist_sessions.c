@@ -95,7 +95,7 @@ int main(void) {
    assert(redraws == 1);
    /* Existing members absent from the 353 snapshot disappear only after
     * 366, without touching the pending roster of another room. */
-   assert(userlist_find_in_room("user0001","#site")==NULL);
+   assert(userlist_find_in_room("user0001","#site")!=NULL);
    assert(userlist_names_pending("#second"));
    userlist_names_end("#site");
    assert(redraws == 1);
@@ -115,6 +115,7 @@ int main(void) {
    assert(userlist_find_in_room("outsider","#second"));
    userlist_names_end("#site");
    assert(userlist_find_in_room("alice","#site"));
+   assert(userlist_find_in_room("user0001","#site")==NULL);
    assert(userlist_find_in_room("outsider","#second"));
    userlist_names_end("#second");
    userlist_clear_all();
