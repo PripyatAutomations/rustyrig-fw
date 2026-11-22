@@ -109,10 +109,10 @@ static void test_late_roster_autosize(void) {
    GtkAdjustment *horizontal = gtk_scrolled_window_get_hadjustment(GTK_SCROLLED_WINDOW(scroll));
    assert(gtk_adjustment_get_upper(horizontal) <= gtk_adjustment_get_page_size(horizontal) + 1);
 
-   /* The legacy Privs column is intentionally hidden: its glyph is now
-    * drawn inline inside Username. Check the actual visible VFO headers. */
-   assert(!gtk_tree_view_column_get_visible(userlist_column(view, COL_PRIV_ICON)));
-   const int visible_columns[] = { COL_USERNAME, COL_TALK_ICON, COL_MUTE_ICON, COL_ELMERNOOB_ICON };
+   /* Both roster types now show just Flags and Username; radio, mute and
+    * role glyphs occupy the compact Flags cell. */
+   assert(gtk_tree_view_get_n_columns(GTK_TREE_VIEW(view)) == 2);
+   const int visible_columns[] = { COL_PRIV_ICON, COL_USERNAME };
    for (guint i = 0; i < G_N_ELEMENTS(visible_columns); ++i) {
       GtkTreeViewColumn *column = userlist_column(view, visible_columns[i]);
       assert(column && gtk_tree_view_column_get_visible(column));
