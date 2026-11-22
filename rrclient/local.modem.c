@@ -14,6 +14,8 @@
 #include <rrclient/objects.h>
 #include <rrclient/local.bridge.h>
 #include <rrclient/local.modem.h>
+#include <rrclient/database.h>
+#include <librustyaxe/json.h>
 #include <rrclient/ui.h>
 #include <rrclient/frontend.h>
 #include <rrclient/rrclient.h>
@@ -182,6 +184,96 @@ static uint64_t decoder_source_frequency(const char *source) {
    return 0;
 }
 
+/* Whole-token matching, independent of GTK and active Terminal tabs. */
+static gboolean call_token(const char *text,const char *call) {
+   if(!text||!call||!*call)return FALSE;
+   size_t n=strlen(call);
+   for(const char *p=text;*p;p++) {
+      if(g_ascii_strncasecmp(p,call,n))continue;
+      if(p!=text&&(g_ascii_isalnum(p[-1])||p[-1]=='/'))continue;
+      if(g_ascii_isalnum(p[n])||p[n]=='/')continue;
+      return TRUE;
+   }
+   return FALSE;
+}
+static const char *decode_band(uint64_t hz) {
+   static const struct {uint64_t lo,hi;const char *name;} ranges[]={
+      {135700,137800,"2200m"},{472000,479000,"630m"},
+      {1800000,2000000,"160m"},{3500000,4000000,"80m"},
+      {5330000,5410000,"60m"},{7000000,7300000,"40m"},
+      {10100000,10150000,"30m"},{14000000,14350000,"20m"},
+      {18068000,18168000,"17m"},{21000000,21450000,"15m"},
+      {24890000,24990000,"12m"},{28000000,29700000,"10m"},
+      {50000000,54000000,"6m"},{144000000,148000000,"2m"},
+      {222000000,225000000,"1.25m"},{420000000,450000000,"70cm"},
+      {902000000,928000000,"33cm"},{1240000000,1300000000,"23cm"}
+   };
+   for(guint i=0;i<G_N_ELEMENTS(ranges);i++)
+      if(hz>=ranges[i].lo&&hz<=ranges[i].hi)return ranges[i].name;
+   return NULL;
+}
+static const char *decode_mode(const rr_local_modem_decode_t *d) {
+   if(!g_ascii_strcasecmp(d->engine,"ft8"))return "FT8";
+   if(!g_ascii_strcasecmp(d->engine,"olivia"))return "Olivia";
+   if(!g_ascii_strcasecmp(d->engine,"psk"))return d->mode[0]?d->mode:"PSK";
+   return d->mode[0]?d->mode:d->engine;
+}
+static char *decode_plain(const rr_local_modem_decode_t *d) {
+   if(d->line[0]!='{')return g_strdup(d->line);
+   dict *json=json2dict(d->line);
+   if(!json)return NULL;
+   const char *type=dict_get(json,"type","");
+   const char *text=dict_get(json,"text",NULL);
+   char *plain=NULL;
+   if(text&&*text&&(!g_ascii_strcasecmp(d->engine,"ft8")?
+      !strcmp(type,"ft8.decode"):TRUE))plain=g_strdup(text);
+   dict_free(json);
+   return plain;
+}
+static void callsign_notify(const rr_local_modem_decode_t *d,const char *body,
+                            const char *call,const char *kind,int watch_id) {
+   dict *fields=dict_new();
+   if(!fields)return;
+   dict_add(fields,"callsign",call);
+   dict_add(fields,"kind",kind);
+   dict_add(fields,"text",body);
+   dict_add(fields,"engine",d->engine);
+   dict_add(fields,"mode",decode_mode(d));
+   dict_add(fields,"source",d->source);
+   const char *band=decode_band(d->frequency_hz);
+   dict_add(fields,"band",band?band:"");
+   dict_add_int(fields,"slot",(int)d->slot);
+   dict_add_long(fields,"frequency_hz",(long)d->frequency_hz);
+   dict_add_int(fields,"watch_id",watch_id);
+   char *json=dict2json(fields);
+   if(json)event_emit("modem.callsign",json,NULL);
+   free(json);
+   dict_free(fields);
+}
+typedef struct {const rr_local_modem_decode_t *decode;const char *text;} watch_context_t;
+static void callsign_watch_rule(const rrclient_watched_call_t *rule,void *data) {
+   watch_context_t *ctx=data;
+   if(!rule->callsign||!call_token(ctx->text,rule->callsign))return;
+   const char *mode=decode_mode(ctx->decode),*band=decode_band(ctx->decode->frequency_hz);
+   gboolean mode_ok=!g_ascii_strcasecmp(rule->mode,"Any")||
+      !g_ascii_strcasecmp(rule->mode,mode)||
+      (!g_ascii_strcasecmp(rule->mode,"PSK31")&&
+       (!g_ascii_strcasecmp(mode,"BPSK31")||!g_ascii_strcasecmp(mode,"QPSK31")));
+   gboolean band_ok=!g_ascii_strcasecmp(rule->band,"Any")||
+      (band&&!g_ascii_strcasecmp(rule->band,band));
+   if(mode_ok&&band_ok)callsign_notify(ctx->decode,ctx->text,rule->callsign,"watchlist",rule->id);
+}
+static void notify_decode_callsigns(const rr_local_modem_decode_t *d) {
+   char *plain=decode_plain(d);
+   if(!plain||!*plain){g_free(plain);return;}
+   watch_context_t ctx={d,plain};
+   rrclient_database_watched_calls_foreach(callsign_watch_rule,&ctx);
+   char *own=rrclient_database_setting_get("modem.my_callsign");
+   if(own&&call_token(plain,own))callsign_notify(d,plain,own,"own",0);
+   g_free(own);
+   g_free(plain);
+}
+
 /* Preserve each complete worker line as a discrete event. The JSON line is carried verbatim so the presentation layer can interpret mode-specific data. */
 static void decode_bytes(decoder_t *d, unsigned slot, const char *bytes, size_t n) {
    for (size_t j = 0 ; j < n ; j++) {
@@ -206,6 +298,7 @@ static void decode_bytes(decoder_t *d, unsigned slot, const char *bytes, size_t 
                .name = RR_LOCAL_MODEM_DECODE, .payload = &item, .length = sizeof(item)
             };
             event_emit_message(&msg);
+            notify_decode_callsigns(&item);
             d->line_len = 0;
          }
       } else if (ch >= 32 || ch == '\t') {
