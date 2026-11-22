@@ -30,12 +30,16 @@ struct script_file {
    GRecMutex mutex; /* Nested synchronous event emissions must not deadlock. */
    event_subscription_t *subscriptions;
    GHashTable *vars, *timers;
+   char *state_namespace;
+   struct rrscript_host *host;
 };
 struct rrscript_host {
    GPtrArray *scripts;
    bool client;
    char *root;
    rrscript_host_register_fn register_host;
+   GHashTable *namespaces; /* named shared state tables; live for host lifetime */
+   script_file_t *console;
 };
 /* Script identities are generation-scoped, opaque and independent of memory
  * addresses. No native frontend receives a VM or a GTK pointer. */
@@ -523,6 +527,7 @@ static void release_script(gpointer data) {
       g_clear_pointer(&script->timers,g_hash_table_destroy);
    }
    g_clear_pointer(&script->vars,g_hash_table_destroy);
+   g_free(script->state_namespace);
    event_subscription_t *sub=script->subscriptions;
    while(sub) {
       event_subscription_t *next=sub->next;
@@ -629,6 +634,7 @@ static bool activate_script(rrscript_host_t *host,const char *name,bool replacin
    }
    script_file_t *script=g_new0(script_file_t,1);
    script->filename=path;script->name=relative;script->client=host->client;
+   script->host=host;
    g_rec_mutex_init(&script->mutex);
    script->vm=rrs_vm_new();
    if(!script->vm||!rrs_vm_load(script->vm,source)) {
@@ -826,7 +832,9 @@ rrscript_host_t *rrscript_host_open(const char *directory,bool client,
 }
 void rrscript_host_close(rrscript_host_t *host) {
    if(!host)return;
+   if(host->console)release_script(host->console);
    g_ptr_array_unref(host->scripts);
+   g_clear_pointer(&host->namespaces,g_hash_table_destroy);
    g_free(host->root);
    g_free(host);
 }
