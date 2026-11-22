@@ -406,9 +406,9 @@ static void script_gui_command(const rr_event_message_t *message,void *unused) {
       gtk_widget_show(dialog);
       return;
    }
-   if(cmd.action==RR_GUI_PANEL || cmd.action==RR_GUI_DIALOG) {
+   if(cmd.action==RR_GUI_PANEL || cmd.action==RR_GUI_DIALOG || cmd.action==RR_GUI_UTILITY) {
       if(entry || !main_window || !main_notebook)return;
-      if(cmd.action==RR_GUI_PANEL) {
+      if(cmd.action==RR_GUI_PANEL || cmd.action==RR_GUI_UTILITY) {
          GtkWidget *overlay=gtk_bin_get_child(GTK_BIN(main_window));
          if(!GTK_IS_OVERLAY(overlay))return;
          char *unique=widget_key(cmd.owner,cmd.id);
@@ -418,6 +418,7 @@ static void script_gui_command(const rr_event_message_t *message,void *unused) {
          if(!panel)return;
          GtkWidget *widget=rr_floating_panel_widget(panel);
          widget_track(cmd.owner,cmd.id,"panel",widget,panel);
+         if(cmd.action==RR_GUI_UTILITY)rr_floating_panel_set_floating_only(panel);
          rr_floating_panel_set_resizable(panel,TRUE);
          rr_floating_panel_show(panel);
       } else {
@@ -436,6 +437,10 @@ static void script_gui_command(const rr_event_message_t *message,void *unused) {
       GtkWidget *w=entry->widget;
       if(!strcmp(entry->kind,"filelist"))rr_local_browser_refresh(w);
       else if(!strcmp(entry->kind,"irc-preview"))script_preview_file(w,cmd.value);
+      else if(!strcmp(entry->kind,"roomlist") && !strcmp(cmd.value,"refresh")) {
+         gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(w));
+         script_roomlist_fill(GTK_COMBO_BOX_TEXT(w));
+      }
       else if(GTK_IS_PROGRESS_BAR(w))
          gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(w),
             CLAMP(g_ascii_strtod(cmd.value,NULL)/100.0,0.,1.));
