@@ -1209,13 +1209,20 @@ static gboolean audio_lv2_property_target(const char *worker, const char *elemen
    }
    return TRUE;
 }
+/* A virtual stage shares the health of its actual subprocess owner. */
+static gboolean audio_lv2_stage_failed(const rr_lv2_effect_t *fx) {
+   if (g_atomic_int_get(&fx->failed)) return TRUE;
+   if (!fx->chain_host || fx->chain_host > RR_AUDIO_EFFECT_MAX) return FALSE;
+   const rr_lv2_effect_t *host = &lv2_effects[fx->chain_host - 1];
+   return host != fx && (!g_atomic_int_get(&host->active) || g_atomic_int_get(&host->failed));
+}
 /* Resolve real, active effect outputs rather than treating a processor node ID
  * as an arbitrary decoded stream. */
 static gint audio_lv2_output_owner(const char *id) {
    if (!id || !*id) return -1;
    for (guint i = 0 ; i < RR_AUDIO_EFFECT_MAX ; i++) {
       rr_lv2_effect_t *fx = &lv2_effects[i];
-      if (!g_atomic_int_get(&fx->active) || g_atomic_int_get(&fx->failed)) continue;
+      if (!g_atomic_int_get(&fx->active) || audio_lv2_stage_failed(fx)) continue;
       for (guint ch = 0 ; ch < fx->channels ; ch++) {
          if (fx->output_stream[ch][0] && !strcmp(id, fx->output_stream[ch])) return (gint)i;
       }
@@ -1820,7 +1827,7 @@ static void audio_lv2_reconcile_chains(void) {
    gboolean used[RR_AUDIO_EFFECT_MAX] = {FALSE};
    for (guint i = 0 ; i < RR_AUDIO_EFFECT_MAX ; i++) {
       rr_lv2_effect_t *fx = &lv2_effects[i];
-      cfg[i].present = g_atomic_int_get(&fx->active) && !g_atomic_int_get(&fx->failed);
+      cfg[i].present = g_atomic_int_get(&fx->active) && !audio_lv2_stage_failed(fx);
       cfg[i].channels = fx->channels;
       g_strlcpy(cfg[i].factory, fx->factory, sizeof(cfg[i].factory));
       memcpy(cfg[i].source, fx->source, sizeof(cfg[i].source));
@@ -2045,7 +2052,7 @@ static void audio_lv2_restore(void) {
       rr_lv2_effect_t *fx = &lv2_effects[slot - 1];
 
       if (g_atomic_int_get(&fx->active)) {
-         if ((!fx->source[0][0] || audio_lv2_source_present(fx->source[0])) && !g_atomic_int_get(&fx->failed)) {
+         if ((!fx->source[0][0] || audio_lv2_source_present(fx->source[0])) && !audio_lv2_stage_failed(fx)) {
             continue;
          }
          /* Stream UUIDs can survive a reconnect even when the decoder's temporary client-rx-N identity has changed. */
@@ -2632,7 +2639,7 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
       if (!rr_audio_graph_add_node(graph, fx->name, RR_AG_PROCESSOR)) {
          continue;
       }
-      rr_audio_graph_set_health(graph, fx->name, g_atomic_int_get(&fx->failed) ? RR_AG_FAILED : RR_AG_HEALTHY);
+      rr_audio_graph_set_health(graph, fx->name, audio_lv2_stage_failed(fx) ? RR_AG_FAILED : RR_AG_HEALTHY);
 
       if (g_atomic_int_get(&fx->failed)) {
          continue;
