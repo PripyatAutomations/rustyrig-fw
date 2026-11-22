@@ -316,6 +316,7 @@ void gtk_scripts_open(void) {
    script_panel = rr_floating_panel_new(GTK_OVERLAY(root), GTK_NOTEBOOK(main_notebook),
                                        "scripts-manager", "Scripts");
    if (!script_panel) { g_clear_pointer(&script_root, g_free); return; }
+   rr_floating_panel_set_floating_only(script_panel);
    rr_floating_panel_set_resizable(script_panel, TRUE);
    rr_floating_panel_set_close_callback(script_panel, script_close, NULL);
    static const rr_local_browser_action_t actions[] = {
