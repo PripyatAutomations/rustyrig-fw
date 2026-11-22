@@ -2,6 +2,10 @@ Immediate needs
 ---------------
 rrclient: Ctrl-0 should reset zoom to 100%
 
+rrclient: make RF spectrum resizable
+
+rrclient: Fix snapping and other placement issues in sub-panels
+
 rrclient: Finish remote controls (brightness etc)
   - protocol
   - ability to add in Add Control
