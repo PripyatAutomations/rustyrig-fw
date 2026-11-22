@@ -12,6 +12,8 @@
 #include <rrclient/gtk/gtk.core.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <math.h>
 
 extern GtkWidget *main_window, *main_notebook;
 typedef struct {
@@ -91,6 +93,15 @@ static const char *widget_value(script_widget_t *entry,char *buffer,size_t size)
       char *selected=gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(w));
       g_strlcpy(buffer,selected?selected:"",size);
       g_free(selected);
+      return buffer;
+   }
+   if(GTK_IS_SWITCH(w))return gtk_switch_get_active(GTK_SWITCH(w))?"true":"false";
+   if(GTK_IS_COLOR_BUTTON(w)) {
+      GdkRGBA rgba;
+      gtk_color_chooser_get_rgba(GTK_COLOR_CHOOSER(w),&rgba);
+      g_snprintf(buffer,size,"#%02x%02x%02x",
+         (unsigned)(rgba.red*255+0.5),(unsigned)(rgba.green*255+0.5),
+         (unsigned)(rgba.blue*255+0.5));
       return buffer;
    }
    if(GTK_IS_TOGGLE_BUTTON(w))return gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(w))?"true":"false";
@@ -278,6 +289,24 @@ static void script_roomlist_fill(GtkComboBoxText *combo) {
    gtk_combo_box_set_active(GTK_COMBO_BOX(combo),0);
 }
 
+static void script_switch_changed(GObject *object,GParamSpec *property,gpointer user) {
+   (void)property;
+   widget_changed(GTK_WIDGET(object),user);
+}
+static void script_color_changed(GtkColorButton *button,gpointer user) {
+   widget_changed(GTK_WIDGET(button),user);
+}
+/* Accept either the historical single initial value or min:max:step:value. */
+static void script_control_range(const char *spec,double *minimum,double *maximum,
+   double *step,double *value) {
+   *minimum=0;*maximum=100;*step=1;*value=g_ascii_strtod(spec,NULL);
+   double lo,hi,inc,initial;
+   if(sscanf(spec,"%lf:%lf:%lf:%lf",&lo,&hi,&inc,&initial)==4 &&
+      isfinite(lo)&&isfinite(hi)&&isfinite(inc)&&isfinite(initial)&&
+      hi>lo && inc>0 && hi-lo<=1000000) {
+      *minimum=lo;*maximum=hi;*step=inc;*value=CLAMP(initial,lo,hi);
+   }
+}
 static void script_gui_add(const rr_script_gui_command_t *cmd) {
    script_widget_t *parent=widget_find(cmd->owner,cmd->parent);
    if(!parent||!parent->widget || widget_find(cmd->owner,cmd->id))return;
@@ -294,6 +323,28 @@ static void script_gui_add(const rr_script_gui_command_t *cmd) {
    if(!strcmp(cmd->kind,"row"))w=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,6);
    else if(!strcmp(cmd->kind,"column"))w=gtk_box_new(GTK_ORIENTATION_VERTICAL,6);
    else if(!strcmp(cmd->kind,"label"))w=gtk_label_new(cmd->text);
+   else if(!strcmp(cmd->kind,"frame")) {
+      w=gtk_box_new(GTK_ORIENTATION_VERTICAL,4);
+      packing=gtk_frame_new(cmd->text);
+      gtk_container_add(GTK_CONTAINER(packing),w);
+   } else if(!strcmp(cmd->kind,"readonly")) {
+      w=gtk_text_view_new();
+      gtk_text_view_set_editable(GTK_TEXT_VIEW(w),FALSE);
+      gtk_text_view_set_cursor_visible(GTK_TEXT_VIEW(w),FALSE);
+      gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(w),GTK_WRAP_WORD_CHAR);
+      gtk_text_buffer_set_text(gtk_text_view_get_buffer(GTK_TEXT_VIEW(w)),cmd->value,-1);
+      packing=gtk_scrolled_window_new(NULL,NULL);
+      gtk_widget_set_size_request(packing,320,105);
+      gtk_container_add(GTK_CONTAINER(packing),w);
+   } else if(!strcmp(cmd->kind,"color")) {
+      w=gtk_color_button_new();
+      GdkRGBA color;
+      if(gdk_rgba_parse(&color,cmd->value))
+         gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(w),&color);
+   } else if(!strcmp(cmd->kind,"switch")) {
+      w=gtk_switch_new();
+      gtk_switch_set_active(GTK_SWITCH(w),!strcmp(cmd->value,"true") || !strcmp(cmd->value,"1"));
+   }
    else if(!strcmp(cmd->kind,"progress"))w=gtk_progress_bar_new();
    else if(!strcmp(cmd->kind,"multiline")) {
       w=gtk_text_view_new();
@@ -328,20 +379,25 @@ static void script_gui_add(const rr_script_gui_command_t *cmd) {
       g_object_set_data(G_OBJECT(w),"rr-preview-label",label);
    }
    else if(!strcmp(cmd->kind,"button"))w=gtk_button_new_with_label(cmd->text);
-   else if(!strcmp(cmd->kind,"entry")) {
+   else if(!strcmp(cmd->kind,"entry") || !strcmp(cmd->kind,"password")) {
       w=gtk_entry_new();
       gtk_entry_set_text(GTK_ENTRY(w),cmd->value);
       gtk_entry_set_placeholder_text(GTK_ENTRY(w),cmd->text);
+      if(!strcmp(cmd->kind,"password"))gtk_entry_set_visibility(GTK_ENTRY(w),FALSE);
    } else if(!strcmp(cmd->kind,"check")) {
       w=gtk_check_button_new_with_label(cmd->text);
       gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(w),
          !strcmp(cmd->value,"true")||!strcmp(cmd->value,"1"));
-   } else if(!strcmp(cmd->kind,"slider")) {
-      w=gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL,0,100,1);
-      gtk_range_set_value(GTK_RANGE(w),g_ascii_strtod(cmd->value,NULL));
-   } else if(!strcmp(cmd->kind,"spin")) {
-      w=gtk_spin_button_new_with_range(0,100,1);
-      gtk_spin_button_set_value(GTK_SPIN_BUTTON(w),g_ascii_strtod(cmd->value,NULL));
+   } else if(!strcmp(cmd->kind,"slider") || !strcmp(cmd->kind,"spin")) {
+      double lo,hi,step,value;
+      script_control_range(cmd->value,&lo,&hi,&step,&value);
+      if(!strcmp(cmd->kind,"slider")) {
+         w=gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL,lo,hi,step);
+         gtk_range_set_value(GTK_RANGE(w),value);
+      } else {
+         w=gtk_spin_button_new_with_range(lo,hi,step);
+         gtk_spin_button_set_value(GTK_SPIN_BUTTON(w),value);
+      }
    } else if(!strcmp(cmd->kind,"combo")) {
       w=gtk_combo_box_text_new();
       gchar **options=g_strsplit(cmd->value,",",64);
@@ -362,6 +418,10 @@ static void script_gui_add(const rr_script_gui_command_t *cmd) {
          "changed",G_CALLBACK(widget_changed),entry);
    if(GTK_IS_FILE_CHOOSER(w))
       g_signal_connect(w,"file-set",G_CALLBACK(widget_changed),entry);
+   if(GTK_IS_SWITCH(w))
+      g_signal_connect(w,"notify::active",G_CALLBACK(script_switch_changed),entry);
+   if(GTK_IS_COLOR_BUTTON(w))
+      g_signal_connect(w,"color-set",G_CALLBACK(script_color_changed),entry);
    if(GTK_IS_SPIN_BUTTON(w))g_signal_connect(w,"value-changed",G_CALLBACK(widget_changed),entry);
    else if(GTK_IS_ENTRY(w))g_signal_connect(w,"changed",G_CALLBACK(widget_changed),entry);
    else if(GTK_IS_TOGGLE_BUTTON(w))g_signal_connect(w,"toggled",G_CALLBACK(widget_changed),entry);
@@ -452,6 +512,11 @@ static void script_gui_command(const rr_event_message_t *message,void *unused) {
          gtk_text_buffer_set_text(gtk_text_view_get_buffer(GTK_TEXT_VIEW(w)),cmd.value,-1);
       else if(GTK_IS_FILE_CHOOSER(w))
          gtk_file_chooser_set_filename(GTK_FILE_CHOOSER(w),cmd.value);
+      else if(GTK_IS_SWITCH(w))gtk_switch_set_active(GTK_SWITCH(w),!strcmp(cmd.value,"true")||!strcmp(cmd.value,"1"));
+      else if(GTK_IS_COLOR_BUTTON(w)) {
+         GdkRGBA color;
+         if(gdk_rgba_parse(&color,cmd.value))gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(w),&color);
+      }
       else if(GTK_IS_SPIN_BUTTON(w))gtk_spin_button_set_value(GTK_SPIN_BUTTON(w),g_ascii_strtod(cmd.value,NULL));
       else if(GTK_IS_ENTRY(w))gtk_entry_set_text(GTK_ENTRY(w),cmd.value);
       else if(GTK_IS_TOGGLE_BUTTON(w))gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(w),
