@@ -32,6 +32,7 @@
 #include <rrclient/config.layers.h>
 #include <rrclient/userlist.h>
 #include <rrclient/cmd.h>
+#include <rrclient/script.gui.h>
 #include <rrclient/media.h>
 #include <rrclient/objects.h>
 #include <rrclient/files.h>
@@ -143,6 +144,11 @@ static void script_list_line(const char *name, bool loaded, void *unused) {
 }
 static bool cmd_script(int argc, char **args) {
    const char *action=argc>1?args[1]:"list";
+   if (!g_ascii_strcasecmp(action,"debug") && argc<=2) {
+      rr_event_message_t message={.name=RR_SCRIPT_DEBUG_OPEN_EVENT};
+      event_emit_message(&message);
+      return false;
+   }
    if (!rrclient_script_host) {
       ui_print(ui_active_window_name(), "RustyScript is not initialized");
       return true;
@@ -153,7 +159,7 @@ static bool cmd_script(int argc, char **args) {
       return false;
    }
    if (argc!=3 || (!*args[2])) {
-      ui_print(ui_active_window_name(), "Usage: /script list | load <name.rrs> | unload <name.rrs> | reload <name.rrs>");
+      ui_print(ui_active_window_name(), "Usage: /script debug | list | load <name.rrs> | unload <name.rrs> | reload <name.rrs>");
       return true;
    }
    char *error=NULL;
@@ -180,7 +186,7 @@ client_cmd_t client_cmds[] = {
    {
       .cmd = "script", .help_section = "Scripting", .cb = cmd_script,
       .min_args = 0, .max_args = 2,
-      .desc = "Client-only: list, load, unload, or reload local .rrs scripts"
+      .desc = "Client-only: debug console; list, load, unload, or reload local .rrs scripts"
    },
 #endif
    {
