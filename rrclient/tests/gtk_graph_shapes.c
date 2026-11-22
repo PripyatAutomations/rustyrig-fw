@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 #include <assert.h>
+#include <stdio.h>
 #include <gtk/gtk.h>
 #include <rrclient/gtk/gtk.graph.h>
 
