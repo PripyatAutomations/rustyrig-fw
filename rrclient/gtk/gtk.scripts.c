@@ -4,7 +4,7 @@
 #include <glib/gstdio.h>
 #include <errno.h>
 #include <librustyaxe/event-bus.h>
-#include <rrscript/host.h>
+#include <rrclient/script.gui.h>
 #include <string.h>
 #include <librustyaxe/config.h>
 #include "gtk.local-browser.h"
