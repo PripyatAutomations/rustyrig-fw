@@ -1359,6 +1359,29 @@ bool fwdsp_processor_set_property(const char *name, const char *element, const c
 #endif
 }
 
+bool fwdsp_processor_set_property_string(const char *name, const char *element, const char *property, const char *value) {
+   if (!name || !*name || !element || !*element || !property || !*property || !value ||
+       strlen(element) >= FWDSP_RECORD_USER_LEN || strlen(property) >= FWDSP_RECORD_ID_LEN ||
+       strlen(value) >= FWDSP_RECORD_FILE_LEN) {
+      return false;
+   }
+   struct fwdsp_subproc *sp = fwdsp_find_processor(name, "proc");
+   if (!sp) sp = fwdsp_find_processor(name, "src");
+   if (!sp) sp = fwdsp_find_processor(name, "sink");
+   if (!sp || sp->process.pid <= 0 || sp->fw_control < 0 || sp->destroying) return false;
+   struct fwdsp_control_msg msg = {
+      .magic = FWDSP_CTRL_MAGIC, .type = FWDSP_CTRL_SET_PROPERTY_STRING
+   };
+   snprintf(msg.record_user, sizeof(msg.record_user), "%s", element);
+   snprintf(msg.record_id, sizeof(msg.record_id), "%s", property);
+   snprintf(msg.record_file, sizeof(msg.record_file), "%s", value);
+#ifndef _WIN32
+   return send(sp->fw_control, &msg, sizeof(msg), MSG_NOSIGNAL | MSG_DONTWAIT) == (ssize_t)sizeof(msg);
+#else
+   return write(sp->fw_control, &msg, sizeof(msg)) == (ssize_t)sizeof(msg);
+#endif
+}
+
 /* A real-time client mixer may borrow a duplicate of the playback socket. The manager remains the sole owner of the subprocess and registry. */
 int fwdsp_processor_dup_input(const char *name) {
    struct fwdsp_subproc *sp = fwdsp_find_processor(name, "proc");
