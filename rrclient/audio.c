@@ -1729,38 +1729,44 @@ static gint audio_lv2_chain_next(const rr_lv2_chain_config_t *cfg, guint parent)
 static gboolean audio_lv2_launch_chain(const rr_lv2_chain_config_t *cfg, const guint *slots, guint count) {
    if (count < 2 || count > RR_AUDIO_EFFECT_MAX || !rx_engine) return FALSE;
    guint root_slot = slots[0], last_slot = slots[count - 1];
-   GString *pipeline = g_string_new("appsrc name=processor-src is-live=true format=time do-timestamp=true "
-      "caps=audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! "
-      "queue max-size-buffers=8 leaky=downstream ! audioconvert ! audioresample ! ");
+   guint channels = cfg[root_slot - 1].channels;
+   if (channels != 1 && channels != 2) return FALSE;
+   GString *pipeline = g_string_new(NULL);
+   g_string_append_printf(pipeline, "appsrc name=processor-src is-live=true format=time do-timestamp=true "
+      "caps=audio/x-raw,format=S16LE,rate=16000,channels=%u,layout=interleaved ! "
+      "queue max-size-buffers=8 leaky=downstream ! audioconvert ! audioresample ! ", channels);
    for (guint j = 0 ; j < count ; j++) {
       guint slot = slots[j];
       if (!slot || slot > RR_AUDIO_EFFECT_MAX || !cfg[slot - 1].present ||
-          cfg[slot - 1].channels != 1 || !audio_lv2_factory_safe(cfg[slot - 1].factory)) {
+          cfg[slot - 1].channels != channels || !audio_lv2_factory_safe(cfg[slot - 1].factory)) {
          g_string_free(pipeline, TRUE);
          return FALSE;
       }
       g_string_append_printf(pipeline, "%s name=effect_%u ! audioconvert ! audioresample ! ",
          cfg[slot - 1].factory, slot);
    }
-   g_string_append(pipeline, "audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! "
-      "appsink name=processor-sink sync=false max-buffers=8 drop=true");
+   g_string_append_printf(pipeline, "audio/x-raw,format=S16LE,rate=16000,channels=%u,layout=interleaved ! "
+      "appsink name=processor-sink sync=false max-buffers=8 drop=true", channels);
 
-   guint registered = 0;
    for (guint j = 0 ; j < count ; j++) {
       guint slot = slots[j];
       rr_lv2_effect_t *fx = &lv2_effects[slot - 1];
       fx->input_fd = -1;
-      fx->channels = 1;
+      fx->channels = channels;
       fx->chain_host = root_slot;
       fx->chain_tail = last_slot;
       g_snprintf(fx->name, sizeof(fx->name), "proc.lv2.%u", slot);
-      g_snprintf(fx->output_stream[0], sizeof(fx->output_stream[0]), "proc.lv2.%u", slot);
       g_strlcpy(fx->factory, cfg[slot - 1].factory, sizeof(fx->factory));
-      g_strlcpy(fx->source[0], cfg[slot - 1].source[0], sizeof(fx->source[0]));
-      fx->output[0] = cfg[slot - 1].output[0];
-      if (!audio_local_rx_start(fx->output_stream[0])) goto failed;
-      registered++;
-      rr_audio_engine_route(rx_engine, fx->output_stream[0], fx->output[0]);
+      for (guint ch = 0 ; ch < channels ; ch++) {
+         if (channels == 2)
+            g_snprintf(fx->output_stream[ch], sizeof(fx->output_stream[ch]), "proc.lv2.%u.%c", slot, ch ? 'R' : 'L');
+         else
+            g_snprintf(fx->output_stream[ch], sizeof(fx->output_stream[ch]), "proc.lv2.%u", slot);
+         g_strlcpy(fx->source[ch], cfg[slot - 1].source[ch], sizeof(fx->source[ch]));
+         fx->output[ch] = cfg[slot - 1].output[ch];
+         if (!audio_local_rx_start(fx->output_stream[ch])) goto failed;
+         rr_audio_engine_route(rx_engine, fx->output_stream[ch], fx->output[ch]);
+      }
    }
 
    rr_lv2_effect_t *root = &lv2_effects[root_slot - 1];
@@ -1778,7 +1784,7 @@ static gboolean audio_lv2_launch_chain(const rr_lv2_chain_config_t *cfg, const g
       g_atomic_int_set(&lv2_effects[slots[j] - 1].active, TRUE);
    root->writer = g_thread_new("lv2-chain-input", audio_lv2_writer, root);
    audio_restore_effect_parameters(root->name);
-   Log(LOG_INFO, "audio.lv2", "Consolidated %u directly connected LV2 stages into %s", count, root->name);
+   Log(LOG_INFO, "audio.lv2", "Consolidated %u directly connected %u-channel LV2 stages into %s", count, channels, root->name);
    g_string_free(pipeline, TRUE);
    return TRUE;
 
@@ -1788,8 +1794,10 @@ failed:
       fwdsp_processor_stop(lv2_effects[root_slot - 1].name);
    if (lv2_effects[root_slot - 1].input_fd >= 0)
       close(lv2_effects[root_slot - 1].input_fd);
-   for (guint j = 0 ; j < registered ; j++)
-      audio_local_rx_stop(lv2_effects[slots[j] - 1].output_stream[0]);
+   for (guint j = 0 ; j < count ; j++)
+      for (guint ch = 0 ; ch < channels ; ch++)
+         if (lv2_effects[slots[j] - 1].output_stream[ch][0])
+            audio_local_rx_stop(lv2_effects[slots[j] - 1].output_stream[ch]);
    for (guint j = 0 ; j < count ; j++) {
       rr_lv2_effect_t *fx = &lv2_effects[slots[j] - 1];
       memset(fx->source, 0, sizeof(fx->source));
