@@ -63,6 +63,16 @@ static rrs_value_t *native_log(rrs_vm_t *vm, int argc,
 
 /* User-owned scripts have ordinary local file access. Read operations have a
  * bounded return value to avoid flooding the VM with multi-megabyte strings. */
+static char file_op_read[]="read";
+static char file_op_write[]="write";
+static char file_op_append[]="append";
+static char file_op_exists[]="exists";
+static char file_op_list[]="list";
+static char file_op_rename[]="rename";
+static char file_op_remove[]="remove";
+static char file_op_mkdir[]="mkdir";
+static char file_op_rmdir[]="rmdir";
+static char file_op_copy[]="copy";
 static rrs_value_t *native_file(rrs_vm_t *vm,int argc,
    const rrs_value_t *const argv[],void *user) {
    const char *op=user;
@@ -371,16 +381,16 @@ static bool activate_script(rrscript_host_t *host,const char *name,bool replacin
    g_mutex_unlock(&script_vm_owners_mutex);
    if(!rrs_vm_register_native(script->vm,"log.info",native_log,script_log_info) ||
       !rrs_vm_register_native(script->vm,"log.warn",native_log,script_log_warn) ||
-      !rrs_vm_register_native(script->vm,"file.read",native_file,"read") ||
-      !rrs_vm_register_native(script->vm,"file.write",native_file,"write") ||
-      !rrs_vm_register_native(script->vm,"file.append",native_file,"append") ||
-      !rrs_vm_register_native(script->vm,"file.exists",native_file,"exists") ||
-      !rrs_vm_register_native(script->vm,"file.list",native_file,"list") ||
-      !rrs_vm_register_native(script->vm,"file.rename",native_file,"rename") ||
-      !rrs_vm_register_native(script->vm,"file.remove",native_file,"remove") ||
-      !rrs_vm_register_native(script->vm,"file.mkdir",native_file,"mkdir") ||
-      !rrs_vm_register_native(script->vm,"file.rmdir",native_file,"rmdir") ||
-      !rrs_vm_register_native(script->vm,"file.copy",native_file,"copy") ||
+      !rrs_vm_register_native(script->vm,"file.read",native_file,file_op_read) ||
+      !rrs_vm_register_native(script->vm,"file.write",native_file,file_op_write) ||
+      !rrs_vm_register_native(script->vm,"file.append",native_file,file_op_append) ||
+      !rrs_vm_register_native(script->vm,"file.exists",native_file,file_op_exists) ||
+      !rrs_vm_register_native(script->vm,"file.list",native_file,file_op_list) ||
+      !rrs_vm_register_native(script->vm,"file.rename",native_file,file_op_rename) ||
+      !rrs_vm_register_native(script->vm,"file.remove",native_file,file_op_remove) ||
+      !rrs_vm_register_native(script->vm,"file.mkdir",native_file,file_op_mkdir) ||
+      !rrs_vm_register_native(script->vm,"file.rmdir",native_file,file_op_rmdir) ||
+      !rrs_vm_register_native(script->vm,"file.copy",native_file,file_op_copy) ||
       (host->register_host && !host->register_host(script->vm))) {
       report_error(error,"Unable to register script log bindings");
       release_script(script);return false;
