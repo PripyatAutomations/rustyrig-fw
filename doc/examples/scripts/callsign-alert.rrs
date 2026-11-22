@@ -2,11 +2,14 @@
 // Copy to ~/.config/rustyrig/scripts/ and /script load callsign-alert.rrs.
 // Events can originate from modems or other future callsign match sources.
 event watch.callsign {
+    if (event.origin == "modem") {
+        // Modem-specific metadata is available to make routing decisions.
+        log.info(event.modem + " [" + event.audio_source + "] " +
+                 string.str(event.frequency_hz) + " Hz " + event.mode)
+    }
     if (event.kind == "own") {
-        log.info("My callsign " + event.callsign + " heard on " + event.band +
-                 " (" + event.mode + "): " + event.text)
+        log.info("My callsign heard: " + event.callsign + " " + event.text)
     } else {
-        log.info("Watched " + event.callsign + " on " + event.band +
-                 " (" + event.mode + "): " + event.text)
+        log.info("Watchlist hit: " + event.callsign + " " + event.text)
     }
 }
