@@ -19,6 +19,8 @@
 #include <rrclient/sercom.h>
 #include <rrclient/objects.h>
 #include <rrserver/serial.h>
+#include <rrserver/globalstate.h>
+#include <rrserver/rig.registry.h>
 #include <rrserver/connection.state.h>
 
 time_t now;
