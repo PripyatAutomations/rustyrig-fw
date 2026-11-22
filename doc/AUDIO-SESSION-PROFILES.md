@@ -1,0 +1,120 @@
+# Audio effect chains and scriptable UI session profiles
+
+**Status:** Work in progress (2026-11-22). This is an implementation plan, not a claim that all features below are live.
+
+## Current LV2 behavior and immediate fixes
+
+The core already supports independent `proc.lv2.N` fwdsp subprocesses and opportunistically consolidates an unbranched, format-matched sequence into one worker. That explains the existing "Consolidated ..." log: the compiler was present before the canvas supported reliably displaying arbitrary effect-to-effect wiring.
+
+In the November 22 patch, the graph registers all effect nodes **before** emitting links. That allows links from higher-numbered slots to lower-numbered slots. Connecting an effect output to another effect's input also disconnects that intermediate output from the RX mixer and persists the mute, so a linear chain is eligible for consolidation. Cycles remain prohibited. Neither change by itself makes LV2 TX processing high-resolution.
+
+### Desired live signal path
+
+```text
+Microphone (44.1/48 kHz)
+     |  HQ mono/stereo PCM
+     v
+ LV2 effect 1 -- LV2 effect 2 -- LV2 effect 3     (one fwdsp process if linear)
+     |                |
+     |        optional monitor/bypass tap
+     v
+   TX HQ bus / processing output
+     |
+     v       only at codec boundary
+ [resample / channel-map / dither to negotiated codec PCM]
+     |
+     v
+  tx.mix / tx.transport -> current TX media codec
+     |
+   existing PTT / TX authorization (never controlled by the LV2 route)
+```
+
+An ordinary RX effect chain should remain independent from the microphone/TX chain. A user may choose to monitor an effect output locally, but this must **not** key the transmitter.
+
+### Required engineering work
+
+- [x] Render effect-to-effect wiring independently of LV2 slot creation order.
+- [x] On effect input patch, mute any directly heard intermediate effect output to avoid duplicated audio; persist route.
+- [x] Test reverse-numbered graph link and cycle rejection.
+- [ ] Test actual two/three-plugin chains with real LV2 bundles under `make test` and fwdsp process count; validate stereo and saved controls.
+- [ ] Display clear input/output compatibility hints and rejected-route reason on the Routing canvas.
+- [ ] Handle unlinking a chain without leaving a previously intermediate output unexpectedly silent; decide whether to auto-restore its prior mixer route or explicitly prompt.
+- [ ] Make every route change transactional: topology validation, worker preparation, swap, cleanup and rollback on failed relaunch; no lossy partial reconnections.
+- [ ] Apply gain and effect parameter changes atomically at the appropriate worker; avoid holding core audio locks across GTK or fwdsp subprocess waits.
+- [ ] Preserve `proc.lv2.N` stage identity and persist per-stage controls when stages merge/split.
+- [ ] Support microphone as an **HQ PCM source** into LV2, not a 16 kHz tap. Current `client_mic_pcm()` receives mono 16 kHz frames and is fed directly to `tx.mix`; `audio_client_pipeline_recipe(true)` currently requests capture device 44.1/48 kHz but converts **pipeline output** to 16 kHz. Capture device frequency alone does not make the LV2 path high resolution.
+- [ ] Extend the fwdsp capture/proc IPC contract to carry format metadata (sample rate, channels, sample format) per stream, or define a versioned worker format on start. Do not reinterpret legacy 16k S16LE packets.
+- [ ] Route mic HQ PCM through an HQ-capable client processing bus and LV2 subprocess before codec-specific downsampling.
+- [ ] Keep 44.1/48 kHz inside the effect chain, adding conversion only for incompatible plugin requirements and a single downmix at the TX codec boundary; support mono/stereo explicitly.
+- [ ] Make `tx.mix` accept/convert the processed HQ output without bypassing the normal TX gate, active codec selection or PTT interlock. Mute dry mic when the processed path owns TX input; preserve dry bypass on failed effect where safe.
+- [ ] Bound all asynchronous PCM queues and define failure/recovery: plugin crash must never latch PTT or hang audio.
+- [ ] Expose actual process sample rate and topology in Routing diagnostics (not just configured pipeline strings).
+
+## Scriptable workspace/session profiles
+
+### User experience
+
+A small, persistent profile selector in the main toolbar displays the current profile name. **Single click** opens the switcher; **double-click** opens the manager/customization dialog (also supply touch/keyboard-accessible buttons). Actions: **Save Profile**, **Save As**, **Load**, **Edit Script**, **Duplicate**, **Rename**, **Delete**, **Autoload**, and **Revert**. Show modified/dirty state where possible.
+
+Pressing Save Profile captures the current UI session into an in-memory **ordered logical action snapshot** and renders it to an editable `.rrs` RustyScript file in the user's scripts/profile directory (e.g. `~/.config/rustyrig/scripts/profiles/`). The user may explicitly move/mark it for `scripts/autoload/`, but saving must not silently make it autoload. Use atomic write/rename, safe file permissions and clear errors. Do not overwrite an edited profile without confirmation.
+
+### Snapshot scope
+
+- Open tabs, tools, floating panels and controlled windows, with stable **logical IDs** (not GTK pointers).
+- Floating/docked position, geometry, zoom, opacity, pin, minimize, roll, and visibility.
+- Spectrum source selection, frequency span/zoom/palette/follow mode and AF listening settings where applicable.
+- Selected rig/VFO and UI display settings, where appropriate; **do not** automatically send a transmitter tune/key command merely to restore presentation.
+- Audio routing graph **actual connections**, gains, bypass states, enabled effect instances, LV2 factories/control values and graph layout.
+- Session-independent saved source identities; unresolved remote rigs/SDRs should defer binding until connection becomes available, with a visible warning and retry.
+- Optional user-specified startup actions; avoid saving credentials or other secrets.
+
+### Representation and execution
+
+Do **not** generate arbitrary `window.find()` regex calls: several windows may share the same title. Export by stable logical ID and include the schema/profile version. Use a neutral, versioned internal snapshot (value/dict tree) as the source of truth; only then serialize to RustyScript commands. That avoids requiring the script VM to understand every transient GTK detail.
+
+Suggested export *intent* (syntax and host bindings must be implemented before generating an executable script):
+
+```c
+// Generated session profile (example; NOT YET EXECUTABLE)
+script("/profile-load-workbench", {
+    profile.begin("workbench", 1)
+    ui.ensure("radio.spectrum.main", "spectrum")
+    ui.panel.set("radio.spectrum.main", "dock", "E")
+    ui.panel.set("radio.spectrum.main", "zoom", 125)
+    ui.panel.set("radio.spectrum.main", "opacity", 85)
+    audio.effect.ensure("mic.eq", "some-lv2-factory")
+    audio.route.ensure("src.client.dsp0", "mic.eq")
+    audio.route.ensure("mic.eq", "tx.mix")
+    profile.commit()
+});
+```
+
+Execution should be an async, transactional phase machine: validate version and permissions, create panels/effects, wait for sources/workers, apply per-widget state, apply audio patches with rate and channel validation, then mark active profile. Avoid synchronous waits on GTK. Report partial/unavailable external resources; never silently claim a profile is fully restored. Explicit **TX-safe default**: loading a profile doesn't assert PTT, arm a transmitter, or override permission checks.
+
+### Database interaction
+
+Keep the current SQLite UI position cache. A named profile provides an **explicit override/snapshot**; without a profile, the database still restores the last normal layout. Loading a profile applies its values and thereafter ordinary database persistence can continue. Decide whether dirty profile edits are saved on explicit Save only (recommended). Never create endless updates by simultaneously auto-saving every UI motion to the profile and default cache.
+
+### Event bus and IDs
+
+Use the `librustyaxe` bus with stable logical widget IDs, per-instance IDs and correlated request/reply IDs (see [LIBRUSTYGUI-TODO.md](LIBRUSTYGUI-TODO.md)). Profile loading needs an ordered transaction ID and completion/error events so effects and panels can be restored after async setup without races. Widgets must expose snapshot/apply capabilities through the same registry that scripts use. Restore must not reference stale widget instances from prior runs.
+
+### Implementation checklist
+
+- [ ] Add snapshot/export/apply interfaces to reusable panel/workspace and audio routing controllers.
+- [ ] Add host-script bindings for **specific widget IDs**, exact layout state and explicit graph operations; preserve existing `window.*` commands.
+- [ ] Add in-memory profile snapshot and serializer producing actual supported RustyScript syntax; test round-trip parse and replay.
+- [ ] Add compact profile name/switch widget to main toolbar with double-click manager and keyboard/touch alternative.
+- [ ] Add manager with Save/Save As/Load/Edit/Delete/Duplicate/Autoload.
+- [ ] Implement staged async restoration and dependency handling, including disconnected receivers.
+- [ ] Wire spectrum and LV2 state snapshots and audio topology/controls.
+- [ ] Add undo/revert behavior, overwrite confirmation and safe atomic writes.
+- [ ] Test no-profile startup, multi-monitor layout, reconnect, profile switch during active effects, script unload, and invalid/missing files.
+- [ ] Add UI integration tests and `make test` regression coverage.
+
+## References
+
+- [Existing LV2 worker design](audio-processors.md)
+- [Reusable GUI architecture and ID/event protocol](LIBRUSTYGUI-TODO.md)
+- [Existing RustyScript UI API](RUSTYSCRIPT-UI.md)
+- [Existing panel placement script](examples/scripts/panel-layout.rrs)
