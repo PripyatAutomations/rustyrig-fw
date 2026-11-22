@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // GTK decode output and callsign highlighting (separate from serial terminal).
 #include <gtk/gtk.h>
+#include <librustyaxe/core.h>
 #include <math.h>
 #include <string.h>
 #include <rrclient/local.modem.h>
@@ -432,7 +433,7 @@ void gtk_decoder_view_init(GtkWidget *notebook,GtkWidget *toolbar) {
    gtk_widget_set_tooltip_text(highlight_call, "Highlight this callsign and emit watch.callsign events for scripts; saved across restarts");
    g_signal_connect(highlight_call, "changed", G_CALLBACK(decode_set_call), NULL);
    gtk_box_pack_start(GTK_BOX(toolbar), highlight_call, FALSE, FALSE, 0);
-   /* Each decoder creates its own terminal subtab on its first event. */
+   /* Each decoder creates its own decode subtab on its first event. */
    decode_token = event_on_message_domain_token(RR_LOCAL_MODEM_DECODE, decode_received, NULL, "gtk");
    decode_snapshot_token = event_on_message_domain_token(RR_LOCAL_MODEM_RESULT, decode_snapshot_received, NULL, "gtk");
    rr_local_modem_request_t request = {
@@ -462,6 +463,12 @@ void gtk_decoder_view_shutdown(void) {
       event_off_token(decode_snapshot_token);
    }
    decode_token = decode_snapshot_token = 0;
+   /* The terminal notebook still owns decoder pages: destroy them before
+    * clearing the state, so row follow-idles are cancelled by page teardown. */
+   for (unsigned i = 0; i < RR_LOCAL_MODEM_MAX; i++) {
+      if (decode_tabs[i].page)
+         gtk_widget_destroy(decode_tabs[i].page);
+   }
    memset(decode_tabs, 0, sizeof(decode_tabs));
    decode_notebook = NULL;
 
