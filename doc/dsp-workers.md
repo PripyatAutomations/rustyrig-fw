@@ -254,15 +254,15 @@ to dedicated repositories after the shared IPC contract stabilizes.
 
 ### Callsign decode notifications for scripts
 
-Client-local decoder workers publish `modem.callsign` when decoded text
+Client-local decoder workers publish `watch.callsign` when decoded text
 contains the operator callsign or a matching watched callsign. Matching
 uses complete callsign tokens and the watchlist's existing mode/RF-band
 filters. Notifications originate in the **client core**, not the GTK row
 renderer, so scripts receive them even with the Terminal tab closed.
 The Terminal's **My callsign** field is persisted in client settings.
 
-Events include `callsign`, `kind` (`own` or `watchlist`), `text`,
-`engine`, `mode`, `band`, `source`, `frequency_hz`, `slot`, and
+Events include `callsign`, `kind` (`own` or `watchlist`), `origin` (`modem`), `modem`, `text`,
+`engine`, `mode`, `band`, `source`, `audio_source`, optional `vfo_uuid`, `frequency_hz`, `slot`, and
 `watch_id`. A decode may match multiple watch rules and the operator
 callsign. See [RustyScript reference](RUSTYSCRIPT.md#callsign-decode-events)
 and [callsign-alert.rrs](examples/scripts/callsign-alert.rrs).
