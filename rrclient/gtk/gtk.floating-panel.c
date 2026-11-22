@@ -16,7 +16,7 @@ struct rr_floating_panel {
    GtkCssProvider *scale_css;
    GtkWidget *min_width_widget;
    GtkWidget *script_zoom_scale, *script_opacity_scale;
-   gboolean fit_content, content_sized;
+   gboolean fit_content, content_sized, floating_only;
    gint zoom;
    void (*zoom_callback)(double, gpointer);
    gpointer zoom_data;
@@ -351,7 +351,8 @@ static void dock_slot_constrain(GtkWidget *viewport, GtkAllocation *allocation, 
          continue;
       }
       gint desired_w = p->dock_width > 0 ? p->dock_width : MAX(100, MIN(natural_w, max_w));
-      gint desired_h = p->dock_height > 0 ? p->dock_height : -1;
+      /* Do not reapply expanded height while rolled up. */
+      gint desired_h = !p->rolled && p->dock_height > 0 ? p->dock_height : -1;
       gint width = CLAMP(desired_w, 90, max_w);
       gint height = desired_h > 0 ? CLAMP(desired_h, 48, max_h) : -1;
       gint req_w = -1, req_h = -1;
@@ -360,7 +361,7 @@ static void dock_slot_constrain(GtkWidget *viewport, GtkAllocation *allocation, 
          gtk_widget_set_size_request(frame, width, height);
       /* Repair saved sizes that are impossible in the current dock rather
        * than letting them expand again on every layout pass. */
-      if (p->dock_width > max_w || p->dock_height > max_h) {
+      if (p->dock_width > max_w || (!p->rolled && p->dock_height > max_h)) {
          p->dock_width = width;
          if (p->dock_height > max_h)
             p->dock_height = height;
@@ -759,7 +760,7 @@ static gboolean panel_dock_contains(RRChatDocks *d, guint edge, gint x_root, gin
 }
 
 static void panel_dock_attach(RRFloatPanel *p, RRChatDocks *d, gint edge) {
-   if (!p || !p->frame || !d || edge < 0 || edge >= RR_DOCK_COUNT || p->modal) {
+   if (!p || !p->frame || !d || edge < 0 || edge >= RR_DOCK_COUNT || p->modal || p->floating_only) {
       return;
    }
    GtkWidget *slot = d->slot[edge];
@@ -790,7 +791,7 @@ static void panel_dock_attach(RRFloatPanel *p, RRChatDocks *d, gint edge) {
    /* A freshly docked control uses the exact natural size of its label and content. No old floating geometry and no artificial 230x100 padding. Only a
     * user-driven dock resize installs explicit dimensions. */
    gtk_widget_set_size_request(p->frame, p->content_sized ? -1 : (p->dock_width > 0 ? p->dock_width : -1),
-                               p->content_sized ? -1 : (p->dock_height > 0 ? p->dock_height : -1));
+                               p->content_sized || p->rolled ? -1 : (p->dock_height > 0 ? p->dock_height : -1));
 
    if (count && !p->dock_drop_positioned && !p->dock_x && !p->dock_y) {
       if (edge < 2) {
@@ -840,7 +841,7 @@ static void panel_dock_detach(RRFloatPanel *p, gint root_x, gint root_y) {
    gtk_widget_set_valign(p->frame, GTK_ALIGN_START);
    gtk_widget_set_size_request(p->frame,
       p->content_sized ? -1 : (p->saved_width > 1 ? p->saved_width : -1),
-      p->content_sized ? -1 : (p->saved_height > 1 ? p->saved_height : -1));
+      p->content_sized || p->rolled ? -1 : (p->saved_height > 1 ? p->saved_height : -1));
    gint x = p->float_x, y = p->float_y;
 
    if (root_x >= 0 && root_y >= 0) {
@@ -1949,8 +1950,10 @@ static void panel_roll(GtkButton *button, gpointer data) {
       }
    }
    p->rolled = !p->rolled;
-   gtk_widget_set_size_request(p->frame, p->content_sized ? -1 : (p->saved_width > 1 ? p->saved_width : -1),
-                               p->content_sized || p->rolled ? -1 : (p->saved_height > 1 ? p->saved_height : -1));
+   gtk_widget_set_size_request(p->frame,
+      p->content_sized ? -1 : (p->dock_edge >= 0 && p->dock_width > 0 ? p->dock_width : (p->saved_width > 1 ? p->saved_width : -1)),
+      p->content_sized || p->rolled ? -1 : (p->dock_edge >= 0 && p->dock_height > 0 ? p->dock_height : (p->saved_height > 1 ? p->saved_height : -1)));
+   gtk_widget_queue_resize(p->frame);
 
    if (!p->rolled) {
       panel_raise(p);
@@ -2079,7 +2082,7 @@ static gboolean drag_press(GtkWidget *widget, GdkEventButton *event, gpointer da
    /* A press on a docked title starts an in-dock move. We undock only on release outside every eligible dock. */
    panel_raise(p);
 
-   if (active_chat_docks && !p->modal) {
+   if (active_chat_docks && !p->modal && !p->floating_only) {
       gtk_style_context_add_class(gtk_widget_get_style_context(p->frame), "rr-dock-drag");
       panel_dock_glow(active_chat_docks, TRUE, -1);
    }
@@ -2192,7 +2195,7 @@ static gboolean drag_release(GtkWidget *widget, GdkEventButton *event, gpointer 
    panel_drag_cancel_tick(p);
    p->snap_disabled = (event->state & GDK_SHIFT_MASK) != 0;
    panel_drag_position(p, event->x_root, event->y_root);
-   gint edge = active_chat_docks && !p->modal && !(event->state & GDK_SHIFT_MASK) ?
+   gint edge = active_chat_docks && !p->modal && !p->floating_only && !(event->state & GDK_SHIFT_MASK) ?
       panel_dock_hit(active_chat_docks, (gint) event->x_root, (gint) event->y_root) : -1;
 
    if (p->dock_edge >= 0 && active_chat_docks && panel_dock_contains(active_chat_docks, p->dock_edge, (gint) event->x_root, (gint) event->y_root)) {
@@ -2820,7 +2823,7 @@ gboolean rr_floating_panel_find_match(const char *pattern,const char *location,
 gboolean rr_floating_panel_move_named(const char *id,const char *location,gint x,gint y) {
    RRFloatPanel *p=script_panel_by_id(id);
    gint edge=script_edge(location);
-   if(!p||p->modal||edge==-2||x < -1||y < -1||(x==-1)!=(y==-1))return FALSE;
+   if(!p||p->modal||edge==-2||(p->floating_only && edge>=0)||x < -1||y < -1||(x==-1)!=(y==-1))return FALSE;
    if(edge>=0 && (!active_chat_docks || p->room_hidden))return FALSE;
    if(x==-1) {
       /* Reuse the most recently saved coordinates for this destination type. */
@@ -2985,7 +2988,7 @@ void rr_floating_panel_show(RRFloatPanel *p) {
       return;
    }
 
-   if (p->dock_edge >= 0 && active_chat_docks && panel_room_matches(p)) {
+   if (!p->floating_only && p->dock_edge >= 0 && active_chat_docks && panel_room_matches(p)) {
       panel_dock_attach(p, active_chat_docks, p->dock_edge);
    }
    /* Explicit reopening wins over close, but not over active temporary suppression; panel_temporary_visibility() reapplies it below. */
@@ -3208,6 +3211,20 @@ void rr_floating_panel_set_content_sized(RRFloatPanel *p) {
    p->last_saved_valid = FALSE;
    gtk_widget_set_size_request(p->frame, -1, -1);
    panel_resize_targets_visibility(p);
+}
+
+/* Utility windows stay in the main overlay, even if an old layout docked them. */
+void rr_floating_panel_set_floating_only(RRFloatPanel *p) {
+   if (!p || !p->frame)
+      return;
+   if (p->dock_edge >= 0) {
+      if (GTK_IS_FIXED(gtk_widget_get_parent(p->frame)))
+         panel_dock_detach(p, -1, -1);
+      p->dock_edge = -1;
+      panel_dock_save(p);
+   }
+   p->floating_only = TRUE;
+   rr_floating_panel_set_pinned(p, TRUE);
 }
 
 void rr_floating_panel_set_resizable(RRFloatPanel *p, gboolean resizable) {
