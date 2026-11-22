@@ -55,19 +55,16 @@ a syntactically invalid replacement leaves its previous handlers active.
 `unload` unregisters the script's commands, hotkeys and event subscriptions.
 Files are never deleted by these operations.
 
-For authenticated administrators of a RustyRig server:
+`/script` is exclusively for **local rrclient scripts**. It never sends
+script commands to a connected server.
 
-```text
-/script server list
-/script server load helper.rrs
-/script server unload helper.rrs
-/script server reload autoload/monitor.rrs
-```
-
-The server accepts these through its existing authenticated admin
-protocol with `admin|owner` authorization. The server only loads
-preexisting local `.rrs` files; no script upload or arbitrary path
-loading is provided. Responses appear in the client status/chat log.
+Server script management is separate, under the authenticated administrative
+command channel. Administrators can use `/admin script-list`,
+`/admin script-load <name.rrs>`, `/admin script-unload <name.rrs>`, and
+`/admin script-reload <name.rrs>` when connected to that server.
+Server operations require `admin|owner` authorization, operate only on files
+already present in the server's configured scripts directory, and provide no
+remote upload functionality.
 
 For example, in the client:
 
