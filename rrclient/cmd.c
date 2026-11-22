@@ -179,8 +179,8 @@ client_cmd_t client_cmds[] = {
 #ifdef RR_HAVE_RUSTYSCRIPT
    {
       .cmd = "script", .help_section = "Scripting", .cb = cmd_script,
-      .min_args = 0, .max_args = 3,
-      .desc = "List/load/unload/reload local scripts; /script server <action> [name] for admin"
+      .min_args = 0, .max_args = 2,
+      .desc = "Client-only: list, load, unload, or reload local .rrs scripts"
    },
 #endif
    {
