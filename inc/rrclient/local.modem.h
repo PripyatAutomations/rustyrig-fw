@@ -11,6 +11,8 @@
 #define RR_LOCAL_MODEM_REQUEST "client.modem.decoder.request"
 #define RR_LOCAL_MODEM_RESULT "client.modem.decoder.snapshot"
 #define RR_LOCAL_MODEM_DECODE "client.modem.decoder.decode"
+/* Script-facing JSON event emitted for matching decoded callsigns. */
+#define RR_LOCAL_MODEM_CALLSIGN "modem.callsign"
 typedef struct {
    unsigned slot;
    char source[64], engine[16], mode[24];
