@@ -37,6 +37,10 @@
 #include <rrclient/files.h>
 #include <rrclient/ui.h>
 #include <rrclient/frontend.h>
+#ifdef RR_HAVE_RUSTYSCRIPT
+#include <rrscript/host.h>
+extern rrscript_host_t *rrclient_script_host;
+#endif
 #include <rrclient/sercom.h>
 #include <rrclient/local.modem.h>
 
@@ -483,6 +487,13 @@ static bool parse_chat_input(const char *msg, bool commands) {
          }
       }
 
+#ifdef RR_HAVE_RUSTYSCRIPT
+      if (!cmd || !cmd->cb) {
+         if (rrscript_host_command(rrclient_script_host, msg)) {
+            return false;
+         }
+      }
+#endif
       if (!cmd || !cmd->cb) {
          ui_print(ui_active_window_name(), "\00304*** Invalid command: /%s\017", mp);
 
