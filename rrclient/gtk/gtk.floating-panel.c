@@ -45,6 +45,8 @@ struct rr_floating_panel {
    gboolean snap_disabled, initial_positioned, initial_centered, initial_center_pending;
    gboolean initial_position_requested;
    gint initial_x, initial_y;
+   gint grab_x, grab_y; /* Pointer position relative to panel during a drag. */
+   gboolean dock_drop_positioned;
    gulong overlay_allocate_handler;
    double drag_x, drag_y, drag_pending_x, drag_pending_y, resize_x, resize_y;
    guint drag_tick_id;
@@ -290,6 +292,7 @@ static void dock_edge_style(void) {
       " border: 1px solid #22d6ff; }"
       ".rr-chat-dock-line.rr-dock-target { background-color: rgba(0,190,240,.55);"
       " border: 2px solid #22d6ff; }"
+      ".rr-chat-dock-region.rr-dock-target { background-color: rgba(34,214,255,.12); }"
       ".rr-floating-panel.rr-dock-drag { border: 2px solid #22d6ff; }" ".rr-chat-docking { border: 1px solid rgba(34,214,255,.55); }", -1, NULL);
    gtk_style_context_add_provider_for_screen(gdk_screen_get_default(), GTK_STYLE_PROVIDER(css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
    g_object_unref(css);
@@ -346,6 +349,7 @@ static void dock_slot_constrain(GtkWidget *scroll, GtkAllocation *allocation, gp
 static void dock_edge_create(RRChatDocks *d, guint edge) {
    /* A thin inner-edge target, not a full-height header button. */
    GtkWidget *region = gtk_box_new(edge < 2 ? GTK_ORIENTATION_HORIZONTAL : GTK_ORIENTATION_VERTICAL, 0);
+   gtk_style_context_add_class(gtk_widget_get_style_context(region), "rr-chat-dock-region");
    GtkWidget *line = gtk_event_box_new();
    gtk_widget_set_size_request(line, edge < 2 ? 5 : -1, edge < 2 ? -1 : 5);
    gtk_widget_set_tooltip_text(line, "Drop a panel here to dock. Double-click to collapse/restore; drag the divider to resize.");
@@ -554,6 +558,7 @@ static void panel_dock_glow(RRChatDocks *d, gboolean dragging, gint target) {
 
    for (guint i = 0 ; i < RR_DOCK_COUNT ; i++) {
       GtkStyleContext *ctx = gtk_widget_get_style_context(d->line[i]);
+      GtkStyleContext *region_ctx = gtk_widget_get_style_context(d->region[i]);
 
       if (dragging) {
          gtk_style_context_add_class(ctx, "rr-dock-drag");
@@ -563,11 +568,15 @@ static void panel_dock_glow(RRChatDocks *d, gboolean dragging, gint target) {
 
       if (dragging && target == (gint) i) {
          gtk_style_context_add_class(ctx, "rr-dock-target");
+         gtk_style_context_add_class(region_ctx, "rr-dock-target");
       } else {
          gtk_style_context_remove_class(ctx, "rr-dock-target");
+         gtk_style_context_remove_class(region_ctx, "rr-dock-target");
       }
    }
 }
+
+static gboolean panel_dock_contains(RRChatDocks *d, guint edge, gint x_root, gint y_root);
 
 static gint panel_dock_hit(RRChatDocks *d, gint x_root, gint y_root) {
    if (!d || !gtk_widget_get_realized(d->root)) {
@@ -591,6 +600,13 @@ static gint panel_dock_hit(RRChatDocks *d, gint x_root, gint y_root) {
 
    if (x < 0 || y < 0 || x >= w || y >= h) {
       return -1;
+   }
+   /* The entire visible dock is a target, not just a narrow edge strip.
+    * Prefer a region over edge proximity so crossing dock-to-dock works. */
+   for (gint i = 0 ; i < RR_DOCK_COUNT ; i++) {
+      if (panel_dock_contains(d, i, x_root, y_root)) {
+         return i;
+      }
    }
    gint margin = CLAMP(MIN(w, h) / 9, 26, 55);
    gint distances[] = {
@@ -744,7 +760,7 @@ static void panel_dock_attach(RRFloatPanel *p, RRChatDocks *d, gint edge) {
     * user-driven dock resize installs explicit dimensions. */
    gtk_widget_set_size_request(p->frame, p->dock_width > 0 ? p->dock_width : -1, p->dock_height > 0 ? p->dock_height : -1);
 
-   if (count && !p->dock_x && !p->dock_y) {
+   if (count && !p->dock_drop_positioned && !p->dock_x && !p->dock_y) {
       if (edge < 2) {
          p->dock_y = count * 116;
       } else {
@@ -755,6 +771,7 @@ static void panel_dock_attach(RRFloatPanel *p, RRChatDocks *d, gint edge) {
    g_object_set_data(G_OBJECT(p->frame), "rr-float-owner", p);
    g_object_unref(p->frame);
    p->dock_edge = edge;
+   p->dock_drop_positioned = FALSE;
    /* Snap guides belong to the floating overlay coordinate system. */
    p->snapped_x = p->snapped_y = FALSE;
 
@@ -798,8 +815,8 @@ static void panel_dock_detach(RRFloatPanel *p, gint root_x, gint root_y) {
       if (win) {
          gdk_window_get_origin(win, &ox, &oy);
       }
-      x = MAX(0, root_x - ox - 60);
-      y = MAX(0, root_y - oy - 16);
+      x = MAX(0, root_x - ox - p->grab_x);
+      y = MAX(0, root_y - oy - p->grab_y);
    }
    gtk_widget_set_margin_start(p->frame, x);
    gtk_widget_set_margin_top(p->frame, y);
@@ -1955,6 +1972,9 @@ static gboolean drag_press(GtkWidget *widget, GdkEventButton *event, gpointer da
    p->dragging = TRUE;
    p->drag_x = event->x_root;
    p->drag_y = event->y_root;
+   p->grab_x = p->grab_y = 0;
+   gtk_widget_translate_coordinates(widget, p->frame, (gint) event->x, (gint) event->y,
+      &p->grab_x, &p->grab_y);
    p->start_x = p->dock_edge >= 0 ? p->dock_x : gtk_widget_get_margin_start(p->frame);
    p->start_y = p->dock_edge >= 0 ? p->dock_y : gtk_widget_get_margin_top(p->frame);
    p->snap_disabled = (event->state & GDK_SHIFT_MASK) != 0;
@@ -2009,6 +2029,31 @@ static gboolean drag_move(GtkWidget *widget, GdkEventMotion *event, gpointer dat
    return TRUE;
 }
 
+/* A user drop is relative to where they grabbed the title, not the
+ * destination dock's origin or the existing automatic placement pattern. */
+static void panel_dock_drop_at(RRFloatPanel *p, RRChatDocks *d, gint edge,
+   gint root_x, gint root_y) {
+   if (!p || !d || edge < 0 || edge >= RR_DOCK_COUNT) {
+      return;
+   }
+   GtkWidget *slot = d->slot[edge];
+   GtkWidget *top = gtk_widget_get_toplevel(slot);
+   GdkWindow *win = gtk_widget_get_window(top);
+   gint ox = 0, oy = 0, sx = 0, sy = 0;
+   if (win) {
+      gdk_window_get_origin(win, &ox, &oy);
+   }
+   if (!win || !gtk_widget_translate_coordinates(slot, top, 0, 0, &sx, &sy)) {
+      return;
+   }
+   p->dock_x = MAX(0, root_x - ox - sx - p->grab_x);
+   p->dock_y = MAX(0, root_y - oy - sy - p->grab_y);
+   p->dock_drop_positioned = TRUE;
+   panel_dock_attach(p, d, edge);
+   p->dock_drop_positioned = FALSE;
+   panel_dock_coords_save(p);
+}
+
 static gboolean drag_release(GtkWidget *widget, GdkEventButton *event, gpointer data) {
    (void)widget;
    RRFloatPanel *p = data;
@@ -2035,8 +2080,8 @@ static gboolean drag_release(GtkWidget *widget, GdkEventButton *event, gpointer 
    if (p->dock_edge >= 0) {
       if (edge >= 0) {
          if (edge != p->dock_edge) {
-            p->dock_x = p->dock_y = 0;
-            panel_dock_attach(p, active_chat_docks, edge);
+            panel_dock_drop_at(p, active_chat_docks, edge,
+               (gint)event->x_root, (gint)event->y_root);
          }
          panel_dock_coords_save(p);
       } else {
@@ -2045,9 +2090,8 @@ static gboolean drag_release(GtkWidget *widget, GdkEventButton *event, gpointer 
          panel_state_save(p);
       }
    } else if (edge >= 0) {
-      p->dock_x = p->dock_y = 0;
-      panel_dock_attach(p, active_chat_docks, edge);
-      panel_dock_coords_save(p);
+      panel_dock_drop_at(p, active_chat_docks, edge,
+         (gint)event->x_root, (gint)event->y_root);
    } else {
       panel_position_save(p, gtk_widget_get_margin_start(p->frame), gtk_widget_get_margin_top(p->frame));
       panel_state_save(p);
