@@ -16,6 +16,8 @@ struct rr_floating_panel {
    GtkWidget *min_width_widget;
    gboolean fit_content;
    gint zoom;
+   gint menu_zoom_start, menu_zoom_width, menu_zoom_height;
+   gboolean menu_zoom_editing;
    void (*zoom_callback)(double, gpointer);
    gpointer zoom_data;
    GtkOverlay *overlay;
@@ -1682,31 +1684,69 @@ static gint panel_minimum_width(RRFloatPanel *p) {
    return MAX(100, minimum + 24);
 }
 
-static void panel_zoom_changed(GtkRange *range, gpointer data) {
-   RRFloatPanel *p = data;
-   double old_scale = MAX(.10, 1.0 + p->zoom / 100.0);
-   p->zoom = (gint) gtk_range_get_value(range);
-   /* 0 = 100%, -100 = minimum usable 10%, +100 = 200%. Zoom belongs to this panel; unrelated panels are not affected. */
+/* Adjust the slider without moving its popover anchor. Apply the actual
+ * content scale and associated panel resize only after the popover closes. */
+static void panel_zoom_apply(RRFloatPanel *p, gint old_zoom, gint old_width, gint old_height) {
+   double old_scale = MAX(.10, 1.0 + old_zoom / 100.0);
    double scale = MAX(.10, 1.0 + p->zoom / 100.0);
-
-   /* Scale only this panel's native widget tree. The header and settings remain usable even at extreme content zoom levels. */
    if (p->scale_wrapper) {
       rr_scale_container_set_zoom(p->scale_wrapper, scale);
    }
-
    if (p->zoom_callback) {
       p->zoom_callback(scale, p->zoom_data);
    }
 
-   /* While a settings popover is open, changing panel geometry moves its
-    * anchor under the pointer. This causes slider jumps and accidental drags.
-    * Docked panels also have explicit viewport sizes; keep those unchanged.
-    * Only the contents scale here; the resize grip controls panel dimensions. */
-   if (!p->resizable && !p->rolled && p->dock_edge < 0) {
+   if (p->resizable && !p->rolled && old_width > 1 && old_height > 1) {
+      gint min_w = p->dock_edge >= 0 ? 90 : panel_minimum_width(p);
+      gint min_h = p->dock_edge >= 0 ? 48 : 180;
+      gint max_w, max_h;
+      if (p->dock_edge >= 0) {
+         /* The dock's GtkFixed is scrollable; do not cap user sizes to
+          * the visible dock when applying zoom. */
+         max_w = max_h = 8192;
+      } else {
+         max_w = MAX(min_w, gtk_widget_get_allocated_width(GTK_WIDGET(p->overlay)) -
+            gtk_widget_get_margin_start(p->frame) - 12);
+         max_h = MAX(min_h, gtk_widget_get_allocated_height(GTK_WIDGET(p->overlay)) -
+            gtk_widget_get_margin_top(p->frame) - 12);
+      }
+      gint width = CLAMP((gint)round(old_width * scale / old_scale), min_w, max_w);
+      gint height = CLAMP((gint)round(old_height * scale / old_scale), min_h, max_h);
+      gtk_widget_set_size_request(p->frame, width, height);
+      if (p->dock_edge >= 0) {
+         p->dock_width = width;
+         p->dock_height = height;
+         panel_dock_size_save(p);
+      }
+   } else if (!p->resizable && !p->rolled) {
       gtk_widget_set_size_request(p->frame, -1, -1);
    }
    gtk_widget_queue_resize(p->frame);
    panel_state_save(p);
+}
+
+static void panel_zoom_changed(GtkRange *range, gpointer data) {
+   RRFloatPanel *p = data;
+   gint old_zoom = p->zoom;
+   gint width = gtk_widget_get_allocated_width(p->frame);
+   gint height = gtk_widget_get_allocated_height(p->frame);
+   p->zoom = (gint)gtk_range_get_value(range);
+   if (p->menu_zoom_editing) {
+      return;
+   }
+   panel_zoom_apply(p, old_zoom, width, height);
+}
+
+static void panel_menu_closed(GtkPopover *popover, gpointer data) {
+   (void)popover;
+   RRFloatPanel *p = data;
+   if (!p->menu_zoom_editing) {
+      return;
+   }
+   p->menu_zoom_editing = FALSE;
+   if (p->zoom != p->menu_zoom_start) {
+      panel_zoom_apply(p, p->menu_zoom_start, p->menu_zoom_width, p->menu_zoom_height);
+   }
 }
 
 static void panel_opacity_changed(GtkRange *range, gpointer data) {
@@ -1746,6 +1786,10 @@ static void panel_menu_add_action(RRFloatPanel *p, GtkWidget *box, const char *l
 static void panel_menu_open(GtkButton *button, gpointer data) {
    (void)button;
    RRFloatPanel *p = data;
+   p->menu_zoom_start = p->zoom;
+   p->menu_zoom_width = gtk_widget_get_allocated_width(p->frame);
+   p->menu_zoom_height = gtk_widget_get_allocated_height(p->frame);
+   p->menu_zoom_editing = TRUE;
    gtk_widget_show_all(p->menu);
    gtk_popover_popup(GTK_POPOVER(p->menu));
 }
@@ -2332,6 +2376,7 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    gtk_box_pack_end(GTK_BOX(header), p->roll, FALSE, FALSE, 0);
    gtk_box_pack_end(GTK_BOX(header), p->minimize, FALSE, FALSE, 0);
    p->menu = gtk_popover_new(menu_button);
+   g_signal_connect(p->menu, "closed", G_CALLBACK(panel_menu_closed), p);
    GtkWidget *settings = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
    gtk_container_set_border_width(GTK_CONTAINER(settings), 10);
    gtk_container_add(GTK_CONTAINER(p->menu), settings);
