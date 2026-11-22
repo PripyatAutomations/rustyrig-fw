@@ -142,7 +142,8 @@ static void script_gui_core_command(const rr_event_message_t *message,void *unus
       message->length!=sizeof(rr_script_gui_command_t))return;
    rr_script_gui_command_t cmd;
    memcpy(&cmd,message->payload,sizeof(cmd));
-   if(!memchr(cmd.owner,0,sizeof(cmd.owner))||!memchr(cmd.id,0,sizeof(cmd.id)))return;
+   if(cmd.version!=RR_SCRIPT_GUI_PROTOCOL_VERSION || !memchr(cmd.owner,0,sizeof(cmd.owner)) ||
+      !memchr(cmd.id,0,sizeof(cmd.id)))return;
    if(cmd.action==RR_GUI_DESTROY) {
       char *key=script_gui_key(cmd.owner,cmd.id);
       g_hash_table_remove(script_gui_values,key);
@@ -162,7 +163,8 @@ static void script_gui_changed(const rr_event_message_t *message,void *unused) {
    if(!message || !message->payload || message->length!=sizeof(rr_script_gui_change_t))return;
    rr_script_gui_change_t change;
    memcpy(&change,message->payload,sizeof(change));
-   if(!memchr(change.owner,0,sizeof(change.owner))||
+   if(change.version!=RR_SCRIPT_GUI_PROTOCOL_VERSION ||
+      !memchr(change.owner,0,sizeof(change.owner))||
       !memchr(change.id,0,sizeof(change.id))||
       !memchr(change.kind,0,sizeof(change.kind))||
       !memchr(change.value,0,sizeof(change.value)))return;
@@ -187,7 +189,7 @@ static rrs_value_t *script_gui_native(rrs_vm_t *vm,int argc,
    if(!frontend || !frontend->script_gui_available || !frontend->script_gui_available()) {
       rrs_vm_raise(vm,"Current frontend does not implement script controls");return NULL;
    }
-   rr_script_gui_command_t command={.action=(uint32_t)action};
+   rr_script_gui_command_t command={.version=RR_SCRIPT_GUI_PROTOCOL_VERSION,.action=(uint32_t)action};
    script_gui_owner(command.owner,vm);
    const char *id=rrs_value_string(argv[action==RR_GUI_ADD?2:0]);
    if(!script_gui_identifier(id) || (action==RR_GUI_ADD && !script_gui_identifier(rrs_value_string(argv[0])))) {
