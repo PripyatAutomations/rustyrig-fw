@@ -1288,15 +1288,16 @@ static void audio_lv2_result(const char *name, const void *samples, size_t bytes
       return;
    }
 
+   /* A consolidated subprocess produces only the final stage's PCM. */
+   rr_lv2_effect_t *last = fx->chain_tail && fx->chain_tail <= RR_AUDIO_EFFECT_MAX ?
+      &lv2_effects[fx->chain_tail - 1] : fx;
+   if (!g_atomic_int_get(&last->active) || !last->output_stream[0][0]) return;
    if (fx->channels == 1) {
-      /* A consolidated subprocess produces only the final stage's PCM. */
-      rr_lv2_effect_t *last = fx->chain_tail && fx->chain_tail <= RR_AUDIO_EFFECT_MAX ?
-         &lv2_effects[fx->chain_tail - 1] : fx;
-      if (!g_atomic_int_get(&last->active) || !last->output_stream[0][0]) return;
       if (!audio_lv2_feed(last->output_stream[0], samples, bytes)) {
          rr_audio_engine_push(rx_engine, last->output_stream[0], (const int16_t *)samples, bytes / sizeof(int16_t));
       }
    } else {
+      if (!last->output_stream[1][0] || (bytes % (2 * sizeof(int16_t)))) return;
       const int16_t *pcm = samples;
       size_t frames = bytes / (2 * sizeof(int16_t));
       int16_t left[1024], right[1024];
@@ -1309,11 +1310,11 @@ static void audio_lv2_result(const char *name, const void *samples, size_t bytes
             right[i] = pcm[2 * (offset + i) + 1];
          }
 
-         if (!audio_lv2_feed(fx->output_stream[0], left, n * sizeof(int16_t))) {
-            rr_audio_engine_push(rx_engine, fx->output_stream[0], left, n);
+         if (!audio_lv2_feed(last->output_stream[0], left, n * sizeof(int16_t))) {
+            rr_audio_engine_push(rx_engine, last->output_stream[0], left, n);
          }
-         if (!audio_lv2_feed(fx->output_stream[1], right, n * sizeof(int16_t))) {
-            rr_audio_engine_push(rx_engine, fx->output_stream[1], right, n);
+         if (!audio_lv2_feed(last->output_stream[1], right, n * sizeof(int16_t))) {
+            rr_audio_engine_push(rx_engine, last->output_stream[1], right, n);
          }
       }
    }
