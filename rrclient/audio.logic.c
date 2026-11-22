@@ -38,6 +38,10 @@ bool rr_gate_evaluate(const rr_gate_state_t *gate, bool *output) {
    return true;
 }
 
+bool rr_logic_constant(bool high) {
+   return high;
+}
+
 rr_threshold_state_t rr_threshold_default(void) {
    return (rr_threshold_state_t){.min=0., .max=INFINITY};
 }
@@ -46,6 +50,7 @@ bool rr_threshold_evaluate(const rr_threshold_state_t *state, bool *output) {
    *output=false;
    if (!state || !state->value_valid || !isfinite(state->value) ||
        (state->signal_connected && !state->signal_valid) ||
+       (state->invert_connected && !state->invert_valid) ||
        (state->min_connected && !state->min_valid) ||
        (state->max_connected && !state->max_valid))
       return false;
@@ -60,6 +65,7 @@ bool rr_threshold_evaluate(const rr_threshold_state_t *state, bool *output) {
    if (state->signal_connected && !state->signal_high)
       return true;
    bool inside=state->value >= state->min && state->value <= state->max;
-   *output=state->invert ? !inside : inside;
+   const bool inverted = state->invert ^ (state->invert_connected && state->invert_high);
+   *output=inverted ? !inside : inside;
    return true;
 }
