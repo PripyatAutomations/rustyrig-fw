@@ -354,6 +354,48 @@ transport link when that active sink is selected.
 - [ ] Live-test the existing route controls, radio TX/PTT interlocks,
       saved L/R state, 16k encoder mix levels and multiple modem inputs.
 
+## Automatic RX-to-HQ audio routing
+
+A 16 kHz RX source can now be **dropped onto `hq.mix`** in the Routing
+canvas (including reverse drag from the HQ mixer to a narrowband source).
+This is an executable connection through the **existing**
+`rx.mix → rx16.resample → hq.mix` bridge. The source's individual L/R
+route continues to belong to `rx.mix`; the graph should continue to show
+the real bridge rather than invent a misleading direct HQ-to-source edge.
+The converter's output uses the **selected playback rate**
+(`audio.playback-rate`: 44.1 or 48 kHz), not an unconditional 48 kHz
+override.
+
+The GTK drag-target logic now delegates compatibility decisions to the
+GTK-independent `rr_audio_graph_listen_bus()` helper. It accepts a
+16 kHz-or-lower source dropped onto either mixer, resolving `hq.mix`
+to the real `rx.mix` ingress. A source already running on the HQ mixer
+is accepted onto `hq.mix` without conversion. Unsupported reverse routes
+(`HQ → rx.mix`) are rejected until an explicit HQ-to-narrowband
+adapter exists. The TX network transport is **not** a PCM listener source
+and is deliberately outside this API.
+
+This handles the common "hear narrowband RX on HQ sound card" case, not
+arbitrary independent fanout to multiple mixer instances or full-rate
+TX processing. Other cross-rate connections should follow the same rule:
+identify a real conversion node at the boundary, validate channel/sample
+formats, and reject routes with no runtime adapter rather than just drawing
+a wire.
+
+- [x] Allow narrowband-to-HQ listening drops via the current bridge.
+- [x] Share and test the source/mixer rate compatibility policy in the
+      GTK-free graph layer.
+- [ ] Add independent per-stream fanout between unrelated mixer buses,
+      using dedicated stream adapters and bounded queues where required.
+- [ ] Add standalone resampler utility instances and insertion suggestions
+      for unsupported rate connections.
+- [ ] Support explicit HQ-to-narrowband routing and rate/channel properties
+      on applicable processing blocks, with transactional rewiring.
+- [ ] Enable HQ microphone capture through compatible LV2 effects before
+      downsampling at the negotiated TX codec boundary.
+- [ ] Verify interaction and sound-card output through `make test` and
+      live multi-rate signal tests.
+
 ## References
 
 - [Existing LV2 worker design](audio-processors.md)
