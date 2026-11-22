@@ -1,4 +1,8 @@
-# RustyScript host integration (initial runtime)
+# RustyScript reference — RustyRig integration
+
+*Reviewed against RustyRig and librustyaxe source on November 22, 2026.*
+This document describes the implemented interface, including known limits; it
+does not imply every code path has been build- or runtime-tested.
 
 RustyScript lives in the **PripyatAutomations/librustyaxe** repository as
 a separately installed `librustyscript` shared library. `rrclient` and
@@ -213,6 +217,105 @@ the routing/pipeline/control APIs, workspace restoration, and server invocation 
 the planned language and require additional parser/runtime/host work. Do not
 assume unsupported code was validated at load time; errors may be deferred
 until invocation.
+
+## Core API reference (November 22, 2026)
+
+All native functions below execute in the current script process. Client and
+server share the core APIs; the extra client bindings require rrclient and
+some require GTK. Values passed to APIs must have the documented types.
+
+| Core function | Returns / behavior |
+|---|---|
+| `log.info(text)`, `log.warn(text)` | Write a string to the scripting log and diagnostic console |
+| `string.regex(text, pattern)` | Boolean GLib regular-expression search (not automatically anchored) |
+| `string.chr(number)` | One-character string for ASCII codes 1–127, including IRC control codes 3 and 4 |
+| `string.slug(text)` | Filename-safe ASCII result, up to 48 characters; other bytes become underscores |
+| `string.hash(text)` | First 32 hexadecimal characters of the SHA-256 checksum |
+| `string.length(text)` | **Byte** length of a UTF-8 string, not Unicode code-point count |
+| `string.slice(text, start[, length])` | Byte-offset substring; negative positions/lengths produce an empty string |
+| `string.line(text, index)` | Zero-based line, or `null` when out of range |
+| `string.lines(text)` | Number of nonempty-length line segments (trailing newline adds no extra segment) |
+| `string.str(value)` | Convert string/integer/float/boolean to text; unsupported types become empty text |
+| `time.now()` | Unix epoch **milliseconds** |
+| `time.stamp()` | Local time string `YYYYMMDD-HHMMSS` |
+| `env.data_dir()` | GLib user data directory (`$XDG_DATA_HOME` or system fallback) |
+| `state.get(key)` | Copy value from current namespace, or `null` |
+| `state.set(key, value)` | Set value (including dictionaries); `null` removes a key |
+| `state.use(name)` | Select named shared namespace; `""` selects private script state |
+| `state.namespace()` | Current namespace, or empty string for private |
+| `state.namespaces()` | Newline-delimited names of shared namespaces created in this host |
+| `state.keys()` | Newline-delimited keys in the current namespace |
+| `timer.after(id, milliseconds)` | One-shot timer; reusing ID replaces the previous timer |
+| `timer.every(id, milliseconds)` | Repeating timer; reusing ID replaces the previous timer |
+| `timer.cancel(id)` | Cancel a timer owned by this script |
+
+Timers accept numeric delays between **100 and 86,400,000 milliseconds**;
+timer IDs are 1–63 bytes and are **script-local**, even with shared state.
+Timer callbacks arrive as `event ui.timer` with `event.id` and only
+fire for the script that registered them. They are cancelled on unload.
+The shared `global` state lasts only until the client/server script
+host exits; it is not persistent storage.
+
+| Client-only function | Returns / behavior |
+|---|---|
+| `setting.get(key)` | String from client settings database, or `null` |
+| `setting.set(key, value)` | Persist string, numeric, or boolean value; values are read back as strings |
+| `chat.send("profile|target", text, tag[, interval_ms])` | Boolean indicating enqueue success, not remote delivery |
+| `chat.cancel(tag)` | Remove this script's unsent queued messages with the supplied tag |
+| `window.find(pattern[, location])` / `panel.find(...)` | Look up existing panel (GTK only) |
+| `window.move(id, location[, x, y])`, `window.zoom(id, percent)`, `window.opacity(id, percent)` | Change panel placement/display (GTK only); `panel.*` aliases available |
+| `ui.*`, `gui.*`, `control.val/set` | Build and control logical UI widgets; see [RustyScript UI model](RUSTYSCRIPT-UI.md) |
+
+The default chat interval is **1,000 ms** and explicitly supplied intervals
+must be **100–10,000 ms**. A tag is 1–40 bytes and belongs to the script's
+generation, preventing another script from cancelling its queued lines.
+The target must already be an open chat or query. `setting.*` keys are
+stored using the client `script.` prefix and survive restarts; do not use
+them for temporary events or large buffers.
+
+### Filesystem API
+
+`file.read/write/append/exists/list/rename/remove/mkdir/rmdir/copy` are
+available to both hosts. See the [filesystem section](#filesystem-primitives-client-and-server)
+for path handling, size limits, and access warnings. These calls act with
+the process's OS privileges, including when evaluated in the debugger.
+
+### Execution and language limits
+
+The current interpreter supports `int`, `float`, `bool`, `char`,
+`char[]` strings, and `dict` values; local declarations/assignments,
+arithmetic, comparisons, property access (`event.room`), synchronous
+native calls, and `if/else` blocks. Curly braces are mandatory for
+conditionals; semicolons are optional separators. Line comments may use
+`//` or `#`; block comments use `/* ... */`. Scripts register
+`script("/command", { ... })`, `hotkey ... { ... }`, or
+`event name { ... }` handlers. Top-level registrations do not run
+their bodies until dispatched.
+
+The debugger's snippet evaluator has a persistent **console-local**
+variable scope. Use a single expression for its displayed return value,
+or statements/declarations to modify console-local variables. It is
+**not** a full JavaScript REPL: no JavaScript objects, DOM, breakpoints,
+stepping, async execution, or direct reads of another VM's local stack
+variables. Use the read-only `debug.*` helpers to inspect another script's
+published `state.*` values.
+
+### Debugger inspection API
+
+| Console function | Result |
+|---|---|
+| `debug.scripts()` | Newline-separated list of loaded script names |
+| `debug.namespaces()` | Newline-separated shared namespaces |
+| `debug.keys("script.rrs")` | Keys from that loaded script's current state namespace |
+| `debug.state("script.rrs", "key")` | Its current state value |
+| `debug.keys("@global")` | Keys directly in the shared `global` namespace |
+| `debug.state("@station.audio", "gain")` | Value from a specifically named shared namespace |
+
+Inspecting a script does **not** run its handlers. The console itself uses
+an independent VM and can join namespaces with `state.use(name)`. Thus
+`state.set` from the console intentionally changes shared state, while
+`debug.state` is read-only. String lists are newline-separated, rather
+than arrays (array support is not implemented yet).
 
 ## IRC artwork archiver example
 
@@ -451,5 +554,12 @@ make test
 ```
 
 The standalone tests cover syntax, typed value copying, registrations,
-handler dispatch, and preservation of previous registrations after a failed
-load. They do not yet exercise real GTK, networking, or server authorization.
+handler dispatch, console variable persistence/value formatting, and
+preservation of previous registrations after a failed load. They do not
+exercise the real GTK frontend, network, or server authorization.
+
+In the RustyRig checkout, run `make test` to include the example script
+smoke test (when `librustyscript` is installed). After changing
+`librustyaxe`, rebuild/install it before rebuilding the client.
+**Documentation review is not a substitute for successful local builds
+and functional tests.**
