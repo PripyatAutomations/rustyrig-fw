@@ -18,6 +18,7 @@
 #include "gtk.canvas-marks.h"
 #include "gtk.floating-panel.h"
 #include "gtk.serial.h"
+#include "gtk.control-graph.h"
 #include "gtk.pipeline-editor.h"
 #ifdef RR_HAVE_GSTREAMER
 #include <gst/gst.h>
@@ -1065,6 +1066,7 @@ static void onair_restore(void) {
    char extra = 0;
 
    if (source && (!strcmp(source, RRCLIENT_ROUTING_PTT_LOCAL) ||
+      g_str_has_prefix(source,"gate.") ||
       (sscanf(source, "modem%u.ptt%c", &slot, &extra) == 1 && slot >= 1 && slot <= RR_LOCAL_MODEM_MAX))) {
       g_strlcpy(onair_source, source, sizeof(onair_source));
       onair_connected = TRUE;
@@ -1081,10 +1083,18 @@ static void onair_ptt_event(const rr_event_message_t *msg, void *unused) {
    }
    const rrclient_routing_ptt_signal_t *signal = msg->payload;
 
-   if (!memchr(signal->source, 0, sizeof(signal->source)) || !onair_visible || !onair_connected || strcmp(signal->source, onair_source)) {
+   if (!memchr(signal->source, 0, sizeof(signal->source)))
       return;
-   }
-   onair_active = signal->raised;
+   rr_logic_canvas_signal(signal->source,true,signal->raised);
+   if (!onair_visible || !onair_connected)
+      return;
+   if (g_str_has_prefix(onair_source,"gate.")) {
+      bool valid=false, high=false;
+      rr_logic_canvas_output(onair_source,&valid,&high);
+      onair_active=valid && high;
+   } else if (!strcmp(signal->source,onair_source)) {
+      onair_active=signal->raised;
+   } else return;
    graph_canvas_update_size();
 
    if (onair_panel_canvas) {
@@ -1099,6 +1109,7 @@ static void onair_connection_lost(const char *event, const char *data, rrconn_t 
    (void)connection;
    (void)unused;
    onair_active = FALSE;
+   rr_logic_canvas_reset_sources();
    graph_canvas_update_size();
 
    if (onair_panel_canvas) {
@@ -1230,6 +1241,8 @@ static void onair_panel_ensure(gboolean explicit_open) {
 }
 
 static gboolean onair_source_position(const char *source, double *x, double *y) {
+   if (rr_logic_canvas_output_position(source,x,y))
+      return TRUE;
    if (!strcmp(source, RRCLIENT_ROUTING_PTT_LOCAL)) {
       *x = ptt_x + 150.;
       *y = ptt_y + 35.;
@@ -1258,6 +1271,26 @@ static gboolean onair_source_position(const char *source, double *x, double *y) 
    }
 
    return FALSE;
+}
+
+/* Logic gate outputs are generic boolean sources. ON AIR is only a
+ * visual sink; it never keys hardware. */
+static void routing_logic_attach_onair(const char *source,gpointer user) {
+   (void)user;
+   if (!source || !*source) return;
+   g_strlcpy(onair_source,source,sizeof(onair_source));
+   onair_connected=TRUE;
+   bool valid=false, high=false;
+   onair_active=rr_logic_canvas_output(source,&valid,&high) && valid && high;
+   onair_save();
+   graph_canvas_update_size();
+   if (onair_panel_canvas) gtk_widget_queue_draw(onair_panel_canvas);
+}
+static void routing_add_gate_clicked(GtkButton *unused,gpointer user) {
+   (void)unused;(void)user;
+   GtkWidget *parent=graph_canvas ? gtk_widget_get_toplevel(graph_canvas):NULL;
+   rr_logic_canvas_add(parent);
+   graph_canvas_update_size();
 }
 
 static void onair_draw(cairo_t *cr) {
@@ -1439,6 +1472,7 @@ static void routing_graph_bounds(double *width, double *height) {
       max_x = MAX(max_x, MAX(onair_x + ONAIR_W, ptt_x + 150.) + GRAPH_LAYOUT_MARGIN);
       max_y = MAX(max_y, MAX(onair_y + ONAIR_H, ptt_y + 70.) + GRAPH_LAYOUT_MARGIN);
    }
+   rr_logic_canvas_bounds(&max_x, &max_y);
    rr_marks_bounds(routing_marks, &max_x, &max_y);
    *width = max_x;
    *height = max_y;
@@ -2111,6 +2145,7 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
    routing_compact_draw(cr);
    routing_effect_draw(cr);
    routing_serial_draw(cr);
+   rr_logic_canvas_draw(cr);
    onair_draw(cr);
    routing_marquee_draw(cr);
 
@@ -7231,6 +7266,10 @@ void gtk_audio_graph_present(void) {
       gtk_widget_set_tooltip_text(add_effect, "Add a standalone LV2 processor to Routing, hosted in its own fwdsp subprocess");
       g_signal_connect(add_effect, "clicked", G_CALLBACK(routing_add_effect), NULL);
       gtk_flow_box_insert(GTK_FLOW_BOX(tools), add_effect, -1);
+      GtkWidget *add_gate = gtk_button_new_with_label("+ Gate");
+      gtk_widget_set_tooltip_text(add_gate,"Create a reusable AND/OR/XOR/NOT/NAND/NOR/XNOR block; multiple wires on one pin are ORed");
+      g_signal_connect(add_gate,"clicked",G_CALLBACK(routing_add_gate_clicked),NULL);
+      gtk_flow_box_insert(GTK_FLOW_BOX(tools),add_gate,-1);
       GtkWidget *new_modem = gtk_button_new_with_label("+ Modem");
       gtk_widget_set_tooltip_text(new_modem, "Create an FT8, PSK or Olivia decoder in Routing");
       g_signal_connect(new_modem, "clicked", G_CALLBACK(routing_new_modem), NULL);
@@ -7244,6 +7283,7 @@ void gtk_audio_graph_present(void) {
       g_object_set_data(G_OBJECT(scroller), "rr-scale-exempt", GINT_TO_POINTER(1));
       gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroller), GTK_POLICY_NEVER, GTK_POLICY_NEVER);
       graph_canvas = gtk_drawing_area_new();
+      rr_logic_canvas_init(onair_source_position,routing_logic_attach_onair,graph_canvas);
       gtk_widget_set_can_focus(graph_canvas, TRUE);
       g_signal_connect(graph_canvas, "key-press-event", G_CALLBACK(routing_marks_key), NULL);
       gtk_widget_set_size_request(graph_canvas, 1, 1);
