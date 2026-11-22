@@ -1648,6 +1648,16 @@ static void room_vfo_show(const char *name) {
       if (!room_vfo_panel) {
          return;
       }
+      /* Only the VFO panel loses outer padding; frequency entry geometry
+       * and all other floating panels retain their existing CSS. */
+      GtkWidget *vfo_frame = rr_floating_panel_widget(room_vfo_panel);
+      gtk_style_context_add_class(gtk_widget_get_style_context(vfo_frame), "rr-vfo-compact-panel");
+      GtkCssProvider *vfo_padding = gtk_css_provider_new();
+      gtk_css_provider_load_from_data(vfo_padding,
+         ".rr-floating-panel.rr-vfo-compact-panel { padding: 3px; }", -1, NULL);
+      gtk_style_context_add_provider(gtk_widget_get_style_context(vfo_frame),
+         GTK_STYLE_PROVIDER(vfo_padding), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION + 1);
+      g_object_unref(vfo_padding);
       rr_floating_panel_set_closable(room_vfo_panel, FALSE);
       rr_floating_panel_set_resizable(room_vfo_panel, TRUE);
       rr_floating_panel_set_title_click(room_vfo_panel, G_CALLBACK(room_vfo_title_clicked), NULL);

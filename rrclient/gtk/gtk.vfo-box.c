@@ -413,7 +413,8 @@ static void vfo_dock_style(void) {
    }
    vfo_dock_css = gtk_css_provider_new();
    gtk_css_provider_load_from_data(vfo_dock_css, ".rr-vfo-group { border: 1px solid alpha(currentColor, .26); border-radius: 3px; padding: 2px; }"
-      ".rr-vfo-group.rr-vfo-compact-group { border: 0; border-radius: 2px; padding: 0; }"
+      ".rr-vfo-group.rr-vfo-compact-group { border: 0; border-radius: 0; padding: 0; }"
+      ".rr-vfo-control-child { padding: 0; margin: 0; border: 0; }"
       ".rr-vfo-group.rr-vfo-moving { border-color: #66caff; background-color: rgba(80,180,255,.17); }"
       ".rr-vfo-group.rr-vfo-before { border-left: 4px solid #48c5ff; }"
       ".rr-vfo-group.rr-vfo-after { border-right: 4px solid #48c5ff; }"
@@ -562,7 +563,7 @@ static void vfo_control_add(GtkWidget *control, const char *name) {
    /* Do not stretch a lone docked group across the entire FlowBox row. */
    gtk_widget_set_halign(group, GTK_ALIGN_START);
    GtkWidget *handle = gtk_event_box_new();
-   gtk_widget_set_size_request(handle, -1, !strcmp(name, "⋮⋮ Frequency") ? 8 : 6);
+   gtk_widget_set_size_request(handle, -1, !strcmp(name, "⋮⋮ Frequency") ? 8 : 3);
    gtk_widget_set_tooltip_text(handle, "Drag to rearrange VFO controls");
    gtk_box_pack_start(GTK_BOX(group), handle, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(group), control, FALSE, FALSE, 0);
@@ -575,6 +576,7 @@ static void vfo_control_add(GtkWidget *control, const char *name) {
    g_object_set_data(G_OBJECT(child), "rr-vfo-id", (gpointer) id);
    g_object_set_data(G_OBJECT(handle), "rr-vfo-child", child);
    gtk_style_context_add_class(gtk_widget_get_style_context(child), "rr-vfo-group");
+   gtk_style_context_add_class(gtk_widget_get_style_context(child), "rr-vfo-control-child");
    if (strcmp(name, "⋮⋮ Frequency")) {
       gtk_style_context_add_class(gtk_widget_get_style_context(child), "rr-vfo-compact-group");
    }
@@ -606,12 +608,16 @@ GtkWidget *create_vfo_box(void) {
 
    vfo_tunable_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
    vfo_controls_row = gtk_flow_box_new();
+   gtk_style_context_add_class(gtk_widget_get_style_context(vfo_controls_row), "rr-vfo-controls");
+   vfo_dock_style();
+   gtk_style_context_add_provider(gtk_widget_get_style_context(vfo_controls_row),
+      GTK_STYLE_PROVIDER(vfo_dock_css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
    gtk_flow_box_set_selection_mode(GTK_FLOW_BOX(vfo_controls_row), GTK_SELECTION_NONE);
    gtk_flow_box_set_min_children_per_line(GTK_FLOW_BOX(vfo_controls_row), 1);
    /* Begin compact; the viewport's actual allocated width selects 1, 2, or 3 columns later, without inflating the panel's minimum width. */
    gtk_flow_box_set_max_children_per_line(GTK_FLOW_BOX(vfo_controls_row), 1);
-   gtk_flow_box_set_row_spacing(GTK_FLOW_BOX(vfo_controls_row), 2);
-   gtk_flow_box_set_column_spacing(GTK_FLOW_BOX(vfo_controls_row), 2);
+   gtk_flow_box_set_row_spacing(GTK_FLOW_BOX(vfo_controls_row), 1);
+   gtk_flow_box_set_column_spacing(GTK_FLOW_BOX(vfo_controls_row), 1);
    gtk_flow_box_set_homogeneous(GTK_FLOW_BOX(vfo_controls_row), FALSE);
    gtk_flow_box_set_filter_func(GTK_FLOW_BOX(vfo_controls_row), vfo_control_visible, NULL, NULL);
    gtk_widget_set_halign(vfo_controls_row, GTK_ALIGN_FILL);

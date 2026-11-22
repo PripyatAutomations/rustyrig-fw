@@ -1709,11 +1709,12 @@ static gint panel_minimum_width(RRFloatPanel *p) {
    if (!p->min_width_widget) {
       return 100;
    }
-   gint minimum = 0;
-   gtk_widget_get_preferred_width(p->min_width_widget, &minimum, NULL);
+   gint minimum = 0, natural = 0;
+   gtk_widget_get_preferred_width(p->min_width_widget, &minimum, &natural);
 
-   /* The frequency widget's GTK requisition already includes panel zoom. Applying the scale again made the VFO wider than the overlay. */
-   return MAX(100, minimum + 24);
+   /* Respect the unchanged frequency entry's natural width and zoom; the
+    * compact VFO panel needs only a small extra allowance for its chrome. */
+   return MAX(100, MAX(minimum, natural) + 12);
 }
 
 /* Zoom and panel geometry update live. The settings popover is independently
@@ -3176,7 +3177,7 @@ void rr_floating_panel_fit_content(RRFloatPanel *p) {
       if (overlay_w > inset + 200) {
          width = MIN(width, overlay_w - inset);
       }
-      gtk_widget_set_size_request(p->frame, MAX(200, width), -1);
+      gtk_widget_set_size_request(p->frame, MAX(panel_minimum_width(p), width), -1);
    }
    gtk_widget_queue_resize(p->frame);
 }
