@@ -78,6 +78,8 @@ static void drain(void) {
    }
 }
 
+/* The core now forwards owned image/status events to GTK, rather than
+ * calling webcam_display_frame() with a cross-thread connection pointer. */
 int main(int argc, char **argv) {
    gtk_init(&argc, &argv);
    gtk_test_events_init();
@@ -87,60 +89,55 @@ int main(int argc, char **argv) {
    gtk_container_add(GTK_CONTAINER(overlay), main_notebook);
    gtk_container_add(GTK_CONTAINER(main_window), overlay);
    gtk_widget_show_all(main_window);
-   rrconn_t first = {
-      0
-   }, other = {
-      0
-   };
-   ws_conn = &first;
+
    GdkPixbuf *image = gdk_pixbuf_new(GDK_COLORSPACE_RGB, FALSE, 8, 160, 120);
    gdk_pixbuf_fill(image, 0x00ff00ff);
    gchar *jpeg = NULL;
    gsize len = 0;
    assert(gdk_pixbuf_save_to_buffer(image, &jpeg, &len, "jpeg", NULL, NULL));
-   display_frame = g_string_new("P6\n160 120\n255\n");
-   g_string_append_len(display_frame, (char *)gdk_pixbuf_get_pixels(image), 160 * 120 * 3);
    g_object_unref(image);
-   webcam_display_frame(NULL, jpeg, len, &first, NULL);
-   assert(!webcam_pending && !webcam_idle);
+
    gtk_webcam_show(true);
-   webcam_display_frame(NULL, jpeg, len, &other, NULL);
-   assert(!webcam_pending && !webcam_idle);
+   assert(webcam_visible && webcam_win && webcam_image);
+   guint64 epoch = webcam_epoch;
+   webcam_status_t status = {.epoch = epoch, .open = true, .subscribed = true};
+   g_strlcpy(status.uuid, "camera", sizeof(status.uuid));
+   g_strlcpy(status.profiles, "h264.1 h264.5 h264.10 jpeg.5", sizeof(status.profiles));
+   rr_event_message_t status_event = {
+      .name = RR_WEBCAM_STATUS, .payload = &status, .length = sizeof(status)
+   };
+   webcam_status_event(&status_event, NULL);
    assert(gtk_combo_box_set_active_id(GTK_COMBO_BOX(webcam_codecs), "h264"));
-   assert(gtk_tree_model_iter_n_children(gtk_combo_box_get_model(GTK_COMBO_BOX(webcam_rates)), NULL) == 3);
    assert(gtk_combo_box_set_active_id(GTK_COMBO_BOX(webcam_rates), "h264.10"));
-   rrclient_webcam_register();
-   uint8_t *wire = NULL;
-   int size = rr_binframe_frame(&wire, RR_BINFRAME_SUBSYS_VIDEO, "jpeg", RR_BINFRAME_DIR_RX, RR_BINFRAME_VFO_NA, RR_BINFRAME_RIG_NA, 1, 1, 0, (uint8_t *) jpeg,
-      len);
-   assert(size > 0);
 
-   for (int n = 0 ; n < 100 ; n++) {
-      assert(ws_binframe_process_client(&first, (char *)wire, size));
-   }
-
+   webcam_image_t *frame = g_malloc(sizeof(*frame) + len);
+   frame->epoch = epoch - 1;
+   memcpy(frame->bytes, jpeg, len);
+   rr_event_message_t frame_event = {
+      .name = RR_WEBCAM_IMAGE, .payload = frame, .length = sizeof(*frame) + len
+   };
+   webcam_image_event(&frame_event, NULL);
+   assert(!webcam_pending && !webcam_idle); /* stale session ignored */
+   frame->epoch = epoch;
+   for (int n = 0 ; n < 100 ; n++)
+      webcam_image_event(&frame_event, NULL);
    assert(webcam_idle && webcam_pending);
    guint pending = webcam_idle;
-   webcam_display_frame(NULL, jpeg, len, &first, NULL);
-   assert(webcam_idle == pending);  /* One idle, even if frames outpace the UI. */
+   webcam_image_event(&frame_event, NULL);
+   assert(webcam_idle == pending); /* one scheduled GTK redraw */
    drain();
    GdkPixbuf *shown = gtk_image_get_pixbuf(GTK_IMAGE(webcam_image));
-   assert(shown && gdk_pixbuf_get_width(shown) == 160 && gdk_pixbuf_get_height(shown) == 120);
+   assert(shown && gdk_pixbuf_get_width(shown) == 160 &&
+      gdk_pixbuf_get_height(shown) == 120);
    assert(!webcam_pending && !webcam_idle);
-   webcam_display_frame(NULL, jpeg, len, &first, NULL);
-   gtk_webcam_show(false);
-   assert(!webcam_pending && !webcam_idle && !webcam_win);
-   assert(starts == 1 && stops == 1 && unsubscribes == 1);
-   drain();
-   gtk_webcam_show(true);
-   webcam_disconnected("disconnected", NULL, &first, NULL);
-   assert(!webcam_connection && !webcam_visible);
-   drain();
-   assert(!webcam_win && unsubscribes == 1);
-   free(wire);
+
+   status.open = false;
+   webcam_closed_event(&status_event, NULL);
+   assert(!webcam_visible && !webcam_pending && !webcam_idle);
+   free(frame);
    g_free(jpeg);
-   g_string_free(display_frame, TRUE);
    gtk_widget_destroy(main_window);
    main_window = main_notebook = NULL;
-   puts("PASS: JPEG wire dispatch preserves server identity, bounded GTK rendering and closed-viewer cleanup");
+   puts("PASS: owned webcam image events, session isolation, bounded GTK redraw and close cleanup");
+   return 0;
 }
