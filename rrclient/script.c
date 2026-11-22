@@ -1,6 +1,7 @@
 /* Client-owned RustyScript integration: GTK/frontend APIs and lifecycle.
  * SPDX-License-Identifier: GPL-2.0-only */
 #include <rrscript/host.h>
+#include <librrprotocol/rrprotocol.h>
 #include <rrclient/frontend.h>
 #include <librustyscript/runtime.h>
 #include <librustyaxe/core.h>
