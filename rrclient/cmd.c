@@ -504,7 +504,25 @@ static bool parse_chat_input(const char *msg, bool commands) {
 
    bool script_command = commands && !g_ascii_strncasecmp(msg, "/script", 7) && (!msg[7] || isspace((unsigned char)msg[7]));
 
-   if (!bridge_command && !script_command && rrclient_chat_input_blocked(commands ? msg : "text")) {
+#ifdef RR_HAVE_RUSTYSCRIPT
+   bool local_script_binding = commands && rrscript_host_has_command(rrclient_script_host,msg);
+   /* Built-in command precedence must also apply to the offline bypass. */
+   if (local_script_binding) {
+      const char *start=msg+1;
+      size_t len=strcspn(start," \t\r\n");
+      for (int i=0;client_cmds[i].cmd;i++) {
+         if (strlen(client_cmds[i].cmd)==len &&
+             !g_ascii_strncasecmp(client_cmds[i].cmd,start,len)) {
+            local_script_binding=false;
+            break;
+         }
+      }
+   }
+#else
+   bool local_script_binding = false;
+#endif
+   if (!bridge_command && !script_command && !local_script_binding &&
+       rrclient_chat_input_blocked(commands ? msg : "text")) {
       ui_print(ui_active_window_name(), "Room is OFFLINE; message not sent");
 
       return true;
