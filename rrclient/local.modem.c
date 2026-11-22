@@ -33,6 +33,16 @@ typedef struct {
    size_t line_len;
 } decoder_t;
 static decoder_t decoders[RR_LOCAL_MODEM_MAX];
+/* TX audio is routed to the 16 kHz encoder mix bus. The direct rig
+ * endpoint is a logical route to that same gated transport, not a bypass
+ * around PTT authorization or codec negotiation. */
+static bool modem_tx_audio_target(const char *target) {
+   return target && (!strcmp(target,"tx.mix") || !strcmp(target,"rig.sink"));
+}
+static bool modem_tx_wired(const decoder_t *d) {
+   return modem_tx_audio_target(d->tx_target);
+}
+
 static GMutex decoder_lock;
 static guint poll_id;
 static bool initialized;
@@ -367,15 +377,6 @@ void rr_local_modem_feed(const char *source, const int16_t *pcm, size_t frames) 
    g_mutex_unlock(&decoder_lock);
 }
 
-/* TX audio is routed to the 16 kHz encoder mix bus. The direct rig
- * endpoint is a logical route to that same gated transport, not a bypass
- * around PTT authorization or codec negotiation. */
-static bool modem_tx_audio_target(const char *target) {
-   return target && (!strcmp(target,"tx.mix") || !strcmp(target,"rig.sink"));
-}
-static bool modem_tx_wired(const decoder_t *d) {
-   return modem_tx_audio_target(d->tx_target);
-}
 static bool source_present(const char *source) {
    struct rrclient_rx_stream streams[RR_LOCAL_MODEM_STREAMS] = {
       0
