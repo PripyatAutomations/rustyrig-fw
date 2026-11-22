@@ -1102,6 +1102,8 @@ static void terminal_open(GtkButton *button, gpointer user) {
 GtkWidget *init_terminal_tab(void) {
    GtkWidget *root = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
    terminal_root = root;
+   /* Working page, unlike fullscreen Status/Logs: retain side panels. */
+   g_object_set_data(G_OBJECT(root), "rr-terminal-page", GINT_TO_POINTER(1));
    GtkWidget *toolbar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
    terminal_ports = gtk_combo_box_text_new();
    gtk_box_pack_start(GTK_BOX(toolbar), gtk_label_new("Endpoint:"), FALSE, FALSE, 0);
