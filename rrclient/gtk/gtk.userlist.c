@@ -1479,6 +1479,8 @@ static void on_userlist_dock_clicked(GtkButton *button, gpointer data) {
 
       if (!userlist_float_panel) {
          userlist_float_panel = rr_floating_panel_new(overlay, GTK_NOTEBOOK(main_notebook), "userlist-main", "Userlist");
+         if (userlist_float_panel)
+            rr_floating_panel_set_resizable(userlist_float_panel, TRUE);
       }
 
       if (!userlist_float_panel) {
@@ -2088,6 +2090,8 @@ GtkWidget *userlist_create(void) {
 
    if (!userlist_float_panel) {
       userlist_float_panel = rr_floating_panel_new(overlay, GTK_NOTEBOOK(main_notebook), "userlist-main", "Userlist");
+         if (userlist_float_panel)
+            rr_floating_panel_set_resizable(userlist_float_panel, TRUE);
    }
 
    if (!userlist_float_panel) {
