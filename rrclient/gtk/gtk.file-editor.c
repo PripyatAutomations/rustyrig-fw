@@ -637,7 +637,7 @@ static void file_editor_confirm(EditorContext *ctx, FileConfirmAction action, co
    rr_floating_panel_add_response(panel, actions, "Cancel", GTK_RESPONSE_CANCEL);
    rr_floating_panel_set_response_callback(panel, file_confirm_response, ctx);
    rr_floating_panel_set_modal(panel, TRUE);
-   rr_floating_panel_show(panel);
+   rr_floating_panel_present(panel);
 }
 
 static void on_save_clicked(GtkButton *btn, gpointer user_data) {
@@ -777,8 +777,7 @@ void gui_file_editor_open(const char *filepath) {
    }
 
    if (active_editor) {
-      rr_floating_panel_restore(active_editor->panel);
-      rr_floating_panel_show(active_editor->panel);
+      rr_floating_panel_present(active_editor->panel);
 
       return;
    }
@@ -913,7 +912,7 @@ void gui_file_editor_open(const char *filepath) {
    g_signal_connect(btn_save, "clicked", G_CALLBACK(on_save_clicked), ctx);
    g_signal_connect(btn_save_as, "clicked", G_CALLBACK(on_save_other_clicked), ctx);
    g_signal_connect(btn_discard, "clicked", G_CALLBACK(on_discard_clicked), ctx);
-   rr_floating_panel_show(ctx->panel);
+   rr_floating_panel_present(ctx->panel);
 }
 
 void gui_file_editor_open_config(const char *filepath) {
