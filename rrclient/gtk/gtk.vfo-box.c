@@ -64,7 +64,7 @@ static void vfo_sdr_button_update(void) {
       generic[0] = g_ascii_toupper(generic[0]);
       label = generic;
    }
-   gtk_button_set_label(GTK_BUTTON(vfo_sdr_button), label ? label : "Remote SDR");
+   /* The gear stays compact regardless of the active SDR driver. */
    char *tooltip = g_strdup_printf("Open %s controls", label ? label : "remote SDR");
    gtk_widget_set_tooltip_text(vfo_sdr_button, tooltip);
    gtk_widget_set_visible(vfo_sdr_button, vfo_local_sdr && vfo_sdr_connected);
@@ -412,11 +412,12 @@ static void vfo_dock_style(void) {
       return;
    }
    vfo_dock_css = gtk_css_provider_new();
-   gtk_css_provider_load_from_data(vfo_dock_css, ".rr-vfo-group { border: 1px solid alpha(currentColor, .26); border-radius: 3px; padding: 2px; }"
+   gtk_css_provider_load_from_data(vfo_dock_css, ".rr-vfo-group { border: 0; border-radius: 2px; padding: 0; }"
       ".rr-vfo-group.rr-vfo-moving { border-color: #66caff; background-color: rgba(80,180,255,.17); }"
       ".rr-vfo-group.rr-vfo-before { border-left: 4px solid #48c5ff; }"
       ".rr-vfo-group.rr-vfo-after { border-right: 4px solid #48c5ff; }"
-      ".rr-vfo-grip { background-color: alpha(currentColor, .09); border-radius: 2px; min-height: 7px; }", -1, NULL);
+      ".rr-vfo-grip { background-color: alpha(currentColor, .09); border-radius: 2px; min-height: 5px; }"
+      ".rr-vfo-sdr-settings { padding: 0 3px; min-height: 22px; min-width: 22px; }", -1, NULL);
 }
 
 static void vfo_clear_drop(GtkWidget *child) {
@@ -560,7 +561,7 @@ static void vfo_control_add(GtkWidget *control, const char *name) {
    /* Do not stretch a lone docked group across the entire FlowBox row. */
    gtk_widget_set_halign(group, GTK_ALIGN_START);
    GtkWidget *handle = gtk_event_box_new();
-   gtk_widget_set_size_request(handle, -1, 8);
+   gtk_widget_set_size_request(handle, -1, 6);
    gtk_widget_set_tooltip_text(handle, "Drag to rearrange VFO controls");
    gtk_box_pack_start(GTK_BOX(group), handle, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(group), control, FALSE, FALSE, 0);
@@ -605,8 +606,8 @@ GtkWidget *create_vfo_box(void) {
    gtk_flow_box_set_min_children_per_line(GTK_FLOW_BOX(vfo_controls_row), 1);
    /* Begin compact; the viewport's actual allocated width selects 1, 2, or 3 columns later, without inflating the panel's minimum width. */
    gtk_flow_box_set_max_children_per_line(GTK_FLOW_BOX(vfo_controls_row), 1);
-   gtk_flow_box_set_row_spacing(GTK_FLOW_BOX(vfo_controls_row), 4);
-   gtk_flow_box_set_column_spacing(GTK_FLOW_BOX(vfo_controls_row), 4);
+   gtk_flow_box_set_row_spacing(GTK_FLOW_BOX(vfo_controls_row), 2);
+   gtk_flow_box_set_column_spacing(GTK_FLOW_BOX(vfo_controls_row), 2);
    gtk_flow_box_set_homogeneous(GTK_FLOW_BOX(vfo_controls_row), FALSE);
    gtk_flow_box_set_filter_func(GTK_FLOW_BOX(vfo_controls_row), vfo_control_visible, NULL, NULL);
    gtk_widget_set_halign(vfo_controls_row, GTK_ALIGN_FILL);
@@ -632,6 +633,20 @@ GtkWidget *create_vfo_box(void) {
    // MODE selection
    GtkWidget *mode_box = create_mode_box();
    vfo_mode_box = mode_box;
+   /* SDR settings belong beside Mode/Width, not in their own wide VFO group.
+    * The frequency entry and its widget tree remain entirely untouched. */
+   vfo_sdr_button = gtk_button_new();
+   GtkWidget *sdr_icon = gtk_image_new_from_icon_name("emblem-system-symbolic", GTK_ICON_SIZE_MENU);
+   gtk_button_set_image(GTK_BUTTON(vfo_sdr_button), sdr_icon);
+   gtk_widget_set_no_show_all(vfo_sdr_button, TRUE);
+   gtk_style_context_add_class(gtk_widget_get_style_context(vfo_sdr_button), "rr-vfo-sdr-settings");
+   vfo_dock_style();
+   gtk_style_context_add_provider(gtk_widget_get_style_context(vfo_sdr_button),
+      GTK_STYLE_PROVIDER(vfo_dock_css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+   gtk_widget_set_tooltip_text(vfo_sdr_button, "Remote SDR settings");
+   g_signal_connect(vfo_sdr_button, "clicked", G_CALLBACK(local_sdr_controls_clicked), NULL);
+   gtk_box_pack_start(GTK_BOX(mode_box), vfo_sdr_button, FALSE, FALSE, 0);
+   g_object_add_weak_pointer(G_OBJECT(vfo_sdr_button), (gpointer *) &vfo_sdr_button);
    gtk_widget_show(mode_box);
    vfo_control_add(mode_box, "⋮⋮ Mode");
 
@@ -644,18 +659,12 @@ GtkWidget *create_vfo_box(void) {
    }
    vfo_control_add(codec_selectors, "⋮⋮ Codecs");
 
-   // TX power for transceivers; the same space hosts the active remote SDR button.
+   // TX power for transceivers.
    GtkWidget *tx_power_vbox = create_txpower_box();
    vfo_tx_power_box = tx_power_vbox;
    g_object_add_weak_pointer(G_OBJECT(tx_power_vbox), (gpointer *) &vfo_tx_power_box);
    gtk_widget_show(tx_power_vbox);
    vfo_control_add(tx_power_vbox, "⋮⋮ TX Power");
-   vfo_sdr_button = gtk_button_new_with_label("Remote SDR");
-   gtk_widget_set_no_show_all(vfo_sdr_button, TRUE);
-   gtk_widget_set_tooltip_text(vfo_sdr_button, "Remote SDR controls");
-   g_signal_connect(vfo_sdr_button, "clicked", G_CALLBACK(local_sdr_controls_clicked), NULL);
-   vfo_control_add(vfo_sdr_button, "⋮⋮ SDR");
-   g_object_add_weak_pointer(G_OBJECT(vfo_sdr_button), (gpointer *) &vfo_sdr_button);
 
    // These globals are borrowed widget references used by protocol/event
    // callbacks.  Clear them automatically if the VFO window is destroyed.
@@ -706,6 +715,7 @@ GtkWidget *create_vfo_box(void) {
    gtk_widget_show(ptt_box);
    vfo_control_add(ptt_box, "⋮⋮ PTT");
    vfo_layout_restore();
+   vfo_sdr_button_update();
 
    // This will sort out tab order between previous/next widget
    g_signal_connect(control_box, "key-press-event", G_CALLBACK(on_vfo_key_press), freq_entry);
