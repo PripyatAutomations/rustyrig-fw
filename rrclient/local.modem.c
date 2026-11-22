@@ -204,6 +204,11 @@ static void callsign_notify(const rr_local_modem_decode_t *d,const char *body,
    if(!fields)return;
    dict_add(fields,"callsign",call);
    dict_add(fields,"kind",kind);
+   dict_add(fields,"origin","modem");
+   char modem[24];
+   g_snprintf(modem,sizeof(modem),"modem%u",d->slot);
+   dict_add(fields,"modem",modem);
+   dict_add(fields,"audio_source",d->source);
    dict_add(fields,"text",body);
    dict_add(fields,"raw",d->line);
    dict_add_long(fields,"time_ms",(long)(g_get_real_time()/1000));
@@ -216,8 +221,29 @@ static void callsign_notify(const rr_local_modem_decode_t *d,const char *body,
    dict_add_int(fields,"slot",(int)d->slot);
    dict_add_long(fields,"frequency_hz",(long)d->frequency_hz);
    dict_add_int(fields,"watch_id",watch_id);
+   /* A remote RX stream is identified by its source ID and VFO resource UUID,
+    * when known. We never guess a rig name from that stream ID. */
+   struct rrclient_rx_stream streams[RR_LOCAL_MODEM_STREAMS]={0};
+   size_t n=audio_rx_streams(streams,G_N_ELEMENTS(streams));
+   for(size_t i=0;i<MIN(n,G_N_ELEMENTS(streams));i++) {
+      if(!strcmp(streams[i].id,d->source) && streams[i].uuid[0]) {
+         dict_add(fields,"vfo_uuid",streams[i].uuid);
+         break;
+      }
+   }
+   if(d->line[0]=='{') {
+      dict *raw=json2dict(d->line);
+      if(raw) {
+         const char *keys[]={"audio_hz","dt","sync_score","snr"};
+         for(guint i=0;i<G_N_ELEMENTS(keys);i++) {
+            const char *value=dict_get(raw,keys[i],NULL);
+            if(value && *value)dict_add(fields,keys[i],value);
+         }
+         dict_free(raw);
+      }
+   }
    char *json=dict2json(fields);
-   if(json)event_emit(RR_LOCAL_MODEM_CALLSIGN,NULL,json);
+   if(json)event_emit(RR_WATCH_CALLSIGN_EVENT,NULL,json);
    free(json);
    dict_free(fields);
 }
