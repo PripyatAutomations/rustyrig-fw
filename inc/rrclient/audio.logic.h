@@ -19,6 +19,25 @@ typedef struct {
 /* Missing or stale inputs are NOT treated as logical zero; evaluation
  * returns false and forces output low (fail closed). */
 bool rr_gate_evaluate(const rr_gate_state_t *gate, bool *output);
+/* One pin may receive any number of boolean wires. A pin is asserted if
+ * ANY attached wire is high (wired-OR); a gate then applies its operation
+ * across its *pins*. Unconnected pins or stale/invalid wire values make
+ * the whole evaluation unavailable and force output low, including NOT,
+ * NAND and NOR. PTT is ordinary boolean signal data here.
+ *
+ * The caller owns wires and is responsible for validating pin indexes,
+ * preventing combinational feedback cycles and enforcing TX authorization
+ * at the eventual physical sink.
+ */
+typedef struct {
+   unsigned pin;             /* 0 .. gate.inputs-1 */
+   bool valid;               /* false = disconnected/stale/unavailable */
+   bool high;
+} rr_gate_wire_t;
+bool rr_gate_evaluate_wires(rr_gate_kind_t kind, unsigned inputs,
+                            const rr_gate_wire_t *wires, size_t wire_count,
+                            bool *output);
+
 const char *rr_gate_kind_name(rr_gate_kind_t kind);
 bool rr_gate_kind_parse(const char *name, rr_gate_kind_t *out);
 /* Numeric threshold/comparator. Boundaries are inclusive: min <= value <= max.
