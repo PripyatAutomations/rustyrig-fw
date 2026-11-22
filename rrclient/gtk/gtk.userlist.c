@@ -214,7 +214,9 @@ static int userlist_content_width(GtkWidget *view) {
    GtkCellRenderer *text = g_object_get_data(G_OBJECT(view), "rr-username-renderer");
    GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(view));
    GtkTreeIter row;
-   int longest = gtk_tree_view_column_get_fixed_width(column);
+   /* Current allocation is not content; do not feed it into the next
+    * natural-size calculation. */
+   int longest = 100;
 
    for (gboolean valid = gtk_tree_model_get_iter_first(model, &row) ; valid ; valid = gtk_tree_model_iter_next(model, &row)) {
       int width;
@@ -262,21 +264,16 @@ static gboolean userlist_fit_width_idle(gpointer data) {
    if (gtk_tree_view_get_n_columns(GTK_TREE_VIEW(view)) != USERLIST_VIEW_COLS) {
       return G_SOURCE_REMOVE;
    }
-   gint width = userlist_content_width(view);
-   GtkWidget *scroll = gtk_widget_get_parent(view);
+   room_userlist_entry_t *entry = g_object_get_data(G_OBJECT(view), "rr-room-roster");
 
-   if (scroll && GTK_IS_VIEWPORT(scroll)) {
-      scroll = gtk_widget_get_parent(scroll);
-   }
-
-   if (scroll && GTK_IS_SCROLLED_WINDOW(scroll) && width > 0) {
-      /* Use the measured width for the initial fit, not as a persistent minimum: a growing roster must remain resizeable in both directions. */
-      room_userlist_entry_t *entry = g_object_get_data(G_OBJECT(view), "rr-room-roster");
-
-      if (entry) {
-         /* Measure the tree plus scrollbar/chrome and controls, then release the minimum: a shrinkable pane must not crop its own children. */
-         room_userlist_fit(entry, userlist_natural_width(view, entry->panel, true));
-      }
+   /* Measuring the full names temporarily raises the scroller's minimum
+    * request. Inside a floating/docked side panel this feeds back into its
+    * preferred width, making it grow on each roster refresh. Measure only
+    * if an ordinary pane or standalone window owns automatic sizing. */
+   if (entry && ((entry->docked && entry->auto_dock_width) ||
+                 (!entry->docked && !entry->float_panel &&
+                  entry->auto_window_width && GTK_IS_WINDOW(entry->window)))) {
+      room_userlist_fit(entry, userlist_natural_width(view, entry->panel, true));
    }
 
    return G_SOURCE_REMOVE;
