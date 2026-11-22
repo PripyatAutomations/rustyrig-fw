@@ -1767,37 +1767,6 @@ static void panel_menu_add_action(RRFloatPanel *p, GtkWidget *box, const char *l
    gtk_box_pack_start(GTK_BOX(box), button, FALSE, FALSE, 0);
 }
 
-/* Opening a popover after reparenting it to the toplevel during the
- * button's clicked signal can immediately dismiss it as an outside click.
- * Defer popup until the button event has finished dispatching. */
-static gboolean panel_menu_popup_idle(gpointer data) {
-   GtkWidget *menu = data;
-   GtkWidget *relative = gtk_popover_get_relative_to(GTK_POPOVER(menu));
-   if (GTK_IS_WIDGET(relative) && gtk_widget_get_visible(relative)) {
-      gtk_widget_show_all(menu);
-      gtk_popover_popup(GTK_POPOVER(menu));
-   }
-   return G_SOURCE_REMOVE;
-}
-static void panel_menu_open(GtkButton *button, gpointer data) {
-   RRFloatPanel *p = data;
-   /* Keep a fixed anchor while zoom changes the size of the panel, but
-    * calculate its position anew for each subsequent opening. */
-   GtkWidget *top = gtk_widget_get_toplevel(GTK_WIDGET(button));
-   gint x = 0, y = 0;
-   if (GTK_IS_WINDOW(top) &&
-       gtk_widget_translate_coordinates(GTK_WIDGET(button), top, 0, 0, &x, &y)) {
-      GdkRectangle anchor = {x, y, gtk_widget_get_allocated_width(GTK_WIDGET(button)),
-         gtk_widget_get_allocated_height(GTK_WIDGET(button))};
-      gtk_popover_set_relative_to(GTK_POPOVER(p->menu), top);
-      gtk_popover_set_pointing_to(GTK_POPOVER(p->menu), &anchor);
-   } else {
-      gtk_popover_set_relative_to(GTK_POPOVER(p->menu), GTK_WIDGET(button));
-   }
-   g_idle_add_full(G_PRIORITY_DEFAULT_IDLE, panel_menu_popup_idle,
-                   g_object_ref(p->menu), g_object_unref);
-}
-
 static void panel_chrome(RRFloatPanel *p) {
    if (!p || !p->frame) {
       return;
@@ -2350,7 +2319,11 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    GtkStyleContext *panel_style = gtk_widget_get_style_context(p->frame);
    gtk_style_context_add_class(panel_style, "rr-panel-local-zoom");
    gtk_style_context_add_provider(panel_style, GTK_STYLE_PROVIDER(p->scale_css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
-   GtkWidget *menu_button = gtk_button_new_from_icon_name("open-menu-symbolic", GTK_ICON_SIZE_MENU);
+   /* GtkMenuButton owns the popover toggle. Reparenting a GtkPopover
+    * during a GtkButton::clicked handler made this menu fail to open. */
+   GtkWidget *menu_button = gtk_menu_button_new();
+   gtk_button_set_image(GTK_BUTTON(menu_button),
+                        gtk_image_new_from_icon_name("open-menu-symbolic", GTK_ICON_SIZE_MENU));
    gtk_button_set_relief(GTK_BUTTON(menu_button), GTK_RELIEF_NONE);
    /* Compact chrome: 12px glyphs and minimal button padding keep the floating header close to the title's natural text height. */
    GtkCssProvider *chrome_css = gtk_css_provider_new();
@@ -2380,6 +2353,7 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    gtk_box_pack_end(GTK_BOX(header), p->roll, FALSE, FALSE, 0);
    gtk_box_pack_end(GTK_BOX(header), p->minimize, FALSE, FALSE, 0);
    p->menu = gtk_popover_new(menu_button);
+   gtk_menu_button_set_popover(GTK_MENU_BUTTON(menu_button), p->menu);
    GtkWidget *settings = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
    gtk_container_set_border_width(GTK_CONTAINER(settings), 10);
    gtk_container_add(GTK_CONTAINER(p->menu), settings);
@@ -2423,7 +2397,6 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    g_object_set_data(G_OBJECT(p->menu_close), "rr-action", (gpointer) "close");
    g_signal_connect(p->menu_close, "clicked", G_CALLBACK(panel_menu_action), p);
    gtk_box_pack_start(GTK_BOX(settings), p->menu_close, FALSE, FALSE, 0);
-   g_signal_connect(menu_button, "clicked", G_CALLBACK(panel_menu_open), p);
    p->title = gtk_label_new(title ? title : id);
 
    if (!strcmp(id, "rig-vfo")) {
