@@ -147,7 +147,15 @@ GtkWidget *rr_local_browser_new(const char *directory, const char *suffix,
    b->user = user;
    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
    g_object_set_data_full(G_OBJECT(box), "rr-local-browser", b, browser_free);
-   GtkWidget *toolbar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 3);
+   /* A wrapped action strip keeps long custom toolbars from establishing
+    * an oversized minimum width for floating managers. */
+   GtkWidget *toolbar = gtk_flow_box_new();
+   gtk_flow_box_set_selection_mode(GTK_FLOW_BOX(toolbar), GTK_SELECTION_NONE);
+   gtk_flow_box_set_min_children_per_line(GTK_FLOW_BOX(toolbar), 1);
+   gtk_flow_box_set_max_children_per_line(GTK_FLOW_BOX(toolbar), 4);
+   gtk_flow_box_set_row_spacing(GTK_FLOW_BOX(toolbar), 3);
+   gtk_flow_box_set_column_spacing(GTK_FLOW_BOX(toolbar), 3);
+   gtk_widget_set_halign(toolbar, GTK_ALIGN_START);
    for (guint i = 0; i < count; i++) {
       GtkWidget *button = gtk_button_new_with_label(actions[i].label);
       if (actions[i].icon && *actions[i].icon) {
@@ -158,7 +166,7 @@ GtkWidget *rr_local_browser_new(const char *directory, const char *suffix,
       gtk_widget_set_tooltip_text(button, actions[i].label);
       g_object_set_data(G_OBJECT(button), "rr-action-index", GUINT_TO_POINTER(i));
       g_signal_connect(button, "clicked", G_CALLBACK(action_clicked), box);
-      gtk_box_pack_start(GTK_BOX(toolbar), button, FALSE, FALSE, 0);
+      gtk_container_add(GTK_CONTAINER(toolbar), button);
       g_ptr_array_add(b->buttons, button);
    }
    gtk_box_pack_start(GTK_BOX(box), toolbar, FALSE, FALSE, 0);
