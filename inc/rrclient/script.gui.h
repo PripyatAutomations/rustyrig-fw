@@ -4,6 +4,7 @@
 #include <stdint.h>
 #define RR_SCRIPT_GUI_COMMAND "client.script.gui.command"
 #define RR_SCRIPT_GUI_CHANGE "client.script.gui.change"
+#define RR_SCRIPT_STARTUP_ERRORS_EVENT "client.script.startup-errors"
 #define RR_SCRIPT_GUI_PROTOCOL_VERSION 1u
 /* All messages are owned by the event bus; never contain toolkit pointers. */
 enum {
