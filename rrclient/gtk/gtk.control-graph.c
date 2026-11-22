@@ -1,0 +1,481 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/* GTK-only view/controller for the bounded, generic boolean control graph.
+ * No GTK gesture ever transmits PTT. The physical TX sink must separately
+ * enforce authorization, interlocks and loss-of-signal release. */
+#include "gtk.control-graph.h"
+#include <rrclient/control.graph.h>
+#include <rrclient/audio.h>
+#include <rrclient/database.h>
+#include <rrclient/gtk/gtk.graph.h>
+#include <math.h>
+#include <stdio.h>
+#include <string.h>
+
+#define LOGIC_STORE "audio.graph.control.v1"
+#define MAX_UI_GATES RR_CONTROL_MAX_GATES
+#define MAX_UI_WIRES RR_CONTROL_MAX_WIRES
+typedef struct {
+   char id[RR_CONTROL_NAME_LEN];
+   rr_gate_kind_t kind;
+   unsigned inputs;
+   double x,y;
+} gate_view_t;
+typedef struct {
+   char from[RR_CONTROL_NAME_LEN],to[RR_CONTROL_NAME_LEN];
+   unsigned pin;
+} wire_view_t;
+static gate_view_t blocks[MAX_UI_GATES];
+static wire_view_t wires[MAX_UI_WIRES];
+static unsigned block_count,wire_count,serial;
+static rr_control_graph_t *model;
+static rr_logic_source_position_cb source_position;
+static rr_logic_sink_attach_cb sink_attach;
+static gpointer callback_user;
+static gboolean initialized;
+static gint drag_block=-1,drag_wire=-1;
+static double drag_dx,drag_dy,mouse_x,mouse_y;
+static char drag_from[RR_CONTROL_NAME_LEN];
+static void changed(void) {
+   if (GTK_IS_WIDGET(callback_user))
+      gtk_widget_queue_draw(GTK_WIDGET(callback_user));
+}
+static gate_view_t *find_gate(const char *id) {
+   for (unsigned i=0;i<block_count;i++)
+      if (!strcmp(blocks[i].id,id)) return &blocks[i];
+   return NULL;
+}
+static rr_gtk_graph_shape_t shape_for(rr_gate_kind_t kind) {
+   switch(kind) {
+      case RR_GATE_AND: return RR_GTK_GRAPH_SHAPE_AND;
+      case RR_GATE_NAND: return RR_GTK_GRAPH_SHAPE_NAND;
+      case RR_GATE_OR: return RR_GTK_GRAPH_SHAPE_OR;
+      case RR_GATE_NOR: return RR_GTK_GRAPH_SHAPE_NOR;
+      case RR_GATE_XOR: return RR_GTK_GRAPH_SHAPE_XOR;
+      case RR_GATE_XNOR: return RR_GTK_GRAPH_SHAPE_XNOR;
+      case RR_GATE_NOT: return RR_GTK_GRAPH_SHAPE_NOT;
+      default: return RR_GTK_GRAPH_SHAPE_RECT;
+   }
+}
+static double pin_y(const gate_view_t *b,unsigned pin) {
+   return b->y+(b->inputs==1 ? 56. :
+      20.+(72.*pin/(b->inputs-1)));
+}
+static gboolean pin_hit(double x,double y,gate_view_t **target,unsigned *pin) {
+   double best=13.;
+   gboolean found=FALSE;
+   for (unsigned i=0;i<block_count;i++) {
+      gate_view_t *b=&blocks[i];
+      for (unsigned p=0;p<b->inputs;p++) {
+         double d=hypot(x-b->x,y-pin_y(b,p));
+         if (d<best) { best=d; *target=b; *pin=p; found=TRUE; }
+      }
+   }
+   return found;
+}
+static gboolean output_hit(double x,double y,char out[RR_CONTROL_NAME_LEN]) {
+   for (unsigned i=0;i<block_count;i++) {
+      gate_view_t *b=&blocks[i];
+      if (hypot(x-b->x-RR_GTK_GRAPH_NODE_W,y-b->y-56.)<13.) {
+         g_strlcpy(out,b->id,RR_CONTROL_NAME_LEN);
+         return TRUE;
+      }
+   }
+   if (source_position) {
+      const char *local=RRCLIENT_ROUTING_PTT_LOCAL;
+      double sx,sy;
+      if (source_position(local,&sx,&sy,callback_user) && hypot(x-sx,y-sy)<15.) {
+         g_strlcpy(out,local,RR_CONTROL_NAME_LEN);
+         return TRUE;
+      }
+      for (unsigned i=1;i<=RR_LOCAL_MODEM_MAX;i++) {
+         char id[64];
+         g_snprintf(id,sizeof(id),"modem%u.ptt",i);
+         if (source_position(id,&sx,&sy,callback_user) && hypot(x-sx,y-sy)<15.) {
+            g_strlcpy(out,id,RR_CONTROL_NAME_LEN);
+            return TRUE;
+         }
+      }
+   }
+   return FALSE;
+}
+static void save_model(void) {
+   GKeyFile *k=g_key_file_new();
+   g_key_file_set_integer(k,"control","gates",(int)block_count);
+   g_key_file_set_integer(k,"control","wires",(int)wire_count);
+   g_key_file_set_integer(k,"control","serial",(int)serial);
+   for (unsigned i=0;i<block_count;i++) {
+      char group[40],x[G_ASCII_DTOSTR_BUF_SIZE],y[G_ASCII_DTOSTR_BUF_SIZE];
+      g_snprintf(group,sizeof(group),"gate.%u",i);
+      g_key_file_set_string(k,group,"id",blocks[i].id);
+      g_key_file_set_string(k,group,"kind",rr_gate_kind_name(blocks[i].kind));
+      g_key_file_set_integer(k,group,"inputs",(int)blocks[i].inputs);
+      g_ascii_formatd(x,sizeof(x),"%.2f",blocks[i].x);
+      g_ascii_formatd(y,sizeof(y),"%.2f",blocks[i].y);
+      g_key_file_set_string(k,group,"x",x);
+      g_key_file_set_string(k,group,"y",y);
+   }
+   for (unsigned i=0;i<wire_count;i++) {
+      char group[40];
+      g_snprintf(group,sizeof(group),"wire.%u",i);
+      g_key_file_set_string(k,group,"from",wires[i].from);
+      g_key_file_set_string(k,group,"to",wires[i].to);
+      g_key_file_set_integer(k,group,"pin",(int)wires[i].pin);
+   }
+   gchar *value=g_key_file_to_data(k,NULL,NULL);
+   if (value) {
+      rrclient_database_setting_set(LOGIC_STORE,value);
+      g_free(value);
+   }
+   g_key_file_unref(k);
+   changed();
+}
+static gboolean connect_one(const char *src,const char *dst,unsigned pin,gboolean save) {
+   if (!model || !find_gate(dst) ||
+       !rr_control_graph_connect(model,src,dst,pin) ||
+       wire_count>=MAX_UI_WIRES) return FALSE;
+   wire_view_t *w=&wires[wire_count++];
+   g_strlcpy(w->from,src,sizeof(w->from));
+   g_strlcpy(w->to,dst,sizeof(w->to));
+   w->pin=pin;
+   if (save) save_model();
+   return TRUE;
+}
+static void restore_model(void) {
+   gchar *saved=rrclient_database_setting_get(LOGIC_STORE);
+   if (!saved) return;
+   GKeyFile *k=g_key_file_new();
+   if (!g_key_file_load_from_data(k,saved,-1,G_KEY_FILE_NONE,NULL)) goto done;
+   int ng=CLAMP(g_key_file_get_integer(k,"control","gates",NULL),0,MAX_UI_GATES);
+   int nw=CLAMP(g_key_file_get_integer(k,"control","wires",NULL),0,MAX_UI_WIRES);
+   serial=MAX(0,g_key_file_get_integer(k,"control","serial",NULL));
+   for (int i=0;i<ng;i++) {
+      char group[40];g_snprintf(group,sizeof(group),"gate.%d",i);
+      gchar *name=g_key_file_get_string(k,group,"id",NULL);
+      gchar *kind=g_key_file_get_string(k,group,"kind",NULL);
+      gchar *xs=g_key_file_get_string(k,group,"x",NULL);
+      gchar *ys=g_key_file_get_string(k,group,"y",NULL);
+      rr_gate_kind_t type;
+      int inputs=g_key_file_get_integer(k,group,"inputs",NULL);
+      double x=xs?g_ascii_strtod(xs,NULL):-1.,y=ys?g_ascii_strtod(ys,NULL):-1.;
+      if (name && g_str_has_prefix(name,"gate.") && kind &&
+          rr_gate_kind_parse(kind,&type) &&
+          rr_control_graph_gate_add(model,name,type,(unsigned)inputs) &&
+          isfinite(x) && isfinite(y) && x>=0 && x<=100000 &&
+          y>=0 && y<=100000) {
+         gate_view_t *b=&blocks[block_count++];
+         g_strlcpy(b->id,name,sizeof(b->id));
+         b->kind=type;b->inputs=(unsigned)inputs;b->x=x;b->y=y;
+      }
+      g_free(name);g_free(kind);g_free(xs);g_free(ys);
+   }
+   for (int i=0;i<nw;i++) {
+      char group[40];g_snprintf(group,sizeof(group),"wire.%d",i);
+      gchar *from=g_key_file_get_string(k,group,"from",NULL);
+      gchar *to=g_key_file_get_string(k,group,"to",NULL);
+      int pin=g_key_file_get_integer(k,group,"pin",NULL);
+      if (from && to && pin>=0)
+         connect_one(from,to,(unsigned)pin,FALSE);
+      g_free(from);g_free(to);
+   }
+done:
+   g_key_file_unref(k);g_free(saved);
+}
+void rr_logic_canvas_init(rr_logic_source_position_cb position,
+                          rr_logic_sink_attach_cb attach,gpointer user) {
+   if (initialized) {
+      source_position=position;sink_attach=attach;callback_user=user;
+      return;
+   }
+   source_position=position;sink_attach=attach;callback_user=user;
+   initialized=TRUE;
+   model=rr_control_graph_new();
+   rr_control_graph_source_add(model,RRCLIENT_ROUTING_PTT_LOCAL);
+   for(unsigned i=1;i<=RR_LOCAL_MODEM_MAX;i++) {
+      char id[64];g_snprintf(id,sizeof(id),"modem%u.ptt",i);
+      rr_control_graph_source_add(model,id);
+   }
+   restore_model();
+}
+gboolean rr_logic_canvas_output_position(const char *name,double *x,double *y) {
+   gate_view_t *b=find_gate(name);
+   if (!b || !x || !y) return FALSE;
+   *x=b->x+RR_GTK_GRAPH_NODE_W;*y=b->y+56.;
+   return TRUE;
+}
+gboolean rr_logic_canvas_output(const char *name,bool *valid,bool *high) {
+   return model && rr_control_graph_output(model,name,valid,high);
+}
+void rr_logic_canvas_signal(const char *name,bool valid,bool high) {
+   if (model && rr_control_graph_source_set(model,name,valid,high)) changed();
+}
+void rr_logic_canvas_reset_sources(void) {
+   if (!model) return;
+   rr_control_graph_source_set(model,RRCLIENT_ROUTING_PTT_LOCAL,false,false);
+   for(unsigned i=1;i<=RR_LOCAL_MODEM_MAX;i++) {
+      char id[64];g_snprintf(id,sizeof(id),"modem%u.ptt",i);
+      rr_control_graph_source_set(model,id,false,false);
+   }
+   changed();
+}
+void rr_logic_canvas_bounds(double *width,double *height) {
+   for(unsigned i=0;i<block_count;i++) {
+      *width=MAX(*width,blocks[i].x+RR_GTK_GRAPH_NODE_W+45.);
+      *height=MAX(*height,blocks[i].y+RR_GTK_GRAPH_NODE_H+45.);
+   }
+}
+void rr_logic_canvas_draw(cairo_t *cr) {
+   if (!model) return;
+   cairo_save(cr);
+   for (unsigned i=0;i<wire_count;i++) {
+      wire_view_t *w=&wires[i];
+      gate_view_t *dest=find_gate(w->to);
+      if (!dest || w->pin>=dest->inputs) continue;
+      double sx,sy;
+      if (!rr_logic_canvas_output_position(w->from,&sx,&sy) &&
+          (!source_position ||
+           !source_position(w->from,&sx,&sy,callback_user))) continue;
+      double dx=dest->x,dy=pin_y(dest,w->pin),mx=(sx+dx)/2.;
+      cairo_new_path(cr);
+      cairo_set_source_rgb(cr,.96,.20,.20);
+      cairo_set_line_width(cr,2.3);
+      cairo_move_to(cr,sx,sy);
+      cairo_curve_to(cr,mx,sy,mx,dy,dx,dy);
+      cairo_stroke(cr);
+   }
+   if (drag_wire>=0) {
+      double sx,sy;
+      if (rr_logic_canvas_output_position(drag_from,&sx,&sy) ||
+          (source_position && source_position(drag_from,&sx,&sy,callback_user))) {
+         cairo_set_source_rgb(cr,.96,.20,.20);
+         cairo_set_line_width(cr,2.);
+         const double dash[]={5.,4.};
+         cairo_set_dash(cr,dash,2,0.);
+         cairo_move_to(cr,sx,sy);
+         cairo_curve_to(cr,(sx+mouse_x)/2.,sy,(sx+mouse_x)/2.,mouse_y,mouse_x,mouse_y);
+         cairo_stroke(cr);
+         cairo_set_dash(cr,NULL,0,0);
+      }
+   }
+   for (unsigned i=0;i<block_count;i++) {
+      gate_view_t *b=&blocks[i];
+      bool valid=false,high=false;
+      rr_control_graph_output(model,b->id,&valid,&high);
+      rr_gtk_graph_port_t ports[33];
+      char names[32][8];
+      for(unsigned j=0;j<b->inputs;j++) {
+         g_snprintf(names[j],sizeof(names[j]),"%c",j<26?'A'+j:'a'+(j-26));
+         ports[j]=(rr_gtk_graph_port_t){names[j],RR_GTK_GRAPH_SIGNAL_BOOLEAN,FALSE,0.,
+                     pin_y(b,j)-b->y};
+      }
+      ports[b->inputs]=(rr_gtk_graph_port_t){"OUT",RR_GTK_GRAPH_SIGNAL_BOOLEAN,TRUE,
+                                      RR_GTK_GRAPH_NODE_W,56.};
+      rr_gtk_graph_node_t view={.x=b->x,.y=b->y,
+         .title=rr_gate_kind_name(b->kind),
+         .shape=shape_for(b->kind),.ports=ports,.port_count=b->inputs+1,
+         .io=RR_GTK_GRAPH_IO_BOTH,.selected=valid && high};
+      rr_gtk_graph_draw(cr,&view,1,NULL,0);
+      cairo_set_source_rgb(cr,.96,.20,.20);
+      cairo_set_font_size(cr,10.);
+      for(unsigned j=0;j<b->inputs;j++) {
+         cairo_move_to(cr,b->x+16.,pin_y(b,j)+3.);
+         cairo_show_text(cr,names[j]);
+      }
+      cairo_set_source_rgb(cr,valid?(high?.38:.84):.48,
+                                valid?(high?.94:.84):.48,
+                                valid?(high?.38:.84):.48);
+      cairo_arc(cr,b->x+RR_GTK_GRAPH_NODE_W-20.,b->y+56.,4.,0,2*G_PI);
+      cairo_fill(cr);
+   }
+   cairo_restore(cr);
+}
+static void remove_wire(GtkMenuItem *item,gpointer unused) {
+   (void)unused;
+   const char *from=g_object_get_data(G_OBJECT(item),"from");
+   const char *to=g_object_get_data(G_OBJECT(item),"to");
+   unsigned pin=GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(item),"pin"));
+   for(unsigned i=0;i<wire_count;i++)
+      if (!strcmp(wires[i].from,from) && !strcmp(wires[i].to,to) &&
+          wires[i].pin==pin) {
+         if (rr_control_graph_disconnect(model,from,to,pin)) {
+            memmove(&wires[i],&wires[i+1],(wire_count-i-1)*sizeof(wires[0]));
+            wire_count--;
+            save_model();
+         }
+         break;
+      }
+}
+static void properties(gate_view_t *b,GtkWidget *parent) {
+   GtkWidget *dialog=gtk_dialog_new_with_buttons("Gate properties",
+      GTK_IS_WINDOW(parent)?GTK_WINDOW(parent):NULL,
+      GTK_DIALOG_MODAL|GTK_DIALOG_DESTROY_WITH_PARENT,
+      "_Cancel",GTK_RESPONSE_CANCEL,"_Remove",GTK_RESPONSE_REJECT,
+      "_Apply",GTK_RESPONSE_ACCEPT,NULL);
+   GtkWidget *box=gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+   gtk_container_set_border_width(GTK_CONTAINER(box),12);
+   GtkWidget *kind=gtk_combo_box_text_new();
+   for (unsigned i=0;i<=RR_GATE_XNOR;i++)
+      gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(kind),
+                                    rr_gate_kind_name((rr_gate_kind_t)i));
+   gtk_combo_box_set_active(GTK_COMBO_BOX(kind),b->kind);
+   GtkWidget *spin=gtk_spin_button_new_with_range(1,32,1);
+   gtk_spin_button_set_value(GTK_SPIN_BUTTON(spin),b->inputs);
+   gtk_box_pack_start(GTK_BOX(box),gtk_label_new("Logic function"),FALSE,FALSE,4);
+   gtk_box_pack_start(GTK_BOX(box),kind,FALSE,FALSE,4);
+   gtk_box_pack_start(GTK_BOX(box),gtk_label_new("Number of input pins"),FALSE,FALSE,4);
+   gtk_box_pack_start(GTK_BOX(box),spin,FALSE,FALSE,4);
+   GtkWidget *note=gtk_label_new("Wires sharing one input are ORed.\nMissing/stale inputs force output low.\nChanging inputs cannot silently remove wires.");
+   gtk_label_set_line_wrap(GTK_LABEL(note),TRUE);
+   gtk_box_pack_start(GTK_BOX(box),note,FALSE,FALSE,6);
+   gtk_widget_show_all(dialog);
+   gint result=gtk_dialog_run(GTK_DIALOG(dialog));
+   if (result==GTK_RESPONSE_REJECT) {
+      char id[RR_CONTROL_NAME_LEN];
+      g_strlcpy(id,b->id,sizeof(id));
+      if (rr_control_graph_gate_remove(model,id)) {
+         for(unsigned i=0;i<wire_count;)
+            if (!strcmp(wires[i].from,id) || !strcmp(wires[i].to,id)) {
+               memmove(&wires[i],&wires[i+1],(wire_count-i-1)*sizeof(wires[0]));
+               wire_count--;
+            } else i++;
+         unsigned i=(unsigned)(b-blocks);
+         memmove(&blocks[i],&blocks[i+1],(block_count-i-1)*sizeof(blocks[0]));
+         block_count--;
+         save_model();
+      }
+   } else if (result==GTK_RESPONSE_ACCEPT) {
+      rr_gate_kind_t type=(rr_gate_kind_t)gtk_combo_box_get_active(GTK_COMBO_BOX(kind));
+      unsigned n=(unsigned)gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(spin));
+      if (rr_control_graph_gate_configure(model,b->id,type,n)) {
+         b->kind=type;b->inputs=n;
+         save_model();
+      } else {
+         GtkWidget *error=gtk_message_dialog_new(GTK_IS_WINDOW(parent)?GTK_WINDOW(parent):NULL,
+            GTK_DIALOG_MODAL,GTK_MESSAGE_WARNING,GTK_BUTTONS_OK,
+            "Invalid gate configuration or a connected input would be removed.");
+         gtk_dialog_run(GTK_DIALOG(error));gtk_widget_destroy(error);
+      }
+   }
+   gtk_widget_destroy(dialog);
+}
+static void wire_menu(GtkWidget *menu,const wire_view_t *w,unsigned index) {
+   gchar *label=g_strdup_printf("Disconnect %s → input %u",w->from,w->pin+1);
+   GtkWidget *entry=gtk_menu_item_new_with_label(label);
+   g_free(label);
+   g_object_set_data_full(G_OBJECT(entry),"from",g_strdup(w->from),g_free);
+   g_object_set_data_full(G_OBJECT(entry),"to",g_strdup(w->to),g_free);
+   g_object_set_data(G_OBJECT(entry),"pin",GUINT_TO_POINTER(w->pin));
+   g_object_set_data(G_OBJECT(entry),"index",GUINT_TO_POINTER(index));
+   g_signal_connect(entry,"activate",G_CALLBACK(remove_wire),NULL);
+   gtk_menu_shell_append(GTK_MENU_SHELL(menu),entry);
+}
+static void properties_menu_activate(GtkMenuItem *item,gpointer parent) {
+   gate_view_t *b=find_gate(g_object_get_data(G_OBJECT(item),"id"));
+   if (b) properties(b,GTK_WIDGET(parent));
+}
+gboolean rr_logic_canvas_press(double x,double y,GdkEventButton *event) {
+   if (!model || !event) return FALSE;
+   for(int i=(int)block_count-1;i>=0;i--) {
+      gate_view_t *b=&blocks[i];
+      if (x<b->x-14 || x>b->x+RR_GTK_GRAPH_NODE_W+14 ||
+          y<b->y-14 || y>b->y+RR_GTK_GRAPH_NODE_H+14) continue;
+      if (event->button==GDK_BUTTON_SECONDARY &&
+          x>=b->x && y>=b->y && x<=b->x+RR_GTK_GRAPH_NODE_W &&
+          y<=b->y+RR_GTK_GRAPH_NODE_H) {
+         GtkWidget *menu=gtk_menu_new(),*edit=gtk_menu_item_new_with_label("Properties…");
+         g_object_set_data_full(G_OBJECT(edit),"id",g_strdup(b->id),g_free);
+         g_signal_connect(edit,"activate",G_CALLBACK(properties_menu_activate),
+                          g_object_get_data(G_OBJECT(event->window),"rr-logic-parent"));
+         gtk_menu_shell_append(GTK_MENU_SHELL(menu),edit);
+         for(unsigned w=0;w<wire_count;w++)
+            if (!strcmp(wires[w].to,b->id) || !strcmp(wires[w].from,b->id))
+               wire_menu(menu,&wires[w],w);
+         gtk_widget_show_all(menu);
+         gtk_menu_popup_at_pointer(GTK_MENU(menu),(GdkEvent *)event);
+         return TRUE;
+      }
+      if (event->button!=GDK_BUTTON_PRIMARY || event->type!=GDK_BUTTON_PRESS)
+         continue;
+      if (hypot(x-b->x-RR_GTK_GRAPH_NODE_W,y-b->y-56.)<16.) {
+         drag_wire=i;
+         g_strlcpy(drag_from,b->id,sizeof(drag_from));
+         mouse_x=x;mouse_y=y;
+         return TRUE;
+      }
+      if (x>=b->x && y>=b->y &&
+          rr_gtk_graph_shape_contains(shape_for(b->kind),x-b->x,y-b->y)) {
+         drag_block=i;drag_dx=x-b->x;drag_dy=y-b->y;
+         return TRUE;
+      }
+   }
+   return FALSE;
+}
+gboolean rr_logic_canvas_motion(double x,double y,guint modifiers) {
+   if (drag_block>=0) {
+      gate_view_t *b=&blocks[drag_block];
+      b->x=CLAMP(x-drag_dx,0.,100000.);
+      b->y=CLAMP(y-drag_dy,0.,100000.);
+      if (modifiers & GDK_CONTROL_MASK) {
+         b->x=round(b->x/20.)*20.;
+         b->y=round(b->y/20.)*20.;
+      }
+      changed();
+      return TRUE;
+   }
+   if (drag_wire>=0) {
+      mouse_x=x;mouse_y=y;changed();return TRUE;
+   }
+   return FALSE;
+}
+gboolean rr_logic_canvas_connect_source(const char *src,double x,double y) {
+   gate_view_t *dest=NULL;
+   unsigned pin=0;
+   if (!model || !src || !pin_hit(x,y,&dest,&pin)) return FALSE;
+   return connect_one(src,dest->id,pin,TRUE);
+}
+gboolean rr_logic_canvas_release(double x,double y,gboolean at_onair) {
+   if (drag_block>=0) {
+      drag_block=-1;save_model();return TRUE;
+   }
+   if (drag_wire>=0) {
+      char from[RR_CONTROL_NAME_LEN];
+      g_strlcpy(from,drag_from,sizeof(from));
+      drag_wire=-1;
+      if (!rr_logic_canvas_connect_source(from,x,y) && at_onair && sink_attach)
+         sink_attach(from,callback_user);
+      changed();
+      return TRUE;
+   }
+   return FALSE;
+}
+void rr_logic_canvas_add(GtkWidget *parent) {
+   if (!model || block_count>=MAX_UI_GATES) return;
+   GtkWidget *dialog=gtk_dialog_new_with_buttons("Add logic gate",
+      GTK_IS_WINDOW(parent)?GTK_WINDOW(parent):NULL,
+      GTK_DIALOG_MODAL|GTK_DIALOG_DESTROY_WITH_PARENT,
+      "_Cancel",GTK_RESPONSE_CANCEL,"_Add",GTK_RESPONSE_ACCEPT,NULL);
+   GtkWidget *box=gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+   GtkWidget *combo=gtk_combo_box_text_new();
+   for(unsigned i=0;i<=RR_GATE_XNOR;i++)
+      gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo),rr_gate_kind_name((rr_gate_kind_t)i));
+   gtk_combo_box_set_active(GTK_COMBO_BOX(combo),RR_GATE_AND);
+   gtk_container_set_border_width(GTK_CONTAINER(box),12);
+   gtk_box_pack_start(GTK_BOX(box),gtk_label_new("Gate type"),FALSE,FALSE,5);
+   gtk_box_pack_start(GTK_BOX(box),combo,FALSE,FALSE,5);
+   gtk_widget_show_all(dialog);
+   if (gtk_dialog_run(GTK_DIALOG(dialog))==GTK_RESPONSE_ACCEPT) {
+      rr_gate_kind_t type=(rr_gate_kind_t)gtk_combo_box_get_active(GTK_COMBO_BOX(combo));
+      unsigned inputs=type==RR_GATE_NOT?1:2;
+      char id[RR_CONTROL_NAME_LEN];
+      do { g_snprintf(id,sizeof(id),"gate.%u",++serial); }
+      while (find_gate(id) && serial<100000);
+      if (rr_control_graph_gate_add(model,id,type,inputs)) {
+         gate_view_t *b=&blocks[block_count++];
+         *b=(gate_view_t){.kind=type,.inputs=inputs,
+                        .x=100.+(block_count%3)*240.,
+                        .y=600.+(block_count/3)*165.};
+         g_strlcpy(b->id,id,sizeof(b->id));
+         save_model();
+      }
+   }
+   gtk_widget_destroy(dialog);
+}
