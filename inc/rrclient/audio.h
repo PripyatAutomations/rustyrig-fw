@@ -93,7 +93,8 @@ typedef enum {
    RR_AUDIO_CONTROL_PORT_GAIN,
    RR_AUDIO_CONTROL_EFFECT_PARAMETER,
    RR_AUDIO_CONTROL_EFFECT_STRING,
-   RR_AUDIO_CONTROL_MIC_TX_ROUTE
+   RR_AUDIO_CONTROL_MIC_TX_ROUTE,
+   RR_AUDIO_CONTROL_MIC_TX_CHANNEL /* channel=0/1; percent=connect (0/1) */
 } rr_audio_control_kind_t;
 typedef struct {
    rr_audio_control_kind_t kind;
@@ -112,6 +113,9 @@ void audio_request_rx_stream_route(const char *id, char output);
 /* Route local microphone into a real rig TX media channel (RX UUID),
  * "auto" follows the selected TX channel, "none" disconnects. */
 void audio_request_mic_tx_route(const char *rx_uuid);
+/* Patch one mono microphone output to either TX mixer ear independently.
+ * Two connections are allowed; TX encoder ultimately downmixes both. */
+void audio_request_mic_tx_channel(unsigned channel, bool connect);
 void audio_request_rx_input_gain(const char *id, unsigned channel, double gain_db);
 void audio_request_port_gain(const char *id, unsigned channel, double gain_db);
 void audio_request_effect_parameter(const char *processor, const char *element, const char *property, double value);
