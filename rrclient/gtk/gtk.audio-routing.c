@@ -3277,6 +3277,7 @@ static void routing_add_effect(GtkButton *button, gpointer unused) {
 typedef struct routing_compact_control {
    char id[64], uuid[40];
    char label[32], kind[16], unit[16];
+   char choices[1024]; /* Optional one-label-per-line list, indexed from minimum. */
    char effect_worker[64], effect_element[96], effect_property[96];
    double effect_value, effect_default, hint_min, hint_max, hint_step;
    double x, y;
@@ -3291,7 +3292,7 @@ typedef struct routing_compact_control {
    gboolean updating, knob_dragging;
    double knob_y, knob_initial;
    RRFloatPanel *panel;
-   GtkWidget *value, *knob, *label_widget, *move_handle;
+   GtkWidget *value, *knob, *selector, *label_widget, *move_handle;
 } routing_compact_control_t;
 typedef struct {
    char worker[64], element[96], property[96];
@@ -3341,6 +3342,57 @@ static void routing_compact_apply_hints(routing_compact_control_t *control) {
    }
 }
 
+/* Keep the selector's textual options independent of the bound numeric
+ * parameter. IDs are the actual numeric values; labels are presentation.
+ * A blank list generates integer options from minimum to maximum. */
+static void routing_compact_selector_sync(routing_compact_control_t *control) {
+   if (!control->selector || !control->value) return;
+   GtkComboBoxText *combo = GTK_COMBO_BOX_TEXT(control->selector);
+   gboolean was_updating = control->updating;
+   control->updating = TRUE;
+   gtk_combo_box_text_remove_all(combo);
+   double value = gtk_range_get_value(GTK_RANGE(control->value));
+   double step = MAX(1., round(control->step));
+   double first = ceil(control->minimum);
+   if (control->choices[0]) {
+      gchar **names = g_strsplit(control->choices, "\n", 128);
+      for (guint i = 0 ; names[i] ; i++) {
+         if (!*names[i]) continue;
+         double choice = first + i * step;
+         if (choice > control->maximum) break;
+         gchar *id = g_strdup_printf("%.0f", choice);
+         gtk_combo_box_text_append(combo, id, names[i]);
+         g_free(id);
+      }
+      g_strfreev(names);
+   } else {
+      for (guint i = 0 ; i < 256 ; i++) {
+         double choice = first + i * step;
+         if (choice > control->maximum) break;
+         gchar *id = g_strdup_printf("%.0f", choice);
+         gtk_combo_box_text_append(combo, id, id);
+         g_free(id);
+      }
+   }
+   char id[48];
+   g_snprintf(id, sizeof(id), "%.0f", round(value));
+   if (!gtk_combo_box_set_active_id(GTK_COMBO_BOX(combo), id)) {
+      gtk_combo_box_set_active(GTK_COMBO_BOX(combo), 0);
+   }
+   control->updating = was_updating;
+}
+
+static void routing_compact_selector_changed(GtkComboBox *combo, gpointer data) {
+   routing_compact_control_t *control = data;
+   if (control->updating) return;
+   const gchar *id = gtk_combo_box_get_active_id(combo);
+   if (!id) return;
+   gchar *end = NULL;
+   double value = g_ascii_strtod(id, &end);
+   if (end == id || *end || !isfinite(value)) return;
+   gtk_range_set_value(GTK_RANGE(control->value), value);
+}
+
 static void routing_compact_apply_widget(routing_compact_control_t *control) {
    if (!control->value) {
       return;
@@ -3350,6 +3402,10 @@ static void routing_compact_apply_widget(routing_compact_control_t *control) {
    gtk_range_set_increments(GTK_RANGE(control->value), control->step, control->step * 5.);
    gtk_range_set_value(GTK_RANGE(control->value), CLAMP(routing_compact_current(control), control->minimum, control->maximum));
    gtk_scale_set_digits(GTK_SCALE(control->value), control->step < .01 ? 3 : control->step < 1. ? 2 : 0);
+
+   if (control->selector) {
+      routing_compact_selector_sync(control);
+   }
 
    if (control->panel) {
       rr_floating_panel_set_title(control->panel, control->label);
@@ -3407,11 +3463,13 @@ static void routing_compact_sync(void) {
          }
       }
       gtk_widget_set_sensitive(control->value, found);
+      if (control->selector) gtk_widget_set_sensitive(control->selector, found);
 
       /* Never overwrite a knob/fader mid-drag. */
       if (found && !control->effect_worker[0] && !control->knob_dragging && !gtk_widget_has_focus(control->value)) {
          control->updating = TRUE;
          gtk_range_set_value(GTK_RANGE(control->value), routing_compact_current(control));
+         if (control->selector) routing_compact_selector_sync(control);
          control->updating = FALSE;
 
          if (control->knob) {
@@ -3436,6 +3494,7 @@ static void routing_compact_changed(GtkRange *range, gpointer user) {
       return;
    }
    double db = gtk_range_get_value(range);
+   if (control->selector) routing_compact_selector_sync(control);
 
    if (control->effect_worker[0]) {
       control->effect_value = db;
@@ -3801,6 +3860,7 @@ static void routing_compact_add(const char *node_id, unsigned channel, gboolean 
 
    gboolean vertical = !g_strcmp0(kind, "vertical");
    gboolean knob = !g_strcmp0(kind, "knob");
+   gboolean selector = !g_strcmp0(kind, "selector");
    GtkWidget *scale =
       gtk_scale_new_with_range(vertical ? GTK_ORIENTATION_VERTICAL : GTK_ORIENTATION_HORIZONTAL, control->minimum, control->maximum, control->step);
    control->value = scale;
@@ -3817,6 +3877,16 @@ static void routing_compact_add(const char *node_id, unsigned channel, gboolean 
    g_signal_connect(scale, "button-press-event", G_CALLBACK(routing_compact_reset), NULL);
    g_signal_connect(scale, "button-press-event", G_CALLBACK(routing_compact_context), control);
    gtk_box_pack_start(GTK_BOX(body), scale, FALSE, FALSE, 0);
+   if (selector) {
+      gtk_widget_set_no_show_all(scale, TRUE);
+      gtk_widget_hide(scale);
+      control->selector = gtk_combo_box_text_new();
+      gtk_widget_set_size_request(control->selector, 92, -1);
+      gtk_widget_set_tooltip_text(control->selector, "Numeric selector; labels and range can be edited in Properties");
+      gtk_box_pack_start(GTK_BOX(body), control->selector, FALSE, FALSE, 0);
+      g_signal_connect(control->selector, "changed", G_CALLBACK(routing_compact_selector_changed), control);
+      g_signal_connect(control->selector, "button-press-event", G_CALLBACK(routing_compact_context), control);
+   }
    routing_compact_apply_widget(control);
 
    if (knob) {
@@ -3842,6 +3912,7 @@ static void routing_compact_add(const char *node_id, unsigned channel, gboolean 
    graph_canvas_update_size();
    gtk_widget_show_all(body);
    gtk_widget_set_sensitive(control->value, !!control->id[0] || !!control->effect_worker[0]);
+   if (control->selector) gtk_widget_set_sensitive(control->selector, !!control->id[0] || !!control->effect_worker[0]);
    rr_floating_panel_fit_content(control->panel);
 
    if (saved_uuid) {
@@ -3873,7 +3944,7 @@ static void routing_compact_save(const routing_compact_control_t *control) {
       "target", "label", "kind", "port", "channel",
       "x", "y", "min", "max", "step", "unit",
       "worker", "element", "property", "hint-min",
-      "hint-max", "hint-step", "value", "default", "hidden"
+      "hint-max", "hint-step", "value", "default", "hidden", "choices"
    };
    char port[4], channel[4], x[G_ASCII_DTOSTR_BUF_SIZE], y[G_ASCII_DTOSTR_BUF_SIZE];
    char min[G_ASCII_DTOSTR_BUF_SIZE], max[G_ASCII_DTOSTR_BUF_SIZE], step[G_ASCII_DTOSTR_BUF_SIZE];
@@ -3898,7 +3969,7 @@ static void routing_compact_save(const routing_compact_control_t *control) {
       x, y, control->has_minimum ? min : "", control->has_maximum ? max : "",
       control->has_step ? step : "", control->has_unit ? control->unit : "",
       control->effect_worker, control->effect_element, control->effect_property,
-      hmin, hmax, hstep, current, default_text, hidden
+      hmin, hmax, hstep, current, default_text, hidden, control->choices
    };
 
    for (guint i = 0 ; i < G_N_ELEMENTS(fields) ; i++) {
@@ -3968,10 +4039,11 @@ static void routing_compact_restore(void) {
       char *value = routing_compact_field(parts[i], "value");
       char *default_text = routing_compact_field(parts[i], "default");
       char *hidden = routing_compact_field(parts[i], "hidden");
+      char *choices = routing_compact_field(parts[i], "choices");
       double px = 0., py = 0., mn = 0., mx = 0., st = 0.;
       gboolean valid = target && strlen(target) < 64 &&
          kind && (!strcmp(kind, "horizontal") || !strcmp(kind, "vertical") ||
-            !strcmp(kind, "knob")) &&
+            !strcmp(kind, "knob") || !strcmp(kind, "selector")) &&
          port && (!strcmp(port, "0") || !strcmp(port, "1")) &&
          channel && (!strcmp(channel, "0") || !strcmp(channel, "1")) &&
          routing_compact_parse_number(x, &px) && routing_compact_parse_number(y, &py) && px >= 0 && py >= 0 && px <= 100000 && py <= 100000;
@@ -4018,6 +4090,9 @@ static void routing_compact_restore(void) {
                item->effect_default = item->effect_value;
                routing_compact_parse_number(default_text, &item->effect_default);
             }
+            if (choices && strlen(choices) < sizeof(item->choices)) {
+               g_strlcpy(item->choices, choices, sizeof(item->choices));
+            }
             routing_compact_apply_hints(item);
             routing_compact_apply_widget(item);
 
@@ -4047,6 +4122,7 @@ static void routing_compact_restore(void) {
       g_free(value);
       g_free(default_text);
       g_free(hidden);
+      g_free(choices);
    }
 
    g_strfreev(parts);
@@ -4215,9 +4291,9 @@ static void routing_compact_properties(routing_compact_control_t *item) {
    gtk_grid_set_row_spacing(GTK_GRID(grid), 6);
    gtk_grid_set_column_spacing(GTK_GRID(grid), 8);
    gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), grid, TRUE, TRUE, 0);
-   GtkWidget *fields[5];
+   GtkWidget *fields[6];
    const char *captions[] = {
-      "Label", "Minimum", "Maximum", "Step", "Unit"
+      "Label", "Minimum", "Maximum", "Step", "Unit", "Choice labels"
    };
    char min[G_ASCII_DTOSTR_BUF_SIZE], max[G_ASCII_DTOSTR_BUF_SIZE];
    char step[G_ASCII_DTOSTR_BUF_SIZE];
@@ -4227,24 +4303,27 @@ static void routing_compact_properties(routing_compact_control_t *item) {
    const char *values[] = {
       item->has_label ? item->label : "",
       item->has_minimum ? min : "", item->has_maximum ? max : "",
-      item->has_step ? step : "", item->has_unit ? item->unit : ""
+      item->has_step ? step : "", item->has_unit ? item->unit : "", item->choices
    };
 
-   for (unsigned i = 0 ; i < 5 ; i++) {
+   for (unsigned i = 0 ; i < 6 ; i++) {
       GtkWidget *label = gtk_label_new(captions[i]);
       gtk_widget_set_halign(label, GTK_ALIGN_END);
       gtk_grid_attach(GTK_GRID(grid), label, 0, i, 1, 1);
       fields[i] = gtk_entry_new();
-      gtk_entry_set_max_length(GTK_ENTRY(fields[i]), i == 0 ? 31 : i == 4 ? 15 : 24);
+      gtk_entry_set_max_length(GTK_ENTRY(fields[i]), i == 0 ? 31 : i == 4 ? 15 : i == 5 ? 1023 : 24);
       gtk_entry_set_text(GTK_ENTRY(fields[i]), values[i]);
       gtk_entry_set_placeholder_text(GTK_ENTRY(fields[i]), i == 0 ? item->label : i == 1 ? min : i == 2 ? max : i == 3 ? step : item->unit);
+      if (i == 5) {
+         gtk_entry_set_placeholder_text(GTK_ENTRY(fields[i]), "Off, RX, TX (comma-separated labels)");
+      }
       gtk_grid_attach(GTK_GRID(grid), fields[i], 1, i, 1, 1);
    }
 
    GtkWidget *hint = gtk_label_new("Leave a property blank to inherit from the bound parameter. "
       "Gain pins currently support -60…+12 dB; LV2 port metadata will supply its own ranges.");
    gtk_label_set_line_wrap(GTK_LABEL(hint), TRUE);
-   gtk_grid_attach(GTK_GRID(grid), hint, 0, 5, 2, 1);
+   gtk_grid_attach(GTK_GRID(grid), hint, 0, 6, 2, 1);
    gtk_widget_show_all(dialog);
    while (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
       const char *name = gtk_entry_get_text(GTK_ENTRY(fields[0]));
@@ -4283,6 +4362,12 @@ static void routing_compact_properties(routing_compact_control_t *item) {
       item->minimum = mn;
       item->maximum = mx;
       item->step = st;
+      /* Comma-separated names map to successive integer choices starting
+       * at min; blank means numeric options. This has no bearing on the
+       * numeric value transmitted to the effect parameter. */
+      const char *labels = gtk_entry_get_text(GTK_ENTRY(fields[5]));
+      g_strlcpy(item->choices, labels, sizeof(item->choices));
+      for (char *p = item->choices ; *p ; p++) if (*p == ',') *p = '\n';
       routing_compact_apply_hints(item);
       routing_compact_apply_widget(item);
       routing_compact_save(item);
@@ -4989,6 +5074,7 @@ static void routing_compact_create(GtkButton *button, gpointer unused) {
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(widget_kind), "horizontal", "Horizontal slider");
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(widget_kind), "vertical", "Vertical slider");
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(widget_kind), "knob", "Rotary knob");
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(widget_kind), "selector", "Numeric dropdown");
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(widget_kind), "onair", "ON AIR indicator");
    gtk_combo_box_set_active(GTK_COMBO_BOX(widget_kind), 0);
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(target), "", "Unbound — connect green pin");
