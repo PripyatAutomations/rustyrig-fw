@@ -116,8 +116,11 @@ static rr_event_token_t script_gui_command_token;
 typedef struct {
    char kind[24], text[256];
 } script_gui_cached_t;
-static void script_gui_owner(char owner[32], rrs_vm_t *vm) {
-   g_snprintf(owner,32,"%p",(void *)vm);
+static bool script_gui_owner(char owner[32], rrs_vm_t *vm) {
+   const char *token=rrscript_host_vm_owner(vm);
+   if(!token)return false;
+   g_strlcpy(owner,token,32);
+   return true;
 }
 static char *script_gui_key(const char *owner,const char *id) {
    return g_strdup_printf("%s:%s",owner,id);
@@ -190,7 +193,9 @@ static rrs_value_t *script_gui_native(rrs_vm_t *vm,int argc,
       rrs_vm_raise(vm,"Current frontend does not implement script controls");return NULL;
    }
    rr_script_gui_command_t command={.version=RR_SCRIPT_GUI_PROTOCOL_VERSION,.action=(uint32_t)action};
-   script_gui_owner(command.owner,vm);
+   if(!script_gui_owner(command.owner,vm)) {
+      rrs_vm_raise(vm,"Script has no active UI owner");return NULL;
+   }
    const char *id=rrs_value_string(argv[action==RR_GUI_ADD?2:0]);
    if(!script_gui_identifier(id) || (action==RR_GUI_ADD && !script_gui_identifier(rrs_value_string(argv[0])))) {
       rrs_vm_raise(vm,"GUI IDs must be 1..63 ASCII alphanumeric, underscore, dash, or period");
@@ -245,7 +250,9 @@ static rrs_value_t *script_gui_value(rrs_vm_t *vm,int argc,
       rrs_vm_raise(vm,"control.val(id) expects a widget ID");return NULL;
    }
    char owner[32];
-   script_gui_owner(owner,vm);
+   if(!script_gui_owner(owner,vm)) {
+      rrs_vm_raise(vm,"Script has no active UI owner");return NULL;
+   }
    char *key=script_gui_key(owner,rrs_value_string(argv[0]));
    script_gui_cached_t *entry=script_gui_values?g_hash_table_lookup(script_gui_values,key):NULL;
    rrs_value_t *value=rrs_null();
