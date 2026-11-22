@@ -23,6 +23,6 @@ ${CC:-cc} ${CFLAGS:-} -pthread -ffunction-sections -fdata-sections -Wl,--gc-sect
    rrserver/cfg.rig.c rrserver/rig.rooms.c rrserver/database.c rrserver/database.rooms.c rrserver/database.users.c rrserver/database.accounting.c rrserver/defconfig.c \
    rrserver/objects.c rrserver/gps.c rrclient/objects.c \
    -L. -Wl,-rpath,"$PWD" -lrrprotocol -lrustyaxe -lfwdspmgr \
-   $(pkg-config --libs glib-2.0 hamlib sqlite3) ${LDFLAGS:-} \
+   $(pkg-config --libs glib-2.0 hamlib sqlite3) -lm ${LDFLAGS:-} \
    -o "$work/multirig-live"
 python3 rrserver/tests/multirig_live.py "$work/multirig-live" "$work"
