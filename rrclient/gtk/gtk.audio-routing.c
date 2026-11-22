@@ -6740,7 +6740,9 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
          audio_request_effect_block(&req);
          routing_queue();
       } else if (graph_drag_rig_target >= 0) {
-         const rr_ag_view_node_t *src = &graph_snapshot->nodes[graph_drag_source];
+         /* Reverse drags originate at a sink (negative graph_drag_source).
+          * source_index always identifies the resolved output node. */
+         const rr_ag_view_node_t *src = &graph_snapshot->nodes[source_index];
          const rr_ag_view_node_t *dst = &graph_snapshot->nodes[graph_drag_rig_target];
 
          if (!strcmp(src->id, "src.client.dsp0") && routing_rx_snapshot) {
@@ -6795,6 +6797,10 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
                }
             }
 
+            /* The audio sink ID is self-contained; only PTT requires a
+             * stable underlying rig stream ID. */
+            if (!graph_drag_channel && !strcmp(dst->id,"rig.sink"))
+               target_id="rig.sink";
             if (target_id) {
                rr_local_modem_request_t req = {
                   .action = graph_drag_channel ? RR_LOCAL_MODEM_PTT_ROUTE : RR_LOCAL_MODEM_TX_ROUTE,
