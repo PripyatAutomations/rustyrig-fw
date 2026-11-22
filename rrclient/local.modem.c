@@ -266,9 +266,9 @@ static gboolean poll_decoders(gpointer unused) {
       }
       /* Modem-owned keying: generate TX PCM only after the server reports PTT asserted. Never continue a waveform after its route is removed. */
       gint64 now_us = g_get_monotonic_time();
-      bool allowed = d->tx_enabled && !strcmp(d->tx_target, "tx.mix") && d->ptt_target[0] && audio_modem_tx_allowed(d->ptt_target);
+      bool allowed = d->tx_enabled && modem_tx_wired(d) && d->ptt_target[0] && audio_modem_tx_allowed(d->ptt_target);
 
-      if (d->ptt_owned && (!d->tx_enabled || !d->ptt_target[0] || strcmp(d->tx_target, "tx.mix") || (d->tx_running && !allowed))) {
+      if (d->ptt_owned && (!d->tx_enabled || !d->ptt_target[0] || !modem_tx_wired(d) || (d->tx_running && !allowed))) {
          modem_cancel_waveform(d);
          modem_release_ptt(i);
       } else if (d->ptt_owned && d->pending_text[0] && allowed) {
@@ -308,7 +308,7 @@ static gboolean poll_decoders(gpointer unused) {
             g_strlcpy(ptt, d->ptt_target, sizeof(ptt));
             g_mutex_unlock(&decoder_lock);
 
-            if (enabled && !strcmp(target, "tx.mix") && *ptt && n % (ssize_t) sizeof(int16_t) == 0) {
+            if (enabled && modem_tx_audio_target(target) && *ptt && n % (ssize_t) sizeof(int16_t) == 0) {
                audio_modem_tx_pcm(i + 1, ptt, samples, (size_t)n / sizeof(int16_t));
             }
          }
@@ -367,6 +367,15 @@ void rr_local_modem_feed(const char *source, const int16_t *pcm, size_t frames) 
    g_mutex_unlock(&decoder_lock);
 }
 
+/* TX audio is routed to the 16 kHz encoder mix bus. The direct rig
+ * endpoint is a logical route to that same gated transport, not a bypass
+ * around PTT authorization or codec negotiation. */
+static bool modem_tx_audio_target(const char *target) {
+   return target && (!strcmp(target,"tx.mix") || !strcmp(target,"rig.sink"));
+}
+static bool modem_tx_wired(const decoder_t *d) {
+   return modem_tx_audio_target(d->tx_target);
+}
 static bool source_present(const char *source) {
    struct rrclient_rx_stream streams[RR_LOCAL_MODEM_STREAMS] = {
       0
@@ -544,7 +553,7 @@ static void request_received(const rr_event_message_t *message, void *unused) {
          /* The PTT socket is a real message output: no wire, no keying. Queue text only after the authoritative radio PTT echo. */
          if (!d->active || !d->tx_enabled ||
             (strcmp(d->engine, "psk") && strcmp(d->engine, "olivia")) ||
-            strcmp(d->tx_target, "tx.mix") || !d->ptt_target[0] || d->ptt_owned || d->tx_running || d->pending_text[0]) {
+            !modem_tx_wired(d) || !d->ptt_target[0] || d->ptt_owned || d->tx_running || d->pending_text[0]) {
             g_strlcpy(last_status, "Modem TX needs audio patched to tx.mix and PTT to an active rig", sizeof(last_status));
          } else {
             char pin[64];
@@ -600,9 +609,13 @@ static void request_received(const rr_event_message_t *message, void *unused) {
          g_strlcpy(last_status, "Modem routing rejected: invalid PCM source or slot", sizeof(last_status));
       }
    } else if (req->action == RR_LOCAL_MODEM_TX_ROUTE || req->action == RR_LOCAL_MODEM_PTT_ROUTE) {
-      /* TX audio is patched into tx.mix; PTT keeps the catalog-backed radio resource. The server still owns authorization at key-up. */
+      /* Audio targets are logical TX paths, not RX stream IDs.
+       * PTT targets still require an actual catalog-backed RX/TX resource. */
       if (req->slot > 0 && req->slot <= RR_LOCAL_MODEM_MAX &&
-         memchr(req->source, 0, sizeof(req->source)) && (req->source[0] == 0 || source_present(req->source))) {
+         memchr(req->source, 0, sizeof(req->source)) &&
+         (req->source[0] == 0 ||
+          (req->action == RR_LOCAL_MODEM_TX_ROUTE ?
+             modem_tx_audio_target(req->source) : source_present(req->source)))) {
          decoder_t *d = &decoders[req->slot - 1];
          char *target = req->action == RR_LOCAL_MODEM_TX_ROUTE ? d->tx_target : d->ptt_target;
 
@@ -630,7 +643,7 @@ static void request_received(const rr_event_message_t *message, void *unused) {
       char id[32];
       g_snprintf(id, sizeof(id), "modem%u.tx", k + 1);
       g_mutex_lock(&decoder_lock);
-      bool connected = d->active && d->tx_enabled && !strcmp(d->tx_target, "tx.mix");
+      bool connected = d->active && d->tx_enabled && modem_tx_wired(d);
       g_mutex_unlock(&decoder_lock);
       audio_tx_source_route(id, connected);
    }
