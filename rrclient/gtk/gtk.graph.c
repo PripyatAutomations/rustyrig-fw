@@ -256,7 +256,7 @@ void rr_gtk_graph_draw_vertical(cairo_t *cr, const rr_gtk_graph_node_t *nodes, g
       }
 
       if (n->shape != RR_GTK_GRAPH_SHAPE_RECT) {
-         for (guint p=0; n->ports && p<n->port_count && p<32; ++p) {
+         for (guint p=0; n->ports && p<n->port_count && p<64; ++p) {
             const rr_gtk_graph_port_t *port=&n->ports[p];
             if (port->x < 0 || port->x > RR_GTK_GRAPH_NODE_W ||
                 port->y < 0 || port->y > RR_GTK_GRAPH_NODE_H)
@@ -442,7 +442,7 @@ void rr_gtk_graph_draw(cairo_t *cr, const rr_gtk_graph_node_t *nodes, guint n_no
       if (n->shape != RR_GTK_GRAPH_SHAPE_RECT) {
          /* Typed control ports are declared by the graph model; they are not
           * fake audio sockets. All positions stay relative to node geometry. */
-         for (guint p=0; n->ports && p<n->port_count && p<32; ++p) {
+         for (guint p=0; n->ports && p<n->port_count && p<64; ++p) {
             const rr_gtk_graph_port_t *port=&n->ports[p];
             if (port->x < 0 || port->x > RR_GTK_GRAPH_NODE_W ||
                 port->y < 0 || port->y > RR_GTK_GRAPH_NODE_H)
