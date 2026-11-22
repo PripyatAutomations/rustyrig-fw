@@ -1629,6 +1629,7 @@ static gint graph_drag_rig_target = -1;
 static gint graph_drag_lv2_target = -1;
 static gboolean graph_drag_lv2_output;
 static gint graph_drag_lv2_dest_channel;
+static gint graph_drag_lv2_source_channel;
 static double graph_drag_start_x, graph_drag_start_y, graph_drag_x, graph_drag_y;
 /* Locate a valid port on the opposite end of a patch cord. Use the same hit/clock-domain rules for live preview and final connection. */
 static gboolean routing_modem_slot(const rr_ag_view_node_t *n, unsigned *slot) {
@@ -1646,6 +1647,11 @@ static gboolean routing_modem_slot(const rr_ag_view_node_t *n, unsigned *slot) {
 static gboolean routing_modem_source(const rr_ag_view_node_t *n) {
    return n->type == RR_AG_SOURCE && !n->read_only &&
           n->downstream_rate_hz <= 16000 && n->channels == 1 && n->sample_format == RR_PCM_S16LE && !g_str_has_prefix(n->id, "modem");
+}
+/* Capture PCM is resampled to 16 kHz mono before delivery to audio.c. */
+static gboolean routing_lv2_source(const rr_ag_view_node_t *n) {
+   return routing_modem_source(n) ||
+      (n->type == RR_AG_SOURCE && !strcmp(n->id,"src.client.dsp0"));
 }
 
 /* Convert the active rig graph alias back into a real PCM stream before passing it to the core modem route API. */
@@ -1722,6 +1728,7 @@ static gboolean routing_drag_target(double x, double y, gint *source_index, doub
    graph_drag_lv2_target = -1;
    graph_drag_lv2_output = FALSE;
    graph_drag_lv2_dest_channel = 0;
+   graph_drag_lv2_source_channel = 0;
 
    for (guint i = 0 ; i < graph_snapshot->node_count ; i++) {
       const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
@@ -1732,10 +1739,13 @@ static gboolean routing_drag_target(double x, double y, gint *source_index, doub
       unsigned target_slot = 0;
       gboolean is_modem = routing_modem_slot(n, &target_slot);
       gboolean modem_connection = from_modem ? routing_modem_source(n) : (!graph_drag_mixer && routing_modem_source(origin_node) && is_modem);
-      gboolean to_lv2 = !graph_drag_mixer && (routing_modem_source(origin_node) || from_lv2) &&
+      gboolean to_lv2 = !graph_drag_mixer && (routing_lv2_source(origin_node) || from_lv2) &&
          n->type == RR_AG_PROCESSOR && g_str_has_prefix(n->id, "proc.lv2.") && n != origin_node;
       gboolean lv2_output = from_lv2 && n->type == RR_AG_MIXER && !strcmp(n->id, "rx.mix");
-      gboolean lv2_reverse_input = from_lv2_input && routing_modem_source(n);
+      gboolean reverse_from_effect = n->type == RR_AG_PROCESSOR &&
+         g_str_has_prefix(n->id, "proc.lv2.") && n != origin_node;
+      gboolean lv2_reverse_input = from_lv2_input &&
+         (routing_lv2_source(n) || reverse_from_effect);
       gboolean lv2_connection = to_lv2 || lv2_output || lv2_reverse_input;
       gboolean tx_input =
          ((from_mic || (from_modem_tx && !graph_drag_channel)) &&
@@ -1760,15 +1770,21 @@ static gboolean routing_drag_target(double x, double y, gint *source_index, doub
       } else if (to_lv2 && n->channels == 1) {
          dest_channel = 0;
       }
+      gint source_channel = 0;
+      if (lv2_reverse_input && reverse_from_effect && n->channels == 2) {
+         double ny0 = routing_node_y(n);
+         source_channel = fabs(y - ny0 - 79.) < fabs(y - ny0 - 60.) ? 1 : 0;
+      }
       double nx = routing_node_x(n) + (graph_drag_mixer ? RR_GTK_GRAPH_NODE_W : 0.);
       double ny = routing_node_y(n) + (tx_input ?
          (from_tx_mix ? 68. : 60.) : rig_target ?
          (from_modem_tx && graph_drag_channel ?
             RR_GTK_GRAPH_NODE_H - 16. : 68.) :
          lv2_connection ? (lv2_output ? (dest_channel ? 79. : 60.) :
-            (to_lv2 && n->channels == 2) ||
-            (lv2_reverse_input && origin_node->channels == 2) ?
-            (dest_channel ? 79. : 60.) : 68.) : modem_connection ? (from_modem ? 60. : 68.) : (graph_drag_channel ? 79. : 60.));
+            (to_lv2 && n->channels == 2) ?
+            (dest_channel ? 79. : 60.) :
+            (lv2_reverse_input && n->channels == 2) ?
+            (source_channel ? 79. : 60.) : 68.) : modem_connection ? (from_modem ? 60. : 68.) : (graph_drag_channel ? 79. : 60.));
       double dist = hypot(x - nx, y - ny);
 
       if (dist >= best) {
@@ -1786,6 +1802,7 @@ static gboolean routing_drag_target(double x, double y, gint *source_index, doub
          const rr_ag_view_node_t *effect = to_lv2 ? n : origin_node;
          graph_drag_lv2_output = lv2_output;
          graph_drag_lv2_dest_channel = dest_channel;
+         graph_drag_lv2_source_channel = lv2_reverse_input ? source_channel : graph_drag_channel;
          unsigned slot = 0;
 
          if (sscanf(effect->id, "proc.lv2.%u", &slot) == 1 && slot >= 1 && slot <= RR_AUDIO_EFFECT_MAX) {
@@ -6693,7 +6710,7 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
             const rr_ag_view_node_t *origin = &graph_snapshot->nodes[source_index];
             if (g_str_has_prefix(origin->id, "proc.lv2.") && origin->channels == 2) {
                g_snprintf(req.source, sizeof(req.source), "%s.%c", origin->id,
-                  graph_drag_channel ? 'R' : 'L');
+                  graph_drag_lv2_source_channel ? 'R' : 'L');
             } else {
                g_strlcpy(req.source, origin->id, sizeof(req.source));
             }
@@ -6779,6 +6796,7 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
    graph_drag_lv2_target = -1;
    graph_drag_lv2_output = FALSE;
    graph_drag_lv2_dest_channel = 0;
+   graph_drag_lv2_source_channel = 0;
    graph_drag_mixer = graph_drag_moved = FALSE;
    graph_canvas_update_size();
 
