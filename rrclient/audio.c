@@ -2703,6 +2703,14 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
       if (g_atomic_int_get(&fx->failed)) {
          continue;
       }
+   }
+
+   /* All proc.lv2 nodes are now present; links may run from any numbered
+    * effect to another, independent of creation/order of the slots. */
+   for (guint slot = 1 ; slot <= RR_AUDIO_EFFECT_MAX ; slot++) {
+      rr_lv2_effect_t *fx = &lv2_effects[slot - 1];
+      if (!g_atomic_int_get(&fx->active) || audio_lv2_stage_failed(fx))
+         continue;
 
       for (guint ch = 0 ; ch < fx->channels ; ch++) {
          if (fx->source[ch][0]) {
