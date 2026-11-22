@@ -288,9 +288,41 @@ static void script_gui_add(const rr_script_gui_command_t *cmd) {
    else if(GTK_IS_BOX(parent->widget))box=parent->widget;
    if(!GTK_IS_BOX(box))return;
    GtkWidget *w=NULL;
+   GtkWidget *packing=NULL;
    if(!strcmp(cmd->kind,"row"))w=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,6);
    else if(!strcmp(cmd->kind,"column"))w=gtk_box_new(GTK_ORIENTATION_VERTICAL,6);
    else if(!strcmp(cmd->kind,"label"))w=gtk_label_new(cmd->text);
+   else if(!strcmp(cmd->kind,"progress"))w=gtk_progress_bar_new();
+   else if(!strcmp(cmd->kind,"multiline")) {
+      w=gtk_text_view_new();
+      gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(w),GTK_WRAP_WORD_CHAR);
+      gtk_text_buffer_set_text(gtk_text_view_get_buffer(GTK_TEXT_VIEW(w)),cmd->value,-1);
+      packing=gtk_scrolled_window_new(NULL,NULL);
+      gtk_widget_set_size_request(packing,320,105);
+      gtk_container_add(GTK_CONTAINER(packing),w);
+   } else if(!strcmp(cmd->kind,"file") || !strcmp(cmd->kind,"folder")) {
+      w=gtk_file_chooser_button_new(cmd->text,
+         !strcmp(cmd->kind,"file")?GTK_FILE_CHOOSER_ACTION_OPEN:GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER);
+   } else if(!strcmp(cmd->kind,"roomlist")) {
+      w=gtk_combo_box_text_new();
+      script_roomlist_fill(GTK_COMBO_BOX_TEXT(w));
+   } else if(!strcmp(cmd->kind,"filelist")) {
+      char *root=g_strdup(cmd->value);
+      if(!*root){g_free(root);root=g_build_filename(g_get_user_data_dir(),"rustyrig","artwork",NULL);}
+      g_mkdir_with_parents(root,0700);
+      w=rr_local_browser_new(root,".mac",NULL,0,NULL,NULL);
+      gtk_widget_set_size_request(w,240,220);
+      g_free(root);
+   } else if(!strcmp(cmd->kind,"irc-preview")) {
+      w=gtk_scrolled_window_new(NULL,NULL);
+      GtkWidget *label=gtk_label_new("Select a .mac file to preview");
+      gtk_label_set_selectable(GTK_LABEL(label),TRUE);
+      gtk_label_set_xalign(GTK_LABEL(label),0);
+      gtk_label_set_yalign(GTK_LABEL(label),0);
+      gtk_container_add(GTK_CONTAINER(w),label);
+      gtk_widget_set_size_request(w,400,230);
+      g_object_set_data(G_OBJECT(w),"rr-preview-label",label);
+   }
    else if(!strcmp(cmd->kind,"button"))w=gtk_button_new_with_label(cmd->text);
    else if(!strcmp(cmd->kind,"entry")) {
       w=gtk_entry_new();
@@ -319,13 +351,23 @@ static void script_gui_add(const rr_script_gui_command_t *cmd) {
    gtk_widget_add_events(w,GDK_BUTTON_PRESS_MASK);
    g_signal_connect(w,"button-press-event",G_CALLBACK(widget_pressed),entry);
    if(GTK_IS_BUTTON(w))g_signal_connect(w,"clicked",G_CALLBACK(button_activated),entry);
+   if(!strcmp(cmd->kind,"filelist"))
+      rr_local_browser_on_selection(w,script_files_selected,entry);
+   if(GTK_IS_TEXT_VIEW(w))
+      g_signal_connect(gtk_text_view_get_buffer(GTK_TEXT_VIEW(w)),
+         "changed",G_CALLBACK(widget_changed),entry);
+   if(GTK_IS_FILE_CHOOSER(w))
+      g_signal_connect(w,"file-set",G_CALLBACK(widget_changed),entry);
    if(GTK_IS_SPIN_BUTTON(w))g_signal_connect(w,"value-changed",G_CALLBACK(widget_changed),entry);
    else if(GTK_IS_ENTRY(w))g_signal_connect(w,"changed",G_CALLBACK(widget_changed),entry);
    else if(GTK_IS_TOGGLE_BUTTON(w))g_signal_connect(w,"toggled",G_CALLBACK(widget_changed),entry);
    else if(GTK_IS_RANGE(w))g_signal_connect(w,"value-changed",G_CALLBACK(widget_changed),entry);
    else if(GTK_IS_COMBO_BOX(w))g_signal_connect(w,"changed",G_CALLBACK(widget_changed),entry);
-   gtk_box_pack_start(GTK_BOX(box),w,FALSE,FALSE,3);
-   gtk_widget_show_all(w);
+   gboolean grow=!strcmp(cmd->kind,"filelist") ||
+      !strcmp(cmd->kind,"irc-preview");
+   gtk_box_pack_start(GTK_BOX(box),packing?packing:w,grow,grow,3);
+   gtk_widget_show_all(packing?packing:w);
+   if(!strcmp(cmd->kind,"roomlist"))widget_changed(w,entry);
 }
 static void script_gui_command(const rr_event_message_t *message,void *unused) {
    (void)unused;
@@ -392,7 +434,16 @@ static void script_gui_command(const rr_event_message_t *message,void *unused) {
    if(!entry||!entry->widget)return;
    if(cmd.action==RR_GUI_SET) {
       GtkWidget *w=entry->widget;
-      if(GTK_IS_SPIN_BUTTON(w))gtk_spin_button_set_value(GTK_SPIN_BUTTON(w),g_ascii_strtod(cmd.value,NULL));
+      if(!strcmp(entry->kind,"filelist"))rr_local_browser_refresh(w);
+      else if(!strcmp(entry->kind,"irc-preview"))script_preview_file(w,cmd.value);
+      else if(GTK_IS_PROGRESS_BAR(w))
+         gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(w),
+            CLAMP(g_ascii_strtod(cmd.value,NULL)/100.0,0.,1.));
+      else if(GTK_IS_TEXT_VIEW(w))
+         gtk_text_buffer_set_text(gtk_text_view_get_buffer(GTK_TEXT_VIEW(w)),cmd.value,-1);
+      else if(GTK_IS_FILE_CHOOSER(w))
+         gtk_file_chooser_set_filename(GTK_FILE_CHOOSER(w),cmd.value);
+      else if(GTK_IS_SPIN_BUTTON(w))gtk_spin_button_set_value(GTK_SPIN_BUTTON(w),g_ascii_strtod(cmd.value,NULL));
       else if(GTK_IS_ENTRY(w))gtk_entry_set_text(GTK_ENTRY(w),cmd.value);
       else if(GTK_IS_TOGGLE_BUTTON(w))gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(w),
          !strcmp(cmd.value,"true")||!strcmp(cmd.value,"1"));
