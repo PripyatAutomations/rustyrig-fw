@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <time.h>
+#include <mongoose.h>
 #include <librustyaxe/core.h>
 #include <rrclient/irc.h>
 #include <rrclient/connman.h>
