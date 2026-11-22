@@ -4,17 +4,18 @@
 // Type /artwork to open the script-created manager.
 //
 // A colored line starts a capture. Additional lines from the same nick
-// in the same channel join it until 1.8 seconds of silence. We save only
+// in the same channel join it until 3.5 seconds of silence. We save only
 // after the burst ends, so incomplete fragments aren't written to disk.
 // Two or more lines are required. Indexed colors (Ctrl+C) AND RGB hex
-// colors (Ctrl+D plus six hex digits) are preserved unchanged.
+// colors (Ctrl+D plus six hex digits), and Unicode block graphics are preserved.
 
 event irc.privmsg {
     if (string.regex(event.room, "^[#&]")) {
         char[] key = "capture-" + string.hash(event.room + "|" + event.nick)
         char[] line = event.text
         bool colored = string.regex(line, string.chr(3) + "[0-9]{1,2}") ||
-                       string.regex(line, string.chr(4) + "[0-9A-Fa-f]{6}")
+                       string.regex(line, string.chr(4) + "[0-9A-Fa-f]{6}") ||
+                       string.regex(line, "[█▄▀▌▐░▒▓▖▗▘▙▚▛▜▝▞▟]")
         char[] body = state.get(key + ".body")
 
         if (body != null || colored) {
@@ -29,7 +30,7 @@ event irc.privmsg {
             if (state.get(key + ".count") < 80) {
                 state.set(key + ".body", state.get(key + ".body") + line + "\n")
                 state.set(key + ".count", state.get(key + ".count") + 1)
-                timer.after(key, 1800)
+                timer.after(key, 3500)
             }
         }
     }
@@ -47,6 +48,9 @@ event ui.timer {
                 char[] dest = dir + "/" + name
                 if (file.exists(dest)) {
                     dest = dir + "/" + string.slice(name, 0, string.length(name) - 4) + "-2.mac"
+                }
+                if (file.exists(dest)) {
+                    dest = dir + "/" + string.slice(name, 0, string.length(name) - 4) + "-3.mac"
                 }
                 // Never overwrite an existing artwork.
                 if (file.exists(dest) == false) {
