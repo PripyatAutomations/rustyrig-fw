@@ -1047,6 +1047,24 @@ static bool processor_set_element_parameter(GstElement *pipe, struct fwdsp_contr
    return ok;
 }
 
+/* String controls are independent of numeric controls. Limit targets to
+ * writable GObject string properties of named pipeline elements. */
+static bool processor_set_element_string(GstElement *pipe, struct fwdsp_control_msg *cmd) {
+   if (!pipe || !GST_IS_BIN(pipe) ||
+       !memchr(cmd->record_user, 0, sizeof(cmd->record_user)) ||
+       !memchr(cmd->record_id, 0, sizeof(cmd->record_id)) ||
+       !memchr(cmd->record_file, 0, sizeof(cmd->record_file)) ||
+       !*cmd->record_user || !*cmd->record_id) return false;
+   GstElement *element = gst_bin_get_by_name(GST_BIN(pipe), cmd->record_user);
+   if (!element) return false;
+   GParamSpec *spec = g_object_class_find_property(G_OBJECT_GET_CLASS(element), cmd->record_id);
+   bool ok = spec && G_IS_PARAM_SPEC_STRING(spec) && (spec->flags & G_PARAM_WRITABLE) &&
+      !(spec->flags & G_PARAM_CONSTRUCT_ONLY);
+   if (ok) g_object_set(G_OBJECT(element), cmd->record_id, cmd->record_file, NULL);
+   gst_object_unref(element);
+   return ok;
+}
+
 static void run_loop(struct audio_config *cfg) {
    while (1) {
       dying = false;
@@ -1489,6 +1507,12 @@ static void run_loop(struct audio_config *cfg) {
                   case FWDSP_CTRL_SET_PROPERTY: {
                      if (!processor_set_element_parameter(pipeline, &control)) {
                         Log(LOG_WARN, "fwdsp.control", "Rejected parameter update (invalid element/property/value)");
+                     }
+                     break;
+                  }
+                  case FWDSP_CTRL_SET_PROPERTY_STRING: {
+                     if (!processor_set_element_string(pipeline, &control)) {
+                        Log(LOG_WARN, "fwdsp.control", "Rejected string parameter update (invalid element/property/value)");
                      }
                      break;
                   }
