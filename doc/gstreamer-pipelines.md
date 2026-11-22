@@ -1,7 +1,7 @@
 # GStreamer pipeline editor
 
-The GTK client's **Config → Edit Pipelines…** button opens the embedded
-**Audio Routing → Pipelines** tab. The editor is compiled directly into the GTK client and uses GStreamer’s installed element registry
+Open the embedded editor from **Audio Routing → Pipelines**.
+The redundant Config-tab **Edit Pipelines…** shortcut has been removed. The editor is compiled directly into the GTK client and uses GStreamer’s installed element registry
 and GObject property interfaces, so the toolbox and property panel reflect the
 plugins available on that machine.
 
