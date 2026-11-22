@@ -561,9 +561,9 @@ bool cmd_names(int argc, char **args) {
       }
 
       if (!room || (room[0] != '#' && room[0] != '&') ||
-          strpbrk(room, " ,\\t\\r\\n")) {
+          strpbrk(room, " ,\t\r\n")) {
          ui_print(ui_active_window_name(),
-            "\\00308Select a channel tab or use /names #channel\\017");
+            "\00308Select a channel tab or use /names #channel\017");
          return true;
       }
       return !irc_send(connection, "NAMES %s", room);
