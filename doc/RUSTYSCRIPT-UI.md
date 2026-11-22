@@ -93,7 +93,9 @@ widget to a container. Supported GTK3 types:
   (checkbox), `switch`, `slider`, `spin`, `combo`, `color`,
   `file` (file chooser), `folder` (directory chooser).
 - File/room selectors: `filelist` uses RustyRig's reusable local file browser;
-  its initial value is the root directory and the label is the list title.
+  its initial value is the root directory, optionally followed by `|suffix`
+  (e.g. `"/home/user/macros|.mac"`), and the label is the list title.
+  Without a suffix, all regular files are listed.
   `roomlist` enumerates open conversation tabs, including private queries,
   and returns the `profile|room` identity rather than a display caption.
 
