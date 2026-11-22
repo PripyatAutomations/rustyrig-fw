@@ -174,6 +174,11 @@ static gboolean identity_list_menu(GtkWidget *list, GdkEventButton *event, gpoin
          continue;
       }
       GtkWidget *item = gtk_menu_item_new_with_label(labels[i]);
+      if(responses[i]==7) {
+         char *base=g_path_get_basename(path);
+         gtk_widget_set_sensitive(item,strcmp(base,"client-ed25519.pem")!=0);
+         g_free(base);
+      }
       g_object_set_data(G_OBJECT(item), "response", GINT_TO_POINTER(responses[i]));
       g_signal_connect(item, "activate", G_CALLBACK(identity_menu_action), dialog);
       gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
@@ -437,7 +442,7 @@ static void gtk_manage_certificates(GtkWidget *unused, gpointer unused_data) {
          gtk_entry_set_text(GTK_ENTRY(display_entry),original);
          GtkWidget *file_entry=gtk_entry_new();
          gtk_entry_set_max_length(GTK_ENTRY(file_entry),64);
-         old_base[strlen(old_base)-4]=0;
+         if(g_str_has_suffix(old_base,".pem"))old_base[strlen(old_base)-4]=0;
          gtk_entry_set_text(GTK_ENTRY(file_entry),old_base);
          gtk_grid_attach(GTK_GRID(grid),gtk_label_new("Display name:"),0,0,1,1);
          gtk_grid_attach(GTK_GRID(grid),display_entry,1,0,1,1);
@@ -460,7 +465,10 @@ static void gtk_manage_certificates(GtkWidget *unused, gpointer unused_data) {
             char *base=g_strconcat(filename,".pem",NULL);
             char *target=g_build_filename(dir,base,NULL);
             bool moving=strcmp(path,target)!=0;
-            if(moving && g_file_test(target,G_FILE_TEST_EXISTS)) {
+            if(!strcmp(base,"client-ed25519.pem")) {
+               identity_message(GTK_WINDOW(rename_dlg),GTK_MESSAGE_WARNING,
+                  "The Default identity filename is reserved.");
+            } else if(moving && g_file_test(target,G_FILE_TEST_EXISTS)) {
                identity_message(GTK_WINDOW(rename_dlg),GTK_MESSAGE_WARNING,"That key filename already exists.");
             } else if(moving && rename(path,target)!=0) {
                identity_message(GTK_WINDOW(rename_dlg),GTK_MESSAGE_ERROR,"Unable to rename the key file.");
