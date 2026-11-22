@@ -1204,10 +1204,12 @@ static void frontend_gtk_tls_pin_prompt_event(const rr_event_message_t *message,
    g_free(details);
    gtk_label_set_line_wrap(GTK_LABEL(label), TRUE);
    gtk_label_set_line_wrap_mode(GTK_LABEL(label), PANGO_WRAP_WORD_CHAR);
-   gtk_label_set_max_width_chars(GTK_LABEL(label), 64);
+   /* Bound preferred line length so long certificate details cannot widen the dialog. */
+   gtk_label_set_width_chars(GTK_LABEL(label), 48);
+   gtk_label_set_max_width_chars(GTK_LABEL(label), 48);
    gtk_label_set_selectable(GTK_LABEL(label), TRUE);
    gtk_label_set_xalign(GTK_LABEL(label), 0);
-   gtk_widget_set_size_request(label, 480, -1);
+   gtk_widget_set_size_request(label, 400, -1);
    gtk_box_pack_start(GTK_BOX(area), label, FALSE, FALSE, 8);
    GtkWidget *instruction = gtk_label_new("For Accept Always, type YES:");
    gtk_label_set_xalign(GTK_LABEL(instruction), 0);

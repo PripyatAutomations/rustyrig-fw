@@ -2046,7 +2046,8 @@ GtkWidget *rr_gtk_rf_spectrum_new(void) {
    GtkWidget *overlay = gtk_overlay_new();
    GtkWidget *drawing = gtk_drawing_area_new();
    p->drawing = drawing;
-   gtk_widget_set_size_request(drawing, 320, 82);
+   /* Keep the RF viewport compact enough to shrink with its resizable floating panel. */
+   gtk_widget_set_size_request(drawing, 180, 82);
    gtk_widget_set_vexpand(drawing, TRUE);
    gtk_widget_set_vexpand(overlay, TRUE);
    gtk_widget_add_events(drawing, GDK_BUTTON_PRESS_MASK | GDK_SCROLL_MASK | GDK_SMOOTH_SCROLL_MASK);
