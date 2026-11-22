@@ -132,6 +132,10 @@ typedef struct rr_frontend_ops {
    bool (*panel_zoom)(const char *id, int percent);
    bool (*panel_opacity)(const char *id, int percent);
 
+   /* Frontend capability, not toolkit identity: GTK implements it today;
+    * the TUI can opt into the same abstract script-control protocol. */
+   bool (*script_gui_available)(void);
+
    /* Main loop: initialize the frontend (creates windows), then run the frontend's main loop until exit. run() returns when the loop ends. */
    bool (*init)(int *argc, char ***argv);
    void (*run)(void);
