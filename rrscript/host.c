@@ -19,7 +19,7 @@ typedef struct event_subscription {
 struct script_file {
    rrs_vm_t *vm;
    char *filename;
-   GMutex mutex; /* VM invocations must never overlap. */
+   GRecMutex mutex; /* Nested synchronous event emissions must not deadlock. */
    event_subscription_t *subscriptions;
 };
 struct rrscript_host {
@@ -74,11 +74,11 @@ static rrs_value_t *from_dict(dict *d) {
 }
 static void run(script_file_t *script,rrscript_binding_kind_t kind,
                 const char *name,const rrs_value_t *event) {
-   g_mutex_lock(&script->mutex);
+   g_rec_mutex_lock(&script->mutex);
    if(!rrs_vm_invoke(script->vm,kind,name,event))
       Log(LOG_WARN,"scripting","%s: %s: %s",script->filename,name,
           rrs_vm_error(script->vm));
-   g_mutex_unlock(&script->mutex);
+   g_rec_mutex_unlock(&script->mutex);
 }
 static void event_received(const char *name,const char *payload,
                            rrconn_t *connection,void *user) {
@@ -114,7 +114,7 @@ static void release_script(gpointer data) {
       sub=next;
    }
    rrs_vm_free(script->vm);
-   g_mutex_clear(&script->mutex);
+   g_rec_mutex_clear(&script->mutex);
    g_free(script->filename);
    g_free(script);
 }
@@ -143,7 +143,7 @@ static void load_script(rrscript_host_t *host,const char *directory,const char *
    }
    script_file_t *script=g_new0(script_file_t,1);
    script->filename=path;
-   g_mutex_init(&script->mutex);
+   g_rec_mutex_init(&script->mutex);
    script->vm=rrs_vm_new();
    if(!script->vm || !rrs_vm_load(script->vm,source)) {
       Log(LOG_WARN,"scripting","%s: %s",path,
