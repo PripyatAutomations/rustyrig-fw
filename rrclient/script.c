@@ -15,6 +15,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <stdio.h>
 
 /* Capture colorized IRC art without exposing arbitrary script filesystem I/O.
  * Sequential colored lines from the same sender/room form one artwork. */
@@ -127,6 +128,86 @@ static rrs_value_t *native_art_capture(rrs_vm_t *vm,int argc,
    return rrs_boolean(true);
 }
 
+
+/* User-owned scripts have ordinary local file access. Read operations have a
+ * bounded return value to avoid flooding the VM with multi-megabyte strings. */
+static rrs_value_t *native_file(rrs_vm_t *vm,int argc,
+   const rrs_value_t *const argv[],void *user) {
+   const char *op=user;
+   int wanted=(!strcmp(op,"write")||!strcmp(op,"append")||!strcmp(op,"rename"))?2:1;
+   if(argc!=wanted) {
+      rrs_vm_raise(vm,"file operation requires path[, contents/destination]");
+      return NULL;
+   }
+   for(int i=0;i<argc;i++)
+      if(rrs_value_type(argv[i])!=RRS_STRING) {
+         rrs_vm_raise(vm,"file operation arguments must be strings");
+         return NULL;
+      }
+   const char *path=rrs_value_string(argv[0]);
+   if(!path||!*path){rrs_vm_raise(vm,"Empty file path");return NULL;}
+   if(!strcmp(op,"exists"))
+      return rrs_boolean(g_file_test(path,G_FILE_TEST_EXISTS));
+   if(!strcmp(op,"read")) {
+      GStatBuf st;
+      if(g_stat(path,&st)!=0||!S_ISREG(st.st_mode)||st.st_size>1024*1024) {
+         rrs_vm_raise(vm,"File missing, not regular, or exceeds 1 MiB");
+         return NULL;
+      }
+      char *data=NULL;
+      gsize len=0;
+      if(!g_file_get_contents(path,&data,&len,NULL)||!g_utf8_validate(data,len,NULL)) {
+         g_free(data);
+         rrs_vm_raise(vm,"Unable to read UTF-8 file");return NULL;
+      }
+      rrs_value_t *out=rrs_string(data);
+      g_free(data);
+      return out;
+   }
+   if(!strcmp(op,"list")) {
+      GDir *dir=g_dir_open(path,0,NULL);
+      if(!dir){rrs_vm_raise(vm,"Cannot list directory");return NULL;}
+      GString *items=g_string_new("");
+      const char *name;
+      while((name=g_dir_read_name(dir))) {
+         if(items->len+strlen(name)+2>65536)break;
+         g_string_append(items,name);
+         g_string_append_c(items,'\n');
+      }
+      g_dir_close(dir);
+      rrs_value_t *out=rrs_string(items->str);
+      g_string_free(items,TRUE);
+      return out;
+   }
+   if(!strcmp(op,"remove")) {
+      if(g_remove(path)!=0){rrs_vm_raise(vm,"Cannot remove file");return NULL;}
+      return rrs_boolean(true);
+   }
+   if(!strcmp(op,"rename")) {
+      if(g_rename(path,rrs_value_string(argv[1]))!=0){
+         rrs_vm_raise(vm,"Cannot rename/move file");return NULL;
+      }
+      return rrs_boolean(true);
+   }
+   const char *value=rrs_value_string(argv[1]);
+   if(!strcmp(op,"write")) {
+      if(!g_file_set_contents(path,value,-1,NULL)){
+         rrs_vm_raise(vm,"Cannot write file");return NULL;
+      }
+      return rrs_boolean(true);
+   }
+   if(!strcmp(op,"append")) {
+      FILE *file=g_fopen(path,"ab");
+      if(!file){rrs_vm_raise(vm,"Cannot append file");return NULL;}
+      size_t len=strlen(value);
+      bool ok=fwrite(value,1,len,file)==len;
+      if(fclose(file)!=0)ok=false;
+      if(!ok){rrs_vm_raise(vm,"Append failed");return NULL;}
+      return rrs_boolean(true);
+   }
+   rrs_vm_raise(vm,"Unknown file operation");
+   return NULL;
+}
 
 /* Scripts only see immutable IDs and properties; no GTK pointers escape.
  * These operations use the same GTK floating panel manager as drag/drop. */
@@ -423,7 +504,14 @@ static bool register_gui_api(rrs_vm_t *vm) {
 }
 
 static bool register_window_api(rrs_vm_t *vm) {
-   return rrs_vm_register_native(vm,"art.capture",native_art_capture,NULL) &&
+   return rrs_vm_register_native(vm,"file.read",native_file,"read") &&
+       rrs_vm_register_native(vm,"file.write",native_file,"write") &&
+       rrs_vm_register_native(vm,"file.append",native_file,"append") &&
+       rrs_vm_register_native(vm,"file.exists",native_file,"exists") &&
+       rrs_vm_register_native(vm,"file.list",native_file,"list") &&
+       rrs_vm_register_native(vm,"file.rename",native_file,"rename") &&
+       rrs_vm_register_native(vm,"file.remove",native_file,"remove") &&
+       rrs_vm_register_native(vm,"art.capture",native_art_capture,NULL) &&
        rrs_vm_register_native(vm,"window.find",native_window_find,NULL) &&
       rrs_vm_register_native(vm,"window.move",native_window_move,NULL) &&
       rrs_vm_register_native(vm,"window.zoom",native_window_percent,GINT_TO_POINTER(1)) &&
