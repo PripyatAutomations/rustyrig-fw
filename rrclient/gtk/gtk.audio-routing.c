@@ -7451,8 +7451,9 @@ void gtk_audio_routing_init(void) {
       return;
    }
    rr_floating_panel_set_closable(routing_panel, FALSE);
-   /* The old vertical faders persisted a much larger floating-window geometry. Preserve placement/preferences but migrate its size once. */
-   rr_floating_panel_reset_saved_size(routing_panel);
+   /* Volume is a compact control, not a resizable workspace. Ignore old
+    * saved dimensions, retain placement/zoom and follow natural content. */
+   rr_floating_panel_set_content_sized(routing_panel);
    routing_window = rr_floating_panel_widget(routing_panel);
    routing_body = rr_floating_panel_body(routing_panel);
    /* Three compact horizontal faders avoid the tall two-column vertical mixer layout. All existing control callbacks and DB keys stay intact. */
@@ -7461,6 +7462,7 @@ void gtk_audio_routing_init(void) {
    gtk_grid_set_row_spacing(GTK_GRID(grid), 1);
    gtk_grid_set_column_spacing(GTK_GRID(grid), 5);
    gtk_widget_set_halign(grid, GTK_ALIGN_CENTER);
+   gtk_widget_set_valign(grid, GTK_ALIGN_START);
    gtk_box_pack_start(GTK_BOX(routing_body), grid, FALSE, FALSE, 0);
 
    for (unsigned ear = 0 ; ear < 2 ; ear++) {
@@ -7478,7 +7480,7 @@ void gtk_audio_routing_init(void) {
    }
 
    /* RX Gain controls the fwdsp playback sink, not the rig speaker level. */
-   GtkWidget *gain_label = gtk_label_new("RX");
+   GtkWidget *gain_label = gtk_label_new("Gain");
    gtk_widget_set_halign(gain_label, GTK_ALIGN_END);
    gtk_widget_set_tooltip_text(gain_label, "RX playback gain (fwdsp)");
    gtk_grid_attach(GTK_GRID(grid), gain_label, 0, 2, 1, 1);
@@ -7492,9 +7494,9 @@ void gtk_audio_routing_init(void) {
    gtk_grid_attach(GTK_GRID(grid), rx_vol_slider, 1, 2, 1, 1);
 
    split_rx = gtk_check_button_new_with_label("Link L/R");
-   gtk_widget_set_halign(split_rx, GTK_ALIGN_START);
+   gtk_widget_set_halign(split_rx, GTK_ALIGN_CENTER);
    gtk_widget_set_tooltip_text(split_rx, "Lock left and right playback volumes together, or adjust independently");
-   gtk_grid_attach(GTK_GRID(grid), split_rx, 1, 3, 1, 1);
+   gtk_grid_attach(GTK_GRID(grid), split_rx, 0, 3, 2, 1);
    g_signal_connect(split_rx, "toggled", G_CALLBACK(routing_changed), NULL);
 
    /* Start linked, preserving the previous non-split default. */
