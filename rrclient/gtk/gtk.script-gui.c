@@ -85,7 +85,7 @@ static void widget_changed(GtkWidget *widget,gpointer data) {
    (void)widget;
    script_widget_t *entry=data;
    if(!entry->widget)return;
-   rr_script_gui_change_t change={0};
+   rr_script_gui_change_t change={.version=RR_SCRIPT_GUI_PROTOCOL_VERSION};
    g_strlcpy(change.owner,entry->owner,sizeof(change.owner));
    g_strlcpy(change.id,entry->id,sizeof(change.id));
    g_strlcpy(change.kind,entry->kind,sizeof(change.kind));
@@ -237,7 +237,8 @@ static void script_gui_command(const rr_event_message_t *message,void *unused) {
    if(!message||!message->payload||message->length!=sizeof(rr_script_gui_command_t))return;
    rr_script_gui_command_t cmd;
    memcpy(&cmd,message->payload,sizeof(cmd));
-   if(!memchr(cmd.owner,0,sizeof(cmd.owner))||!memchr(cmd.id,0,sizeof(cmd.id))||
+   if(cmd.version!=RR_SCRIPT_GUI_PROTOCOL_VERSION ||
+      !memchr(cmd.owner,0,sizeof(cmd.owner))||!memchr(cmd.id,0,sizeof(cmd.id))||
       !memchr(cmd.parent,0,sizeof(cmd.parent))||!memchr(cmd.kind,0,sizeof(cmd.kind))||
       !memchr(cmd.text,0,sizeof(cmd.text))||!memchr(cmd.value,0,sizeof(cmd.value)))return;
    if(cmd.action==RR_GUI_RELEASE){script_gui_remove_owner(cmd.owner);return;}
