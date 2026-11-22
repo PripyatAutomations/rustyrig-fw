@@ -340,13 +340,25 @@ static rrs_value_t *native_script_util(rrs_vm_t *vm,int argc,
    }
    rrs_vm_raise(vm,"Unknown string utility");return NULL;
 }
-/* Explicit opt-in shared state. Each script retains separate VM, callbacks
- * and timers; only state.* values use the selected shared namespace. */
-static gboolean valid_namespace(const char *name) {
-   if(!name||!*name||strlen(name)>64)return FALSE;
-   for(const unsigned char *p=(const unsigned char*)name;*p;p++)
-      if(!g_ascii_isalnum(*p)&&*p!='_'&&*p!='-'&&*p!='.')return FALSE;
-   return TRUE;
+/* Shared by default in global. Each VM still owns its callbacks, timers and
+ * interpreter variables. state.use("") opts back into private state. */
+/* RustyRig state names use lowercase dotted identifiers, matching subsystem
+ * names throughout the project (e.g. station.audio.gain). Hyphens and
+ * underscores are valid inside a component for compatibility with scripts. */
+static gboolean valid_state_name(const char *name,gsize maxlen) {
+   if(!name||!*name||strlen(name)>maxlen)return FALSE;
+   gboolean segment_start=TRUE;
+   for(const unsigned char *p=(const unsigned char*)name;*p;p++) {
+      if(*p=='.') {
+         if(segment_start)return FALSE;
+         segment_start=TRUE;
+      } else if(segment_start) {
+         if(!g_ascii_islower(*p))return FALSE;
+         segment_start=FALSE;
+      } else if(!g_ascii_islower(*p)&&!g_ascii_isdigit(*p)&&
+                *p!='_'&&*p!='-')return FALSE;
+   }
+   return !segment_start;
 }
 static GHashTable *namespace_table(script_file_t *script,gboolean create) {
    if(!script->state_namespace) {
@@ -395,8 +407,8 @@ static rrs_value_t *native_script_state(rrs_vm_t *vm,int argc,
          return NULL;
       }
       const char *name=rrs_value_string(argv[0]);
-      if(*name&&!valid_namespace(name)) {
-         rrs_vm_raise(vm,"Invalid namespace: use 1..64 letters, digits, _ . -");
+      if(*name&&!valid_state_name(name,64)) {
+         rrs_vm_raise(vm,"Invalid namespace: use lowercase dotted names (e.g. station.audio)");
          return NULL;
       }
       g_free(script->state_namespace);
@@ -419,7 +431,10 @@ static rrs_value_t *native_script_state(rrs_vm_t *vm,int argc,
       rrs_vm_raise(vm,"state.get(key) / state.set(key,value)");return NULL;
    }
    const char *key=rrs_value_string(argv[0]);
-   if(!*key||strlen(key)>256){rrs_vm_raise(vm,"Invalid state key");return NULL;}
+   if(!valid_state_name(key,256)) {
+      rrs_vm_raise(vm,"Invalid state key: use lowercase dotted names (e.g. station.audio.gain)");
+      return NULL;
+   }
    GHashTable *table=namespace_table(script,op==UTIL_SET &&
       rrs_value_type(argv[1])!=RRS_NULL);
    if(op==UTIL_GET) {
@@ -757,6 +772,7 @@ static bool activate_script(rrscript_host_t *host,const char *name,bool replacin
    script_file_t *script=g_new0(script_file_t,1);
    script->filename=path;script->name=relative;script->client=host->client;
    script->host=host;
+   script->state_namespace=g_strdup("global");
    g_rec_mutex_init(&script->mutex);
    script->vm=rrs_vm_new();
    if(!script->vm||!rrs_vm_load(script->vm,source)) {
@@ -901,6 +917,11 @@ rrscript_host_t *rrscript_host_open(const char *directory,bool client,
    host->register_host=register_host;
    host->root=g_strdup(directory?directory:"");
    host->scripts=g_ptr_array_new_with_free_func(release_script);
+   host->namespaces=g_hash_table_new_full(g_str_hash,g_str_equal,g_free,
+      (GDestroyNotify)g_hash_table_destroy);
+   g_hash_table_insert(host->namespaces,g_strdup("global"),
+      g_hash_table_new_full(g_str_hash,g_str_equal,g_free,
+         (GDestroyNotify)rrs_value_free));
    if(!directory||!*directory)return host;
    GString *startup_errors=g_string_new(NULL);
    char *autoload=g_build_filename(directory,"autoload",NULL);
@@ -1018,6 +1039,7 @@ bool rrscript_host_console_eval(rrscript_host_t *host,const char *source,
    if(!host->console) {
       script_file_t *script=g_new0(script_file_t,1);
       script->host=host;
+      script->state_namespace=g_strdup("global");
       script->client=true;
       script->name=g_strdup("<console>");
       script->filename=g_strdup("<console>");
