@@ -883,7 +883,7 @@ static bool admin_control_visit(const rr_platform_control_state_t *s, void *user
 /* Bound SQL parameters only: free-form request messages never become SQL. */
 static void admin_access_requests(rrconn_t *client, dict *request) {
    const char *action = dict_get(request, "talk.action", "");
-#ifdef RR_HAVE_RUSTYSCRIPT
+#if defined(RR_HAVE_RUSTYSCRIPT) && defined(USE_SQLITE)
    if(!strncmp(action,"script-",7)) {
       handle_script_admin(client,request,action);
       dict_free(request);
@@ -1175,7 +1175,7 @@ static void admin_access_requests(rrconn_t *client, dict *request) {
 
 #endif
 /* Handle account/room actions or paginate an allowlisted database view. */
-#ifdef RR_HAVE_RUSTYSCRIPT
+#if defined(RR_HAVE_RUSTYSCRIPT) && defined(USE_SQLITE)
 typedef struct {
    rrconn_t *client;
    unsigned count;
