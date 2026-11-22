@@ -26,7 +26,7 @@ static RRFloatPanel *debug_panel;
 static GtkListStore *debug_store;
 static GtkWidget *debug_table;
 static rr_event_token_t debug_diagnostics_token,debug_open_token;
-enum { DBG_TIME,DBG_LEVEL,DBG_SOURCE,DBG_LOCATION,DBG_HANDLER,DBG_MESSAGE,DBG_PATH,DBG_SEVERITY,DBG_COLUMNS };
+enum { DBG_TIME,DBG_LEVEL,DBG_SOURCE,DBG_LOCATION,DBG_HANDLER,DBG_MESSAGE,DBG_PATH,DBG_SEVERITY,DBG_COUNT,DBG_COLUMNS };
 
 
 static char *script_directory(void) {
@@ -304,7 +304,7 @@ static void script_close(gpointer unused) {
 static void debug_store_ensure(void) {
    if(!debug_store)debug_store=gtk_list_store_new(DBG_COLUMNS,
       G_TYPE_STRING,G_TYPE_STRING,G_TYPE_STRING,G_TYPE_STRING,
-      G_TYPE_STRING,G_TYPE_STRING,G_TYPE_STRING,G_TYPE_UINT);
+      G_TYPE_STRING,G_TYPE_STRING,G_TYPE_STRING,G_TYPE_UINT,G_TYPE_UINT);
 }
 static gboolean debug_visible(GtkTreeModel *model,GtkTreeIter *iter,gpointer data) {
    GtkComboBox *filter=GTK_COMBO_BOX(data);
@@ -331,7 +331,22 @@ static void debug_record(const rr_event_message_t *message,void *unused) {
    debug_store_ensure();
    GtkTreeIter row;
    GtkTreeModel *model=GTK_TREE_MODEL(debug_store);
-   if(gtk_tree_model_iter_n_children(model,NULL)>=1000) {
+   int length=gtk_tree_model_iter_n_children(model,NULL);
+   if(length>0 && gtk_tree_model_iter_nth_child(model,&row,NULL,length-1)) {
+      char *oldpath=NULL,*oldhandler=NULL,*oldmessage=NULL;
+      unsigned oldseverity=0,count=0;
+      gtk_tree_model_get(model,&row,DBG_PATH,&oldpath,DBG_HANDLER,&oldhandler,
+         DBG_MESSAGE,&oldmessage,DBG_SEVERITY,&oldseverity,DBG_COUNT,&count,-1);
+      gboolean repeat=oldseverity==d.severity &&
+         !g_strcmp0(oldpath,d.path) && !g_strcmp0(oldhandler,d.handler) &&
+         !g_strcmp0(oldmessage,d.message);
+      g_free(oldpath);g_free(oldhandler);g_free(oldmessage);
+      if(repeat) {
+         gtk_list_store_set(debug_store,&row,DBG_COUNT,count+1,-1);
+         return;
+      }
+   }
+   if(length>=1000) {
       GtkTreeIter old;
       if(gtk_tree_model_get_iter_first(model,&old))
          gtk_list_store_remove(debug_store,&old);
@@ -345,7 +360,8 @@ static void debug_record(const rr_event_message_t *message,void *unused) {
    gtk_list_store_set(debug_store,&row,
       DBG_TIME,time,DBG_LEVEL,level,DBG_SOURCE,basename,
       DBG_LOCATION,location,DBG_HANDLER,d.handler,
-      DBG_MESSAGE,d.message,DBG_PATH,d.path,DBG_SEVERITY,d.severity,-1);
+      DBG_MESSAGE,d.message,DBG_PATH,d.path,DBG_SEVERITY,d.severity,
+      DBG_COUNT,1u,-1);
    g_free(location);g_free(basename);g_free(time);
    g_date_time_unref(now);
 }
@@ -434,14 +450,14 @@ void gtk_scripts_debug_open(void) {
    debug_table=gtk_tree_view_new_with_model(filtered);
    g_object_unref(filtered);
    gtk_tree_view_set_headers_visible(GTK_TREE_VIEW(debug_table),TRUE);
-   const char *titles[]={"Time","Level","Script","Line:Col","Handler","Message"};
-   const int fields[]={DBG_TIME,DBG_LEVEL,DBG_SOURCE,DBG_LOCATION,DBG_HANDLER,DBG_MESSAGE};
+   const char *titles[]={"Time","Level","Script","Line:Col","Handler","Count","Message"};
+   const int fields[]={DBG_TIME,DBG_LEVEL,DBG_SOURCE,DBG_LOCATION,DBG_HANDLER,DBG_COUNT,DBG_MESSAGE};
    for(guint i=0;i<G_N_ELEMENTS(fields);i++) {
       GtkCellRenderer *renderer=gtk_cell_renderer_text_new();
       GtkTreeViewColumn *col=gtk_tree_view_column_new_with_attributes(
          titles[i],renderer,"text",fields[i],NULL);
       gtk_tree_view_column_set_resizable(col,TRUE);
-      if(i==5) {
+      if(i==6) {
          gtk_tree_view_column_set_expand(col,TRUE);
          g_object_set(renderer,"ellipsize",PANGO_ELLIPSIZE_END,NULL);
       }
