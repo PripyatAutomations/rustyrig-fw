@@ -174,9 +174,11 @@ static rrs_value_t *script_gui_native(rrs_vm_t *vm,int argc,
                                      const rrs_value_t *const argv[],void *user) {
    int action=GPOINTER_TO_INT(user);
    int wanted=(action==RR_GUI_PANEL||action==RR_GUI_DIALOG)?2:
+              action==RR_GUI_MESSAGE?3:
               action==RR_GUI_ADD?4:action==RR_GUI_SET?2:1;
-   if(argc!=wanted && !(action==RR_GUI_ADD && argc==5)) {
-      rrs_vm_raise(vm,"GUI arguments: panel/dialog(id,title), add(parent,type,id,label[,value]), set(id,value), show/hide/destroy(id)");
+   if(argc!=wanted && !(action==RR_GUI_ADD && argc==5) &&
+      !(action==RR_GUI_MESSAGE && argc==4)) {
+      rrs_vm_raise(vm,"GUI arguments: panel/dialog(id,title), message(id,title,text[,ok|yesno]), add(parent,type,id,label[,value]), set(id,value), show/hide/destroy(id)");
       return NULL;
    }
    for(int i=0;i<argc;i++) {
@@ -201,6 +203,20 @@ static rrs_value_t *script_gui_native(rrs_vm_t *vm,int argc,
    g_strlcpy(command.id,id,sizeof(command.id));
    if(action==RR_GUI_PANEL||action==RR_GUI_DIALOG) {
       g_strlcpy(command.text,rrs_value_string(argv[1]),sizeof(command.text));
+   } else if(action==RR_GUI_MESSAGE) {
+      const char *buttons=argc==4?rrs_value_string(argv[3]):"ok";
+      if(strcmp(buttons,"ok") && strcmp(buttons,"yesno")) {
+         rrs_vm_raise(vm,"ui.message buttons must be 'ok' or 'yesno'");
+         return NULL;
+      }
+      if(strlen(rrs_value_string(argv[1])) >= sizeof(command.text) ||
+         strlen(rrs_value_string(argv[2])) >= sizeof(command.value)) {
+         rrs_vm_raise(vm,"ui.message title or message too long");
+         return NULL;
+      }
+      g_strlcpy(command.text,rrs_value_string(argv[1]),sizeof(command.text));
+      g_strlcpy(command.value,rrs_value_string(argv[2]),sizeof(command.value));
+      g_strlcpy(command.kind,buttons,sizeof(command.kind));
    } else if(action==RR_GUI_ADD) {
       g_strlcpy(command.parent,rrs_value_string(argv[0]),sizeof(command.parent));
       g_strlcpy(command.kind,rrs_value_string(argv[1]),sizeof(command.kind));
@@ -266,6 +282,7 @@ static bool register_gui_api(rrs_vm_t *vm) {
    /* ui.* is toolkit-neutral; gui.* is retained as a descriptive alias. */
    return rrs_vm_register_native(vm,"ui.panel",script_gui_native,GINT_TO_POINTER(RR_GUI_PANEL)) &&
       rrs_vm_register_native(vm,"ui.dialog",script_gui_native,GINT_TO_POINTER(RR_GUI_DIALOG)) &&
+      rrs_vm_register_native(vm,"ui.message",script_gui_native,GINT_TO_POINTER(RR_GUI_MESSAGE)) &&
       rrs_vm_register_native(vm,"ui.add",script_gui_native,GINT_TO_POINTER(RR_GUI_ADD)) &&
       rrs_vm_register_native(vm,"ui.show",script_gui_native,GINT_TO_POINTER(RR_GUI_SHOW)) &&
       rrs_vm_register_native(vm,"ui.hide",script_gui_native,GINT_TO_POINTER(RR_GUI_HIDE)) &&
@@ -274,6 +291,7 @@ static bool register_gui_api(rrs_vm_t *vm) {
       rrs_vm_register_native(vm,"ui.val",script_gui_value,NULL) &&
       rrs_vm_register_native(vm,"gui.panel",script_gui_native,GINT_TO_POINTER(RR_GUI_PANEL)) &&
       rrs_vm_register_native(vm,"gui.dialog",script_gui_native,GINT_TO_POINTER(RR_GUI_DIALOG)) &&
+      rrs_vm_register_native(vm,"gui.message",script_gui_native,GINT_TO_POINTER(RR_GUI_MESSAGE)) &&
       rrs_vm_register_native(vm,"gui.add",script_gui_native,GINT_TO_POINTER(RR_GUI_ADD)) &&
       rrs_vm_register_native(vm,"gui.show",script_gui_native,GINT_TO_POINTER(RR_GUI_SHOW)) &&
       rrs_vm_register_native(vm,"gui.hide",script_gui_native,GINT_TO_POINTER(RR_GUI_HIDE)) &&
