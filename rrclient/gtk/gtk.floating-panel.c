@@ -2442,6 +2442,10 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    g_object_set_data(G_OBJECT(p->menu_close), "rr-action", (gpointer) "close");
    g_signal_connect(p->menu_close, "clicked", G_CALLBACK(panel_menu_action), p);
    gtk_box_pack_start(GTK_BOX(settings), p->menu_close, FALSE, FALSE, 0);
+   /* This popover is deliberately detached while the panel is constructed.
+    * gtk_widget_show_all(p->frame) does not traverse it, and GtkMenuButton
+    * only shows the popover shell when toggled. Show its contents explicitly. */
+   gtk_widget_show_all(settings);
    p->title = gtk_label_new(title ? title : id);
 
    if (!strcmp(id, "rig-vfo")) {
