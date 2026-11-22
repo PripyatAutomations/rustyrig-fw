@@ -21,4 +21,7 @@ GtkWidget *rr_local_browser_new(const char *directory, const char *suffix,
 void rr_local_browser_refresh(GtkWidget *browser);
 char *rr_local_browser_selected(GtkWidget *browser);
 void rr_local_browser_message(GtkWidget *browser, const char *message);
+/* Selection updates for callers with a live preview (e.g. IRC artwork). */
+void rr_local_browser_on_selection(GtkWidget *browser,
+   void (*callback)(GtkWidget *browser, const char *relative, gpointer user), gpointer user);
 #endif
