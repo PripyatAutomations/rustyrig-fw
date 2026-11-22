@@ -1685,7 +1685,7 @@ static gboolean audio_lv2_start(const rr_audio_effect_request_t *req) {
    return TRUE;
 }
 
-/* Only linear, mono, unbranched links can be collapsed without inventing a
+/* Only linear, format-compatible, unbranched links can be collapsed without inventing a
  * mixer or silently dropping an independently routable effect output. Other
  * topologies retain the existing one-worker-per-effect implementation. */
 typedef struct {
@@ -1695,18 +1695,31 @@ typedef struct {
 } rr_lv2_chain_config_t;
 
 static gint audio_lv2_chain_next(const rr_lv2_chain_config_t *cfg, guint parent) {
-   if (!cfg[parent].present || cfg[parent].channels != 1 || cfg[parent].output[0] != 'M')
+   const guint channels = cfg[parent].channels;
+   if (!cfg[parent].present || (channels != 1 && channels != 2))
       return -1;
-   char output[48];
-   g_snprintf(output, sizeof(output), "proc.lv2.%u", parent + 1);
+   char output[2][48] = {{0}};
+   for (guint ch = 0 ; ch < channels ; ch++) {
+      if (cfg[parent].output[ch] != 'M') return -1;
+      if (channels == 2)
+         g_snprintf(output[ch], sizeof(output[ch]), "proc.lv2.%u.%c", parent + 1, ch ? 'R' : 'L');
+      else
+         g_snprintf(output[ch], sizeof(output[ch]), "proc.lv2.%u", parent + 1);
+   }
    gint consumer = -1;
    for (guint i = 0 ; i < RR_AUDIO_EFFECT_MAX ; i++) {
       if (!cfg[i].present || i == parent) continue;
-      for (guint ch = 0 ; ch < cfg[i].channels ; ch++) {
-         if (strcmp(cfg[i].source[ch], output)) continue;
-         if (consumer >= 0 || cfg[i].channels != 1) return -1;
-         consumer = (gint)i;
-      }
+      gboolean matched = FALSE;
+      for (guint ch = 0 ; ch < cfg[i].channels ; ch++)
+         for (guint src = 0 ; src < channels ; src++)
+            matched |= !strcmp(cfg[i].source[ch], output[src]);
+      if (!matched) continue;
+      /* Reject fan-out, channel swaps and mono/stereo conversion. Those
+       * topologies retain separately addressable fwdsp processes. */
+      if (consumer >= 0 || cfg[i].channels != channels) return -1;
+      for (guint ch = 0 ; ch < channels ; ch++)
+         if (strcmp(cfg[i].source[ch], output[ch])) return -1;
+      consumer = (gint)i;
    }
    return consumer;
 }
