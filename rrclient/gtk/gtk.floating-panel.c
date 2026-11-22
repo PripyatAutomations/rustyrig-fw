@@ -760,6 +760,8 @@ static void panel_dock_attach(RRFloatPanel *p, RRChatDocks *d, gint edge) {
    g_object_set_data(G_OBJECT(p->frame), "rr-float-owner", p);
    g_object_unref(p->frame);
    p->dock_edge = edge;
+   /* Snap guides belong to the floating overlay coordinate system. */
+   p->snapped_x = p->snapped_y = FALSE;
 
    if (!p->resizable) {
       p->resizable = TRUE;
@@ -808,6 +810,8 @@ static void panel_dock_detach(RRFloatPanel *p, gint root_x, gint root_y) {
    gtk_widget_set_margin_top(p->frame, y);
    g_object_unref(p->frame);
    p->dock_edge = -1;
+   /* On reparenting, clear guides from the previous coordinate system. */
+   p->snapped_x = p->snapped_y = FALSE;
 
    if (p->dock_forced_resizable) {
       p->resizable = FALSE;
