@@ -8,6 +8,11 @@ case "$mode" in native|mongoose|both) ;; *)
    echo "Usage: tests/test-transports.sh [native|mongoose|both]" >&2; exit 2 ;;
 esac
 command -v jq >/dev/null || { echo 'Missing jq' >&2; exit 2; }
+# Test worktrees live under /tmp, while librrprotocol was split into a
+# sibling checkout of the original repository. Preserve the schema location.
+if [[ -z ${RR_WIRE_SCHEMA:-} && -f $root/../librrprotocol/wire-schema.json ]]; then
+   export RR_WIRE_SCHEMA="$root/../librrprotocol/wire-schema.json"
+fi
 work=$(mktemp -d)
 cleanup() {
    for profile in native mongoose; do
