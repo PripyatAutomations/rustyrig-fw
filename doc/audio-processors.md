@@ -224,13 +224,23 @@ floating-panel geometry, docking, roll-up and minimization remain managed by
 the existing panel manager. On capture/playback endpoint restart the client
 replays saved values to the new worker.
 
+**Selector controls:** Add Control offers two distinct dropdowns. **Numeric
+dropdown** emits the numeric index required by SWITCH and integer parameters;
+optional comma-separated names are presentation labels only. **Enum string
+dropdown** emits the selected literal string and persists it separately as
+`selected-string`, with options entered in Properties (e.g.
+`USB, LSB, AM, FM`). A string-bound local effect uses a separate typed
+`fwdsp` control operation and only writable GObject string properties are
+accepted. These controls retain stable UUIDs for future scripting. The
+audio SWITCH processor and its control pin remain separate work.
+
 **Limitations:** LV2 support now includes standalone Routing blocks as well
 as effects embedded in existing local capture/playback pipelines. Installed
 GStreamer LV2 bundles must be available to the client for metadata discovery
 and to `fwdsp` for execution. Effect elements keep stable `name=` identities,
 including `effect` within standalone subprocesses. Changes to old static
 pipeline definitions still require saving and restarting their worker/client.
-Server/mesh DSP targets, live LV2 readback, enum-style controls, arbitrary
+Server/mesh DSP targets, live LV2 readback, arbitrary
 effect chaining and higher-rate standalone effects require later work.
 
 Rebuild **both** `fwdsp` and `libfwdspmgr` so each understands the new
