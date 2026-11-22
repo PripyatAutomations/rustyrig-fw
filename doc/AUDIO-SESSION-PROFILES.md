@@ -286,6 +286,74 @@ PTT/control graph. Current audio nodes remain unchanged by default.
       PTT handling; final sink still enforces TX safety.
 - [ ] Ensure touch target expansion follows each shape's visible outline.
 
+## TX mixer fanout and physical TX routing (2026-11-22)
+
+The microphone is a mono PCM source, but its output may feed either or both
+`tx.mix` legs independently. Each leg is a **mixer destination**; there
+is no need to duplicate the microphone into two physical capture streams.
+The core now persists `audio.tx.mic.channels` (`L`, `R`, `S`/both, `M`),
+and GTK accepts patch cords on both the L and R TX mixer sockets. The
+existing `audio.tx.mic.target` retains its separate enabled/disabled
+TX-media selection semantics. Double-clicking a mixer input removes only
+that ear's microphone patch, not every modem patch connected to the mixer.
+
+```text
+src.client.dsp0 MONO -----> tx.mix L
+                     `----> tx.mix R
+                               |
+                      stereo mix / mono downmix
+                               |
+                          tx.transport
+                               |
+                    selected TX media codec
+                               |
+                  active rig.sink (16k codec)
+```
+
+The TX encoder currently takes 16 kHz mono PCM. `tx.mix` is therefore
+16 kHz and `tx.transport`/`rig.sink` honestly display **16 kHz codec
+PCM**. This is **not** a claim that the microphone sound card, eventual
+44.1/48 kHz effects chain, or rig hardware must be 16 kHz. High-quality
+processing should remain at the operator-selected capture rate until the
+explicit resample/downmix bridge before the currently negotiated codec.
+The client PCM engine can already register a 44.1/48 kHz source and
+resample to its TX mixer output clock, but `client_mic_pcm()` still
+receives the capture pipeline's 16 kHz output. Do not claim the requested
+HQ microphone path is complete until that boundary changes.
+
+The `tx.transport -> rig.*.tx` edge is not a user-modifiable audio cable:
+it represents the **active, negotiated TX media channel**, which follows
+radio/VFO/connection selection and the server's codec capabilities.
+The graph publishes a transport link only for the selected TX-capable rig.
+An inactive `rig.*.tx` block cannot be made active simply by drawing a
+wire, and an RX-only resource never advertises TX. Similarly, the
+`modemN.tx -> rig.sink` edge is an alias of the same **gated**
+`tx.mix -> tx.transport` path, not independent hardware PCM. The graph
+now explicitly permits multiple modem ingress metadata links beside the
+transport link when that active sink is selected.
+
+**Follow-up:**
+
+- [x] Allow microphone mono output to be patched to L, R, or both TX mixer
+      inputs, with separately removable links and persistent channel mask.
+- [x] Fix active rig sink graph model accepting transport and modem audio
+      edges concurrently, in either connection order.
+- [x] Add regression cases for mono fanout, graph edge coalescing and
+      virtual TX multi-ingress.
+- [ ] Give `rig.*.tx` context-menu action to **Select TX destination**
+      through the normal authenticated media/VFO selection workflow, then
+      show the automatic transport link once confirmed. Never re-point
+      a TX encoder merely because the user moved a graph wire.
+- [ ] Permit logical direct modem routes to a specific TX-capable rig only
+      after the core can bind a stable resource identity and **mute it**
+      when that rig is not the active TX destination. Do not mix a modem
+      waveform into an unrelated selected transmitter.
+- [ ] Add negotiated higher-rate TX codec formats if and when remote
+      server/codec endpoints advertise them; use explicit output-rate
+      conversion blocks and per-block rate properties for other hardware.
+- [ ] Live-test the existing route controls, radio TX/PTT interlocks,
+      saved L/R state, 16k encoder mix levels and multiple modem inputs.
+
 ## References
 
 - [Existing LV2 worker design](audio-processors.md)
