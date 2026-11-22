@@ -1,6 +1,7 @@
 /* RustyScript core host adapter. No GTK or server database access.
  * SPDX-License-Identifier: GPL-2.0-only */
 #include <rrscript/host.h>
+#include <rrclient/script.gui.h>
 #include <librustyscript/runtime.h>
 #include <librustyaxe/core.h>
 #include <librustyaxe/event-bus.h>
@@ -94,6 +95,16 @@ static void event_received(const char *name,const char *payload,
    (void)connection;
    event_subscription_t *sub=user;
    dict *parsed=payload?json2dict(payload):NULL;
+   /* Script-generated GUI events are visible only to their owning VM.
+    * Cross-script subscriptions must not observe another script's widgets. */
+   if(!strncmp(name,"gui.",4)) {
+      char owner[32];
+      g_snprintf(owner,sizeof(owner),"%p",(void *)sub->owner->vm);
+      if(!parsed || g_strcmp0(dict_get(parsed,"owner",""),owner)) {
+         if(parsed)dict_free(parsed);
+         return;
+      }
+   }
    rrs_value_t *ev=parsed?from_dict(parsed):rrs_dictionary();
    if(parsed)dict_free(parsed);
    if(!ev)return;
@@ -114,6 +125,16 @@ static void event_received(const char *name,const char *payload,
 }
 static void release_script(gpointer data) {
    script_file_t *script=data;
+   /* On unload/reload, retire all widgets this VM created. Opaque lifetime
+    * token is used only for routing, never exposed as a script-side pointer. */
+   if(script->vm) {
+      rr_script_gui_command_t command={.action=RR_GUI_RELEASE};
+      g_snprintf(command.owner,sizeof(command.owner),"%p",(void *)script->vm);
+      rr_event_message_t message={
+         .name=RR_SCRIPT_GUI_COMMAND,.payload=&command,.length=sizeof(command)
+      };
+      event_emit_message(&message);
+   }
    event_subscription_t *sub=script->subscriptions;
    while(sub) {
       event_subscription_t *next=sub->next;
