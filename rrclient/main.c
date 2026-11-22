@@ -63,7 +63,6 @@ extern defconfig_t defcfg[];
 #include <rrclient/userlist.h>
 #include <rrclient/vfo.h>
 #include <rrclient/ui.statusbar.h>
-#include <rrclient/artwork.h>
 #ifdef RR_HAVE_RUSTYSCRIPT
 #include <rrscript/host.h>
 void rrclient_script_init(void);
@@ -2288,7 +2287,6 @@ bool rrclient_cleanup(void) {
 #ifdef RR_HAVE_RUSTYSCRIPT
    rrclient_script_shutdown();
 #endif
-   rrclient_artwork_unregister_events();
    event_shutdown();
 
    // Persist the running config (including window placements learned while
@@ -2732,7 +2730,6 @@ int main(int argc, char *argv[]) {
 
    // Register all of our core event handlers
    rrclient_register_events();
-   rrclient_artwork_register_events();
 #ifdef RR_HAVE_RUSTYSCRIPT
    rrclient_script_init();
 #endif
