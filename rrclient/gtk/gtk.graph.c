@@ -101,6 +101,20 @@ gboolean rr_gtk_graph_shape_contains(rr_gtk_graph_shape_t shape,
    return hit;
 }
 
+const rr_gtk_graph_port_t *rr_gtk_graph_threshold_ports(guint *count) {
+   static const rr_gtk_graph_port_t ports[] = {
+      {"VALUE",  RR_GTK_GRAPH_SIGNAL_NUMBER,  FALSE, 0,  20},
+      {"MIN",    RR_GTK_GRAPH_SIGNAL_NUMBER,  FALSE, 0,  38},
+      {"MAX",    RR_GTK_GRAPH_SIGNAL_NUMBER,  FALSE, 0,  56},
+      {"SIGNAL", RR_GTK_GRAPH_SIGNAL_BOOLEAN, FALSE, 0,  74},
+      {"INVERT", RR_GTK_GRAPH_SIGNAL_BOOLEAN, FALSE, 0,  92},
+      {"OUT",    RR_GTK_GRAPH_SIGNAL_BOOLEAN, TRUE,  RR_GTK_GRAPH_NODE_W, 42},
+      {"TRUE",   RR_GTK_GRAPH_SIGNAL_BOOLEAN, TRUE,  RR_GTK_GRAPH_NODE_W, 80}
+   };
+   if (count) *count=G_N_ELEMENTS(ports);
+   return ports;
+}
+
 void rr_gtk_graph_typed_port_draw(cairo_t *cr, double x, double y,
                                   rr_gtk_graph_signal_t signal, gboolean output) {
    if (!cr) return;
@@ -240,6 +254,17 @@ void rr_gtk_graph_draw_vertical(cairo_t *cr, const rr_gtk_graph_node_t *nodes, g
          cairo_show_text(cr, n->detail);
       }
 
+      if (n->shape != RR_GTK_GRAPH_SHAPE_RECT) {
+         for (guint p=0; n->ports && p<n->port_count && p<32; ++p) {
+            const rr_gtk_graph_port_t *port=&n->ports[p];
+            if (port->x < 0 || port->x > RR_GTK_GRAPH_NODE_W ||
+                port->y < 0 || port->y > RR_GTK_GRAPH_NODE_H)
+               continue;
+            rr_gtk_graph_typed_port_draw(cr,n->x+port->x,n->y+port->y,
+                                         port->signal,port->output);
+         }
+         continue;
+      }
       if (n->cos_input) {
          cairo_set_source_rgb(cr, 1., .87, .13);
          pin(cr, n->x + RR_GTK_GRAPH_NODE_W - 12., n->y, FALSE, TRUE);
@@ -349,14 +374,23 @@ void rr_gtk_graph_draw(cairo_t *cr, const rr_gtk_graph_node_t *nodes, guint n_no
       cairo_set_source_rgb(cr, n->stale ? .66 : 1, n->stale ? .68 : 1, n->stale ? .70 : 1);
       cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
       cairo_set_font_size(cr, 12);
-      cairo_move_to(cr, n->x + 10, n->y + 23);
+      if (n->shape != RR_GTK_GRAPH_SHAPE_RECT) {
+         const char *title=n->title ? n->title : "Gate";
+         cairo_text_extents_t ext;
+         cairo_text_extents(cr,title,&ext);
+         cairo_move_to(cr,n->x+RR_GTK_GRAPH_NODE_W*.54-ext.width/2.,
+                       n->y+RR_GTK_GRAPH_NODE_H*.50);
+      } else {
+         cairo_move_to(cr, n->x + 10, n->y + 23);
+      }
       cairo_show_text(cr, n->title ? n->title : "Node");
       cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
       cairo_set_font_size(cr, 10);
       cairo_move_to(cr, n->x + 10, n->y + 39);
-      cairo_show_text(cr, n->subtitle ? n->subtitle : "");
+      if (n->shape == RR_GTK_GRAPH_SHAPE_RECT)
+         cairo_show_text(cr, n->subtitle ? n->subtitle : "");
 
-      if (n->detail && *n->detail) {
+      if (n->shape == RR_GTK_GRAPH_SHAPE_RECT && n->detail && *n->detail) {
          cairo_set_font_size(cr, 9);
          cairo_move_to(cr, n->x + 10, n->y + 52);
          cairo_show_text(cr, n->detail);
@@ -403,6 +437,20 @@ void rr_gtk_graph_draw(cairo_t *cr, const rr_gtk_graph_node_t *nodes, guint n_no
          cairo_show_text(cr, "fwdsp");
       }
       cairo_set_font_size(cr, 10);
+
+      if (n->shape != RR_GTK_GRAPH_SHAPE_RECT) {
+         /* Typed control ports are declared by the graph model; they are not
+          * fake audio sockets. All positions stay relative to node geometry. */
+         for (guint p=0; n->ports && p<n->port_count && p<32; ++p) {
+            const rr_gtk_graph_port_t *port=&n->ports[p];
+            if (port->x < 0 || port->x > RR_GTK_GRAPH_NODE_W ||
+                port->y < 0 || port->y > RR_GTK_GRAPH_NODE_H)
+               continue;
+            rr_gtk_graph_typed_port_draw(cr,n->x+port->x,n->y+port->y,
+                                         port->signal,port->output);
+         }
+         continue;
+      }
 
       if (n->stereo_pins) {
          /* Both ends have independent L/R ports. Label them at both edges, not just the left, so ear-specific routes are legible. */
