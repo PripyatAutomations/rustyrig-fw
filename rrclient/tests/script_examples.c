@@ -43,15 +43,17 @@ int main(int argc, char **argv) {
    assert(vm);
    assert(rrs_vm_load(vm, source));
    free(source);
-   struct { const char *name, *kind; } bindings[] = {
-      { "env.data_dir", "data" }, { "ui.utility", "generic" },
-      { "ui.add", "add" }, { "ui.show", "generic" },
-      { "ui.set", "generic" }, { "ui.message", "generic" },
-      { "string.regex", "regex" }
+   static char data[] = "data", generic[] = "generic";
+   static char add[] = "add", regex[] = "regex";
+   struct { const char *name; char *kind; } bindings[] = {
+      { "env.data_dir", data }, { "ui.utility", generic },
+      { "ui.add", add }, { "ui.show", generic },
+      { "ui.set", generic }, { "ui.message", generic },
+      { "string.regex", regex }
    };
    for (size_t i = 0; i < sizeof(bindings)/sizeof(bindings[0]); i++)
       assert(rrs_vm_register_native(vm, bindings[i].name, stub,
-                                    (void *)bindings[i].kind));
+                                    bindings[i].kind));
    if (!rrs_vm_invoke(vm, RRSCRIPT_COMMAND, "/artwork", NULL)) {
       fprintf(stderr, "artwork command: %s\n", rrs_vm_error(vm));
       return 1;
