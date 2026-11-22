@@ -87,9 +87,19 @@ static rrs_value_t *native_art_capture(rrs_vm_t *vm,int argc,
       char *safe_nick=rr_art_slug(nick),*safe_room=rr_art_slug(room);
       GDateTime *date=g_date_time_new_now_local();
       char *stamp=g_date_time_format(date,"%Y%m%d-%H%M%S");
-      char *filename=g_strdup_printf("%s-%s-%s-%08x.ircart",stamp,safe_room,safe_nick,g_random_int());
+      /* Requested channel-nick-date naming. Preserve existing captures
+       * when two sessions happen to start in the same second. */
+      char *basename=g_strdup_printf("%s-%s-%s",safe_room,safe_nick,stamp);
+      char *filename=g_strdup_printf("%s.mac",basename);
       rr_art_session_t *fresh=g_new0(rr_art_session_t,1);
       fresh->path=g_build_filename(folder,filename,NULL);
+      for(unsigned suffix=2; g_file_test(fresh->path,G_FILE_TEST_EXISTS); suffix++) {
+         g_free(filename);
+         g_free(fresh->path);
+         filename=g_strdup_printf("%s-%u.mac",basename,suffix);
+         fresh->path=g_build_filename(folder,filename,NULL);
+      }
+      g_free(basename);
       g_hash_table_replace(rr_art_sessions,g_strdup(key),fresh);
       session=fresh;
       g_free(filename);g_free(stamp);g_date_time_unref(date);
