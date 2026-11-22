@@ -103,13 +103,14 @@ Combo options are comma-separated. Slider and spin default to the historical
 0–100 range; optionally pass `"min:max:step:value"` to give them explicit
 bounds (for example `"1:10:1:1"` for lines/sec). `ui.set(id, value)`
 sets numeric, boolean and text controls. For `filelist`, setting a value
-refreshes the list; for `irc-preview`, set a relative `.mac` filename;
+refreshes the list; for `irc-preview`, set a local file path (the content is rendered with IRC indexed and RGB colors);
 for `roomlist`, set `"refresh"` to rescan open tabs.
 
 `ui.show(id)`, `ui.hide(id)`, and `ui.destroy(id)` change visibility or
 ownership. Script-created widgets are removed automatically on unload/reload.
 The client example `doc/examples/scripts/ascii-art.rrs` creates a working
-script-owned .mac browser, previewer and paced sender.
+script-owned .mac browser, previewer and paced sender. `ui.edit(path)` opens
+any local regular file in RustyRig’s reusable editor.
 
 `ui.val(id)` (also `control.val(id)`) returns the last known logical value: boolean for
 checkboxes, numeric for slider/spin, string for other value controls.
