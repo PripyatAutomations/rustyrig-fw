@@ -1,0 +1,26 @@
+// RustyScript message / confirmation dialog demo.
+// Copy to ~/.config/rustyrig/scripts/ and /script load message-dialog.rrs
+// Commands: /confirm-demo and /info-demo
+
+script("/confirm-demo", {
+    ui.message("confirm-demo", "Confirm action",
+               "Do you want to continue?", "yesno")
+});
+
+script("/info-demo", {
+    // The fourth argument defaults to "ok".
+    ui.dialog("info-demo", "Information", "RustyScript dialogs work!")
+});
+
+event ui.response {
+    if (event.id == "confirm-demo") {
+        if (event.answer == "yes") {
+            log.info("Confirmed!")
+        } else {
+            log.info("Not confirmed")
+        }
+    }
+    if (event.id == "info-demo") {
+        log.info("Information dialog dismissed")
+    }
+}

@@ -8,7 +8,8 @@
 /* All messages are owned by the event bus; never contain toolkit pointers. */
 enum {
    RR_GUI_PANEL=1, RR_GUI_DIALOG, RR_GUI_ADD, RR_GUI_SET,
-   RR_GUI_SHOW, RR_GUI_HIDE, RR_GUI_DESTROY, RR_GUI_RELEASE
+   RR_GUI_SHOW, RR_GUI_HIDE, RR_GUI_DESTROY, RR_GUI_RELEASE,
+   RR_GUI_MESSAGE /* prebuilt info/confirmation dialog */
 };
 typedef struct rr_script_gui_command {
    uint32_t version;

@@ -2,7 +2,7 @@
 
 The RustyScript UI API describes **logical controls**, not GTK widgets.
 The core and VM use owned, toolkit-independent value messages from
-`inc/rrclient/script.ui.h`. Each frontend renders those controls using
+`inc/rrclient/script.gui.h`. Each frontend renders those controls using
 its own native toolkit. GTK is the first implementation; a TUI, another
 native desktop toolkit, or a third-party frontend can implement the same
 model without requiring different .rrs scripts.
@@ -40,6 +40,45 @@ event ui.click {
     }
 }
 ```
+
+### Message and confirmation dialogs
+
+The convenience call `ui.message(id, title, message[, buttons])` creates
+a standard modal message dialog, without requiring scripts to pack buttons
+or labels. `ui.dialog(id, title, message[, buttons])` is an equivalent
+form; the existing two-argument `ui.dialog(id, title)` still creates an
+empty customizable dialog.
+
+The optional `buttons` argument is `"ok"` (default) or `"yesno"`
+(`"yes/no"` is accepted too). The call returns the dialog ID immediately;
+it **does not block** the RustyScript VM or return the user's answer.
+
+```c
+script("/ask", {
+    ui.dialog("confirm", "Transmit?", "Enable transmitter?", "yesno")
+})
+
+event ui.response {
+    if (event.id == "confirm") {
+        if (event.answer == "yes") {
+            log.info("User agreed")
+        } else {
+            log.info("User declined or dismissed the dialog")
+        }
+    }
+}
+```
+
+The `ui.response` event includes `id`, `kind`, `answer` (`"ok"`,
+`"yes"`, `"no"`, `"cancel"`, or `"close"`), and boolean
+`accepted` (true for OK/Yes). It also retains the original numeric
+`response` field for compatibility with existing custom dialogs.
+Closing a dialog without choosing a button yields `"cancel"`, not
+`"no"`. Reusing an ID replaces the previous message dialog; use
+`ui.destroy(id)` to discard it explicitly.
+
+A TUI or third-party frontend should implement the same logical message
+request and response names using its own native dialog presentation.
 
 `ui.panel(id, title)` creates a nonmodal floating panel; `ui.dialog(id,
 title)` creates a dialog. `ui.add(parent, type, id, label[, initial_value])`
