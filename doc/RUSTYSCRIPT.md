@@ -193,6 +193,35 @@ the planned language and require additional parser/runtime/host work. Do not
 assume unsupported code was validated at load time; errors may be deferred
 until invocation.
 
+## IRC artwork archiver example
+
+The client example `doc/examples/scripts/ascii-art.rrs` subscribes to
+`irc.privmsg` and calls the narrowly scoped `art.capture(text, nick, room)`
+native function. Copy the example into the scripts directory and load it:
+
+```text
+/script load ascii-art.rrs
+```
+
+A valid mIRC indexed-color control (byte `0x03` followed by a decimal
+index) or extended RGB-color control (byte `0x04` followed by six hexadecimal
+digits) starts a captured artwork. Subsequent lines from the same nickname
+and room are retained, including lines without color codes, for up to
+15 seconds between messages; a new file starts after 100 lines. Artworks are
+written as `*.ircart` in
+`$XDG_DATA_HOME/rustyrig/artwork/` (normally
+`~/.local/share/rustyrig/artwork/`). The files contain the raw message lines
+and original IRC formatting bytes, separated by newlines, with restrictive
+file permissions. They can therefore be rendered or replayed later without
+losing palette, background or RGB color codes.
+
+This example is a **collector only**: there is not yet an integrated artwork
+browser or paced room playback. Sending archived lines into a room should be
+a user-initiated, rate-limited operation (not an automatic reply from the event
+handler), with a selectable destination and a cancel control. Large or rapid
+artwork should respect IRC/network flood limits and avoid accidental
+re-transmission on reception.
+
 ## Scriptable GTK panels and docking
 
 The initial window/panel API is available in **rrclient with GTK**. It
