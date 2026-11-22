@@ -1291,6 +1291,7 @@ static void audio_lv2_result(const char *name, const void *samples, size_t bytes
       /* A consolidated subprocess produces only the final stage's PCM. */
       rr_lv2_effect_t *last = fx->chain_tail && fx->chain_tail <= RR_AUDIO_EFFECT_MAX ?
          &lv2_effects[fx->chain_tail - 1] : fx;
+      if (!g_atomic_int_get(&last->active) || !last->output_stream[0][0]) return;
       if (!audio_lv2_feed(last->output_stream[0], samples, bytes)) {
          rr_audio_engine_push(rx_engine, last->output_stream[0], (const int16_t *)samples, bytes / sizeof(int16_t));
       }
@@ -1345,7 +1346,7 @@ static gpointer audio_lv2_writer(gpointer user) {
 }
 
 static gboolean audio_lv2_feed(const char *source, const void *samples, size_t bytes) {
-   if (!lv2_effect_ready || !source || !samples || !bytes || bytes > sizeof(((rr_lv2_pcm_packet_t *) 0)->pcm) || (bytes & 1)) {
+   if (!lv2_effect_ready || !source || !*source || !samples || !bytes || bytes > sizeof(((rr_lv2_pcm_packet_t *) 0)->pcm) || (bytes & 1)) {
       return FALSE;
    }
 
@@ -1845,8 +1846,13 @@ static void audio_lv2_reconcile_chains(void) {
    }
    if (!changed) return;
 
+   /* Tear down actual subprocesses first; otherwise an in-flight root
+    * callback could reference an already-removed virtual tail stream. */
    for (guint i = 0 ; i < RR_AUDIO_EFFECT_MAX ; i++)
-      if (cfg[i].present) audio_lv2_stop(i + 1, FALSE);
+      if (cfg[i].present && (!lv2_effects[i].chain_host ||
+          lv2_effects[i].chain_host == i + 1)) audio_lv2_stop(i + 1, FALSE);
+   for (guint i = 0 ; i < RR_AUDIO_EFFECT_MAX ; i++)
+      if (cfg[i].present && lv2_effects[i].name[0]) audio_lv2_stop(i + 1, FALSE);
 
    /* Roots whose inputs are unavailable stay configured in the database and
     * are retried by audio_lv2_restore when their streams arrive. */
