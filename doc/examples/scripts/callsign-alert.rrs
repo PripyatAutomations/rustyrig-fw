@@ -1,15 +1,67 @@
-// RustyScript: react to generic callsign watch matches. SPDX-License-Identifier: GPL-2.0-only
-// Copy to ~/.config/rustyrig/scripts/ and /script load callsign-alert.rrs.
-// Events can originate from modems or other future callsign match sources.
+// RustyScript callsign spotter. SPDX-License-Identifier: GPL-2.0-only
+// Install in ~/.config/rustyrig/scripts/ and /script load callsign-alert.rrs.
+// The client must already be connected to the destination networks and JOINed
+// to the rooms. Change only the settings below to get started.
+// The same #room@network syntax works for IRC and RustyRig connections.
+
 event watch.callsign {
+    // ===== BEGIN EASY CONFIGURATION =====
+    char[][] rooms = [
+        "#hamradio-test@efnet"
+        // Add more comma-separated destinations, e.g.:
+        // , "#radio@another-irc-profile"
+        // , "#test@rustyrig-profile"
+    ]
+    bool announce_to_rooms = true
+    bool show_popup = true
+    int cooldown_minutes = 30
+    // ===== END CONFIGURATION =====
+
+    char[] location = event.origin
+    char[] band = ""
+    char[] mode = ""
+    char[] frequency = "unknown frequency"
+
     if (event.origin == "modem") {
-        // Modem-specific metadata is available to make routing decisions.
-        log.info(event.modem + " [" + event.audio_source + "] " +
-                 string.str(event.frequency_hz) + " Hz " + event.mode)
+        location = event.audio_source
+        band = event.band
+        mode = event.mode
+        if (event.rig != "") {
+            location = event.rig
+            if (event.model != "") {
+                location = location + " (" + event.model + ")"
+            }
+        }
+        if (event.frequency_hz > 0) {
+            frequency = string.str(event.frequency_hz / 1000000) + " MHz"
+        }
     }
-    if (event.kind == "own") {
-        log.info("My callsign heard: " + event.callsign + " " + event.text)
-    } else {
-        log.info("Watchlist hit: " + event.callsign + " " + event.text)
+
+    char[] message = "Spotted " + event.callsign + " on " + band +
+                     " " + mode + " at " + frequency + ", using " + location
+
+    // Cooldown is per callsign, not per modem or decoder slot.
+    char[] key = "watch.spotted." + string.hash(event.callsign)
+    int now = time.now()
+    int previous = state.get(key)
+    bool notify = true
+    if (previous != null) {
+        if (now - previous < cooldown_minutes * 60000) {
+            notify = false
+        }
+    }
+
+    if (notify) {
+        state.set(key, now)
+        log.info(message)
+        if (show_popup) {
+            ui.message("watch-" + string.hash(event.callsign),
+                       "Callsign spotted", message)
+        }
+        if (announce_to_rooms) {
+            if (!chat.send(rooms, message, "watch-spot")) {
+                log.warn("Some watch destinations are not joined or online")
+            }
+        }
     }
 }
