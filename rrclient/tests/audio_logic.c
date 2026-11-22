@@ -4,11 +4,11 @@
 #include <stdio.h>
 #include <math.h>
 int main(void) {
-   const bool expected[6][4] = {
+   const bool expected[7][4] = {
       {0,0,0,1}, {0,1,1,1}, {0,1,1,0}, {1,0,0,0},
-      {1,1,1,0}, {1,0,0,0}
+      {1,1,1,0}, {1,0,0,0}, {1,0,0,1}
    };
-   for (int k=0;k<6;k++) {
+   for (int k=0;k<7;k++) {
       rr_gate_kind_t parsed;
       assert(rr_gate_kind_parse(rr_gate_kind_name((rr_gate_kind_t)k), &parsed));
       assert(parsed == (rr_gate_kind_t)k);
@@ -37,6 +37,8 @@ int main(void) {
    assert(rr_gate_evaluate_wires(RR_GATE_XOR,2,wires,3,&out) && !out);
    assert(rr_gate_evaluate_wires(RR_GATE_NAND,2,wires,3,&out) && !out);
    assert(rr_gate_evaluate_wires(RR_GATE_NOR,2,wires,3,&out) && !out);
+   assert(rr_gate_evaluate_wires(RR_GATE_XNOR,2,wires,3,&out) && !out);
+   assert(rr_gate_evaluate_wires(RR_GATE_XNOR,2,wires,3,&out) && out);
    wires[2].high=false;
    assert(rr_gate_evaluate_wires(RR_GATE_AND,2,wires,3,&out) && !out);
    assert(rr_gate_evaluate_wires(RR_GATE_OR,2,wires,3,&out) && out);
