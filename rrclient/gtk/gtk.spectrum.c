@@ -1194,7 +1194,10 @@ typedef struct {
    bool zoom_initialized;
    double zoom_fraction;        /* five wheel steps per native octave */
    double pan_hz, drag_x, drag_pan_hz;
-   bool dragging;
+   bool dragging, drag_moved;
+   guint click_timer;
+   uint64_t click_hz;
+   char click_vfo;
    gint64 recenter_at;
    uint64_t recenter_low_hz, recenter_high_hz;
    rr_bridge_spectrum_row rows[32];
@@ -1655,6 +1658,11 @@ static gboolean rf_hover(GtkWidget *widget, GdkEventMotion *event, gpointer data
    p->hover_y = event->y;
 
    if (p->dragging && (event->state & GDK_BUTTON1_MASK) && p->count) {
+      if (fabs(event->x - p->drag_x) > 4.) p->drag_moved = true;
+      if (!p->drag_moved) {
+         gtk_widget_queue_draw(widget);
+         return FALSE;
+      }
       int width = gtk_widget_get_allocated_width(widget);
       const rr_bridge_spectrum_row *row = &p->rows[(p->head + G_N_ELEMENTS(p->rows) - 1) % G_N_ELEMENTS(p->rows)];
       double full = (double)row->high_hz - row->low_hz;
@@ -1874,15 +1882,39 @@ static void rf_fullscreen_closed(GtkWidget *widget, gpointer user) {
    p->fullscreen_drawing = NULL;
 }
 
+/* Schedule only a real single-click release. GTK sends the double-click
+ * press after the first release; defer CAT tuning until it can be cancelled. */
+static gboolean rf_single_tune(gpointer user) {
+   rf_strip_t *p = user;
+   p->click_timer = 0;
+   if (p->click_vfo >= 'A' && p->click_vfo <= 'Z')
+      rrclient_local_bridge_request_tune(RR_LOCAL_TUNE_FREQUENCY,
+         p->click_vfo, p->click_hz, NULL);
+   return G_SOURCE_REMOVE;
+}
 static gboolean rf_release(GtkWidget *widget, GdkEventButton *event, gpointer user) {
    rf_strip_t *p = user;
-   (void)widget;
-
-   if (event->button == 1) {
-      p->dragging = false;
-   }
-
-   return FALSE;
+   if (event->button != GDK_BUTTON_PRIMARY || !p->dragging) return FALSE;
+   p->dragging = false;
+   if (p->drag_moved || p->remote_id[0] || !p->rf_enabled || !p->count ||
+      event->state & GDK_CONTROL_MASK) return TRUE;
+   int width=gtk_widget_get_allocated_width(widget);
+   int height=gtk_widget_get_allocated_height(widget);
+   if (width < 2 || event->x < 0 || event->x >= width ||
+      event->y < 0 || event->y >= height-19) return TRUE;
+   const rr_bridge_spectrum_row *row =
+      &p->rows[(p->head + G_N_ELEMENTS(p->rows) - 1) % G_N_ELEMENTS(p->rows)];
+   double low,high;
+   rf_view_bounds(p,row,&low,&high);
+   if (high <= low) return TRUE;
+   p->click_vfo=rf_selected_vfo(p);
+   p->click_hz=(uint64_t)(low+(high-low)*event->x/(width-1)+.5);
+   if (p->click_timer) g_source_remove(p->click_timer);
+   gint delay=250;
+   GtkSettings *settings=gtk_widget_get_settings(widget);
+   if (settings) g_object_get(settings,"gtk-double-click-time",&delay,NULL);
+   p->click_timer=g_timeout_add(MAX(150,delay+20),rf_single_tune,p);
+   return TRUE;
 }
 
 static void rf_zoom_activate(GtkCheckMenuItem *item, gpointer data) {
