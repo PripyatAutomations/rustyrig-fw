@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="460" viewBox="0 0 920 460" role="img" aria-labelledby="title desc">
+<title id="title">THRESHOLD control block with self-wired INVERT pin</title>
+<desc id="desc">THRESHOLD accepts numeric VALUE, MIN, MAX; boolean SIGNAL and INVERT inputs; and emits boolean OUT and constant TRUE outputs. A red wire connects TRUE to INVERT to invert the comparison without an external constant block.</desc>
+<defs>
+  <style>
+    .bg{fill:#161e29}.block{fill:#253449;stroke:#7797b7;stroke-width:2}
+    .heading{font:700 23px 'DejaVu Sans',sans-serif;fill:#eff6ff}
+    .label{font:600 16px 'DejaVu Sans',sans-serif;fill:#e4eef9}
+    .annotation{font:15px 'DejaVu Sans',sans-serif;fill:#c0d2e4}
+    .numeric{stroke:#66b4ef;fill:#161e29;stroke-width:3}
+    .logic-in{stroke:#ff6d72;fill:#161e29;stroke-width:3}
+    .logic-out{stroke:#ff6d72;fill:#ff6d72;stroke-width:3}
+    .wire{stroke:#ff6d72;stroke-width:4;fill:none;stroke-linejoin:round;stroke-linecap:round}
+    .input-wire{stroke:#66b4ef;stroke-width:2;fill:none;stroke-linecap:round}
+  </style>
+</defs>
+<rect class="bg" x="0" y="0" width="920" height="460" rx="18"/>
+<text class="heading" x="460" y="45" text-anchor="middle">THRESHOLD — boolean inversion by wiring</text>
+<rect class="block" x="250" y="85" width="410" height="305" rx="17"/>
+<text class="heading" x="455" y="125" text-anchor="middle">THRESHOLD</text>
+<line x1="270" y1="143" x2="639" y2="143" stroke="#66819d"/>
+<g>
+  <path class="input-wire" d="M176 175 H250 M176 218 H250 M176 261 H250"/>
+  <circle class="numeric" cx="250" cy="175" r="8"/>
+  <circle class="numeric" cx="250" cy="218" r="8"/>
+  <circle class="numeric" cx="250" cy="261" r="8"/>
+  <text class="label" x="275" y="181">VALUE</text>
+  <text class="label" x="275" y="224">MIN</text>
+  <text class="label" x="275" y="267">MAX</text>
+  <text class="annotation" x="363" y="224">default 0</text>
+  <text class="annotation" x="363" y="267">default unbounded</text>
+</g>
+<g>
+  <circle class="logic-in" cx="250" cy="307" r="8"/>
+  <circle class="logic-in" cx="250" cy="357" r="8"/>
+  <text class="label" x="275" y="313">SIGNAL</text>
+  <text class="label" x="275" y="363">INVERT</text>
+  <text class="annotation" x="385" y="313">optional enable</text>
+  <text class="annotation" x="385" y="363">optional boolean</text>
+</g>
+<g>
+  <circle class="logic-out" cx="660" cy="196" r="8"/>
+  <circle class="logic-out" cx="660" cy="275" r="8"/>
+  <text class="label" x="628" y="202" text-anchor="end">OUT</text>
+  <text class="label" x="628" y="281" text-anchor="end">TRUE</text>
+  <path class="wire" d="M668 196 H738"/>
+  <text class="annotation" x="753" y="202">Boolean result</text>
+</g>
+<!-- The output of TRUE loops round outside the block to the INVERT input. -->
+<path class="wire" d="M668 275 H710 V422 H145 V357 H241"/>
+<circle fill="#ff6d72" cx="710" cy="422" r="4"/>
+<text class="annotation" x="470" y="449" text-anchor="middle">TRUE → INVERT: permanently invert, without a separate constant block</text>
+<text class="annotation" x="38" y="318">Or feed a</text>
+<text class="annotation" x="38" y="337">live signal</text>
+<path d="M130 330 L180 330 L205 357" stroke="#ff6d72" stroke-width="2" fill="none" stroke-dasharray="5 6"/>
+</svg>
