@@ -36,6 +36,7 @@
 #include <rrclient/local.bridge.h>
 #include <rrclient/gtk/gtk.floating-panel.h>
 extern void gtk_script_gui_init(void);
+extern void gtk_scripts_startup_errors_init(void);
 extern void gtk_script_gui_shutdown(void);
 #include <rrclient/gtk/gtk.core.h>
 #include <rrclient/gtk/gtk.decoders.h>
@@ -1427,6 +1428,7 @@ static bool frontend_gtk_init(int *argc, char ***argv) {
    }
    gtk_clock_init();
    gtk_script_gui_init();
+   gtk_scripts_startup_errors_init();
    gtk_audio_routing_init();
    gtk_receiver_directory_init();
    gtk_connecting_init();
