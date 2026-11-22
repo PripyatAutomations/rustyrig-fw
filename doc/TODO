@@ -42,21 +42,16 @@ rrclient: Finish remote controls (brightness etc)
 [Routing]
 * fix disconnecting lines (esp tx.mix -> tx.transport)
 * make effects and controls selectable in group (shift/ctrl)
-* Wrap the controls strip with the Add etc buttons
 * Resampler block(s) for TX, like RX, so we can downsample if need
 * Make streaming TX codecs take 44.1/48khz and downsample as needed
-* Effect blocks should have all pin labels facing left
 * On adding new modem/effect/control, keep the new item(s) selected, ready to drop by clicking
 * Allow chaining effects
-* Place annotations layer *below* everything else
-  - a few small buttons (Annotations|Serial|Audio|Controls|PTT)
-    - each hides/shows its appropriate layer & associated wiring
-    - get rid of +Control/Effect/Modem buttons and replace with 
-      an icon (same as the layer hide/show button) with a red plus overlaid
-      on the top left or right corner (whichever, i dont care)
-* Show the green circle on any control that can be connected
+* Add visibility toggles for Annotations, Serial, Audio, Controls and PTT,
+  hiding each category's blocks and associated wiring
+  - replace +Control/Effect/Modem text buttons with 
+    an icon (matching the layer toggle) with a red plus overlaid
+    in a corner
 * Allow connections to multiple input pins from one output
-  - Allow jumping from one output pin to a
 * Make *all* blocks keep position and restore on restart
 
 [Explorer]
