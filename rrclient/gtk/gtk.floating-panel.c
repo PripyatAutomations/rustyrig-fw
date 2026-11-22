@@ -16,8 +16,6 @@ struct rr_floating_panel {
    GtkWidget *min_width_widget;
    gboolean fit_content;
    gint zoom;
-   gint menu_zoom_start, menu_zoom_width, menu_zoom_height;
-   gboolean menu_zoom_editing;
    void (*zoom_callback)(double, gpointer);
    gpointer zoom_data;
    GtkOverlay *overlay;
@@ -1684,8 +1682,8 @@ static gint panel_minimum_width(RRFloatPanel *p) {
    return MAX(100, minimum + 24);
 }
 
-/* Adjust the slider without moving its popover anchor. Apply the actual
- * content scale and associated panel resize only after the popover closes. */
+/* Zoom and panel geometry update live. The settings popover is independently
+ * anchored to a fixed toplevel rectangle while open. */
 static void panel_zoom_apply(RRFloatPanel *p, gint old_zoom, gint old_width, gint old_height) {
    double old_scale = MAX(.10, 1.0 + old_zoom / 100.0);
    double scale = MAX(.10, 1.0 + p->zoom / 100.0);
@@ -1731,22 +1729,7 @@ static void panel_zoom_changed(GtkRange *range, gpointer data) {
    gint width = gtk_widget_get_allocated_width(p->frame);
    gint height = gtk_widget_get_allocated_height(p->frame);
    p->zoom = (gint)gtk_range_get_value(range);
-   if (p->menu_zoom_editing) {
-      return;
-   }
    panel_zoom_apply(p, old_zoom, width, height);
-}
-
-static void panel_menu_closed(GtkPopover *popover, gpointer data) {
-   (void)popover;
-   RRFloatPanel *p = data;
-   if (!p->menu_zoom_editing) {
-      return;
-   }
-   p->menu_zoom_editing = FALSE;
-   if (p->zoom != p->menu_zoom_start) {
-      panel_zoom_apply(p, p->menu_zoom_start, p->menu_zoom_width, p->menu_zoom_height);
-   }
 }
 
 static void panel_opacity_changed(GtkRange *range, gpointer data) {
@@ -1786,10 +1769,19 @@ static void panel_menu_add_action(RRFloatPanel *p, GtkWidget *box, const char *l
 static void panel_menu_open(GtkButton *button, gpointer data) {
    (void)button;
    RRFloatPanel *p = data;
-   p->menu_zoom_start = p->zoom;
-   p->menu_zoom_width = gtk_widget_get_allocated_width(p->frame);
-   p->menu_zoom_height = gtk_widget_get_allocated_height(p->frame);
-   p->menu_zoom_editing = TRUE;
+   /* Reanchor to the stable toplevel, not the panel's menu button.
+    * A zoom change can move and resize the panel beneath the popover, but
+    * the rectangle used for popup placement will remain fixed. Recompute
+    * on each open so subsequent opens follow the button's new location. */
+   GtkWidget *top = gtk_widget_get_toplevel(GTK_WIDGET(button));
+   gint x = 0, y = 0;
+   if (GTK_IS_WINDOW(top) &&
+       gtk_widget_translate_coordinates(GTK_WIDGET(button), top, 0, 0, &x, &y)) {
+      GdkRectangle anchor = {x, y, gtk_widget_get_allocated_width(GTK_WIDGET(button)),
+         gtk_widget_get_allocated_height(GTK_WIDGET(button))};
+      gtk_popover_set_relative_to(GTK_POPOVER(p->menu), top);
+      gtk_popover_set_pointing_to(GTK_POPOVER(p->menu), &anchor);
+   }
    gtk_widget_show_all(p->menu);
    gtk_popover_popup(GTK_POPOVER(p->menu));
 }
@@ -2376,7 +2368,6 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    gtk_box_pack_end(GTK_BOX(header), p->roll, FALSE, FALSE, 0);
    gtk_box_pack_end(GTK_BOX(header), p->minimize, FALSE, FALSE, 0);
    p->menu = gtk_popover_new(menu_button);
-   g_signal_connect(p->menu, "closed", G_CALLBACK(panel_menu_closed), p);
    GtkWidget *settings = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
    gtk_container_set_border_width(GTK_CONTAINER(settings), 10);
    gtk_container_add(GTK_CONTAINER(p->menu), settings);
