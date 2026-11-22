@@ -1629,6 +1629,7 @@ static void routing_focus_pipeline(const char *id);
 static gboolean graph_drag_mixer, graph_drag_moved;
 static gint graph_drag_modem_target = -1;
 static gboolean graph_drag_tx_mix;
+static gint graph_drag_tx_mix_channel;
 static gint graph_drag_rig_target = -1;
 static gint graph_drag_lv2_target = -1;
 static gboolean graph_drag_lv2_output;
@@ -1729,6 +1730,7 @@ static gboolean routing_drag_target(double x, double y, gint *source_index, doub
    gboolean found = FALSE;
    graph_drag_modem_target = -1;
    graph_drag_tx_mix = FALSE;
+   graph_drag_tx_mix_channel = 0;
    graph_drag_rig_target = -1;
    graph_drag_lv2_target = -1;
    graph_drag_lv2_output = FALSE;
@@ -1776,6 +1778,12 @@ static gboolean routing_drag_target(double x, double y, gint *source_index, doub
       }
       gint dest_channel = graph_drag_channel;
 
+      if (tx_input && !from_tx_mix && !from_modem_tx) {
+         /* The microphone is mono but each TX mixer destination ear is
+          * independently patchable. Choose the nearest hollow socket. */
+         double ny0 = routing_node_y(n);
+         dest_channel = fabs(y - ny0 - 79.) < fabs(y - ny0 - 60.) ? 1 : 0;
+      }
       if (lv2_output) {
          double ny0 = routing_node_y(n);
          dest_channel = fabs(y - ny0 - 79.) < fabs(y - ny0 - 60.) ? 1 : 0;
@@ -1789,7 +1797,7 @@ static gboolean routing_drag_target(double x, double y, gint *source_index, doub
       }
       double nx = routing_node_x(n) + (graph_drag_mixer ? RR_GTK_GRAPH_NODE_W : 0.);
       double ny = routing_node_y(n) + (tx_input ?
-         (from_tx_mix ? 68. : 60.) : (rig_target || rig_reverse) ?
+         (from_tx_mix ? 68. : (from_mic ? (dest_channel ? 79. : 60.) : 60.)) : (rig_target || rig_reverse) ?
          (graph_drag_channel ? RR_GTK_GRAPH_NODE_H - 16. : 68.) :
          lv2_connection ? (lv2_output ? (dest_channel ? 79. : 60.) :
             (to_lv2 && n->channels == 2) ?
@@ -1808,6 +1816,8 @@ static gboolean routing_drag_target(double x, double y, gint *source_index, doub
       graph_drag_modem_target = modem_connection ? (gint) (from_modem ? modem_slot : target_slot) : -1;
       graph_drag_rig_target = rig_target ? (gint) i : rig_reverse ? origin : -1;
       graph_drag_tx_mix = tx_input;
+      if (tx_input)
+         graph_drag_tx_mix_channel = from_tx_mix ? graph_drag_channel : dest_channel;
 
       if (lv2_connection) {
          const rr_ag_view_node_t *effect = to_lv2 ? n : origin_node;
@@ -5687,7 +5697,7 @@ static gboolean routing_disconnect_link(guint index, gint channel) {
       modem.action = link->kind == RR_AG_CONTROL ? RR_LOCAL_MODEM_PTT_ROUTE : RR_LOCAL_MODEM_TX_ROUTE;
       rr_local_modem_request(&modem);
    } else if (!strcmp(src, "src.client.dsp0") && !strcmp(dst, "tx.mix")) {
-      audio_request_mic_tx_route("none");
+      audio_request_mic_tx_channel((unsigned)channel, false);
    } else if (g_str_has_prefix(dst, "proc.lv2.")) {
       unsigned fx = 0;
       if (sscanf(dst, "proc.lv2.%u", &fx) != 1 || fx < 1 || fx > RR_AUDIO_EFFECT_MAX) {
@@ -6198,15 +6208,10 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
             const rr_ag_view_node_t *n = &graph_snapshot->nodes[-hit_source - 1];
 
             if (!strcmp(n->id, "tx.mix")) {
-               audio_request_mic_tx_route("none");
-
-               for (unsigned slot = 1 ; slot <= RR_LOCAL_MODEM_MAX ; slot++) {
-                  rr_local_modem_request_t req = {
-                     .action = RR_LOCAL_MODEM_TX_ROUTE, .slot = slot
-                  };
-                  rr_local_modem_request(&req);
-               }
-
+               /* Disconnect only the selected mixer ear's mic patch.
+                * A shared mixer pin may have multiple independent sources;
+                * double-click must not silently delete modem connections. */
+               audio_request_mic_tx_channel((unsigned)hit_channel, false);
                routing_queue();
 
                return TRUE;
@@ -6706,7 +6711,7 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
          const rr_ag_view_node_t *src = &graph_snapshot->nodes[source_index];
 
          if (!strcmp(src->id, "src.client.dsp0")) {
-            audio_request_mic_tx_route("auto");
+            audio_request_mic_tx_channel((unsigned)graph_drag_tx_mix_channel, true);
          } else {
             unsigned slot = 0;
             char tail = 0;
@@ -6824,6 +6829,7 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
    graph_drag_source = graph_drag_channel = -1;
    graph_drag_modem_target = graph_drag_rig_target = -1;
    graph_drag_tx_mix = FALSE;
+   graph_drag_tx_mix_channel = 0;
    graph_drag_lv2_target = -1;
    graph_drag_lv2_output = FALSE;
    graph_drag_lv2_dest_channel = 0;
