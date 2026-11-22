@@ -140,6 +140,38 @@ static int visible_count(void) {
    return (int)count;
 }
 
+/* Metadata changes must update cells in place, not destroy/reinsert the
+ * receiver rows (which would reset the cursor, selection and scroll state). */
+static void count_deleted_row(GtkTreeModel *model, GtkTreePath *path, gpointer user) {
+   (void)model; (void)path;
+   ++*(unsigned *)user;
+}
+static void assert_in_place_edit(const char *url, gboolean favorite) {
+   GtkTreeModel *model=gtk_tree_view_get_model(GTK_TREE_VIEW(directory_tree));
+   GtkTreeSelection *selection=gtk_tree_view_get_selection(GTK_TREE_VIEW(directory_tree));
+   GtkTreeIter iter;
+   assert(gtk_tree_selection_get_selected(selection,NULL,&iter));
+   GtkTreePath *path=gtk_tree_model_get_path(model,&iter);
+   GtkTreeRowReference *ref=gtk_tree_row_reference_new(model,path);
+   assert(ref);
+   gtk_tree_path_free(path);
+   unsigned deleted=0;
+   gulong handler=g_signal_connect(directory_store,"row-deleted",G_CALLBACK(count_deleted_row),&deleted);
+   gtk_widget_grab_focus(directory_tree);
+   assert(gtk_widget_has_focus(directory_tree));
+   if (favorite) assert(receiver_directory_set_favorite(url,TRUE));
+   else assert(receiver_directory_set_state(url,"good","Verified by operator"));
+   drain_directory();
+   assert(!deleted);
+   assert(gtk_tree_row_reference_valid(ref));
+   GtkTreePath *new_path=gtk_tree_row_reference_get_path(ref);
+   assert(new_path && gtk_tree_selection_path_is_selected(selection,new_path));
+   assert(gtk_widget_has_focus(directory_tree));
+   gtk_tree_path_free(new_path);
+   gtk_tree_row_reference_free(ref);
+   g_signal_handler_disconnect(directory_store,handler);
+}
+
 int main(int argc, char **argv) {
    assert(argc == 2);
    test_db = argv[1];
@@ -173,6 +205,11 @@ int main(int argc, char **argv) {
    const receiver_directory_entry_t *chosen = selected_receiver();
    assert(chosen && !strcmp(chosen->name, "<b>Receiver A</b>"));
    assert(gtk_widget_get_sensitive(favorite_button) && gtk_widget_get_sensitive(connect_button));
+   assert_in_place_edit("http://a.invalid:8073/",TRUE);
+   assert(selected_receiver() && selected_receiver()->favorite);
+   assert(!strcmp(gtk_button_get_label(GTK_BUTTON(favorite_button)),"Remove from favorites"));
+   assert_in_place_edit("http://a.invalid:8073/",FALSE);
+   assert(selected_receiver() && !strcmp(selected_receiver()->local_state,"good"));
    connect_clicked(NULL, NULL);
    assert(local_connects == 1 && connects == 0);
    GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(directory_details));
