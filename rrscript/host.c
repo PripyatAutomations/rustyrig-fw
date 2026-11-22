@@ -467,6 +467,20 @@ static bool invoke_named(rrscript_host_t *host,rrscript_binding_kind_t kind,
    }
    return false;
 }
+bool rrscript_host_has_command(rrscript_host_t *host,const char *line) {
+   if(!host||!line||line[0]!='/')return false;
+   size_t length=strcspn(line," \t\r\n");
+   for(guint i=0;i<host->scripts->len;i++) {
+      script_file_t *script=g_ptr_array_index(host->scripts,i);
+      for(size_t j=0;j<rrs_vm_binding_count(script->vm);j++) {
+         const rrscript_binding_t *b=rrs_vm_binding(script->vm,j);
+         if(b->kind==RRSCRIPT_COMMAND && strlen(b->name)==length &&
+            !g_ascii_strncasecmp(b->name,line,length))
+            return true;
+      }
+   }
+   return false;
+}
 bool rrscript_host_command(rrscript_host_t *host,const char *line) {
    if(!host||!line||*line!='/')return false;
    const char *p=line;
