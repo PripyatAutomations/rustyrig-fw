@@ -60,9 +60,13 @@ bool rr_serial_frame_valid(const struct rr_binframe *f) {
       (f->hdr.direction == RR_BINFRAME_DIR_TX || f->hdr.direction == RR_BINFRAME_DIR_RX);
 }
 bool has_priv(int uid, const char *priv) {
-   (void)uid;
-   return priv && (!strcmp(priv, "serial.ttyHOST0") || !strcmp(priv, "serial.*") ||
-                   !strcmp(priv, "admin|owner"));
+   if (uid < 0 || uid >= HTTP_MAX_USERS || !priv) return false;
+   const char *grants = http_users[uid].privs;
+   if (!strcmp(priv, "serial.ttyHOST0"))
+      return strstr(grants, "serial.ttyHOST0") || strstr(grants, "serial.ttyHOST*");
+   if (!strcmp(priv, "serial"))
+      return !strcmp(grants, "serial");
+   return false;
 }
 void rrserver_inventory_send(rrconn_t *client, dict *row) {
    (void)client;
