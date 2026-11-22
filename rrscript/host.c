@@ -50,6 +50,8 @@ bool rrscript_host_vm_owner(rrs_vm_t *vm, char owner[32]) {
    return script!=NULL;
 }
 /* Runtime callback userdata is void*, so use writable-lifetime labels. */
+static void script_diagnostic(const char *path,const char *handler,
+                              const char *message,unsigned severity);
 static char script_log_info[] = "info";
 static char script_log_warn[] = "warn";
 static rrs_value_t *native_log(rrs_vm_t *vm, int argc,
@@ -59,7 +61,20 @@ static rrs_value_t *native_log(rrs_vm_t *vm, int argc,
       rrs_vm_raise(vm,"log expects one char[] argument");
       return NULL;
    }
-   Log(!strcmp(label,"warn") ? LOG_WARN : LOG_INFO,"scripting","%s: %s",label,rrs_value_string(argv[0]));
+   unsigned line=0,column=0;
+   rrs_vm_position(vm,&line,&column);
+   char *path=NULL;
+   g_mutex_lock(&script_vm_owners_mutex);
+   script_file_t *owner=script_vm_owners?g_hash_table_lookup(script_vm_owners,vm):NULL;
+   if(owner)path=g_strdup(owner->filename);
+   g_mutex_unlock(&script_vm_owners_mutex);
+   char *detail=line?g_strdup_printf("line %u:%u: %s",line,column,
+      rrs_value_string(argv[0])):g_strdup(rrs_value_string(argv[0]));
+   script_diagnostic(path?path:"",label,detail,
+      !strcmp(label,"warn")?2:1);
+   Log(!strcmp(label,"warn")?LOG_WARN:LOG_INFO,"scripting","%s: %s",
+      label,detail);
+   g_free(detail);g_free(path);
    return rrs_null();
 }
 
