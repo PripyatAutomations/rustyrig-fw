@@ -16,6 +16,7 @@ rr_control_graph_t *rr_control_graph_new(void);
 void rr_control_graph_free(rr_control_graph_t *g);
 bool rr_control_graph_source_add(rr_control_graph_t *g,const char *name);
 bool rr_control_graph_source_set(rr_control_graph_t *g,const char *name,bool valid,bool high);
+bool rr_control_graph_source_remove(rr_control_graph_t *g,const char *name);
 bool rr_control_graph_gate_add(rr_control_graph_t *g,const char *name,rr_gate_kind_t kind,unsigned inputs);
 bool rr_control_graph_gate_configure(rr_control_graph_t *g,const char *name,rr_gate_kind_t kind,unsigned inputs);
 bool rr_control_graph_gate_remove(rr_control_graph_t *g,const char *name);
