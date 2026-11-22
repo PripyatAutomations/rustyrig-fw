@@ -11,8 +11,6 @@
 #define RR_LOCAL_MODEM_REQUEST "client.modem.decoder.request"
 #define RR_LOCAL_MODEM_RESULT "client.modem.decoder.snapshot"
 #define RR_LOCAL_MODEM_DECODE "client.modem.decoder.decode"
-/* Generic watch notification; modem details are included by modem producers. */
-#define RR_WATCH_CALLSIGN_EVENT "watch.callsign"
 typedef struct {
    unsigned slot;
    char source[64], engine[16], mode[24];
