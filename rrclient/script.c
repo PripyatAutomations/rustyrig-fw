@@ -261,13 +261,19 @@ static rrs_value_t *script_gui_native(rrs_vm_t *vm,int argc,
    if(!script_gui_owner(command.owner,vm)) {
       rrs_vm_raise(vm,"Script has no active UI owner");return NULL;
    }
-   const char *id=rrs_value_string(argv[action==RR_GUI_ADD?2:0]);
+   const char *id=action==RR_GUI_EDIT?"editor":rrs_value_string(argv[action==RR_GUI_ADD?2:0]);
    if(!script_gui_identifier(id) || (action==RR_GUI_ADD && !script_gui_identifier(rrs_value_string(argv[0])))) {
       rrs_vm_raise(vm,"GUI IDs must be 1..63 ASCII alphanumeric, underscore, dash, or period");
       return NULL;
    }
    g_strlcpy(command.id,id,sizeof(command.id));
-   if(action==RR_GUI_PANEL||action==RR_GUI_DIALOG||action==RR_GUI_UTILITY) {
+   if(action==RR_GUI_EDIT) {
+       const char *path=rrs_value_string(argv[0]);
+       if(!*path||strlen(path)>=sizeof(command.value)) {
+          rrs_vm_raise(vm,"ui.edit path must fit within 255 bytes");return NULL;
+       }
+       g_strlcpy(command.value,path,sizeof(command.value));
+   } else if(action==RR_GUI_PANEL||action==RR_GUI_DIALOG||action==RR_GUI_UTILITY) {
       g_strlcpy(command.text,rrs_value_string(argv[1]),sizeof(command.text));
    } else if(action==RR_GUI_MESSAGE) {
       const char *buttons=argc==4?rrs_value_string(argv[3]):"ok";
@@ -350,7 +356,8 @@ static rrs_value_t *script_gui_value(rrs_vm_t *vm,int argc,
 }
 static bool register_gui_api(rrs_vm_t *vm) {
    /* ui.* is toolkit-neutral; gui.* is retained as a descriptive alias. */
-   return rrs_vm_register_native(vm,"ui.panel",script_gui_native,GINT_TO_POINTER(RR_GUI_PANEL)) &&
+   return rrs_vm_register_native(vm,"ui.edit",script_gui_native,GINT_TO_POINTER(RR_GUI_EDIT)) &&
+      rrs_vm_register_native(vm,"ui.panel",script_gui_native,GINT_TO_POINTER(RR_GUI_PANEL)) &&
       rrs_vm_register_native(vm,"ui.utility",script_gui_native,GINT_TO_POINTER(RR_GUI_UTILITY)) &&
       rrs_vm_register_native(vm,"ui.dialog",script_gui_native,GINT_TO_POINTER(RR_GUI_DIALOG)) &&
       rrs_vm_register_native(vm,"ui.message",script_gui_native,GINT_TO_POINTER(RR_GUI_MESSAGE)) &&
