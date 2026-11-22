@@ -12,6 +12,7 @@
 struct rr_floating_panel {
    GtkWidget *frame, *scrim, *body, *header, *compact_drag_handle, *scale_wrapper, *title, *title_hit, *roll, *minimize, *restore_tab, *menu, *close_button,
       *menu_close, *menu_on_top, *menu_minimize, *menu_button, *resize_grip;
+   GtkWidget *resize_targets[8];
    GtkCssProvider *scale_css;
    GtkWidget *min_width_widget;
    GtkWidget *script_zoom_scale, *script_opacity_scale;
@@ -52,7 +53,8 @@ struct rr_floating_panel {
    double drag_x, drag_y, drag_pending_x, drag_pending_y, resize_x, resize_y;
    guint drag_tick_id;
    gboolean drag_pending;
-   int resize_width, resize_height;
+   int resize_width, resize_height, resize_start_x, resize_start_y;
+   guint resize_edges;
    int start_x, start_y;
    int snap_x, snap_y;
    gboolean snapped_x, snapped_y;
@@ -780,7 +782,7 @@ static void panel_dock_attach(RRFloatPanel *p, RRChatDocks *d, gint edge) {
       p->resizable = TRUE;
       p->dock_forced_resizable = TRUE;
    }
-   gtk_widget_set_visible(p->resize_grip, !p->rolled && !p->minimized);
+   panel_resize_targets_visibility(p);
    g_object_set_data(G_OBJECT(d->pane[edge]), "rr-dock-sized", NULL);
 
    if (!p->minimized && !p->explicitly_hidden && !p->temporarily_hidden && !p->room_hidden) {
@@ -829,7 +831,7 @@ static void panel_dock_detach(RRFloatPanel *p, gint root_x, gint root_y) {
    if (p->dock_forced_resizable) {
       p->resizable = FALSE;
       p->dock_forced_resizable = FALSE;
-      gtk_widget_hide(p->resize_grip);
+      panel_resize_targets_visibility(p);
    }
    panel_dock_save(p);
 
@@ -1674,7 +1676,7 @@ static void panel_zoom_reset(GtkButton *button, gpointer data) {
 
 static gint panel_minimum_width(RRFloatPanel *p) {
    if (!p->min_width_widget) {
-      return 280;
+      return 100;
    }
    gint minimum = 0;
    gtk_widget_get_preferred_width(p->min_width_widget, &minimum, NULL);
@@ -1798,7 +1800,7 @@ static void panel_chrome(RRFloatPanel *p) {
       gtk_widget_show(p->scale_wrapper);
    }
    /* The resize grip belongs to the expanded panel only. */
-   gtk_widget_set_visible(p->resize_grip, p->resizable && !p->rolled && !p->minimized);
+   panel_resize_targets_visibility(p);
 
    if (p->minimized) {
       gtk_widget_hide(p->frame);
@@ -2167,68 +2169,158 @@ static gboolean drag_release(GtkWidget *widget, GdkEventButton *event, gpointer 
    return TRUE;
 }
 
-static gboolean panel_resize_press(GtkWidget *widget, GdkEventButton *event, gpointer data) {
-   (void)widget;
-   RRFloatPanel *p = data;
+enum {
+   PANEL_RESIZE_LEFT = 1, PANEL_RESIZE_RIGHT = 2,
+   PANEL_RESIZE_TOP = 4, PANEL_RESIZE_BOTTOM = 8
+};
 
-   if (!p->resizable || p->rolled || event->button != GDK_BUTTON_PRIMARY) {
+/* Eight invisible input-only overlays, layered above panel content.  This
+ * keeps interactive children functional except for the narrow edge hit area.
+ * Coordinates are relative to the frame's current parent (overlay or dock). */
+static gboolean panel_resize_press(GtkWidget *widget, GdkEventButton *event, gpointer data) {
+   RRFloatPanel *p = data;
+   if (!p->resizable || p->rolled || p->minimized ||
+       event->button != GDK_BUTTON_PRIMARY || event->type != GDK_BUTTON_PRESS)
       return FALSE;
-   }
+   p->resize_edges = GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(widget), "rr-resize-edges"));
+   if (!p->resize_edges)
+      return FALSE;
    p->resizing = TRUE;
    p->resize_x = event->x_root;
    p->resize_y = event->y_root;
    p->resize_width = gtk_widget_get_allocated_width(p->frame);
    p->resize_height = gtk_widget_get_allocated_height(p->frame);
+   p->resize_start_x = p->dock_edge >= 0 ? p->dock_x : gtk_widget_get_margin_start(p->frame);
+   p->resize_start_y = p->dock_edge >= 0 ? p->dock_y : gtk_widget_get_margin_top(p->frame);
    panel_raise(p);
-
    return TRUE;
 }
 
 static gboolean panel_resize_to(RRFloatPanel *p, double x_root, double y_root) {
-   if (!p || !p->resizing) {
+   if (!p || !p->resizing || !p->frame)
       return FALSE;
-   }
-   gint min_w = p->dock_edge >= 0 ? 90 : panel_minimum_width(p);
-   gint min_h = p->dock_edge >= 0 ? 48 : 180;
    GtkWidget *area = p->dock_edge >= 0 ? gtk_widget_get_parent(p->frame) : GTK_WIDGET(p->overlay);
-   gint usable_w = gtk_widget_get_allocated_width(area);
-   gint usable_h = gtk_widget_get_allocated_height(area);
-   gint offset_x = p->dock_edge >= 0 ? p->dock_x : gtk_widget_get_margin_start(p->frame);
-   gint offset_y = p->dock_edge >= 0 ? p->dock_y : gtk_widget_get_margin_top(p->frame);
-   gint max_w = MAX(min_w, usable_w - offset_x - 8);
-   gint max_h = MAX(min_h, usable_h - offset_y - 8);
-   gint w = CLAMP(p->resize_width + (gint) (x_root - p->resize_x), min_w, max_w);
-   gint h = CLAMP(p->resize_height + (gint) (y_root - p->resize_y), min_h, max_h);
+   if (!area)
+      return FALSE;
+   gint area_w = gtk_widget_get_allocated_width(area);
+   gint area_h = gtk_widget_get_allocated_height(area);
+   gint min_w = p->dock_edge >= 0 ? 90 : panel_minimum_width(p);
+   gint min_h = p->dock_edge >= 0 ? 48 : 90;
+   gint x = p->resize_start_x, y = p->resize_start_y;
+   gint w = p->resize_width, h = p->resize_height;
+   gint dx = (gint)(x_root - p->resize_x), dy = (gint)(y_root - p->resize_y);
+   if (p->resize_edges & PANEL_RESIZE_LEFT) {
+      w = CLAMP(p->resize_width - dx, min_w,
+                MAX(min_w, p->resize_width + p->resize_start_x));
+      x = p->resize_start_x + p->resize_width - w;
+   } else if (p->resize_edges & PANEL_RESIZE_RIGHT) {
+      w = CLAMP(p->resize_width + dx, min_w,
+                MAX(min_w, area_w - p->resize_start_x - 8));
+   }
+   if (p->resize_edges & PANEL_RESIZE_TOP) {
+      h = CLAMP(p->resize_height - dy, min_h,
+                MAX(min_h, p->resize_height + p->resize_start_y));
+      y = p->resize_start_y + p->resize_height - h;
+   } else if (p->resize_edges & PANEL_RESIZE_BOTTOM) {
+      h = CLAMP(p->resize_height + dy, min_h,
+                MAX(min_h, area_h - p->resize_start_y - 8));
+   }
    gtk_widget_set_size_request(p->frame, w, h);
-
+   if (p->dock_edge >= 0 && GTK_IS_FIXED(area)) {
+      if (x != p->dock_x || y != p->dock_y)
+         gtk_fixed_move(GTK_FIXED(area), p->frame, x, y);
+      p->dock_x = x;
+      p->dock_y = y;
+   } else {
+      gtk_widget_set_margin_start(p->frame, x);
+      gtk_widget_set_margin_top(p->frame, y);
+   }
    return TRUE;
 }
 
 static gboolean panel_resize_move(GtkWidget *widget, GdkEventMotion *event, gpointer data) {
    (void)widget;
-
    return panel_resize_to(data, event->x_root, event->y_root);
 }
 
 static gboolean panel_resize_release(GtkWidget *widget, GdkEventButton *event, gpointer data) {
    (void)widget;
    RRFloatPanel *p = data;
-
-   if (!p->resizing || event->button != GDK_BUTTON_PRIMARY) {
+   if (!p->resizing || event->button != GDK_BUTTON_PRIMARY)
       return FALSE;
-   }
    panel_resize_to(p, event->x_root, event->y_root);
    p->resizing = FALSE;
-
+   gint w = -1, h = -1;
+   gtk_widget_get_size_request(p->frame, &w, &h);
    if (p->dock_edge >= 0) {
-      p->dock_width = gtk_widget_get_allocated_width(p->frame);
-      p->dock_height = gtk_widget_get_allocated_height(p->frame);
+      p->dock_width = w;
+      p->dock_height = h;
       panel_dock_size_save(p);
+      panel_dock_coords_save(p);
    } else {
+      panel_position_save(p, gtk_widget_get_margin_start(p->frame),
+                          gtk_widget_get_margin_top(p->frame));
       panel_state_save(p);
    }
-
    return TRUE;
+}
+
+static void panel_resize_cursor_realize(GtkWidget *widget, gpointer data) {
+   const char *name = data;
+   GdkWindow *window = gtk_widget_get_window(widget);
+   if (!window)
+      return;
+   GdkDisplay *display = gdk_window_get_display(window);
+   GdkCursor *cursor = gdk_cursor_new_from_name(display, name);
+   if (cursor) {
+      gdk_window_set_cursor(window, cursor);
+      g_object_unref(cursor);
+   }
+}
+
+static void panel_resize_targets_create(RRFloatPanel *p, GtkOverlay *overlay) {
+   const struct {
+      guint edges;
+      GtkAlign horizontal, vertical;
+      gint width, height;
+      const char *cursor;
+   } targets[] = {
+      {PANEL_RESIZE_LEFT, GTK_ALIGN_START, GTK_ALIGN_FILL, 7, -1, "w-resize"},
+      {PANEL_RESIZE_RIGHT, GTK_ALIGN_END, GTK_ALIGN_FILL, 7, -1, "e-resize"},
+      {PANEL_RESIZE_TOP, GTK_ALIGN_FILL, GTK_ALIGN_START, -1, 7, "n-resize"},
+      {PANEL_RESIZE_BOTTOM, GTK_ALIGN_FILL, GTK_ALIGN_END, -1, 7, "s-resize"},
+      {PANEL_RESIZE_LEFT | PANEL_RESIZE_TOP, GTK_ALIGN_START, GTK_ALIGN_START, 12, 12, "nw-resize"},
+      {PANEL_RESIZE_RIGHT | PANEL_RESIZE_TOP, GTK_ALIGN_END, GTK_ALIGN_START, 12, 12, "ne-resize"},
+      {PANEL_RESIZE_LEFT | PANEL_RESIZE_BOTTOM, GTK_ALIGN_START, GTK_ALIGN_END, 12, 12, "sw-resize"},
+      {PANEL_RESIZE_RIGHT | PANEL_RESIZE_BOTTOM, GTK_ALIGN_END, GTK_ALIGN_END, 12, 12, "se-resize"}
+   };
+   for (guint i = 0; i < G_N_ELEMENTS(targets); i++) {
+      GtkWidget *hit = gtk_event_box_new();
+      gtk_event_box_set_visible_window(GTK_EVENT_BOX(hit), FALSE);
+      gtk_widget_set_halign(hit, targets[i].horizontal);
+      gtk_widget_set_valign(hit, targets[i].vertical);
+      gtk_widget_set_size_request(hit, targets[i].width, targets[i].height);
+      gtk_widget_add_events(hit, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK |
+                           GDK_POINTER_MOTION_MASK);
+      g_object_set_data(G_OBJECT(hit), "rr-resize-edges",
+                        GUINT_TO_POINTER(targets[i].edges));
+      g_signal_connect(hit, "button-press-event", G_CALLBACK(panel_resize_press), p);
+      g_signal_connect(hit, "motion-notify-event", G_CALLBACK(panel_resize_move), p);
+      g_signal_connect(hit, "button-release-event", G_CALLBACK(panel_resize_release), p);
+      g_signal_connect(hit, "realize", G_CALLBACK(panel_resize_cursor_realize),
+                       (gpointer)targets[i].cursor);
+      gtk_overlay_add_overlay(overlay, hit);
+      gtk_widget_set_no_show_all(hit, TRUE);
+      gtk_widget_hide(hit);
+      p->resize_targets[i] = hit;
+   }
+}
+
+static void panel_resize_targets_visibility(RRFloatPanel *p) {
+   gboolean visible = p->resizable && !p->rolled && !p->minimized;
+   for (guint i = 0; i < G_N_ELEMENTS(p->resize_targets); i++)
+      if (p->resize_targets[i])
+         gtk_widget_set_visible(p->resize_targets[i], visible);
 }
 
 RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, const char *id, const char *title) {
@@ -2469,26 +2561,9 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    gtk_widget_set_vexpand(p->scale_wrapper, TRUE);
    gtk_box_pack_start(GTK_BOX(panel), p->scale_wrapper, TRUE, TRUE, 0);
    /* Content is populated by the caller after panel construction; apply saved zoom when the panel is actually shown, not to an empty body. */
-   p->resize_grip = gtk_event_box_new();
-   GtkWidget *resize_icon = gtk_label_new("◢");
-   gtk_container_add(GTK_CONTAINER(p->resize_grip), resize_icon);
-   /* The grip itself uses no-show-all so rolled panels stay collapsed. Explicitly show the child: parent show_all() skips this subtree. */
-   gtk_widget_show(resize_icon);
-   gtk_widget_set_halign(p->resize_grip, GTK_ALIGN_END);
-   gtk_widget_set_valign(p->resize_grip, GTK_ALIGN_END);
-   gtk_widget_set_margin_end(p->resize_grip, 2);
-   gtk_widget_set_margin_bottom(p->resize_grip, 2);
-   gtk_widget_set_size_request(p->resize_grip, 18, 18);
-   gtk_widget_set_opacity(p->resize_grip, 0.42);
-   gtk_event_box_set_visible_window(GTK_EVENT_BOX(p->resize_grip), FALSE);
-   gtk_widget_set_tooltip_text(p->resize_grip, "Drag to resize panel");
-   gtk_widget_add_events(p->resize_grip, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_POINTER_MOTION_MASK);
-   g_signal_connect(p->resize_grip, "button-press-event", G_CALLBACK(panel_resize_press), p);
-   g_signal_connect(p->resize_grip, "motion-notify-event", G_CALLBACK(panel_resize_move), p);
-   g_signal_connect(p->resize_grip, "button-release-event", G_CALLBACK(panel_resize_release), p);
-   gtk_overlay_add_overlay(GTK_OVERLAY(panel_overlay), p->resize_grip);
-   gtk_widget_set_no_show_all(p->resize_grip, TRUE);
-   gtk_widget_hide(p->resize_grip);
+   /* Invisible edge/corner hit targets provide resize from every side.
+    * No resize glyph or extra border graphics are drawn. */
+   panel_resize_targets_create(p, GTK_OVERLAY(panel_overlay));
    gtk_widget_show_all(p->frame);
    gtk_widget_hide(p->frame);
    /* A newly added overlay must not cover already visible pinned utilities. */
@@ -2934,10 +3009,7 @@ void rr_floating_panel_set_resizable(RRFloatPanel *p, gboolean resizable) {
    }
    p->resizable = !!resizable;
 
-   if (p->resize_grip) {
-      gtk_widget_set_no_show_all(p->resize_grip, TRUE);
-      gtk_widget_set_visible(p->resize_grip, p->resizable && !p->rolled && !p->minimized);
-   }
+   panel_resize_targets_visibility(p);
 }
 
 void rr_floating_panel_set_min_width_widget(RRFloatPanel *p, GtkWidget *widget) {
