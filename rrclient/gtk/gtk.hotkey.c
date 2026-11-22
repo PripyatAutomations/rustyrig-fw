@@ -26,6 +26,9 @@
 #include <rrclient/gtk/gtk.chat.h>
 #include <rrclient/gtk/gtk.tabs.h>
 #include <rrclient/gtk/gtk.help.h>
+#ifdef RR_HAVE_RUSTYSCRIPT
+extern bool rrclient_script_hotkey(const char *sequence);
+#endif
 
 extern dict *cfg;
 extern GtkComboBoxText *tx_combo;
@@ -358,6 +361,25 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
       }
    }
 
+#ifdef RR_HAVE_RUSTYSCRIPT
+   /* Script hotkeys are dispatched after critical built-ins such as PTT,
+    * zoom and global navigation. Modifiers use _=Shift, &=Alt, ^=Ctrl.
+    * Always normalize alphabetic key names independently of shift state. */
+   if (event->type == GDK_KEY_PRESS) {
+      guint keyval = gdk_keyval_to_upper(event->keyval);
+      const char *keyname = gdk_keyval_name(keyval);
+      if (keyname && strlen(keyname) < 40) {
+         char sequence[48] = "";
+         if (modifiers & GDK_SHIFT_MASK) strcat(sequence, "_");
+         if (modifiers & GDK_MOD1_MASK) strcat(sequence, "&");
+         if (modifiers & GDK_CONTROL_MASK) strcat(sequence, "^");
+         strcat(sequence, keyname);
+         if (rrclient_script_hotkey(sequence)) {
+            return TRUE;
+         }
+      }
+   }
+#endif
    // ALT-* keys
    if ((event->state & GDK_MOD1_MASK)) {
       if (!main_win) {
