@@ -126,10 +126,12 @@ owning script unloads or reloads.
 
 ## Events (same contract for all frontends)
 
-A script binds `event ui.click`, `event ui.change`, or
-`event ui.response`, filtering by `event.id`. Event payloads include
-widget `id` and `kind`. The host isolates these events to the
-owning script.
+A script binds `event ui.click`, `event ui.change`,
+`event ui.response`, or `event ui.close`, filtering by `event.id`.
+The `ui.close` event is emitted when the user closes a script-created
+floating panel, allowing scripts to cancel timers, playback and other work.
+Event payloads include widget `id` and `kind`; the host isolates these
+events to the owning script.
 
 `ui.click` includes:
 - `button`: 1=left, 2=middle, 3=right; **0** for keyboard or semantic
