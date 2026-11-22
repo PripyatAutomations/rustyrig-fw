@@ -55,6 +55,28 @@ static void chat_backlog_push(const char *line) {
    }
 }
 
+/* IRC artwork uses colored text spans for both indexed and RGB colors.
+ * GtkTextTag normally paints only the font's ink/background box, leaving
+ * narrow stripes between successive text lines. Cover the complete logical
+ * line height instead, without changing glyph metrics or IRC colors. */
+static void gtk_chat_full_height_backgrounds(GtkTextBuffer *buffer, gint first) {
+   GtkTextIter iter, end;
+   gtk_text_buffer_get_iter_at_offset(buffer,&iter,first);
+   gtk_text_buffer_get_end_iter(buffer,&end);
+   while(gtk_text_iter_compare(&iter,&end)<0) {
+      GSList *tags=gtk_text_iter_get_tags(&iter);
+      for(GSList *node=tags;node;node=node->next) {
+         GtkTextTag *tag=GTK_TEXT_TAG(node->data);
+         gboolean has_background=FALSE;
+         g_object_get(tag,"background-set",&has_background,NULL);
+         if(has_background)
+            g_object_set(tag,"background-full-height",TRUE,NULL);
+      }
+      g_slist_free(tags);
+      if(!gtk_text_iter_forward_to_tag_toggle(&iter,NULL))break;
+   }
+}
+
 // Render any queued lines into the chat buffer with the normal markup path.
 // Early startup messages are flushed into the dedicated status buffer.
 static void chat_backlog_flush(GtkTextBuffer *buffer, GtkWidget *view) {
@@ -182,6 +204,8 @@ bool ui_print_gtk(const char *window, const char *fmt, va_list ap) {
    gtk_text_buffer_get_end_iter(target_buffer, &end);
    int start_offset = gtk_text_iter_get_offset(&end);
    gtk_text_buffer_insert_markup(target_buffer, &end, colorized, -1);
+   if(strstr(colorized,"background=\""))
+      gtk_chat_full_height_backgrounds(target_buffer,start_offset);
    gtk_chat_highlight_prefix(target_view, start_offset);
    /* Markup insertion and prefix highlighting may invalidate end. Do not reuse an iterator across mutations of indexable buffer content. */
    gtk_text_buffer_get_end_iter(target_buffer, &end);
