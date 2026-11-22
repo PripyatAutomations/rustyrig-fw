@@ -197,7 +197,7 @@ static rrs_value_t *native_file(rrs_vm_t *vm,int argc,
 
 /* Reusable script utilities: neither their state nor timers know about .mac files. */
 enum { UTIL_REGEX=1,UTIL_CHR,UTIL_SLUG,UTIL_LINE,UTIL_LINES,UTIL_NOW,
-       UTIL_STAMP,UTIL_DATA,UTIL_STR,UTIL_HASH,UTIL_SLICE,UTIL_LENGTH,UTIL_GET,UTIL_SET,UTIL_EVERY,UTIL_AFTER,UTIL_CANCEL };
+       UTIL_STAMP,UTIL_DATA,UTIL_STR,UTIL_HASH,UTIL_SLICE,UTIL_LENGTH,UTIL_GET,UTIL_SET,UTIL_USE,UTIL_NAMESPACE,UTIL_NAMESPACES,UTIL_KEYS,UTIL_EVERY,UTIL_AFTER,UTIL_CANCEL };
 static script_file_t *script_vm_lookup(rrs_vm_t *vm) {
    g_mutex_lock(&script_vm_owners_mutex);
    script_file_t *script=script_vm_owners?g_hash_table_lookup(script_vm_owners,vm):NULL;
@@ -340,23 +340,96 @@ static rrs_value_t *native_script_util(rrs_vm_t *vm,int argc,
    }
    rrs_vm_raise(vm,"Unknown string utility");return NULL;
 }
+/* Explicit opt-in shared state. Each script retains separate VM, callbacks
+ * and timers; only state.* values use the selected shared namespace. */
+static gboolean valid_namespace(const char *name) {
+   if(!name||!*name||strlen(name)>64)return FALSE;
+   for(const unsigned char *p=(const unsigned char*)name;*p;p++)
+      if(!g_ascii_isalnum(*p)&&*p!='_'&&*p!='-'&&*p!='.')return FALSE;
+   return TRUE;
+}
+static GHashTable *namespace_table(script_file_t *script,gboolean create) {
+   if(!script->state_namespace) {
+      if(create&&!script->vars)
+         script->vars=g_hash_table_new_full(g_str_hash,g_str_equal,g_free,
+            (GDestroyNotify)rrs_value_free);
+      return script->vars;
+   }
+   rrscript_host_t *host=script->host;
+   if(!host)return NULL;
+   if(create&&!host->namespaces)
+      host->namespaces=g_hash_table_new_full(g_str_hash,g_str_equal,g_free,
+         (GDestroyNotify)g_hash_table_destroy);
+   if(!host->namespaces)return NULL;
+   GHashTable *table=g_hash_table_lookup(host->namespaces,script->state_namespace);
+   if(!table&&create) {
+      table=g_hash_table_new_full(g_str_hash,g_str_equal,g_free,
+         (GDestroyNotify)rrs_value_free);
+      g_hash_table_insert(host->namespaces,g_strdup(script->state_namespace),table);
+   }
+   return table;
+}
+static rrs_value_t *namespace_keys(GHashTable *table) {
+   GString *text=g_string_new("");
+   if(table) {
+      GList *keys=g_hash_table_get_keys(table);
+      keys=g_list_sort(keys,(GCompareFunc)g_strcmp0);
+      for(GList *it=keys;it;it=it->next) {
+         if(text->len)g_string_append_c(text,'\n');
+         g_string_append(text,it->data);
+      }
+      g_list_free(keys);
+   }
+   rrs_value_t *result=rrs_string(text->str);
+   g_string_free(text,TRUE);
+   return result;
+}
 static rrs_value_t *native_script_state(rrs_vm_t *vm,int argc,
    const rrs_value_t *const argv[],void *user) {
    int op=GPOINTER_TO_INT(user);
-   if(argc!=(op==UTIL_GET?1:2)||rrs_value_type(argv[0])!=RRS_STRING){
-      rrs_vm_raise(vm,"state.get(key) / state.set(key,value)");return NULL;
-   }
    script_file_t *script=script_vm_lookup(vm);
    if(!script){rrs_vm_raise(vm,"Script is not active");return NULL;}
-   const char *key=rrs_value_string(argv[0]);
-   if(strlen(key)>256){rrs_vm_raise(vm,"State key too long");return NULL;}
-   if(op==UTIL_GET){
-      rrs_value_t *v=script->vars?g_hash_table_lookup(script->vars,key):NULL;
-      return v?rrs_value_copy(v):rrs_null();
+   if(op==UTIL_USE) {
+      if(argc!=1||rrs_value_type(argv[0])!=RRS_STRING) {
+         rrs_vm_raise(vm,"state.use(namespace) requires a name or empty string");
+         return NULL;
+      }
+      const char *name=rrs_value_string(argv[0]);
+      if(*name&&!valid_namespace(name)) {
+         rrs_vm_raise(vm,"Invalid namespace: use 1..64 letters, digits, _ . -");
+         return NULL;
+      }
+      g_free(script->state_namespace);
+      script->state_namespace=*name?g_strdup(name):NULL;
+      return rrs_boolean(true);
    }
-   if(!script->vars)script->vars=g_hash_table_new_full(g_str_hash,g_str_equal,g_free,(GDestroyNotify)rrs_value_free);
-   if(rrs_value_type(argv[1])==RRS_NULL)g_hash_table_remove(script->vars,key);
-   else g_hash_table_replace(script->vars,g_strdup(key),rrs_value_copy(argv[1]));
+   if(op==UTIL_NAMESPACE) {
+      if(argc){rrs_vm_raise(vm,"state.namespace() takes no arguments");return NULL;}
+      return rrs_string(script->state_namespace?script->state_namespace:"");
+   }
+   if(op==UTIL_NAMESPACES) {
+      if(argc){rrs_vm_raise(vm,"state.namespaces() takes no arguments");return NULL;}
+      return namespace_keys(script->host?script->host->namespaces:NULL);
+   }
+   if(op==UTIL_KEYS) {
+      if(argc){rrs_vm_raise(vm,"state.keys() takes no arguments");return NULL;}
+      return namespace_keys(namespace_table(script,FALSE));
+   }
+   if(argc!=(op==UTIL_GET?1:2)||rrs_value_type(argv[0])!=RRS_STRING) {
+      rrs_vm_raise(vm,"state.get(key) / state.set(key,value)");return NULL;
+   }
+   const char *key=rrs_value_string(argv[0]);
+   if(!*key||strlen(key)>256){rrs_vm_raise(vm,"Invalid state key");return NULL;}
+   GHashTable *table=namespace_table(script,op==UTIL_SET &&
+      rrs_value_type(argv[1])!=RRS_NULL);
+   if(op==UTIL_GET) {
+      const rrs_value_t *value=table?g_hash_table_lookup(table,key):NULL;
+      return value?rrs_value_copy(value):rrs_null();
+   }
+   if(table) {
+      if(rrs_value_type(argv[1])==RRS_NULL)g_hash_table_remove(table,key);
+      else g_hash_table_replace(table,g_strdup(key),rrs_value_copy(argv[1]));
+   }
    return rrs_boolean(true);
 }
 static rrs_value_t *native_script_timer(rrs_vm_t *vm,int argc,
@@ -400,6 +473,10 @@ static bool register_util_api(rrs_vm_t *vm) {
       REG("env.data_dir",native_script_util,UTIL_DATA) &&
       REG("state.get",native_script_state,UTIL_GET) &&
       REG("state.set",native_script_state,UTIL_SET) &&
+      REG("state.use",native_script_state,UTIL_USE) &&
+      REG("state.namespace",native_script_state,UTIL_NAMESPACE) &&
+      REG("state.namespaces",native_script_state,UTIL_NAMESPACES) &&
+      REG("state.keys",native_script_state,UTIL_KEYS) &&
       REG("timer.every",native_script_timer,UTIL_EVERY) &&
       REG("timer.after",native_script_timer,UTIL_AFTER) &&
       REG("timer.cancel",native_script_timer,UTIL_CANCEL);
