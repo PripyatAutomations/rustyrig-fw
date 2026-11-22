@@ -102,6 +102,7 @@ static void widget_changed(GtkWidget *widget,gpointer data) {
    dict *d=dict_new();
    event_fields(d,entry);
    dict_add(d,"value",change.value);
+   event_emit_dict("ui.change",NULL,d);
    event_emit_dict("gui.change",NULL,d);
    dict_free(d);
 }
@@ -117,6 +118,7 @@ static void widget_click(script_widget_t *entry,guint button,guint count,
    dict_add_bool(d,"ctrl",(state & GDK_CONTROL_MASK)!=0);
    dict_add_bool(d,"alt",(state & GDK_MOD1_MASK)!=0);
    dict_add_bool(d,"super",(state & GDK_SUPER_MASK)!=0);
+   event_emit_dict("ui.click",NULL,d);
    event_emit_dict("gui.click",NULL,d);
    dict_free(d);
 }
@@ -152,6 +154,7 @@ static void dialog_response(GtkDialog *dialog,gint response,gpointer data) {
    dict *d=dict_new();
    event_fields(d,entry);
    dict_add_int(d,"response",response);
+   event_emit_dict("ui.response",NULL,d);
    event_emit_dict("gui.response",NULL,d);
    dict_free(d);
    gtk_widget_hide(GTK_WIDGET(dialog));
