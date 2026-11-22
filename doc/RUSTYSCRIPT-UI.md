@@ -80,13 +80,34 @@ Closing a dialog without choosing a button yields `"cancel"`, not
 A TUI or third-party frontend should implement the same logical message
 request and response names using its own native dialog presentation.
 
-`ui.panel(id, title)` creates a nonmodal floating panel; `ui.dialog(id,
-title)` creates a dialog. `ui.add(parent, type, id, label[, initial_value])`
-appends a widget to a logical container. Types: `row`, `column`,
-`label`, `button`, `entry`, `check`, `slider`, `spin`, `combo`, and
-`separator`. For now, slider and spin controls have a 0–100 range; combo
-options are comma-separated. `ui.show(id)`, `ui.hide(id)`, and
-`ui.destroy(id)` change visibility or ownership.
+`ui.panel(id, title)` creates a dockable floating panel;
+`ui.utility(id, title)` creates an overlay-only floating utility panel
+that stays above the workspace; `ui.dialog(id, title)` creates a dialog.
+`ui.add(parent, type, id, label[, initial_value])` appends a logical
+widget to a container. Supported GTK3 types:
+
+- Containers: `row`, `column`, `frame` (captioned group), `separator`.
+- Display: `label`, `readonly` (scrollable multiline text),
+  `progress` (0–100 percentage), `irc-preview` (colorized .mac artwork).
+- Input: `button`, `entry`, `password`, `multiline`, `check`
+  (checkbox), `switch`, `slider`, `spin`, `combo`, `color`,
+  `file` (file chooser), `folder` (directory chooser).
+- File/room selectors: `filelist` uses RustyRig's reusable local file browser;
+  its initial value is the root directory and the label is the list title.
+  `roomlist` enumerates open conversation tabs, including private queries,
+  and returns the `profile|room` identity rather than a display caption.
+
+Combo options are comma-separated. Slider and spin default to the historical
+0–100 range; optionally pass `"min:max:step:value"` to give them explicit
+bounds (for example `"1:10:1:1"` for lines/sec). `ui.set(id, value)`
+sets numeric, boolean and text controls. For `filelist`, setting a value
+refreshes the list; for `irc-preview`, set a relative `.mac` filename;
+for `roomlist`, set `"refresh"` to rescan open tabs.
+
+`ui.show(id)`, `ui.hide(id)`, and `ui.destroy(id)` change visibility or
+ownership. Script-created widgets are removed automatically on unload/reload.
+The client example `doc/examples/scripts/ascii-art.rrs` creates a working
+script-owned .mac browser, previewer and paced sender.
 
 `ui.val(id)` (also `control.val(id)`) returns the last known logical value: boolean for
 checkboxes, numeric for slider/spin, string for other value controls.
