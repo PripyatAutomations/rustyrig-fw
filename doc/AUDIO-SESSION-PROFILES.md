@@ -239,6 +239,53 @@ core domain: validate/preview, prepare workers, switch, or roll back if
 conversion or worker creation fails. PTT output must fail low when a control
 graph connection is invalidated.
 
+## Routing canvas shape language
+
+![Routing block silhouettes](ROUTING-BLOCK-SHAPES.svg)
+
+The shared `gtk.graph.[ch]` Cairo renderer now exposes an explicit
+`rr_gtk_graph_shape_t` field, independent of application-specific node
+identifiers:
+
+- `RECT` — existing PCM devices, mixers and audio routing nodes (existing
+  fwdsp capsules still retain their current visual identity).
+- `AND`, `NAND` — D-shaped logic symbols; NAND has an inversion bubble.
+- `OR`, `NOR` — curved logic symbols; NOR has an inversion bubble.
+- `XOR` — OR silhouette with a second curved input line.
+- `NOT` — triangle with inversion bubble.
+- `THRESHOLD` — hexagonal comparator.
+- `UTILITY` — chamfered converter/resampler rectangle.
+
+Shape drawing and fill-based hit testing use the same Cairo outline path.
+The renderer also accepts optional borrowed, named typed ports on a node
+(`rr_gtk_graph_port_t`), and draws **numeric inputs blue**, **boolean
+inputs hollow red**, and **boolean outputs solid red**. A default THRESHOLD
+port inventory describes VALUE, MIN, MAX, SIGNAL, INVERT, OUT and TRUE,
+using the same 160×112 routing cell geometry as existing blocks. See
+[THRESHOLD-INVERT.svg](THRESHOLD-INVERT.svg) for the intended TRUE→INVERT
+shortcut.
+
+**Implementation boundary:** shape/port rendering and shape hit-testing
+helpers are implemented, but live control nodes have not yet been added to
+the audio graph snapshot, canvas menu, wiring resolver or core signal
+scheduler. Rendering a gate silhouette must not be mistaken for a working
+PTT/control graph. Current audio nodes remain unchanged by default.
+
+- [x] Add reusable Cairo shape paths and draw them in horizontal/vertical
+      graph renderers.
+- [x] Add exact outline fill-based hit testing and typed-port drawing helpers.
+- [x] Add named THRESHOLD port geometry and regression checks.
+- [x] Save reusable SVG reference catalog in `doc/`.
+- [ ] Integrate shape-aware block hit testing in the interactive routing
+      canvas when control nodes are introduced.
+- [ ] Add typed port indices/positions to snapshot **edges** and wire
+      hit-testing so wires terminate on the correct boolean/numeric pin.
+- [ ] Add GATE/THRESHOLD/UTILITY node creation, context Properties and
+      persistence via stable IDs.
+- [ ] Connect control scheduler outputs to red control wires without special
+      PTT handling; final sink still enforces TX safety.
+- [ ] Ensure touch target expansion follows each shape's visible outline.
+
 ## References
 
 - [Existing LV2 worker design](audio-processors.md)
