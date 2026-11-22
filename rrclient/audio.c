@@ -846,8 +846,16 @@ static void audio_restore_effect_parameters(const char *worker) {
       key = g_strconcat(prefix, "value", NULL);
       char *value = rrclient_database_setting_get(key);
       g_free(key);
+      key = g_strconcat(prefix, "kind", NULL);
+      char *kind = rrclient_database_setting_get(key);
+      g_free(key);
+      key = g_strconcat(prefix, "selected-string", NULL);
+      char *selected_string = rrclient_database_setting_get(key);
+      g_free(key);
 
-      if (element && *element && property && *property && value && *value) {
+      if (element && *element && property && *property && !g_strcmp0(kind, "enum") && selected_string && *selected_string) {
+         fwdsp_processor_set_property_string(worker, element, property, selected_string);
+      } else if (element && *element && property && *property && value && *value) {
          char *end = NULL;
          double setting = g_ascii_strtod(value, &end);
 
@@ -858,6 +866,8 @@ static void audio_restore_effect_parameters(const char *worker) {
       g_free(element);
       g_free(property);
       g_free(value);
+      g_free(kind);
+      g_free(selected_string);
       g_free(target);
       g_free(prefix);
    }
@@ -2917,6 +2927,16 @@ static void audio_control_request(const rr_event_message_t *message, void *unuse
          event_emit("client.audio.route.changed", NULL, NULL);
          break;
       }
+      case RR_AUDIO_CONTROL_EFFECT_STRING: {
+         if (!memchr(req->stream, 0, sizeof(req->stream)) ||
+             !memchr(req->element, 0, sizeof(req->element)) ||
+             !memchr(req->property, 0, sizeof(req->property)) ||
+             !memchr(req->string_value, 0, sizeof(req->string_value))) break;
+         if (!fwdsp_processor_set_property_string(req->stream, req->element, req->property, req->string_value)) {
+            Log(LOG_WARN, "audio.effects", "String effect control failed: %.60s / %.60s / %.60s", req->stream, req->element, req->property);
+         }
+         break;
+      }
       case RR_AUDIO_CONTROL_EFFECT_PARAMETER: {
          if (!memchr(req->stream, 0, sizeof(req->stream)) ||
             !memchr(req->element, 0, sizeof(req->element)) || !memchr(req->property, 0, sizeof(req->property)) || !isfinite(req->gain_db)) {
@@ -3003,6 +3023,20 @@ void audio_request_effect_parameter(const char *processor, const char *element, 
    g_strlcpy(req.stream, processor, sizeof(req.stream));
    g_strlcpy(req.element, element, sizeof(req.element));
    g_strlcpy(req.property, property, sizeof(req.property));
+   audio_submit_control(&req);
+}
+
+void audio_request_effect_string(const char *processor, const char *element, const char *property, const char *value) {
+   if (!processor || !*processor || !element || !*element || !property || !*property || !value ||
+       strlen(processor) >= sizeof(((rr_audio_control_request_t *)0)->stream) ||
+       strlen(element) >= sizeof(((rr_audio_control_request_t *)0)->element) ||
+       strlen(property) >= sizeof(((rr_audio_control_request_t *)0)->property) ||
+       strlen(value) >= sizeof(((rr_audio_control_request_t *)0)->string_value)) return;
+   rr_audio_control_request_t req = { .kind = RR_AUDIO_CONTROL_EFFECT_STRING };
+   g_strlcpy(req.stream, processor, sizeof(req.stream));
+   g_strlcpy(req.element, element, sizeof(req.element));
+   g_strlcpy(req.property, property, sizeof(req.property));
+   g_strlcpy(req.string_value, value, sizeof(req.string_value));
    audio_submit_control(&req);
 }
 
