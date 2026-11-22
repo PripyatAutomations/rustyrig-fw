@@ -34,6 +34,10 @@ static void observe_protocol_disconnect(const char *event, const char *data, rrc
    protocol_disconnects++;
 }
 
+bool userlist_names_pending(const char *room) {
+   (void)room;
+   return names_begins > names_ends;
+}
 void userlist_names_begin(const char *room) {
    assert(!strcmp(room, "#room"));
    names_begins++;
@@ -172,6 +176,9 @@ void rrclient_rooms_rejoin_available(void) {
    rejoins++;
 }
 
+bool rrclient_room_is_joined(const char *room) {
+   return !strcmp(room,"#room");
+}
 bool rrclient_room_request_join(const char *room) {
    (void)room;
 
