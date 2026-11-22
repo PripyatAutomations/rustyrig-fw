@@ -1202,14 +1202,15 @@ static void onair_panel_ensure(gboolean explicit_open) {
       if (!onair_panel) {
          return;
       }
-      rr_floating_panel_set_resizable(onair_panel, TRUE);
+      rr_floating_panel_set_content_sized(onair_panel);
       rr_floating_panel_set_minimizable(onair_panel, TRUE);
       rr_floating_panel_set_closable(onair_panel, TRUE);
       rr_floating_panel_set_initial_position(onair_panel, 360, 120);
       onair_panel_canvas = gtk_drawing_area_new();
       gtk_widget_set_size_request(onair_panel_canvas, 95, 42);
-      gtk_widget_set_hexpand(onair_panel_canvas, TRUE);
-      gtk_widget_set_vexpand(onair_panel_canvas, TRUE);
+      /* Keep the indicator at its natural dimensions regardless of its dock. */
+      gtk_widget_set_hexpand(onair_panel_canvas, FALSE);
+      gtk_widget_set_vexpand(onair_panel_canvas, FALSE);
       g_signal_connect(onair_panel_canvas, "draw", G_CALLBACK(onair_panel_draw), NULL);
       gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(onair_panel)), onair_panel_canvas, TRUE, TRUE, 0);
       /* The ON AIR sign is its own chrome and drag handle. Do not display a
