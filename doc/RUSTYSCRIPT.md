@@ -76,6 +76,35 @@ Files are never deleted by these operations.
 `/script` is exclusively for **local rrclient scripts**. It never sends
 script commands to a connected server.
 
+### GTK Scripts manager
+
+The main GTK toolbar has a **Scripts** button. It opens a floating local
+file browser rooted in `security.scripting.path` (or
+`~/.config/rustyrig/scripts` by default). The list shows relative script
+filenames and **Loaded** / **Available** status. The reusable browser widget
+(`rrclient/gtk/gtk.local-browser.[ch]`) provides a caller-defined action
+toolbar, selection and status columns for future local file managers.
+
+- **Load** registers the selected script's handlers; **Unload** unregisters
+  them. **Reload** is enabled only when the selected script is loaded, and
+  parses the replacement before removing the old handlers.
+- **Edit** opens the existing GTK local file editor. Saving does not reload
+  a running script automatically; choose **Reload** to apply edits.
+- **Move / Rename** accepts a path relative to the script root. Use
+  `autoload/name.rrs` to put it under autoload. Loaded scripts are unloaded
+  before the move and loaded at the new path; an unsuccessful file move
+  restores the old loaded script.
+- **Delete** confirms first and unloads before removing a file. The manager
+  does not traverse symlinks and refuses overwriting existing destinations.
+- **Refresh** rescans the directory and updates loaded status.
+
+Only immediate `.rrs` filenames in the root or `autoload/` are accepted
+by the runtime; the browser may display other nested `.rrs` files, but
+script operations are disabled for unsupported paths. Scripts in
+`autoload/` will load again on the next client startup even if manually
+unloaded during this session. Without optional RustyScript support the
+manager remains available for file editing, but runtime actions are disabled.
+
 Server script management is separate, under the authenticated administrative
 command channel. Administrators can use `/admin script-list`,
 `/admin script-load <name.rrs>`, `/admin script-unload <name.rrs>`, and
@@ -147,8 +176,7 @@ registered native calls. `log.info()` and `log.warn()` are initially exposed.
 **Not implemented yet:** user function declarations, arrays, strict return
 typing, persistent variables, SQLite script databases, `async`/`await`,
 `try`/`except`/`success`/`finally`, built-in `exec()` or `subproc`,
-the routing/pipeline/control APIs, workspace restoration, runtime script
-reload, and server invocation of slash-command bindings. These are part of
+the routing/pipeline/control APIs, workspace restoration, and server invocation of slash-command bindings. These are part of
 the planned language and require additional parser/runtime/host work. Do not
 assume unsupported code was validated at load time; errors may be deferred
 until invocation.
