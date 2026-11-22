@@ -1403,7 +1403,11 @@ static int panel_snap_axis(RRFloatPanel *p, int raw, int other_raw, gboolean hor
    for (GList *it = floating_panels ; it ; it = it->next) {
       RRFloatPanel *q = it->data;
 
-      if (q == p || q->overlay != p->overlay || q->minimized || q->modal || !gtk_widget_get_visible(q->frame)) {
+      /* Docked panels use GtkFixed coordinates relative to their own dock,
+       * not overlay coordinates. Never snap a floating panel to them. */
+      if (q == p || q->overlay != p->overlay || q->dock_edge >= 0 ||
+          gtk_widget_get_parent(q->frame) != GTK_WIDGET(p->overlay) ||
+          q->minimized || q->modal || !gtk_widget_get_visible(q->frame)) {
          continue;
       }
       int x = gtk_widget_get_margin_start(q->frame);
