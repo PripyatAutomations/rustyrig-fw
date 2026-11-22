@@ -70,7 +70,7 @@ const char *default_css = DEFAULT_CSS;
 
 defconfig_t defcfg[] = {
    {
-      "security.scripting.path", "", "Script directory; empty uses the user's XDG config rustyrig/scripts directory"
+      "security.scripting.path", "", "Script root; startup loads only *.rrs from its autoload/ subdirectory"
    },
    {
       "security.scripting.allow-unsafe-exec", "false",
