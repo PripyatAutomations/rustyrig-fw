@@ -302,51 +302,52 @@ static void dock_edge_style(void) {
    g_object_unref(css);
 }
 
-/* Keep docked widgets inside the actual viewport, not the GtkFixed content's natural requisition. A narrower window can only shrink inward. Saved user
- * dimensions remain intact for restoration at larger widths. */
-static void dock_slot_constrain(GtkWidget *scroll, GtkAllocation *allocation, gpointer unused) {
+/* The dock viewport owns its size.  Neither saved dimensions nor the
+ * natural requisition of a panel may enlarge it.  In particular a long
+ * userlist row must never make a side panel grow on roster updates. */
+static void dock_slot_constrain(GtkWidget *viewport, GtkAllocation *allocation, gpointer unused) {
    (void)unused;
-
-   if (allocation->width < 20 || allocation->height < 20) {
+   if (allocation->width < 20 || allocation->height < 20)
       return;
-   }
-   GtkWidget *slot = g_object_get_data(G_OBJECT(scroll), "rr-dock-slot");
-
-   if (!GTK_IS_FIXED(slot)) {
+   GtkWidget *slot = g_object_get_data(G_OBJECT(viewport), "rr-dock-slot");
+   if (!GTK_IS_FIXED(slot))
       return;
-   }
    GList *children = gtk_container_get_children(GTK_CONTAINER(slot));
-
-   for (GList *it = children ; it ; it = it->next) {
+   for (GList *it = children; it; it = it->next) {
       GtkWidget *frame = it->data;
-
-      if (!gtk_widget_get_visible(frame)) {
-         continue;
-      }
       RRFloatPanel *p = g_object_get_data(G_OBJECT(frame), "rr-float-owner");
-
-      if (!p || p->dock_edge < 0 || p->dragging || p->resizing) {
+      if (!p || p->dock_edge < 0 || p->dragging || p->resizing ||
+          !gtk_widget_get_visible(frame))
          continue;
+      /* A bad saved offset must not hide the left edge (and its resize
+       * target) outside a non-scrolling dock. */
+      gint x = CLAMP(p->dock_x, 0, MAX(0, allocation->width - 100));
+      gint y = CLAMP(p->dock_y, 0, MAX(0, allocation->height - 48));
+      if (x != p->dock_x || y != p->dock_y) {
+         p->dock_x = x;
+         p->dock_y = y;
+         gtk_fixed_move(GTK_FIXED(slot), frame, x, y);
+         panel_dock_coords_save(p);
       }
-      const gint desired_w = p->dock_width > 0 ? p->dock_width : -1;
-      const gint desired_h = p->dock_height > 0 ? p->dock_height : -1;
-      gint req_w, req_h;
+      gint max_w = MAX(90, allocation->width - x - 4);
+      gint max_h = MAX(48, allocation->height - y - 4);
+      gint desired_w = p->dock_width > 0 ? p->dock_width : MAX(100, MIN(220, max_w));
+      gint desired_h = p->dock_height > 0 ? p->dock_height : -1;
+      gint width = CLAMP(desired_w, 90, max_w);
+      gint height = desired_h > 0 ? CLAMP(desired_h, 48, max_h) : -1;
+      gint req_w = -1, req_h = -1;
       gtk_widget_get_size_request(frame, &req_w, &req_h);
-      /* A saved user resize is authoritative. GtkFixed lives inside a
-       * scrolled viewport, so shrinking the dock must not overwrite that
-       * dimension with the current viewport size. Only natural-size panels
-       * are limited here to avoid an oversized default allocation. */
-      gint draw_w = desired_w > 0 ? desired_w : req_w;
-      gint draw_h = desired_h > 0 ? desired_h : req_h;
-
-      if (draw_w != req_w || draw_h != req_h) {
-         gtk_widget_set_size_request(frame, draw_w, draw_h);
+      if (req_w != width || req_h != height)
+         gtk_widget_set_size_request(frame, width, height);
+      /* Repair saved sizes that are impossible in the current dock rather
+       * than letting them expand again on every layout pass. */
+      if (p->dock_width > max_w || p->dock_height > max_h) {
+         p->dock_width = width;
+         if (p->dock_height > max_h)
+            p->dock_height = height;
+         panel_dock_size_save(p);
       }
-      /* GtkFixed is inside a scrolled viewport. Never change a user's saved
-       * position just because the visible dock got smaller (or GTK reported
-       * a provisional allocation). The scroller exposes offscreen content. */
    }
-
    g_list_free(children);
 }
 
@@ -365,7 +366,11 @@ static void dock_edge_create(RRChatDocks *d, guint edge) {
    /* Fixed positioning preserves independent panel sizes and chrome. */
    GtkWidget *slot = gtk_fixed_new();
    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
-   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+   /* The dock does not scroll: overflowing children must resize to fit
+    * its allocation, never enlarge its scrolling canvas. */
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_NEVER, GTK_POLICY_NEVER);
+   gtk_scrolled_window_set_propagate_natural_width(GTK_SCROLLED_WINDOW(scroll), FALSE);
+   gtk_scrolled_window_set_propagate_natural_height(GTK_SCROLLED_WINDOW(scroll), FALSE);
    gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(scroll), 1);
    gtk_scrolled_window_set_min_content_height(GTK_SCROLLED_WINDOW(scroll), 1);
    gtk_container_add(GTK_CONTAINER(scroll), slot);
