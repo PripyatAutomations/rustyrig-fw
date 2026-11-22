@@ -3277,7 +3277,8 @@ static void routing_add_effect(GtkButton *button, gpointer unused) {
 typedef struct routing_compact_control {
    char id[64], uuid[40];
    char label[32], kind[16], unit[16];
-   char choices[1024]; /* Optional one-label-per-line list, indexed from minimum. */
+   char choices[1024]; /* Numeric display labels or enum string options. */
+   char enum_value[256]; /* Literal backend value for string enum controls. */
    char effect_worker[64], effect_element[96], effect_property[96];
    double effect_value, effect_default, hint_min, hint_max, hint_step;
    double x, y;
@@ -3349,6 +3350,25 @@ static void routing_compact_apply_hints(routing_compact_control_t *control) {
  * A blank list generates integer options from minimum to maximum. */
 static void routing_compact_selector_sync(routing_compact_control_t *control) {
    if (!control->selector || !control->value) return;
+   if (!strcmp(control->kind, "enum")) {
+      gboolean old = control->updating;
+      control->updating = TRUE;
+      GtkComboBoxText *combo = GTK_COMBO_BOX_TEXT(control->selector);
+      gtk_combo_box_text_remove_all(combo);
+      gchar **names = g_strsplit(control->choices, ",", 128);
+      for (guint i = 0 ; names[i] ; i++) {
+         g_strstrip(names[i]);
+         if (*names[i] && strlen(names[i]) < sizeof(control->enum_value))
+            gtk_combo_box_text_append(combo, names[i], names[i]);
+      }
+      g_strfreev(names);
+      if (!control->enum_value[0] ||
+          !gtk_combo_box_set_active_id(GTK_COMBO_BOX(combo), control->enum_value)) {
+         gtk_combo_box_set_active(GTK_COMBO_BOX(combo), 0);
+      }
+      control->updating = old;
+      return;
+   }
    GtkComboBoxText *combo = GTK_COMBO_BOX_TEXT(control->selector);
    gboolean was_updating = control->updating;
    control->updating = TRUE;
@@ -3390,6 +3410,16 @@ static void routing_compact_selector_changed(GtkComboBox *combo, gpointer data) 
    if (control->updating) return;
    const gchar *id = gtk_combo_box_get_active_id(combo);
    if (!id) return;
+   if (!strcmp(control->kind, "enum")) {
+      if (strlen(id) >= sizeof(control->enum_value) || !strcmp(id, control->enum_value)) return;
+      g_strlcpy(control->enum_value, id, sizeof(control->enum_value));
+      routing_compact_save(control);
+      if (control->effect_worker[0])
+         audio_request_effect_string(control->effect_worker, control->effect_element,
+            control->effect_property, control->enum_value);
+      graph_canvas_update_size();
+      return;
+   }
    gchar *end = NULL;
    double value = g_ascii_strtod(id, &end);
    if (end == id || *end || !isfinite(value)) return;
@@ -3872,7 +3902,7 @@ static void routing_compact_add(const char *node_id, unsigned channel, gboolean 
 
    gboolean vertical = !g_strcmp0(kind, "vertical");
    gboolean knob = !g_strcmp0(kind, "knob");
-   gboolean selector = !g_strcmp0(kind, "selector");
+   gboolean selector = !g_strcmp0(kind, "selector") || !g_strcmp0(kind, "enum");
    GtkWidget *scale =
       gtk_scale_new_with_range(vertical ? GTK_ORIENTATION_VERTICAL : GTK_ORIENTATION_HORIZONTAL, control->minimum, control->maximum, control->step);
    control->value = scale;
@@ -3894,7 +3924,9 @@ static void routing_compact_add(const char *node_id, unsigned channel, gboolean 
       gtk_widget_hide(scale);
       control->selector = gtk_combo_box_text_new();
       gtk_widget_set_size_request(control->selector, 92, -1);
-      gtk_widget_set_tooltip_text(control->selector, "Numeric selector; labels and range can be edited in Properties");
+      gtk_widget_set_tooltip_text(control->selector, !strcmp(kind, "enum") ?
+         "Enum selector: sends the selected string unchanged to the bound backend property" :
+         "Numeric selector: labels are display-only; sends integer values");
       gtk_box_pack_start(GTK_BOX(body), control->selector, FALSE, FALSE, 0);
       g_signal_connect(control->selector, "changed", G_CALLBACK(routing_compact_selector_changed), control);
       g_signal_connect(control->selector, "button-press-event", G_CALLBACK(routing_compact_context), control);
@@ -3957,7 +3989,7 @@ static void routing_compact_save(const routing_compact_control_t *control) {
       "target", "label", "kind", "port", "channel",
       "x", "y", "min", "max", "step", "unit",
       "worker", "element", "property", "hint-min",
-      "hint-max", "hint-step", "value", "default", "hidden", "choices"
+      "hint-max", "hint-step", "value", "default", "hidden", "choices", "selected-string"
    };
    char port[4], channel[4], x[G_ASCII_DTOSTR_BUF_SIZE], y[G_ASCII_DTOSTR_BUF_SIZE];
    char min[G_ASCII_DTOSTR_BUF_SIZE], max[G_ASCII_DTOSTR_BUF_SIZE], step[G_ASCII_DTOSTR_BUF_SIZE];
@@ -3982,7 +4014,7 @@ static void routing_compact_save(const routing_compact_control_t *control) {
       x, y, control->has_minimum ? min : "", control->has_maximum ? max : "",
       control->has_step ? step : "", control->has_unit ? control->unit : "",
       control->effect_worker, control->effect_element, control->effect_property,
-      hmin, hmax, hstep, current, default_text, hidden, control->choices
+      hmin, hmax, hstep, current, default_text, hidden, control->choices, control->enum_value
    };
 
    for (guint i = 0 ; i < G_N_ELEMENTS(fields) ; i++) {
@@ -4053,10 +4085,11 @@ static void routing_compact_restore(void) {
       char *default_text = routing_compact_field(parts[i], "default");
       char *hidden = routing_compact_field(parts[i], "hidden");
       char *choices = routing_compact_field(parts[i], "choices");
+      char *enum_value = routing_compact_field(parts[i], "selected-string");
       double px = 0., py = 0., mn = 0., mx = 0., st = 0.;
       gboolean valid = target && strlen(target) < 64 &&
          kind && (!strcmp(kind, "horizontal") || !strcmp(kind, "vertical") ||
-            !strcmp(kind, "knob") || !strcmp(kind, "selector")) &&
+            !strcmp(kind, "knob") || !strcmp(kind, "selector") || !strcmp(kind, "enum")) &&
          port && (!strcmp(port, "0") || !strcmp(port, "1")) &&
          channel && (!strcmp(channel, "0") || !strcmp(channel, "1")) &&
          routing_compact_parse_number(x, &px) && routing_compact_parse_number(y, &py) && px >= 0 && py >= 0 && px <= 100000 && py <= 100000;
@@ -4108,6 +4141,9 @@ static void routing_compact_restore(void) {
             if (choices && strlen(choices) < sizeof(item->choices)) {
                g_strlcpy(item->choices, choices, sizeof(item->choices));
             }
+            if (enum_value && strlen(enum_value) < sizeof(item->enum_value)) {
+               g_strlcpy(item->enum_value, enum_value, sizeof(item->enum_value));
+            }
             routing_compact_apply_hints(item);
             routing_compact_apply_widget(item);
 
@@ -4138,6 +4174,7 @@ static void routing_compact_restore(void) {
       g_free(default_text);
       g_free(hidden);
       g_free(choices);
+      g_free(enum_value);
    }
 
    g_strfreev(parts);
@@ -4330,7 +4367,9 @@ static void routing_compact_properties(routing_compact_control_t *item) {
       gtk_entry_set_text(GTK_ENTRY(fields[i]), values[i]);
       gtk_entry_set_placeholder_text(GTK_ENTRY(fields[i]), i == 0 ? item->label : i == 1 ? min : i == 2 ? max : i == 3 ? step : item->unit);
       if (i == 5) {
-         gtk_entry_set_placeholder_text(GTK_ENTRY(fields[i]), "Off, RX, TX (comma-separated labels)");
+         gtk_entry_set_placeholder_text(GTK_ENTRY(fields[i]), !strcmp(item->kind, "enum") ?
+            "USB, LSB, AM, FM (literal backend values)" :
+            "Off, RX, TX (numeric display labels)");
       }
       gtk_grid_attach(GTK_GRID(grid), fields[i], 1, i, 1, 1);
    }
@@ -4381,9 +4420,8 @@ static void routing_compact_properties(routing_compact_control_t *item) {
       item->minimum = mn;
       item->maximum = mx;
       item->step = st;
-      /* Comma-separated names map to successive integer choices starting
-       * at min; blank means numeric options. This has no bearing on the
-       * numeric value transmitted to the effect parameter. */
+      /* Numeric selectors use display-only names. Enum selectors transmit
+       * these literal strings to the backend, not their ordinal indices. */
       const char *labels = gtk_entry_get_text(GTK_ENTRY(fields[5]));
       g_strlcpy(item->choices, labels, sizeof(item->choices));
       routing_compact_apply_hints(item);
@@ -5093,6 +5131,7 @@ static void routing_compact_create(GtkButton *button, gpointer unused) {
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(widget_kind), "vertical", "Vertical slider");
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(widget_kind), "knob", "Rotary knob");
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(widget_kind), "selector", "Numeric dropdown");
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(widget_kind), "enum", "Enum string dropdown");
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(widget_kind), "onair", "ON AIR indicator");
    gtk_combo_box_set_active(GTK_COMBO_BOX(widget_kind), 0);
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(target), "", "Unbound — connect green pin");
