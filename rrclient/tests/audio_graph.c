@@ -105,6 +105,31 @@ int main(void) {
    assert(!rr_audio_graph_add_channel_link(g,"proc.lv2.1","proc.lv2.4",RR_AG_NORMAL,RR_AG_CHANNEL_LEFT));
    assert(rr_audio_graph_link_count(g)==2);
    rr_audio_graph_free(g);
+   /* Rate-bridged listening routes: RX16 already feeds HQ playback
+    * through rx.mix -> rx16.resample -> hq.mix. HQ-to-RX16 is unsupported
+    * without an explicit downsampler and must not silently misclock PCM. */
+   assert(!strcmp(rr_audio_graph_listen_bus(16000, "rx.mix"), "rx.mix"));
+   assert(!strcmp(rr_audio_graph_listen_bus(16000, "hq.mix"), "rx.mix"));
+   assert(!strcmp(rr_audio_graph_listen_bus(8000, "hq.mix"), "rx.mix"));
+   assert(!strcmp(rr_audio_graph_listen_bus(44100, "hq.mix"), "hq.mix"));
+   assert(!strcmp(rr_audio_graph_listen_bus(48000, "hq.mix"), "hq.mix"));
+   assert(rr_audio_graph_listen_bus(44100, "rx.mix") == NULL);
+   assert(rr_audio_graph_listen_bus(48000, "tx.mix") == NULL);
+   assert(rr_audio_graph_listen_bus(16000, "tx.transport") == NULL);
+   assert(rr_audio_graph_listen_bus(16000, NULL) == NULL);
+   /* The graph shows the actual adapter path, never a phantom direct edge. */
+   g=rr_audio_graph_new();
+   assert(g);
+   assert(rr_audio_graph_add_node(g,"test.rx16",RR_AG_SOURCE));
+   assert(rr_audio_graph_add_node(g,"rx.mix",RR_AG_MIXER));
+   assert(rr_audio_graph_add_node(g,"rx16.resample",RR_AG_PROCESSOR));
+   assert(rr_audio_graph_add_node(g,"hq.mix",RR_AG_MIXER));
+   assert(rr_audio_graph_add_channel_link(g,"test.rx16","rx.mix",
+                                        RR_AG_NORMAL,RR_AG_CHANNEL_STEREO));
+   assert(rr_audio_graph_add_link(g,"rx.mix","rx16.resample",RR_AG_NORMAL));
+   assert(rr_audio_graph_add_link(g,"rx16.resample","hq.mix",RR_AG_NORMAL));
+   assert(rr_audio_graph_link_count(g)==3);
+   rr_audio_graph_free(g);
    puts("audio graph bypass and direct modem TX routing passed");
 
    return 0;
