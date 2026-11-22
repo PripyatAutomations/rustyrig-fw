@@ -4,7 +4,6 @@
 #define RRCLIENT_MODEM_CALLSIGN_H
 #include <glib.h>
 #include <string.h>
-#include <rrclient/local.modem.h>
 static inline gboolean rr_modem_callsign_in_text(const char *text,const char *call) {
    if(!text||!call||!*call)return FALSE;
    size_t n=strlen(call);
@@ -33,11 +32,11 @@ static inline const char *rr_modem_callsign_band(uint64_t hz) {
       if(hz>=ranges[i].lo&&hz<=ranges[i].hi)return ranges[i].name;
    return NULL;
 }
-static inline const char *rr_modem_callsign_mode(const rr_local_modem_decode_t *d) {
-   if(!d)return "";
-   if(!g_ascii_strcasecmp(d->engine,"ft8"))return "FT8";
-   if(!g_ascii_strcasecmp(d->engine,"olivia"))return "Olivia";
-   if(!g_ascii_strcasecmp(d->engine,"psk"))return d->mode[0]?d->mode:"PSK";
-   return d->mode[0]?d->mode:d->engine;
+static inline const char *rr_modem_callsign_mode(const char *engine,const char *mode) {
+   if(!engine)return "";
+   if(!g_ascii_strcasecmp(engine,"ft8"))return "FT8";
+   if(!g_ascii_strcasecmp(engine,"olivia"))return "Olivia";
+   if(!g_ascii_strcasecmp(engine,"psk"))return mode&&*mode?mode:"PSK";
+   return mode&&*mode?mode:engine;
 }
 #endif
