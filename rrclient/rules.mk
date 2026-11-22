@@ -1,5 +1,5 @@
 rrclient_headers += $(wildcard rrclient/*.h)
-rrclient_src = $(patsubst %.o,%.c,$(filter-out host.o,$(rrclient_objs)))
+rrclient_src = $(patsubst %.o,%.c,$(filter-out rrscript/host.o,$(rrclient_objs)))
 gtk_headers := $(wildcard rrclient/gtk/*.h)
 
 rrclient := bin/rrclient
@@ -200,12 +200,13 @@ rrclient_objs += ws.serial.o
 
 # Optional RustyScript host support.
 ifeq ($(shell pkg-config --exists librustyscript && echo yes),yes)
-rrclient_objs += host.o
+rrclient_objs += script.o
+rrclient_objs += rrscript/host.o
 CFLAGS_RRCLI += -DRR_HAVE_RUSTYSCRIPT $(shell pkg-config --cflags librustyscript)
 RRCLIENT_SCRIPT_LIBS := $(shell pkg-config --libs librustyscript)
-${BUILD_DIR}/rrclient/host.o: rrscript/host.c inc/rrscript/host.h ${BUILD_HEADERS}
+${BUILD_DIR}/rrclient/rrscript/host.o: rrscript/host.c inc/rrscript/host.h ${BUILD_HEADERS}
 	@mkdir -p $(dir $@)
-	@$(CC) $(CFLAGS_RRCLI) -DRRSCRIPT_CLIENT_HOST $(CFLAGS) $(CFLAGS_WARN) -o $@ -c $< || exit 2
+	@$(CC) $(CFLAGS_RRCLI) $(CFLAGS) $(CFLAGS_WARN) -o $@ -c $< || exit 2
 endif
 
 rrclient_real_objs := $(foreach x, ${rrclient_objs}, ${BUILD_DIR}/rrclient/${x})
