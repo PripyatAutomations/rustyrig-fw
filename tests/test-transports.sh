@@ -8,6 +8,8 @@ case "$mode" in native|mongoose|both) ;; *)
    echo "Usage: tests/test-transports.sh [native|mongoose|both]" >&2; exit 2 ;;
 esac
 command -v jq >/dev/null || { echo 'Missing jq' >&2; exit 2; }
+# Reject mixed public ABIs before spending time on two complete builds.
+bash "$root/tests/selftest/test_transport_abi.sh"
 # Test worktrees live under /tmp, while librrprotocol was split into a
 # sibling checkout of the original repository. Preserve the schema location.
 if [[ -z ${RR_WIRE_SCHEMA:-} && -f $root/../librrprotocol/wire-schema.json ]]; then
