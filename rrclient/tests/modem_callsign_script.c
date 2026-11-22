@@ -103,6 +103,11 @@ int main(int argc,char **argv) {
    spot(vm);
    spot(vm);
    assert(sent==1 && popups==1 && logged==1);
+   clock_ms+=15LL*60*1000;
+   spot(vm);
+   clock_ms+=16LL*60*1000;
+   spot(vm); /* 31 minutes from first alert, but only 16 since last seen. */
+   assert(sent==1 && popups==1 && logged==1);
    clock_ms+=31LL*60*1000;
    spot(vm);
    assert(sent==2 && popups==2 && logged==2);
