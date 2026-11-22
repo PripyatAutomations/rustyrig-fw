@@ -58,6 +58,10 @@ static const char *widget_value(script_widget_t *entry,char *buffer,size_t size)
    GtkWidget *w=entry->widget;
    if(!w)return "";
    if(GTK_IS_TOGGLE_BUTTON(w))return gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(w))?"true":"false";
+   if(GTK_IS_SPIN_BUTTON(w)) {
+      g_ascii_dtostr(buffer,size,gtk_spin_button_get_value(GTK_SPIN_BUTTON(w)));
+      return buffer;
+   }
    if(GTK_IS_ENTRY(w))return gtk_entry_get_text(GTK_ENTRY(w));
    if(GTK_IS_RANGE(w)) {
       g_ascii_dtostr(buffer,size,gtk_range_get_value(GTK_RANGE(w)));
@@ -115,16 +119,15 @@ static void widget_click(script_widget_t *entry,guint button,guint count,
 static gboolean widget_pressed(GtkWidget *widget,GdkEventButton *ev,gpointer data) {
    (void)widget;
    script_widget_t *entry=data;
-   if(ev->type!=GDK_BUTTON_PRESS && ev->type!=GDK_2BUTTON_PRESS &&
-      ev->type!=GDK_3BUTTON_PRESS)return FALSE;
+   /* GDK also delivers a separate 2BUTTON/3BUTTON notification for the
+    * same physical press. Count only real BUTTON_PRESS events. */
+   if(ev->type!=GDK_BUTTON_PRESS)return FALSE;
    gint threshold=250;
    GtkSettings *settings=gtk_settings_get_default();
    if(settings)g_object_get(settings,"gtk-double-click-time",&threshold,NULL);
    guint interval=entry->last_time?ev->time-entry->last_time:0;
    guint count=(entry->last_time && interval<=(guint)threshold &&
       entry->button==ev->button)?MIN(entry->clicks+1,3):1;
-   if(ev->type==GDK_2BUTTON_PRESS)count=MAX(count,2);
-   if(ev->type==GDK_3BUTTON_PRESS)count=3;
    entry->last_time=ev->time;
    entry->button=ev->button;
    entry->clicks=count;
@@ -267,11 +270,11 @@ static void script_gui_command(const rr_event_message_t *message,void *unused) {
    if(!entry||!entry->widget)return;
    if(cmd.action==RR_GUI_SET) {
       GtkWidget *w=entry->widget;
-      if(GTK_IS_ENTRY(w))gtk_entry_set_text(GTK_ENTRY(w),cmd.value);
+      if(GTK_IS_SPIN_BUTTON(w))gtk_spin_button_set_value(GTK_SPIN_BUTTON(w),g_ascii_strtod(cmd.value,NULL));
+      else if(GTK_IS_ENTRY(w))gtk_entry_set_text(GTK_ENTRY(w),cmd.value);
       else if(GTK_IS_TOGGLE_BUTTON(w))gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(w),
          !strcmp(cmd.value,"true")||!strcmp(cmd.value,"1"));
       else if(GTK_IS_RANGE(w))gtk_range_set_value(GTK_RANGE(w),g_ascii_strtod(cmd.value,NULL));
-      else if(GTK_IS_SPIN_BUTTON(w))gtk_spin_button_set_value(GTK_SPIN_BUTTON(w),g_ascii_strtod(cmd.value,NULL));
       else if(GTK_IS_COMBO_BOX_TEXT(w)) {
          GtkTreeModel *model=gtk_combo_box_get_model(GTK_COMBO_BOX(w));
          GtkTreeIter it;
@@ -287,7 +290,7 @@ static void script_gui_command(const rr_event_message_t *message,void *unused) {
       else if(GTK_IS_BUTTON(w))gtk_button_set_label(GTK_BUTTON(w),cmd.value);
    } else if(cmd.action==RR_GUI_SHOW) {
       if(entry->panel)rr_floating_panel_show(entry->panel);
-      else gtk_widget_show(entry->widget);
+      else gtk_widget_show_all(entry->widget);
    } else if(cmd.action==RR_GUI_HIDE) {
       if(entry->panel)rr_floating_panel_hide(entry->panel);
       else gtk_widget_hide(entry->widget);
@@ -296,6 +299,15 @@ static void script_gui_command(const rr_event_message_t *message,void *unused) {
       widget_close(entry);
       g_hash_table_remove(script_widgets,key);
       g_free(key);
+      /* Containers destroy descendant widgets too. Their weak references
+       * are NULL now; free their IDs so a script can recreate the panel. */
+      GHashTableIter iter;
+      gpointer item_key,item_value;
+      g_hash_table_iter_init(&iter,script_widgets);
+      while(g_hash_table_iter_next(&iter,&item_key,&item_value)) {
+         script_widget_t *child=item_value;
+         if(!child->widget)g_hash_table_iter_remove(&iter);
+      }
    }
 }
 void gtk_script_gui_init(void) {
