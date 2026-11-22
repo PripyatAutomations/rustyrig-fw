@@ -523,9 +523,11 @@ static rrs_value_t *script_gui_native(rrs_vm_t *vm,int argc,
       g_strlcpy(command.kind,rrs_value_string(argv[1]),sizeof(command.kind));
       g_strlcpy(command.text,rrs_value_string(argv[3]),sizeof(command.text));
       if(argc==5)g_strlcpy(command.value,rrs_value_string(argv[4]),sizeof(command.value));
-      if(!g_strcmp0(command.kind,"check")||!g_strcmp0(command.kind,"entry")||
-         !g_strcmp0(command.kind,"slider")||!g_strcmp0(command.kind,"spin")||
-         !g_strcmp0(command.kind,"combo")) {
+      if(!g_strcmp0(command.kind,"check")||!g_strcmp0(command.kind,"switch")||
+         !g_strcmp0(command.kind,"entry")||!g_strcmp0(command.kind,"password")||
+         !g_strcmp0(command.kind,"multiline")||!g_strcmp0(command.kind,"readonly")||
+         !g_strcmp0(command.kind,"color")||!g_strcmp0(command.kind,"slider")||
+         !g_strcmp0(command.kind,"spin")||!g_strcmp0(command.kind,"combo")) {
          if(!strcmp(command.kind,"combo")) {
             char *comma=strchr(command.value,',');
             char *choice=comma?g_strndup(command.value,comma-command.value):g_strdup(command.value);
@@ -571,7 +573,7 @@ static rrs_value_t *script_gui_value(rrs_vm_t *vm,int argc,
    script_gui_cached_t *entry=script_gui_values?g_hash_table_lookup(script_gui_values,key):NULL;
    rrs_value_t *value=NULL;
    if(entry) {
-      if(!strcmp(entry->kind,"check"))value=rrs_boolean(!strcmp(entry->text,"true")||!strcmp(entry->text,"1"));
+      if(!strcmp(entry->kind,"check")||!strcmp(entry->kind,"switch"))value=rrs_boolean(!strcmp(entry->text,"true")||!strcmp(entry->text,"1"));
       else if(!strcmp(entry->kind,"slider")||!strcmp(entry->kind,"spin"))
          value=rrs_floating(g_ascii_strtod(entry->text,NULL));
       else value=rrs_string(entry->text);
