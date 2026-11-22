@@ -668,6 +668,60 @@ static script_file_t *find_script(rrscript_host_t *host,const char *name,guint *
    }
    return NULL;
 }
+/* Read-only debugger helpers. They inspect another script's state without
+ * executing its handlers or changing its interpreter variables. */
+static char *script_value_format(const rrs_value_t *v) {
+   if(!v)return g_strdup("null");
+   switch(rrs_value_type(v)) {
+      case RRS_NULL:return g_strdup("null");
+      case RRS_BOOL:return g_strdup(rrs_value_bool(v)?"true":"false");
+      case RRS_INT:return g_strdup_printf("%" G_GINT64_FORMAT,(gint64)rrs_value_int(v));
+      case RRS_FLOAT: {
+         char buf[G_ASCII_DTOSTR_BUF_SIZE];
+         g_ascii_dtostr(buf,sizeof(buf),rrs_value_float(v));
+         return g_strdup(buf);
+      }
+      case RRS_STRING:return g_strdup(rrs_value_string(v));
+      case RRS_CHAR:return g_strdup("<character>");
+      case RRS_DICT:return g_strdup("{dictionary}");
+      default:return g_strdup("<unknown>");
+   }
+}
+static rrs_value_t *native_debug_inspect(rrs_vm_t *vm,int argc,
+   const rrs_value_t *const argv[],void *userdata) {
+   rrscript_host_t *host=userdata;
+   if(argc>2) {rrs_vm_raise(vm,"debug helpers accept at most two strings");return NULL;}
+   for(int i=0;i<argc;i++)if(rrs_value_type(argv[i])!=RRS_STRING){
+      rrs_vm_raise(vm,"debug helper arguments must be strings");return NULL;
+   }
+   if(argc==0) {
+      GString *names=g_string_new("");
+      for(guint i=0;i<host->scripts->len;i++) {
+         script_file_t *script=g_ptr_array_index(host->scripts,i);
+         if(names->len)g_string_append_c(names,'\n');
+         g_string_append(names,script->name);
+      }
+      rrs_value_t *ret=rrs_string(names->str);
+      g_string_free(names,TRUE);return ret;
+   }
+   const char *name=rrs_value_string(argv[0]);
+   if(!strcmp(name,"@namespaces"))return namespace_keys(host->namespaces);
+   GHashTable *vars=NULL;
+   if(g_str_has_prefix(name,"@")) {
+      if(!host->namespaces) {
+         rrs_vm_raise(vm,"No shared namespaces exist");return NULL;
+      }
+      vars=g_hash_table_lookup(host->namespaces,name+1);
+      if(!vars){rrs_vm_raise(vm,"Unknown shared namespace");return NULL;}
+   } else {
+      script_file_t *script=find_script(host,name,NULL);
+      if(!script){rrs_vm_raise(vm,"Script not loaded; inspect debug.scripts()");return NULL;}
+      vars=namespace_table(script,FALSE);
+   }
+   if(argc==1)return namespace_keys(vars);
+   const rrs_value_t *value=vars?g_hash_table_lookup(vars,rrs_value_string(argv[1])):NULL;
+   return value?rrs_value_copy(value):rrs_null();
+}
 static char *resolve_name(rrscript_host_t *host,const char *requested) {
    if(!valid_name(requested))return NULL;
    if(g_str_has_prefix(requested,"autoload/"))return g_strdup(requested);
@@ -959,6 +1013,72 @@ bool rrscript_host_command(rrscript_host_t *host,const char *line) {
    bool result=invoke_named(host,RRSCRIPT_COMMAND,name,context);
    rrs_value_free(context);g_free(name);
    return result;
+}
+/* The console keeps its own VM and variables, while explicitly named
+ * state namespaces are shared through the same host as loaded scripts. */
+bool rrscript_host_console_eval(rrscript_host_t *host,const char *source,
+                                 char **output,char **error) {
+   if(output)*output=NULL;
+   if(error)*error=NULL;
+   if(!host||!host->client||!source||strlen(source)>65536) {
+      if(error)*error=g_strdup("Console unavailable or snippet exceeds 64 KiB");
+      return false;
+   }
+   if(!host->console) {
+      script_file_t *script=g_new0(script_file_t,1);
+      script->host=host;
+      script->client=true;
+      script->name=g_strdup("<console>");
+      script->filename=g_strdup("<console>");
+      g_rec_mutex_init(&script->mutex);
+      script->vm=rrs_vm_new();
+      if(!script->vm) {
+         release_script(script);
+         if(error)*error=g_strdup("Out of memory");
+         return false;
+      }
+      g_snprintf(script->gui_owner,sizeof(script->gui_owner),
+         "s%016llx",(unsigned long long)++next_gui_owner);
+      g_mutex_lock(&script_vm_owners_mutex);
+      if(!script_vm_owners)
+         script_vm_owners=g_hash_table_new(g_direct_hash,g_direct_equal);
+      g_hash_table_insert(script_vm_owners,script->vm,script);
+      g_mutex_unlock(&script_vm_owners_mutex);
+      bool ok=rrs_vm_register_native(script->vm,"log.info",native_log,script_log_info) &&
+         rrs_vm_register_native(script->vm,"log.warn",native_log,script_log_warn) &&
+         rrs_vm_register_native(script->vm,"file.read",native_file,file_op_read) &&
+         rrs_vm_register_native(script->vm,"file.write",native_file,file_op_write) &&
+         rrs_vm_register_native(script->vm,"file.append",native_file,file_op_append) &&
+         rrs_vm_register_native(script->vm,"file.exists",native_file,file_op_exists) &&
+         rrs_vm_register_native(script->vm,"file.list",native_file,file_op_list) &&
+         rrs_vm_register_native(script->vm,"file.rename",native_file,file_op_rename) &&
+         rrs_vm_register_native(script->vm,"file.remove",native_file,file_op_remove) &&
+         rrs_vm_register_native(script->vm,"file.mkdir",native_file,file_op_mkdir) &&
+         rrs_vm_register_native(script->vm,"file.rmdir",native_file,file_op_rmdir) &&
+         rrs_vm_register_native(script->vm,"file.copy",native_file,file_op_copy) &&
+         register_util_api(script->vm) &&
+         rrs_vm_register_native(script->vm,"debug.scripts",native_debug_inspect,host) &&
+         rrs_vm_register_native(script->vm,"debug.keys",native_debug_inspect,host) &&
+         rrs_vm_register_native(script->vm,"debug.state",native_debug_inspect,host) &&
+         rrs_vm_register_native(script->vm,"debug.namespaces",native_debug_inspect,host) &&
+         (!host->register_host||host->register_host(script->vm));
+      if(!ok) {
+         release_script(script);
+         if(error)*error=g_strdup("Unable to register console APIs");
+         return false;
+      }
+      host->console=script;
+   }
+   script_file_t *script=host->console;
+   rrs_value_t *result=NULL;
+   g_rec_mutex_lock(&script->mutex);
+   bool ok=rrs_vm_eval(script->vm,source,&result);
+   if(ok) {
+      if(output)*output=script_value_format(result);
+   } else if(error)*error=g_strdup(rrs_vm_error(script->vm));
+   rrs_value_free(result);
+   g_rec_mutex_unlock(&script->mutex);
+   return ok;
 }
 bool rrscript_host_hotkey(rrscript_host_t *host,const char *sequence) {
    if(!host||!host->client||!sequence)return false;
