@@ -38,8 +38,8 @@ extra_clean += ${BUILD_DIR}/rrserver/gpio.config
 bins += ${rrserver}
 
 rrserver_headers += $(wildcard rrserver/*.h)
-# Shared scripting.host.o is compiled from rrscript/host.c, not rrserver/.
-rrserver_src = $(addprefix rrserver/,$(patsubst %.o,%.c,$(filter-out scripting.host.o,$(rrserver_objs))))
+# The shared rrscript/host.c builds to host.o, separate from rrserver sources.
+rrserver_src = $(addprefix rrserver/,$(patsubst %.o,%.c,$(filter-out host.o,$(rrserver_objs))))
 
 rrserver_objs += acl.o
 rrserver_objs += amp.o			# Support for amplifiers and their control
@@ -163,10 +163,10 @@ endif
 
 # Optional RustyScript host support.
 ifeq ($(shell pkg-config --exists librustyscript && echo yes),yes)
-rrserver_objs += scripting.host.o
+rrserver_objs += host.o
 CFLAGS_RRSERVER += -DRR_HAVE_RUSTYSCRIPT $(shell pkg-config --cflags librustyscript)
 RRSERVER_SCRIPT_LIBS := $(shell pkg-config --libs librustyscript)
-${BUILD_DIR}/rrserver/scripting.host.o: rrscript/host.c inc/rrscript/host.h ${BUILD_HEADERS}
+${BUILD_DIR}/rrserver/host.o: rrscript/host.c inc/rrscript/host.h ${BUILD_HEADERS}
 	@mkdir -p $(dir $@)
 	@$(CC) $(CFLAGS_RRSERVER) $(CFLAGS) $(CFLAGS_WARN) -o $@ -c $< || exit 2
 endif
