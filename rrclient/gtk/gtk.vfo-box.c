@@ -189,19 +189,13 @@ static void vfo_layout_save(void);
 static void vfo_layout_restore(void);
 static guint vfo_width_bucket, vfo_pending_bucket, vfo_resize_idle;
 static guint vfo_bucket_for_width(gint width, guint previous) {
-   if (previous == 1 && width < 770) {
-      return 1;
-   }
-
-   if (previous == 2 && width >= 690 && width < 1290) {
-      return 2;
-   }
-
-   if (previous == 3 && width >= 1210) {
-      return 3;
-   }
-
-   return width < 730 ? 1 : width < 1250 ? 2 : 3;
+   /* The former 730/1250px thresholds forced a one-column layout in
+    * practically every side panel. Let GtkFlowBox wrap according to each
+    * widget's real requisition, with small hysteresis for stable ordering. */
+   if (previous == 1 && width < 290) return 1;
+   if (previous == 2 && width >= 250 && width < 560) return 2;
+   if (previous == 3 && width >= 520) return 3;
+   return width < 270 ? 1 : width < 540 ? 2 : 3;
 }
 
 static const char *vfo_bucket_key(guint bucket) {
@@ -614,7 +608,8 @@ GtkWidget *create_vfo_box(void) {
       GTK_STYLE_PROVIDER(vfo_dock_css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
    gtk_flow_box_set_selection_mode(GTK_FLOW_BOX(vfo_controls_row), GTK_SELECTION_NONE);
    gtk_flow_box_set_min_children_per_line(GTK_FLOW_BOX(vfo_controls_row), 1);
-   /* Begin compact; the viewport's actual allocated width selects 1, 2, or 3 columns later, without inflating the panel's minimum width. */
+   /* The viewport's actual width selects the maximum number of columns.
+    * FlowBox still wraps narrower than that when child widths require it. */
    gtk_flow_box_set_max_children_per_line(GTK_FLOW_BOX(vfo_controls_row), 1);
    gtk_flow_box_set_row_spacing(GTK_FLOW_BOX(vfo_controls_row), 1);
    gtk_flow_box_set_column_spacing(GTK_FLOW_BOX(vfo_controls_row), 1);
@@ -622,10 +617,11 @@ GtkWidget *create_vfo_box(void) {
    gtk_flow_box_set_filter_func(GTK_FLOW_BOX(vfo_controls_row), vfo_control_visible, NULL, NULL);
    gtk_widget_set_halign(vfo_controls_row, GTK_ALIGN_FILL);
    gtk_widget_set_valign(vfo_controls_row, GTK_ALIGN_START);
-   /* GtkFlowBox's natural width wants all controls on one row. Its direct parent must constrain the width *before* GTK measures the floating panel, otherwise
-    * that natural width makes the panel overflow. */
+   /* Constrain FlowBox's natural width without ever exposing a horizontal
+    * scrollbar. Below the frequency entry's minimum width the outer panel
+    * controls sizing; all other controls wrap onto the following row. */
    GtkWidget *flow_viewport = gtk_scrolled_window_new(NULL, NULL);
-   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(flow_viewport), GTK_POLICY_AUTOMATIC, GTK_POLICY_NEVER);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(flow_viewport), GTK_POLICY_NEVER, GTK_POLICY_NEVER);
    gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(flow_viewport), 1);
    gtk_scrolled_window_set_propagate_natural_width(GTK_SCROLLED_WINDOW(flow_viewport), FALSE);
    gtk_scrolled_window_set_propagate_natural_height(GTK_SCROLLED_WINDOW(flow_viewport), TRUE);
@@ -661,6 +657,16 @@ GtkWidget *create_vfo_box(void) {
    gtk_widget_show(mode_box);
    vfo_control_add(mode_box, "⋮⋮ Mode");
 
+   /* Pack the compact power control immediately after Mode/Width. At
+    * side-panel widths it can share that row; Codecs then wraps below.
+    * Individual control groups remain independently draggable. */
+   // TX power for transceivers.
+   GtkWidget *tx_power_vbox = create_txpower_box();
+   vfo_tx_power_box = tx_power_vbox;
+   g_object_add_weak_pointer(G_OBJECT(tx_power_vbox), (gpointer *) &vfo_tx_power_box);
+   gtk_widget_show(tx_power_vbox);
+   vfo_control_add(tx_power_vbox, "⋮⋮ TX Power");
+
    // CODEC selectors
    GtkWidget *codec_selectors = create_codec_selector_vbox(&tx_codec_combo, &rx_codec_combo);
    vfo_codec_box = codec_selectors;
@@ -669,13 +675,6 @@ GtkWidget *create_vfo_box(void) {
       gtk_widget_set_visible(codec_selectors, !room || g_ascii_strcasecmp(room, "&local-sdr") != 0);
    }
    vfo_control_add(codec_selectors, "⋮⋮ Codecs");
-
-   // TX power for transceivers.
-   GtkWidget *tx_power_vbox = create_txpower_box();
-   vfo_tx_power_box = tx_power_vbox;
-   g_object_add_weak_pointer(G_OBJECT(tx_power_vbox), (gpointer *) &vfo_tx_power_box);
-   gtk_widget_show(tx_power_vbox);
-   vfo_control_add(tx_power_vbox, "⋮⋮ TX Power");
 
    // These globals are borrowed widget references used by protocol/event
    // callbacks.  Clear them automatically if the VFO window is destroyed.
