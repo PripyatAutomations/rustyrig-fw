@@ -501,7 +501,7 @@ static bool chat_send_paced(rrconn_t *connection, dict *message, bool irc, const
 
 /* Script sends share the same bounded IRC/WS queue and flood tokens as chat. */
 bool rrclient_script_chat_send(const char *profile,const char *target,
-                               const char *text,const char *tag,guint interval_ms) {
+                               const char *text,const char *tag,unsigned interval_ms) {
    if(!profile||!*profile||!target||!*target||!text||!*text ||
       strlen(text)>400 || strpbrk(target,"\r\n ,") ||
       strchr(text,'\r')||strchr(text,'\n'))return false;
