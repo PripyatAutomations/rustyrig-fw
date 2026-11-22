@@ -25,6 +25,11 @@ static rrs_value_t *string_str(rrs_vm_t *vm,int argc,
     const rrs_value_t *const args[],void *unused) {
    (void)vm;(void)unused;
    assert(argc==1);
+   if(rrs_value_type(args[0])==RRS_INT) {
+      char text[32];
+      snprintf(text,sizeof(text),"%lld",(long long)rrs_value_int(args[0]));
+      return rrs_string(text);
+   }
    return rrs_string(rrs_value_string(args[0]));
 }
 static void field(rrs_value_t *event,const char *key,const char *value) {
@@ -51,7 +56,9 @@ int main(int argc,char **argv) {
    field(event,"origin","modem");
    field(event,"modem","modem2");
    field(event,"audio_source","rx.audio2");
-   field(event,"frequency_hz","14074000");
+   rrs_value_t *freq=rrs_integer(14074000);
+   assert(freq && rrs_dict_put(event,"frequency_hz",freq));
+   rrs_value_free(freq);
    field(event,"kind","watchlist");
    field(event,"callsign","K1ABC");
    field(event,"band","20m");
