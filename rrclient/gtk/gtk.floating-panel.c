@@ -807,7 +807,8 @@ static void panel_dock_attach(RRFloatPanel *p, RRChatDocks *d, gint edge) {
    /* Snap guides belong to the floating overlay coordinate system. */
    p->snapped_x = p->snapped_y = FALSE;
 
-   if (!p->resizable) {
+   /* Reparenting must not make natural-sized controls resizable. */
+   if (!p->resizable && !p->content_sized) {
       p->resizable = TRUE;
       p->dock_forced_resizable = TRUE;
    }
@@ -837,7 +838,9 @@ static void panel_dock_detach(RRFloatPanel *p, gint root_x, gint root_y) {
    gtk_overlay_add_overlay(p->overlay, p->frame);
    gtk_widget_set_halign(p->frame, GTK_ALIGN_START);
    gtk_widget_set_valign(p->frame, GTK_ALIGN_START);
-   gtk_widget_set_size_request(p->frame, p->saved_width > 1 ? p->saved_width : -1, p->saved_height > 1 ? p->saved_height : -1);
+   gtk_widget_set_size_request(p->frame,
+      p->content_sized ? -1 : (p->saved_width > 1 ? p->saved_width : -1),
+      p->content_sized ? -1 : (p->saved_height > 1 ? p->saved_height : -1));
    gint x = p->float_x, y = p->float_y;
 
    if (root_x >= 0 && root_y >= 0) {
@@ -1737,7 +1740,7 @@ static void panel_zoom_apply(RRFloatPanel *p, gint old_zoom, gint old_width, gin
       p->zoom_callback(scale, p->zoom_data);
    }
 
-   if (p->resizable && !p->rolled && old_width > 1 && old_height > 1) {
+   if (!p->content_sized && p->resizable && !p->rolled && old_width > 1 && old_height > 1) {
       gint min_w = p->dock_edge >= 0 ? 90 : panel_minimum_width(p);
       gint min_h = p->dock_edge >= 0 ? 48 : 180;
       gint max_w, max_h;
@@ -1759,7 +1762,7 @@ static void panel_zoom_apply(RRFloatPanel *p, gint old_zoom, gint old_width, gin
          p->dock_height = height;
          panel_dock_size_save(p);
       }
-   } else if (!p->resizable && !p->rolled) {
+   } else if ((!p->resizable || p->content_sized) && !p->rolled) {
       gtk_widget_set_size_request(p->frame, -1, -1);
    }
    gtk_widget_queue_resize(p->frame);
