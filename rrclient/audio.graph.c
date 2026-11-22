@@ -33,6 +33,18 @@ static gint lookup(const rr_audio_graph_t *g, const char *id) {
    return -1;
 }
 
+const char *rr_audio_graph_listen_bus(unsigned downstream_rate_hz,
+                                      const char *requested_mixer) {
+   if (!requested_mixer) return NULL;
+   const gboolean hq = downstream_rate_hz > 16000;
+   if (hq)
+      return strcmp(requested_mixer, "hq.mix") ? NULL : "hq.mix";
+   if (!strcmp(requested_mixer, "rx.mix") ||
+       !strcmp(requested_mixer, "hq.mix"))
+      return "rx.mix"; /* existing rx16.resample -> HQ output */
+   return NULL;
+}
+
 rr_audio_graph_t *rr_audio_graph_new(void) {
    rr_audio_graph_t *g = g_new0(rr_audio_graph_t, 1);
    g->nodes = g_array_new(FALSE, FALSE, sizeof(rr_ag_node_t));
