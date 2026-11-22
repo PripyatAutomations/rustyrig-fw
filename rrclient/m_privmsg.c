@@ -818,6 +818,7 @@ static void rrclient_irc_message(const char *event, const char *data, rrconn_t *
          rrclient_server_status_window(from);
       }
       dict_add(d, "talk.msg_type", kind);
+      dict_add(d, "talk.room", channel ? arg1 : from);
       dict_add(d, "talk.data", text);
 
       if (channel && *from) {
