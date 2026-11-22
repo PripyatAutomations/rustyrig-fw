@@ -694,7 +694,6 @@ static script_file_t *find_script(rrscript_host_t *host,const char *name,guint *
    }
    return NULL;
 }
-static script_file_t *find_script(rrscript_host_t *host,const char *name,guint *index);
 /* Read-only debugger helpers. They inspect another script's state without
  * executing its handlers or changing its interpreter variables. */
 static rrs_value_t *native_debug_namespaces(rrs_vm_t *vm,int argc,
