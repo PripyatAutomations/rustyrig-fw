@@ -10,5 +10,6 @@
 #include <librustyaxe/config.h>
 
 extern GtkWidget *create_mode_box(void);
+void modebox_vfo_switched(void);
 
 #endif // !defined(__rrclient_gtk_mode_box_h)
