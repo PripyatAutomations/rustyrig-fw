@@ -134,7 +134,7 @@ static rrs_value_t *native_art_capture(rrs_vm_t *vm,int argc,
 static rrs_value_t *native_file(rrs_vm_t *vm,int argc,
    const rrs_value_t *const argv[],void *user) {
    const char *op=user;
-   int wanted=(!strcmp(op,"write")||!strcmp(op,"append")||!strcmp(op,"rename"))?2:1;
+   int wanted=(!strcmp(op,"write")||!strcmp(op,"append")||!strcmp(op,"rename")||!strcmp(op,"copy"))?2:1;
    if(argc!=wanted) {
       rrs_vm_raise(vm,"file operation requires path[, contents/destination]");
       return NULL;
@@ -178,6 +178,27 @@ static rrs_value_t *native_file(rrs_vm_t *vm,int argc,
       rrs_value_t *out=rrs_string(items->str);
       g_string_free(items,TRUE);
       return out;
+   }
+   if(!strcmp(op,"mkdir")) {
+      if(g_mkdir_with_parents(path,0700)!=0){rrs_vm_raise(vm,"Cannot create directory");return NULL;}
+      return rrs_boolean(true);
+   }
+   if(!strcmp(op,"rmdir")) {
+      if(g_rmdir(path)!=0){rrs_vm_raise(vm,"Cannot remove directory");return NULL;}
+      return rrs_boolean(true);
+   }
+   if(!strcmp(op,"copy")) {
+      const char *dest=rrs_value_string(argv[1]);
+      GStatBuf st;
+      if(g_stat(path,&st)!=0 || !S_ISREG(st.st_mode) || st.st_size>16*1024*1024) {
+         rrs_vm_raise(vm,"Copy source must be a regular file (maximum 16 MiB)");return NULL;
+      }
+      char *bytes=NULL;gsize size=0;
+      bool ok=g_file_get_contents(path,&bytes,&size,NULL) &&
+         g_file_set_contents(dest,bytes,size,NULL);
+      g_free(bytes);
+      if(!ok){rrs_vm_raise(vm,"Copy failed");return NULL;}
+      return rrs_boolean(true);
    }
    if(!strcmp(op,"remove")) {
       if(g_remove(path)!=0){rrs_vm_raise(vm,"Cannot remove file");return NULL;}
@@ -673,6 +694,9 @@ static bool register_window_api(rrs_vm_t *vm) {
        rrs_vm_register_native(vm,"file.list",native_file,"list") &&
        rrs_vm_register_native(vm,"file.rename",native_file,"rename") &&
        rrs_vm_register_native(vm,"file.remove",native_file,"remove") &&
+       rrs_vm_register_native(vm,"file.mkdir",native_file,"mkdir") &&
+       rrs_vm_register_native(vm,"file.rmdir",native_file,"rmdir") &&
+       rrs_vm_register_native(vm,"file.copy",native_file,"copy") &&
        rrs_vm_register_native(vm,"art.capture",native_art_capture,NULL) &&
        rrs_vm_register_native(vm,"window.find",native_window_find,NULL) &&
       rrs_vm_register_native(vm,"window.move",native_window_move,NULL) &&
