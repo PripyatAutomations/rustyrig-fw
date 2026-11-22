@@ -246,7 +246,7 @@ static void callsign_notify(const rr_local_modem_decode_t *d,const char *body,
    dict_add_long(fields,"frequency_hz",(long)d->frequency_hz);
    dict_add_int(fields,"watch_id",watch_id);
    char *json=dict2json(fields);
-   if(json)event_emit("modem.callsign",json,NULL);
+   if(json)event_emit("modem.callsign",NULL,json);
    free(json);
    dict_free(fields);
 }
