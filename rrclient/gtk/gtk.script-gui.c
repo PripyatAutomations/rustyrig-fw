@@ -151,9 +151,16 @@ static void button_activated(GtkButton *button,gpointer data) {
 }
 static void dialog_response(GtkDialog *dialog,gint response,gpointer data) {
    script_widget_t *entry=data;
+   const char *answer="cancel";
+   if(response==GTK_RESPONSE_OK || response==GTK_RESPONSE_ACCEPT)answer="ok";
+   else if(response==GTK_RESPONSE_YES)answer="yes";
+   else if(response==GTK_RESPONSE_NO)answer="no";
+   else if(response==GTK_RESPONSE_CLOSE)answer="close";
    dict *d=dict_new();
    event_fields(d,entry);
-   dict_add_int(d,"response",response);
+   dict_add_int(d,"response",response); /* Preserve existing numeric contract. */
+   dict_add(d,"answer",(char *)answer);
+   dict_add_bool(d,"accepted",!strcmp(answer,"ok")||!strcmp(answer,"yes"));
    event_emit_dict("ui.response",NULL,d);
    event_emit_dict("gui.response",NULL,d);
    dict_free(d);
@@ -183,7 +190,7 @@ static void script_gui_remove_owner(const char *owner) {
    /* Close top-level windows first; their descendant weak refs become NULL. */
    for(guint i=0;i<owned->len;i++) {
       script_widget_t *entry=g_hash_table_lookup(script_widgets,g_ptr_array_index(owned,i));
-      if(entry && (!strcmp(entry->kind,"panel")||!strcmp(entry->kind,"dialog")))
+      if(entry && (!strcmp(entry->kind,"panel")||!strcmp(entry->kind,"dialog")||!strcmp(entry->kind,"message")))
          widget_close(entry);
    }
    for(guint i=0;i<owned->len;i++)
@@ -252,6 +259,29 @@ static void script_gui_command(const rr_event_message_t *message,void *unused) {
       !memchr(cmd.text,0,sizeof(cmd.text))||!memchr(cmd.value,0,sizeof(cmd.value)))return;
    if(cmd.action==RR_GUI_RELEASE){script_gui_remove_owner(cmd.owner);return;}
    script_widget_t *entry=widget_find(cmd.owner,cmd.id);
+   if(cmd.action==RR_GUI_MESSAGE) {
+      /* A standard message is a logical dialog, not a GTK-specific widget
+       * exposed to scripts. The same request can be handled by a TUI. */
+      if(strcmp(cmd.kind,"ok") && strcmp(cmd.kind,"yesno"))return;
+      if(entry) {
+         if(!strcmp(entry->kind,"message") && entry->widget) {
+            gtk_window_present(GTK_WINDOW(entry->widget));
+         }
+         return;
+      }
+      if(!main_window || !GTK_IS_WINDOW(main_window))return;
+      GtkWidget *dialog=gtk_message_dialog_new(GTK_WINDOW(main_window),
+         GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+         !strcmp(cmd.kind,"yesno")?GTK_MESSAGE_QUESTION:GTK_MESSAGE_INFO,
+         !strcmp(cmd.kind,"yesno")?GTK_BUTTONS_YES_NO:GTK_BUTTONS_OK,
+         "%s",cmd.value);
+      gtk_window_set_title(GTK_WINDOW(dialog),cmd.text);
+      script_widget_t *record=widget_track(cmd.owner,cmd.id,"message",dialog,NULL);
+      if(!record){gtk_widget_destroy(dialog);return;}
+      g_signal_connect(dialog,"response",G_CALLBACK(dialog_response),record);
+      gtk_widget_show(dialog);
+      return;
+   }
    if(cmd.action==RR_GUI_PANEL || cmd.action==RR_GUI_DIALOG) {
       if(entry || !main_window || !main_notebook)return;
       if(cmd.action==RR_GUI_PANEL) {
