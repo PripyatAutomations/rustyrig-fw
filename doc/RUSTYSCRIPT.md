@@ -149,7 +149,7 @@ Both `window` and `panel` are aliases for this first API:
 |---|---|
 | `window.find(pattern)` | Find the first title matching a case-insensitive GLib regular expression; exact panel ID also accepted |
 | `window.find(pattern, location)` | Restrict discovery to one location |
-| `window.move(id, location, x, y)` | Move an existing panel to a dock or the main overlay |
+| `window.move(id, location[, x, y])` | Move an existing panel to a dock or the main overlay, with optional coordinates |
 | `window.zoom(id, percent)` | Set local panel zoom, 10–200 percent |
 | `window.opacity(id, percent)` | Set panel opacity, 30–100 percent |
 
@@ -158,10 +158,10 @@ identical behavior.
 
 Locations are **N** (north/top), **E** (east/right), **W** (west/left),
 **S** (south/bottom), **M** (main floating workspace); `*` means any
-location **for discovery only**. All coordinates are nonnegative integers
-in pixels relative to the destination dock's slot, or relative to the main
-overlay for `M`. Coordinates must be supplied explicitly, currently
-between 0 and 8192.
+location **for discovery only**. When supplied, coordinates are nonnegative integers in pixels relative to
+the destination dock's slot, or the main overlay for `M` (range 0–8192).
+If omitted, the panel reuses its previously saved position for that
+destination type (`window.move(w.id, "E")`).
 
 `find` returns either `null` or a **dictionary** containing `id`,
 `title`, and `location`. Store the returned stable ID instead of
