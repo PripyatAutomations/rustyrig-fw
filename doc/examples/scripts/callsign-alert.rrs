@@ -1,0 +1,12 @@
+// RustyScript: react to modem callsign matches. SPDX-License-Identifier: GPL-2.0-only
+// Copy to ~/.config/rustyrig/scripts/ and /script load callsign-alert.rrs.
+// Alerts are emitted by the decoder core even when Terminal is not visible.
+event modem.callsign {
+    if (event.kind == "own") {
+        log.info("My callsign " + event.callsign + " heard on " + event.band +
+                 " (" + event.mode + "): " + event.text)
+    } else {
+        log.info("Watched " + event.callsign + " on " + event.band +
+                 " (" + event.mode + "): " + event.text)
+    }
+}
