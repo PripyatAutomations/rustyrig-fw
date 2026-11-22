@@ -1,4 +1,4 @@
-# RustyRig
+# RustyRig Remote
 
 **Share radios, audio, and station resources over a network.**
 
