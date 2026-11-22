@@ -33,8 +33,12 @@ typedef struct {
    bool min_connected, min_valid;
    bool max_connected, max_valid;
    bool signal_connected, signal_valid, signal_high;
-   bool invert;                /* Optional outside-range comparator mode. */
+   bool invert;                /* Property default; XORed with active INVERT pin. */
+   bool invert_connected, invert_valid, invert_high; /* Optional boolean input. */
 } rr_threshold_state_t;
+/* Constant TRUE/FALSE outputs for reusable control blocks; independent
+ * of a comparator's own input validity. */
+bool rr_logic_constant(bool high);
 rr_threshold_state_t rr_threshold_default(void);
 bool rr_threshold_evaluate(const rr_threshold_state_t *state, bool *output);
 #endif
