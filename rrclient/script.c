@@ -184,8 +184,8 @@ static rrs_value_t *script_gui_native(rrs_vm_t *vm,int argc,
       }
    }
    const rr_frontend_ops_t *frontend=frontend_ops();
-   if(!frontend || !frontend->name || strcmp(frontend->name,"gtk")) {
-      rrs_vm_raise(vm,"GUI widgets require the GTK frontend");return NULL;
+   if(!frontend || !frontend->script_gui_available || !frontend->script_gui_available()) {
+      rrs_vm_raise(vm,"Current frontend does not implement script controls");return NULL;
    }
    rr_script_gui_command_t command={.action=(uint32_t)action};
    script_gui_owner(command.owner,vm);
