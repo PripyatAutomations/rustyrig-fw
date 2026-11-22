@@ -62,6 +62,20 @@ int main(void) {
    assert(!rr_audio_graph_add_channel_link(g,"modem1.tx","ordinary.sink",RR_AG_NORMAL,RR_AG_CHANNEL_LEFT));
    assert(rr_audio_graph_link_count(g)==5);
    rr_audio_graph_free(g);
+   /* The same logical TX input graph must work whichever endpoint is
+    * registered first; the transport is the only real encoder output. */
+   g=rr_audio_graph_new();
+   assert(g);
+   assert(rr_audio_graph_add_node(g,"modem1.tx",RR_AG_SOURCE));
+   assert(rr_audio_graph_add_node(g,"modem2.tx",RR_AG_SOURCE));
+   assert(rr_audio_graph_add_node(g,"tx.transport",RR_AG_PROCESSOR));
+   assert(rr_audio_graph_add_node(g,"rig.sink",RR_AG_SINK));
+   assert(rr_audio_graph_add_channel_link(g,"modem1.tx","rig.sink",RR_AG_NORMAL,RR_AG_CHANNEL_LEFT));
+   assert(rr_audio_graph_add_channel_link(g,"modem2.tx","rig.sink",RR_AG_NORMAL,RR_AG_CHANNEL_LEFT));
+   assert(rr_audio_graph_add_channel_link(g,"tx.transport","rig.sink",RR_AG_NORMAL,RR_AG_CHANNEL_LEFT));
+   assert(!rr_audio_graph_add_channel_link(g,"tx.transport","rig.sink",RR_AG_NORMAL,RR_AG_CHANNEL_LEFT));
+   assert(rr_audio_graph_link_count(g)==3);
+   rr_audio_graph_free(g);
    /* LV2 slot IDs are not an execution order. The graph must accept
     * an effect output feeding a lower-numbered slot, provided all nodes
     * have been registered before connecting their edges. */
