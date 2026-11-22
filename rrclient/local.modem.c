@@ -209,7 +209,7 @@ static void callsign_notify(const rr_local_modem_decode_t *d,const char *body,
    dict_add_long(fields,"time_ms",(long)(g_get_real_time()/1000));
    dict_add_bool(fields,"own",!strcmp(kind,"own"));
    dict_add(fields,"engine",d->engine);
-   dict_add(fields,"mode",rr_modem_callsign_mode(d));
+   dict_add(fields,"mode",rr_modem_callsign_mode(d->engine,d->mode));
    dict_add(fields,"source",d->source);
    const char *band=rr_modem_callsign_band(d->frequency_hz);
    dict_add(fields,"band",band?band:"");
@@ -237,7 +237,7 @@ static void watch_hit_free(gpointer data) {
 static void callsign_watch_rule(const rrclient_watched_call_t *rule,void *data) {
    watch_context_t *ctx=data;
    if(!rule->callsign||!rr_modem_callsign_in_text(ctx->text,rule->callsign))return;
-   const char *mode=rr_modem_callsign_mode(ctx->decode),*band=rr_modem_callsign_band(ctx->decode->frequency_hz);
+   const char *mode=rr_modem_callsign_mode(ctx->decode->engine,ctx->decode->mode),*band=rr_modem_callsign_band(ctx->decode->frequency_hz);
    gboolean mode_ok=!g_ascii_strcasecmp(rule->mode,"Any")||
       !g_ascii_strcasecmp(rule->mode,mode)||
       (!g_ascii_strcasecmp(rule->mode,"PSK31")&&
