@@ -42,7 +42,7 @@ event watch.callsign {
 
     // Notify only after this callsign has been ABSENT for 30 minutes.
     // The timer resets with every decode (not just every notification).
-    char[] key = "watch.spotted." + string.hash(event.callsign)
+    char[] key = "watch.spotted.call-" + string.hash(event.callsign)
     int now = time.now()
     int previous = state.get(key)
     bool notify = true
