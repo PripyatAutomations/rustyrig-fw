@@ -1,11 +1,90 @@
-// Save colorized IRC artwork automatically. The native art.capture helper
-// groups colored lines from one nick/room received within 15 seconds.
-// Files preserve raw mIRC \003 and RGB \004 control sequences.
-// Archive: $XDG_DATA_HOME/rustyrig/artwork/*.ircart
-//
-// Copy to ~/.config/rustyrig/scripts/autoload/ascii-art.rrs or load with
-// /script load ascii-art.rrs from the scripts root.
+// Color artwork collector and script-defined macro playback manager.
+// Copy to ~/.config/rustyrig/scripts/autoload/ascii-art.rrs
+// or ~/.config/rustyrig/scripts/ascii-art.rrs and /script load ascii-art.rrs
+// Captures IRC indexed/RGB colors as chan-nick-yyyymmdd-hhmmss.mac.
+// /artwork opens the reusable file browser and colored preview.
 
 event irc.privmsg {
     art.capture(event.text, event.nick, event.room)
+}
+
+script("/artwork", {
+    ui.utility("artwork", "IRC Artwork / Macros")
+    ui.add("artwork", "column", "artwork_layout", "")
+    ui.add("artwork_layout", "row", "artwork_content", "")
+    ui.add("artwork_content", "filelist", "artwork_files", "Select a .mac artwork", art.dir())
+    ui.add("artwork_content", "irc-preview", "artwork_preview", "Color preview")
+    ui.add("artwork_layout", "row", "artwork_target_row", "")
+    ui.add("artwork_target_row", "label", "artwork_target_label", "Send to:")
+    ui.add("artwork_target_row", "roomlist", "artwork_target", "Open room tabs")
+    ui.add("artwork_target_row", "button", "artwork_rooms_refresh", "Refresh rooms")
+    ui.add("artwork_layout", "row", "artwork_rate_row", "")
+    ui.add("artwork_rate_row", "label", "artwork_rate_label", "Lines/sec (1-10):")
+    ui.add("artwork_rate_row", "spin", "artwork_rate", "Lines per second", "1")
+    ui.add("artwork_rate_row", "button", "artwork_save_rate", "Save room rate")
+    ui.add("artwork_layout", "row", "artwork_actions", "")
+    ui.add("artwork_actions", "button", "artwork_send", "Send")
+    ui.add("artwork_actions", "button", "artwork_stop", "Stop")
+    ui.add("artwork_actions", "button", "artwork_edit", "Edit")
+    ui.add("artwork_actions", "button", "artwork_refresh", "Refresh files")
+    ui.add("artwork_layout", "row", "artwork_file_actions", "")
+    ui.add("artwork_file_actions", "entry", "artwork_newname", "New filename.mac")
+    ui.add("artwork_file_actions", "button", "artwork_rename", "Rename / Move")
+    ui.add("artwork_file_actions", "button", "artwork_delete", "Delete")
+    ui.add("artwork_layout", "label", "artwork_status", "Choose a macro and a destination room")
+    ui.show("artwork")
+})
+
+event ui.change {
+    if (event.id == "artwork_files") {
+        ui.set("artwork_preview", event.value)
+        ui.set("artwork_status", event.value)
+    }
+    if (event.id == "artwork_target") {
+        ui.set("artwork_rate", art.rate_get(event.value))
+    }
+}
+
+event ui.click {
+    if (event.id == "artwork_rooms_refresh") {
+        ui.set("artwork_target", "refresh")
+    }
+    if (event.id == "artwork_refresh") {
+        ui.set("artwork_files", "refresh")
+    }
+    if (event.id == "artwork_send") {
+        art.rate_set(ui.val("artwork_target"), ui.val("artwork_rate"))
+        art.play(ui.val("artwork_files"), ui.val("artwork_target"), ui.val("artwork_rate"))
+        ui.set("artwork_status", "Sending selected macro to selected room")
+    }
+    if (event.id == "artwork_stop") {
+        art.stop()
+        ui.set("artwork_status", "Playback stopped")
+    }
+    if (event.id == "artwork_save_rate") {
+        art.rate_set(ui.val("artwork_target"), ui.val("artwork_rate"))
+        ui.set("artwork_status", "Saved room playback speed")
+    }
+    if (event.id == "artwork_edit") {
+        art.edit(ui.val("artwork_files"))
+    }
+    if (event.id == "artwork_rename") {
+        file.rename(art.path(ui.val("artwork_files")), art.path(ui.val("artwork_newname")))
+        ui.set("artwork_files", "refresh")
+        ui.set("artwork_status", "Macro renamed")
+    }
+    if (event.id == "artwork_delete") {
+        ui.message("artwork_delete_confirm", "Delete artwork?", "Delete the selected .mac file permanently?", "yesno")
+    }
+}
+
+event ui.response {
+    if (event.id == "artwork_delete_confirm") {
+        if (event.answer == "yes") {
+            file.remove(art.path(ui.val("artwork_files")))
+            ui.set("artwork_files", "refresh")
+            ui.set("artwork_preview", "")
+            ui.set("artwork_status", "Macro deleted")
+        }
+    }
 }
