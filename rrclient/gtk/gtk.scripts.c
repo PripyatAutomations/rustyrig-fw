@@ -359,12 +359,14 @@ static void debug_open_source(GtkWidget *widget,gpointer user) {
    GtkTreeModel *model=NULL;
    GtkTreeIter iter;
    if(!debug_selected(&iter,&model))return;
-   char *path=NULL;
-   gtk_tree_model_get(model,&iter,DBG_PATH,&path,-1);
+   char *path=NULL,*position=NULL;
+   gtk_tree_model_get(model,&iter,DBG_PATH,&path,DBG_LOCATION,&position,-1);
+   unsigned line=0,column=0;
+   if(position)sscanf(position,"%u:%u",&line,&column);
    if(path && g_str_has_suffix(path,".rrs") &&
       g_file_test(path,G_FILE_TEST_IS_REGULAR))
-      gui_file_editor_open(path);
-   g_free(path);
+      gui_file_editor_open_at(path,line,column);
+   g_free(position);g_free(path);
 }
 static void debug_row_activated(GtkTreeView *view,GtkTreePath *path,
                                  GtkTreeViewColumn *column,gpointer unused) {
