@@ -57,7 +57,6 @@ struct fwdsp_io_conn;
 #define FWDSP_CTRL_START_RECORD 7   // Start recording the raw audio
 #define FWDSP_CTRL_SET_QUALITY 9 // normalized encoder quality hint, 25..100
 #define FWDSP_CTRL_SET_PROPERTY 10  /* processor element control, finite numeric value */
-#define FWDSP_CTRL_SET_PROPERTY_STRING 11 /* named GObject string property, bounded IPC text */
 #define FWDSP_CTRL_STOP_RECORD 8 // Stop recording the raw audio
 #define FWDSP_RECORD_USER_LEN 64
 #define FWDSP_RECORD_ID_LEN 64
@@ -201,7 +200,6 @@ extern bool fwdsp_processor_write(const char *name, const void *samples, size_t 
 extern bool fwdsp_processor_setvol(const char *name, int percent);
 /* Returns false when the named child is unavailable or the command cannot be queued. The child validates property types and published ranges. */
 extern bool fwdsp_processor_set_property(const char *name, const char *element, const char *property, double value);
-extern bool fwdsp_processor_set_property_string(const char *name, const char *element, const char *property, const char *value);
 // Stop a named endpoint. Pass a qualified name (src.rig0, sink.rig0,
 // proc.effect-name, or recode.codec-name) when names may overlap.
 extern int fwdsp_processor_dup_input(const char *name);
