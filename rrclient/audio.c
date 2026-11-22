@@ -1968,7 +1968,17 @@ static void audio_lv2_request(const rr_event_message_t *msg, void *unused) {
          Log(LOG_WARN, "audio.lv2", "Cannot start LV2 effect %s on %s", req.factory, req.source);
       }
    } else if (req.action == 'D') {
-      audio_lv2_stop(req.slot, TRUE);
+      if (req.slot && req.slot <= RR_AUDIO_EFFECT_MAX) {
+         /* Removing the host must also retire its virtual stages. Their
+          * saved configurations survive for a later explicit reconnection. */
+         gboolean host = lv2_effects[req.slot - 1].chain_host == req.slot;
+         audio_lv2_stop(req.slot, TRUE);
+         if (host) {
+            for (guint i = 0 ; i < RR_AUDIO_EFFECT_MAX ; i++)
+               if (i + 1 != req.slot && lv2_effects[i].chain_host == req.slot)
+                  audio_lv2_stop(i + 1, FALSE);
+         }
+      }
    } else if (req.action == 'O' && req.slot && req.slot <= RR_AUDIO_EFFECT_MAX) {
       rr_lv2_effect_t *fx = &lv2_effects[req.slot - 1];
 
