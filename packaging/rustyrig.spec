@@ -1,5 +1,5 @@
 Name: rustyrig
-Version: 1.0.3
+Version: 1.0.4
 Release: 1%{?dist}
 Summary: RustyRig remote radio software
 License: GPL-2.0-only
