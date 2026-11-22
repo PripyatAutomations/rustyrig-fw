@@ -168,6 +168,32 @@ int main(int argc, char **argv) {
    g_assert_cmpint(gtk_widget_get_allocated_height(compact->frame), >, natural_height);
    rr_floating_panel_destroy(compact);
 
+   /* Roll-up hides the complete body and releases its height request.
+    * Roll-down restores the expanded dimensions. */
+   gtk_widget_set_size_request(first_frame, 300, 260);
+   drain_events();
+   gint expanded_h = gtk_widget_get_allocated_height(first_frame);
+   panel_roll(NULL, first);
+   drain_events();
+   g_assert_true(first->rolled);
+   g_assert_false(gtk_widget_get_visible(first->scale_wrapper));
+   g_assert_cmpint(gtk_widget_get_allocated_height(first_frame), <, expanded_h);
+   panel_roll(NULL, first);
+   drain_events();
+   g_assert_false(first->rolled);
+   g_assert_true(gtk_widget_get_visible(first->scale_wrapper));
+   g_assert_cmpint(gtk_widget_get_allocated_height(first_frame), >=, expanded_h);
+
+   /* A utility must stay in the overlay, never become a dock child. */
+   RRFloatPanel *utility = rr_floating_panel_new(GTK_OVERLAY(overlay),
+      GTK_NOTEBOOK(tabs), "utility-float-only", "File Editor");
+   rr_floating_panel_set_floating_only(utility);
+   g_assert_true(utility->floating_only);
+   g_assert_true(utility->pinned);
+   g_assert_cmpint(utility->dock_edge, ==, -1);
+   g_assert_true(gtk_widget_get_parent(utility->frame) == overlay);
+   rr_floating_panel_destroy(utility);
+
    /* New/Edit Server uses an explicit present, even when the picker remains temporarily masked. Only the requested editor may show. */
    rr_floating_panels_set_hidden(RR_FLOATING_HIDE_TAB, TRUE);
    RRFloatPanel *editor_panel = rr_floating_panel_new(GTK_OVERLAY(overlay), GTK_NOTEBOOK(tabs), "serveredit", "New Server");
