@@ -28,6 +28,7 @@ struct script_file {
    char gui_owner[32];
    GRecMutex mutex; /* Nested synchronous event emissions must not deadlock. */
    event_subscription_t *subscriptions;
+   GHashTable *vars, *timers;
 };
 struct rrscript_host {
    GPtrArray *scripts;
@@ -173,6 +174,166 @@ static rrs_value_t *native_file(rrs_vm_t *vm,int argc,
 }
 
 
+
+/* Reusable script utilities: neither their state nor timers know about .mac files. */
+enum { UTIL_REGEX=1,UTIL_CHR,UTIL_SLUG,UTIL_LINE,UTIL_LINES,UTIL_NOW,
+       UTIL_STAMP,UTIL_DATA,UTIL_GET,UTIL_SET,UTIL_EVERY,UTIL_AFTER,UTIL_CANCEL };
+static script_file_t *script_vm_lookup(rrs_vm_t *vm) {
+   g_mutex_lock(&script_vm_owners_mutex);
+   script_file_t *script=script_vm_owners?g_hash_table_lookup(script_vm_owners,vm):NULL;
+   g_mutex_unlock(&script_vm_owners_mutex);
+   return script;
+}
+typedef struct { script_file_t *script; char *id; gboolean repeat; } script_timer_t;
+static void timer_free(gpointer data) {
+   script_timer_t *t=data;
+   g_free(t->id);g_free(t);
+}
+static gboolean timer_fire(gpointer data) {
+   script_timer_t *t=data;
+   if(!t->repeat && t->script->timers)g_hash_table_remove(t->script->timers,t->id);
+   dict *d=dict_new();
+   if(d) {
+      dict_add(d,"owner",t->script->gui_owner);
+      dict_add(d,"id",t->id);
+      event_emit_dict("ui.timer",NULL,d);
+      dict_free(d);
+   }
+   return t->repeat ? G_SOURCE_CONTINUE : G_SOURCE_REMOVE;
+}
+static rrs_value_t *native_script_util(rrs_vm_t *vm,int argc,
+   const rrs_value_t *const argv[],void *user) {
+   int op=GPOINTER_TO_INT(user);
+   if(op==UTIL_NOW || op==UTIL_STAMP || op==UTIL_DATA) {
+      if(argc){rrs_vm_raise(vm,"Utility takes no arguments");return NULL;}
+      if(op==UTIL_NOW)return rrs_integer(g_get_real_time()/1000);
+      if(op==UTIL_DATA)return rrs_string(g_get_user_data_dir());
+      GDateTime *d=g_date_time_new_now_local();
+      char *stamp=g_date_time_format(d,"%Y%m%d-%H%M%S");
+      rrs_value_t *result=rrs_string(stamp);
+      g_free(stamp);g_date_time_unref(d);
+      return result;
+   }
+   if(op==UTIL_CHR) {
+      if(argc!=1||rrs_value_type(argv[0])!=RRS_INT||
+         rrs_value_int(argv[0])<1||rrs_value_int(argv[0])>127) {
+         rrs_vm_raise(vm,"string.chr requires ASCII code 1..127");return NULL;
+      }
+      char chars[2]={(char)rrs_value_int(argv[0]),0};
+      return rrs_string(chars);
+   }
+   if(argc<1||rrs_value_type(argv[0])!=RRS_STRING) {
+      rrs_vm_raise(vm,"Expected string argument");return NULL;
+   }
+   const char *value=rrs_value_string(argv[0]);
+   if(op==UTIL_SLUG) {
+      if(argc!=1){rrs_vm_raise(vm,"string.slug(text)");return NULL;}
+      GString *out=g_string_new("");
+      for(const unsigned char *p=(const unsigned char*)value;*p&&out->len<48;p++)
+         g_string_append_c(out,g_ascii_isalnum(*p)||*p=='_'||*p=='-'?(char)*p:'_');
+      if(!out->len)g_string_append(out,"unknown");
+      rrs_value_t *result=rrs_string(out->str);
+      g_string_free(out,TRUE);
+      return result;
+   }
+   if(op==UTIL_REGEX) {
+      if(argc!=2||rrs_value_type(argv[1])!=RRS_STRING) {
+         rrs_vm_raise(vm,"string.regex(text,pattern)");return NULL;
+      }
+      GError *error=NULL;
+      GRegex *re=g_regex_new(rrs_value_string(argv[1]),0,0,&error);
+      if(!re){rrs_vm_raise(vm,error?error->message:"Invalid regex");g_clear_error(&error);return NULL;}
+      gboolean yes=g_regex_match(re,value,0,NULL);
+      g_regex_unref(re);
+      return rrs_boolean(yes);
+   }
+   if(op==UTIL_LINE||op==UTIL_LINES) {
+      if((op==UTIL_LINE&&(argc!=2||rrs_value_type(argv[1])!=RRS_INT))||
+         (op==UTIL_LINES&&argc!=1)){
+         rrs_vm_raise(vm,"string.line(text,index) / string.lines(text)");return NULL;
+      }
+      gint64 index=op==UTIL_LINE?rrs_value_int(argv[1]):-1;
+      if(op==UTIL_LINE&&index<0)return rrs_null();
+      if(!*value)return op==UTIL_LINES?rrs_integer(0):rrs_null();
+      guint count=0;
+      const char *p=value;
+      while(*p) {
+         const char *end=strchr(p,'\n');
+         if(op==UTIL_LINE&&(gint64)count==index) {
+            char *line=g_strndup(p,end?(gsize)(end-p):strlen(p));
+            rrs_value_t *ret=rrs_string(line);
+            g_free(line);return ret;
+         }
+         count++;
+         if(!end)break;
+         p=end+1;
+      }
+      return op==UTIL_LINES?rrs_integer(count):rrs_null();
+   }
+   rrs_vm_raise(vm,"Unknown string utility");return NULL;
+}
+static rrs_value_t *native_script_state(rrs_vm_t *vm,int argc,
+   const rrs_value_t *const argv[],void *user) {
+   int op=GPOINTER_TO_INT(user);
+   if(argc!=(op==UTIL_GET?1:2)||rrs_value_type(argv[0])!=RRS_STRING){
+      rrs_vm_raise(vm,"state.get(key) / state.set(key,value)");return NULL;
+   }
+   script_file_t *script=script_vm_lookup(vm);
+   if(!script){rrs_vm_raise(vm,"Script is not active");return NULL;}
+   const char *key=rrs_value_string(argv[0]);
+   if(strlen(key)>256){rrs_vm_raise(vm,"State key too long");return NULL;}
+   if(op==UTIL_GET){
+      rrs_value_t *v=script->vars?g_hash_table_lookup(script->vars,key):NULL;
+      return v?rrs_value_copy(v):rrs_null();
+   }
+   if(!script->vars)script->vars=g_hash_table_new_full(g_str_hash,g_str_equal,g_free,(GDestroyNotify)rrs_value_free);
+   if(rrs_value_type(argv[1])==RRS_NULL)g_hash_table_remove(script->vars,key);
+   else g_hash_table_replace(script->vars,g_strdup(key),rrs_value_copy(argv[1]));
+   return rrs_boolean(true);
+}
+static rrs_value_t *native_script_timer(rrs_vm_t *vm,int argc,
+   const rrs_value_t *const argv[],void *user) {
+   int op=GPOINTER_TO_INT(user);
+   if(argc!=(op==UTIL_CANCEL?1:2)||rrs_value_type(argv[0])!=RRS_STRING||
+      (op!=UTIL_CANCEL&&rrs_value_type(argv[1])!=RRS_INT)) {
+      rrs_vm_raise(vm,"timer.every/after(id,milliseconds) / timer.cancel(id)");
+      return NULL;
+   }
+   script_file_t *script=script_vm_lookup(vm);
+   if(!script){rrs_vm_raise(vm,"Script is not active");return NULL;}
+   const char *id=rrs_value_string(argv[0]);
+   if(!*id||strlen(id)>63){rrs_vm_raise(vm,"Invalid timer ID");return NULL;}
+   if(!script->timers)script->timers=g_hash_table_new_full(g_str_hash,g_str_equal,g_free,NULL);
+   gpointer previous=g_hash_table_lookup(script->timers,id);
+   if(previous){g_source_remove(GPOINTER_TO_UINT(previous));g_hash_table_remove(script->timers,id);}
+   if(op==UTIL_CANCEL)return rrs_boolean(true);
+   gint64 ms=rrs_value_int(argv[1]);
+   if(ms<100||ms>86400000){rrs_vm_raise(vm,"Timer requires 100..86400000 milliseconds");return NULL;}
+   script_timer_t *timer=g_new0(script_timer_t,1);
+   timer->script=script;timer->id=g_strdup(id);timer->repeat=op==UTIL_EVERY;
+   guint source=g_timeout_add_full(G_PRIORITY_DEFAULT,(guint)ms,timer_fire,timer,timer_free);
+   g_hash_table_insert(script->timers,g_strdup(id),GUINT_TO_POINTER(source));
+   return rrs_boolean(true);
+}
+static bool register_util_api(rrs_vm_t *vm) {
+   #define REG(name,fn,id) rrs_vm_register_native(vm,name,fn,GINT_TO_POINTER(id))
+   bool ok=REG("string.regex",native_script_util,UTIL_REGEX) &&
+      REG("string.chr",native_script_util,UTIL_CHR) &&
+      REG("string.slug",native_script_util,UTIL_SLUG) &&
+      REG("string.line",native_script_util,UTIL_LINE) &&
+      REG("string.lines",native_script_util,UTIL_LINES) &&
+      REG("time.now",native_script_util,UTIL_NOW) &&
+      REG("time.stamp",native_script_util,UTIL_STAMP) &&
+      REG("env.data_dir",native_script_util,UTIL_DATA) &&
+      REG("state.get",native_script_state,UTIL_GET) &&
+      REG("state.set",native_script_state,UTIL_SET) &&
+      REG("timer.every",native_script_timer,UTIL_EVERY) &&
+      REG("timer.after",native_script_timer,UTIL_AFTER) &&
+      REG("timer.cancel",native_script_timer,UTIL_CANCEL);
+   #undef REG
+   return ok;
+}
+
 static rrs_value_t *from_scalar(val_type_t type,dict_value_t value) {
    switch(type) {
       case VAL_NULL:return rrs_null();
@@ -261,6 +422,14 @@ static void release_script(gpointer data) {
       };
       event_emit_message(&message);
    }
+   if(script->timers) {
+      GHashTableIter iter;gpointer key,value;
+      g_hash_table_iter_init(&iter,script->timers);
+      while(g_hash_table_iter_next(&iter,&key,&value))
+         g_source_remove(GPOINTER_TO_UINT(value));
+      g_clear_pointer(&script->timers,g_hash_table_destroy);
+   }
+   g_clear_pointer(&script->vars,g_hash_table_destroy);
    event_subscription_t *sub=script->subscriptions;
    while(sub) {
       event_subscription_t *next=sub->next;
@@ -391,6 +560,7 @@ static bool activate_script(rrscript_host_t *host,const char *name,bool replacin
       !rrs_vm_register_native(script->vm,"file.mkdir",native_file,file_op_mkdir) ||
       !rrs_vm_register_native(script->vm,"file.rmdir",native_file,file_op_rmdir) ||
       !rrs_vm_register_native(script->vm,"file.copy",native_file,file_op_copy) ||
+      !register_util_api(script->vm) ||
       (host->register_host && !host->register_host(script->vm))) {
       report_error(error,"Unable to register script log bindings");
       release_script(script);return false;
