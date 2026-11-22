@@ -40,7 +40,8 @@
 #include <rrserver/database.h>
 #ifdef RR_HAVE_RUSTYSCRIPT
 #include <rrscript/host.h>
-rrscript_host_t *rrserver_script_host;
+void rrserver_script_init(void);
+void rrserver_script_shutdown(void);
 #endif
 #include <rrserver/files.h>
 #include <rrserver/backend.h>
@@ -780,11 +781,7 @@ int main(int argc, char **argv) {
    }
 
 #ifdef RR_HAVE_RUSTYSCRIPT
-   {
-      const char *script_path = cfg_get("security.scripting.path");
-      rrserver_script_host = rrscript_host_open(
-         script_path && *script_path ? script_path : "/etc/rustyrig/scripts", false);
-   }
+   rrserver_script_init();
 #endif
    const char *module_dir = cfg_get("path.modules");
    struct stat module_stat;
@@ -1156,8 +1153,7 @@ int main(int argc, char **argv) {
    rrserver_relay_fini();
 
 #ifdef RR_HAVE_RUSTYSCRIPT
-   rrscript_host_close(rrserver_script_host);
-   rrserver_script_host = NULL;
+   rrserver_script_shutdown();
 #endif
    event_shutdown();
    cfg_fini();
