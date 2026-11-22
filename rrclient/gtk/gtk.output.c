@@ -93,9 +93,11 @@ static void chat_backlog_flush(GtkTextBuffer *buffer, GtkWidget *view) {
       GtkTextIter end;
 
       gtk_text_buffer_get_end_iter(buffer, &end);
-
+      gint first=gtk_text_iter_get_offset(&end);
       if (colorized) {
          gtk_text_buffer_insert_markup(buffer, &end, colorized, -1);
+         if(strstr(colorized,"background=\""))
+            gtk_chat_full_height_backgrounds(buffer,first);
          g_free(colorized);
       } else {
          gtk_text_buffer_insert(buffer, &end, line, -1);
