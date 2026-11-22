@@ -291,7 +291,8 @@ static void script_gui_command(const rr_event_message_t *message,void *unused) {
          gboolean valid=gtk_tree_model_get_iter_first(model,&it);
          for(int i=0;valid;i++,valid=gtk_tree_model_iter_next(model,&it)) {
             char *value=NULL;
-            gtk_tree_model_get(model,&it,0,&value,-1);
+            /* GtkComboBoxText stores the ID in column 0, display text in 1. */
+            gtk_tree_model_get(model,&it,1,&value,-1);
             gboolean match=!g_strcmp0(value,cmd.value);
             g_free(value);
             if(match){gtk_combo_box_set_active(GTK_COMBO_BOX(w),i);break;}
