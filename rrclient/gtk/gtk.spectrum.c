@@ -677,8 +677,10 @@ static gboolean draw_spectrum(GtkWidget *widget, cairo_t *cr, gpointer data) {
    /* Draw the true, source-constrained viewport frequency scale. The same bounds drive AF offset click tuning and the FFT bin crop. */
    cairo_set_font_size(cr, 10);
 
-   for (unsigned tick = 0 ; tick <= 4 ; tick++) {
-      double x = (width - 1.) * tick / 4.;
+   /* Reduce tick density on narrow panels; never truncate the frequency span. */
+   unsigned tick_intervals = width < 220 ? 1 : width < 360 ? 2 : 4;
+   for (unsigned tick = 0 ; tick <= tick_intervals ; tick++) {
+      double x = (width - 1.) * tick / tick_intervals;
       unsigned hz = af_x_to_hz(p, x, width);
       char label[24];
 
@@ -1575,9 +1577,11 @@ static gboolean rf_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
    cairo_set_source_rgb(cr, .85, .88, .91);
    cairo_set_font_size(cr, 10);
 
-   for (int tick = 0 ; tick <= 4 ; tick++) {
-      double x = (w - 1.) * tick / 4.;
-      double mhz = low + (high - low) * tick / 4.;
+   /* Narrow RF panels show fewer labels, but still cover the full RF span. */
+   int tick_intervals = w < 220 ? 1 : w < 360 ? 2 : 4;
+   for (int tick = 0 ; tick <= tick_intervals ; tick++) {
+      double x = (w - 1.) * tick / tick_intervals;
+      double mhz = low + (high - low) * tick / tick_intervals;
       char label[40];
       snprintf(label, sizeof(label), "%.3f", mhz);
       cairo_text_extents_t ext;
