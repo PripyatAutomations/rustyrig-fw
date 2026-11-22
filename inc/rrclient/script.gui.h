@@ -5,6 +5,19 @@
 #define RR_SCRIPT_GUI_COMMAND "client.script.gui.command"
 #define RR_SCRIPT_GUI_CHANGE "client.script.gui.change"
 #define RR_SCRIPT_STARTUP_ERRORS_EVENT "client.script.startup-errors"
+#define RR_SCRIPT_DEBUG_OPEN_EVENT "client.script.debug.open"
+#define RR_SCRIPT_DIAGNOSTIC_EVENT "client.script.diagnostic"
+#define RR_SCRIPT_DIAGNOSTIC_VERSION 1u
+typedef struct rr_script_diagnostic {
+   uint32_t version;
+   uint32_t severity; /* 1=info, 2=warning, 3=error */
+   uint32_t line;
+   uint32_t column;
+   char path[512];
+   char handler[96];
+   char message[512];
+} rr_script_diagnostic_t;
+
 #define RR_SCRIPT_GUI_PROTOCOL_VERSION 1u
 /* All messages are owned by the event bus; never contain toolkit pointers. */
 enum {
