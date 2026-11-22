@@ -2,6 +2,7 @@
  * SPDX-License-Identifier: GPL-2.0-only */
 #include <gtk/gtk.h>
 #include <rrclient/script.gui.h>
+#include <rrclient/artwork.h>
 #include <librustyaxe/core.h>
 #include <librustyaxe/event-bus.h>
 #include "gtk.floating-panel.h"
@@ -21,6 +22,7 @@ typedef struct {
 } script_widget_t;
 static GHashTable *script_widgets;
 static rr_event_token_t script_gui_token;
+static rr_event_token_t artwork_editor_token;
 
 static char *widget_key(const char *owner,const char *id) {
    return g_strdup_printf("%s:%s",owner,id);
@@ -489,13 +491,30 @@ static void script_gui_command(const rr_event_message_t *message,void *unused) {
       }
    }
 }
+static void artwork_editor_open(const rr_event_message_t *message,void *unused) {
+   (void)unused;
+   if(!message || !message->payload || message->length!=sizeof(rr_artwork_edit_t))return;
+   rr_artwork_edit_t edit;
+   memcpy(&edit,message->payload,sizeof(edit));
+   edit.basename[sizeof(edit.basename)-1]=0;
+   if(!edit.basename[0] || strchr(edit.basename,'/') ||
+      strchr(edit.basename,'\\') || strstr(edit.basename,"..") ||
+      !g_str_has_suffix(edit.basename,".mac"))return;
+   char *path=g_build_filename(g_get_user_data_dir(),"rustyrig","artwork",edit.basename,NULL);
+   if(g_file_test(path,G_FILE_TEST_IS_REGULAR) && !g_file_test(path,G_FILE_TEST_IS_SYMLINK))
+      gui_file_editor_open(path);
+   g_free(path);
+}
 void gtk_script_gui_init(void) {
    if(script_gui_token)return;
+   artwork_editor_token=event_on_message_domain_token(
+      RR_ARTWORK_EDIT_EVENT,artwork_editor_open,NULL,"gtk");
    script_gui_token=event_on_message_domain_token(RR_SCRIPT_GUI_COMMAND,
       script_gui_command,NULL,"gtk");
 }
 void gtk_script_gui_shutdown(void) {
    if(script_gui_token){event_off_token(script_gui_token);script_gui_token=0;}
+   if(artwork_editor_token){event_off_token(artwork_editor_token);artwork_editor_token=0;}
    if(script_widgets) {
       GHashTableIter iter;
       gpointer key,value;
