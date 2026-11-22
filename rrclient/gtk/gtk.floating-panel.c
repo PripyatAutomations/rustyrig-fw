@@ -10,7 +10,7 @@
 #include <rrclient/database.h>
 
 struct rr_floating_panel {
-   GtkWidget *frame, *scrim, *body, *header, *compact_drag_handle, *scale_wrapper, *title, *title_hit, *roll, *minimize, *restore_tab, *menu, *close_button,
+   GtkWidget *frame, *scrim, *body, *header, *compact_drag_handle, *scale_wrapper, *header_scale_wrapper, *panel_layout_box, *title, *title_hit, *roll, *minimize, *restore_tab, *menu, *close_button,
       *menu_close, *menu_on_top, *menu_minimize, *menu_button, *resize_grip;
    GtkWidget *resize_targets[8];
    GtkCssProvider *scale_css;
@@ -1724,6 +1724,14 @@ static void panel_zoom_apply(RRFloatPanel *p, gint old_zoom, gint old_width, gin
    if (p->scale_wrapper) {
       rr_scale_container_set_zoom(p->scale_wrapper, scale);
    }
+   /* Content-sized panels must zoom their chrome along with their controls. */
+   if (p->content_sized && p->header_scale_wrapper) {
+      rr_scale_container_set_zoom(p->header_scale_wrapper, scale);
+      gtk_box_set_spacing(GTK_BOX(p->panel_layout_box), MAX(0, (gint)round(4.0 * scale)));
+      char css[128];
+      g_snprintf(css, sizeof(css), ".rr-floating-panel.rr-panel-local-zoom { padding: %.2fpx; }", 6.0 * scale);
+      gtk_css_provider_load_from_data(p->scale_css, css, -1, NULL);
+   }
    if (p->zoom_callback) {
       p->zoom_callback(scale, p->zoom_data);
    }
@@ -1937,7 +1945,8 @@ static void panel_roll(GtkButton *button, gpointer data) {
       }
    }
    p->rolled = !p->rolled;
-   gtk_widget_set_size_request(p->frame, p->saved_width > 1 ? p->saved_width : -1, p->rolled ? -1 : (p->saved_height > 1 ? p->saved_height : -1));
+   gtk_widget_set_size_request(p->frame, p->content_sized ? -1 : (p->saved_width > 1 ? p->saved_width : -1),
+                               p->content_sized || p->rolled ? -1 : (p->saved_height > 1 ? p->saved_height : -1));
 
    if (!p->rolled) {
       panel_raise(p);
@@ -2492,12 +2501,14 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    GtkWidget *panel_overlay = gtk_overlay_new();
    gtk_container_add(GTK_CONTAINER(p->frame), panel_overlay);
    GtkWidget *panel = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
+   p->panel_layout_box = panel;
    gtk_container_add(GTK_CONTAINER(panel_overlay), panel);
    GtkWidget *handle = gtk_event_box_new();
    GtkWidget *header = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
    p->header = handle;
    gtk_container_add(GTK_CONTAINER(handle), header);
-   gtk_box_pack_start(GTK_BOX(panel), handle, FALSE, FALSE, 0);
+   p->header_scale_wrapper = rr_scale_container_new(handle);
+   gtk_box_pack_start(GTK_BOX(panel), p->header_scale_wrapper, FALSE, FALSE, 0);
    gtk_widget_add_events(handle, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_POINTER_MOTION_MASK);
    g_signal_connect(handle, "button-press-event", G_CALLBACK(drag_press), p);
    g_signal_connect(handle, "motion-notify-event", G_CALLBACK(drag_move), p);
@@ -2890,7 +2901,7 @@ void rr_floating_panel_show(RRFloatPanel *p) {
       panel_layout_sync(p);
       p->restoring_state = TRUE;
 
-      if (p->dock_edge < 0 && p->loaded_state && (p->saved_width > 1 || p->saved_height > 1)) {
+      if (!p->content_sized && p->dock_edge < 0 && p->loaded_state && (p->saved_width > 1 || p->saved_height > 1)) {
          int max_w = MAX(200, gtk_widget_get_allocated_width(GTK_WIDGET(p->overlay)) - 24);
          int max_h = MAX(120, gtk_widget_get_allocated_height(GTK_WIDGET(p->overlay)) - 24);
 
@@ -2906,6 +2917,14 @@ void rr_floating_panel_show(RRFloatPanel *p) {
    if (p->scale_wrapper) {
       rr_scale_container_set_zoom(p->scale_wrapper, MAX(.10, 1.0 + p->zoom / 100.0));
    }
+   if (p->content_sized && p->header_scale_wrapper) {
+      double scale = MAX(.10, 1.0 + p->zoom / 100.0);
+      rr_scale_container_set_zoom(p->header_scale_wrapper, scale);
+      gtk_box_set_spacing(GTK_BOX(p->panel_layout_box), MAX(0, (gint)round(4.0 * scale)));
+      char css[128];
+      g_snprintf(css, sizeof(css), ".rr-floating-panel.rr-panel-local-zoom { padding: %.2fpx; }", 6.0 * scale);
+      gtk_css_provider_load_from_data(p->scale_css, css, -1, NULL);
+   }
 
    if (!p->initial_positioned) {
       p->initial_positioned = p->dock_edge >= 0 ? TRUE : panel_place_initial(p);
@@ -2916,7 +2935,7 @@ void rr_floating_panel_show(RRFloatPanel *p) {
    }
    panel_chrome(p);
 
-   if (p->rolled) {
+   if (p->rolled && !p->content_sized) {
       gtk_widget_set_size_request(p->frame, p->dock_edge >= 0 ? (p->dock_width > 0 ? p->dock_width : -1) : (p->saved_width > 1 ? p->saved_width : -1), -1);
    }
    panel_raise(p);
@@ -3077,6 +3096,10 @@ void rr_floating_panel_set_content_sized(RRFloatPanel *p) {
    p->resizable = FALSE;
    /* Do not let the zoom wrapper/body absorb spare dock width: the
     * contents' natural requisition determines the whole panel size. */
+   gtk_widget_set_hexpand(p->header_scale_wrapper, FALSE);
+   gtk_widget_set_vexpand(p->header_scale_wrapper, FALSE);
+   gtk_widget_set_halign(p->header_scale_wrapper, GTK_ALIGN_START);
+   gtk_widget_set_valign(p->header_scale_wrapper, GTK_ALIGN_START);
    gtk_widget_set_hexpand(p->scale_wrapper, FALSE);
    gtk_widget_set_vexpand(p->scale_wrapper, FALSE);
    gtk_widget_set_halign(p->scale_wrapper, GTK_ALIGN_START);
