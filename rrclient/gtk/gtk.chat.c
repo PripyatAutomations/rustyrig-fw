@@ -165,6 +165,7 @@ static void room_rf_panel_refresh(void);
 /* Default follows rig tabs; an explicit title-menu selection always wins. */
 static gboolean room_vfo_follow_chat = TRUE;
 static void gtk_chat_update_vfo_controls(GtkRoomTab *tab);
+static gboolean gtk_chat_view_at_end(GtkWidget *view);
 
 static void gtk_chat_select_tab(GtkNotebook *notebook, GtkWidget *page, guint page_num, gpointer user_data) {
    (void)notebook;
@@ -179,6 +180,10 @@ static void gtk_chat_select_tab(GtkNotebook *notebook, GtkWidget *page, guint pa
       chat_textview = tab->view;
       chat_entry = tab->entry;
       text_buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(tab->view));
+      /* Hidden pages may receive text and resize while unmapped. Preserve
+       * the viewer's scroll intent rather than the stale adjustment. */
+      if(g_object_get_data(G_OBJECT(tab->view),"rr-follow-bottom"))
+         gtk_chat_view_schedule_follow(tab->view);
       /* The shared user list follows the selected room, including when it is detached in its own window. */
       userlist_redraw_gtk();
       rrclient_media_room_selected(tab->room);
@@ -289,6 +294,45 @@ const char *gtk_chat_current_room(void) {
    GtkRoomTab *tab = page ? g_object_get_data(G_OBJECT(page), "rr-room-tab") : NULL;
 
    return tab && tab->room[0] ? tab->room : NULL;
+}
+
+/* GTK may change adjustments during hidden-page reflow without a user
+ * scrolling. Only mapped adjustments reflect fresh user intent. */
+static gboolean gtk_chat_view_at_end(GtkWidget *view) {
+   if(!GTK_IS_TEXT_VIEW(view))return FALSE;
+   GtkAdjustment *adj=gtk_scrollable_get_vadjustment(GTK_SCROLLABLE(view));
+   if(!adj)return TRUE;
+   return gtk_adjustment_get_value(adj)+gtk_adjustment_get_page_size(adj)
+      >=gtk_adjustment_get_upper(adj)-3.0;
+}
+bool gtk_chat_view_should_follow(GtkWidget *view) {
+   if(!GTK_IS_TEXT_VIEW(view))return false;
+   if(g_object_get_data(G_OBJECT(view),"rr-follow-pending") ||
+      !gtk_widget_get_mapped(view))
+      return g_object_get_data(G_OBJECT(view),"rr-follow-bottom")!=NULL;
+   return gtk_chat_view_at_end(view);
+}
+static void gtk_chat_follow_adjustment_changed(GtkAdjustment *adj,gpointer data) {
+   (void)adj;
+   GtkWidget *view=GTK_WIDGET(data);
+   if(!gtk_widget_get_mapped(view) ||
+      g_object_get_data(G_OBJECT(view),"rr-follow-pending"))return;
+   g_object_set_data(G_OBJECT(view),"rr-follow-bottom",
+      GINT_TO_POINTER(gtk_chat_view_at_end(view)));
+}
+static gboolean gtk_chat_follow_idle(gpointer data) {
+   GtkWidget *view=GTK_WIDGET(data);
+   if(gtk_widget_get_mapped(view))ui_scroll_to_end(view);
+   g_object_set_data(G_OBJECT(view),"rr-follow-pending",NULL);
+   return G_SOURCE_REMOVE;
+}
+void gtk_chat_view_schedule_follow(GtkWidget *view) {
+   if(!GTK_IS_TEXT_VIEW(view))return;
+   g_object_set_data(G_OBJECT(view),"rr-follow-bottom",GINT_TO_POINTER(1));
+   if(g_object_get_data(G_OBJECT(view),"rr-follow-pending"))return;
+   g_object_set_data(G_OBJECT(view),"rr-follow-pending",GINT_TO_POINTER(1));
+   g_idle_add_full(G_PRIORITY_DEFAULT_IDLE,gtk_chat_follow_idle,
+      g_object_ref(view),g_object_unref);
 }
 
 // XXX: Move this to gtk.core.c
@@ -1880,6 +1924,9 @@ static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room, bool i
    gtk_widget_add_events(chat_textview, GDK_POINTER_MOTION_MASK);
    g_signal_connect(chat_textview, "key-press-event", G_CALLBACK(gtk_chat_view_keypress), NULL);
    text_buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(chat_textview));
+   g_object_set_data(G_OBJECT(chat_textview),"rr-follow-bottom",GINT_TO_POINTER(1));
+   g_signal_connect(gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(scrolled)),
+      "value-changed",G_CALLBACK(gtk_chat_follow_adjustment_changed),chat_textview);
    g_object_set_data_full(G_OBJECT(chat_textview), "rr-server-name", room ? g_strdup(gtk_chat_profile()) : NULL, g_free);
    gtk_chat_links_attach(chat_textview);
    gtk_text_view_set_editable(GTK_TEXT_VIEW(chat_textview), FALSE);
