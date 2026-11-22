@@ -136,7 +136,53 @@ static bool cmd_bridge(int argc, char **args) {
    return rrclient_local_bridge_cli(argc, args);
 }
 
+#ifdef RR_HAVE_RUSTYSCRIPT
+static void script_list_line(const char *name, bool loaded, void *unused) {
+   (void)unused;
+   ui_print(ui_active_window_name(), "  %-38s %s", name, loaded ? "[loaded]" : "[available]");
+}
+static bool cmd_script(int argc, char **args) {
+   const char *action=argc>1?args[1]:"list";
+   if (!rrclient_script_host) {
+      ui_print(ui_active_window_name(), "RustyScript is not initialized");
+      return true;
+   }
+   if (!g_ascii_strcasecmp(action,"list") && argc<=2) {
+      ui_print(ui_active_window_name(), "RustyScript files (root and autoload/):");
+      rrscript_host_list(rrclient_script_host,script_list_line,NULL);
+      return false;
+   }
+   if (argc!=3 || (!*args[2])) {
+      ui_print(ui_active_window_name(), "Usage: /script list | load <name.rrs> | unload <name.rrs> | reload <name.rrs>");
+      return true;
+   }
+   char *error=NULL;
+   bool ok=false;
+   if(!g_ascii_strcasecmp(action,"load"))
+      ok=rrscript_host_load(rrclient_script_host,args[2],&error);
+   else if(!g_ascii_strcasecmp(action,"unload"))
+      ok=rrscript_host_unload(rrclient_script_host,args[2],&error);
+   else if(!g_ascii_strcasecmp(action,"reload"))
+      ok=rrscript_host_reload(rrclient_script_host,args[2],&error);
+   else {
+      ui_print(ui_active_window_name(), "Unknown /script action: %s",action);
+      return true;
+   }
+   ui_print(ui_active_window_name(), "%s %s: %s",ok?"Script":"Script error",
+            args[2],ok?action:(error?error:"unknown error"));
+   g_free(error);
+   return !ok;
+}
+#endif
+
 client_cmd_t client_cmds[] = {
+#ifdef RR_HAVE_RUSTYSCRIPT
+   {
+      .cmd = "script", .help_section = "Scripting", .cb = cmd_script,
+      .min_args = 0, .max_args = 2,
+      .desc = "List, load, unload, or reload local RustyScript .rrs files"
+   },
+#endif
    {
       .cmd = "bridge", .help_section = "Radio and discovery", .cb = cmd_bridge, .max_args = 4,
       .desc = "SDR directory: /bridge <driver> dir list [search]; connections: /bridge <driver> list [c]|open <url>|close <VFO|url|all>|caps [VFO]"
@@ -456,7 +502,9 @@ static bool parse_chat_input(const char *msg, bool commands) {
    /* Local bridge management must work even without an online room/server. */
    bool bridge_command = commands && !g_ascii_strncasecmp(msg, "/bridge", 7) && (!msg[7] || isspace((unsigned char)msg[7]));
 
-   if (!bridge_command && rrclient_chat_input_blocked(commands ? msg : "text")) {
+   bool script_command = commands && !g_ascii_strncasecmp(msg, "/script", 7) && (!msg[7] || isspace((unsigned char)msg[7]));
+
+   if (!bridge_command && !script_command && rrclient_chat_input_blocked(commands ? msg : "text")) {
       ui_print(ui_active_window_name(), "Room is OFFLINE; message not sent");
 
       return true;
