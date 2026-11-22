@@ -147,7 +147,27 @@ invoked by remote users. The server supports admin-only management of
 existing files through the authenticated admin protocol, but has no
 script upload endpoint.
 
-Scripts are trusted code running in the host process.
+Scripts are trusted code running in the host process. They can access
+files readable/writable by the host OS account and should be installed only
+from trusted sources.
+
+## Filesystem primitives (client and server)
+
+User-owned and administrator-installed RustyScript handlers can use
+`file.read(path)`, `file.write(path, text)`, `file.append(path, text)`,
+`file.list(directory)`, `file.exists(path)`, `file.copy(from, to)`,
+`file.rename(from, to)`, `file.remove(path)`, `file.mkdir(path)`, and
+`file.rmdir(path)`. All accept normal local filesystem paths, not remote
+cluster filenames. `file.mkdir` creates missing parents. `file.rmdir`
+requires an empty directory; `file.remove` removes files. `file.list`
+returns a newline-separated string of immediate directory entries.
+
+`file.read` returns a UTF-8 string for a regular file up to 1 MiB;
+`file.list` limits returned filenames to 64 KiB and `file.copy` handles
+regular files up to 16 MiB. File writes and destructive operations use the
+same permissions as the host process; these are *not* sandboxed APIs. They
+do not grant network privileges or remotely change server access rights.
+
 
 ## Initial registration syntax
 
@@ -208,19 +228,31 @@ index) or extended RGB-color control (byte `0x04` followed by six hexadecimal
 digits) starts a captured artwork. Subsequent lines from the same nickname
 and room are retained, including lines without color codes, for up to
 15 seconds between messages; a new file starts after 100 lines. Artworks are
-written as `*.ircart` in
+written as `chan-nick-yyyymmdd-hhmmss.mac` in
 `$XDG_DATA_HOME/rustyrig/artwork/` (normally
 `~/.local/share/rustyrig/artwork/`). The files contain the raw message lines
 and original IRC formatting bytes, separated by newlines, with restrictive
 file permissions. They can therefore be rendered or replayed later without
 losing palette, background or RGB color codes.
 
-This example is a **collector only**: there is not yet an integrated artwork
-browser or paced room playback. Sending archived lines into a room should be
-a user-initiated, rate-limited operation (not an automatic reply from the event
-handler), with a selectable destination and a cancel control. Large or rapid
-artwork should respect IRC/network flood limits and avoid accidental
-re-transmission on reception.
+The same example declares a **script-owned, floating Artwork / Macros
+panel** (invoke `/artwork`). It uses the shared local file browser and
+RustyRig's IRC/Pango color renderer. Select a `.mac` file, preview the art in
+monospace with indexed or RGB colors, choose a target from currently open
+channel/query tabs and click **Send**. **Stop** cancels unsent lines. **Edit**
+opens the ordinary local editor; **Rename / Move** and **Delete** use the
+user-script file primitives. A checkbox demonstrates optional delete
+confirmation. The spin box accepts **1–10 lines per second**, and its value
+is persisted separately for each server profile and chat target in client.db.
+Playback respects the bounded client chat queue, never auto-replies to
+received art, and captures its destination when it starts.
+
+The `/artwork` interface is defined in RustyScript with `ui.utility`,
+`ui.add`, `ui.val`, `ui.set`, and `event ui.click/change/response`. Only
+native functionality that cannot currently be expressed in RustyScript
+(the colored GTK preview, open-room enumeration and cancellable socket queue)
+is implemented in the client. This is an intentional integration example,
+not a separate built-in GTK manager.
 
 ## Scriptable GTK panels and docking
 
