@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="720" viewBox="0 0 1180 720" role="img" aria-labelledby="title desc">
+<title id="title">librustygui architecture and request-response routing</title>
+<desc id="desc">Applications use an independent GTK UI library; requests from scripts or code enter a registry and event router on the GTK domain, route to a widget, and responses return using correlation IDs.</desc>
+<defs><marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 Z" fill="#4c6f8b"/></marker>
+<style>
+text{font-family:DejaVu Sans,Arial,sans-serif;fill:#233342}
+.head{font-weight:700;font-size:21px}.label{font-size:15px;font-weight:700}.small{font-size:13px}.tiny{font-size:12px}
+.card{fill:#f7fafc;stroke:#92a9bb;stroke-width:1.5}.core{fill:#e8f3fd;stroke:#5f94bc;stroke-width:2}
+.arrow{stroke:#4c6f8b;stroke-width:2;fill:none;marker-end:url(#arrow)}.dash{stroke-dasharray:7 5}
+</style></defs>
+<rect width="1180" height="720" fill="#fff"/>
+<text x="590" y="43" text-anchor="middle" class="head">librustygui — proposed component and event architecture</text>
+<rect x="55" y="74" width="490" height="73" rx="13" class="card"/>
+<text x="300" y="105" text-anchor="middle" class="label">RustyRig rrclient-gtk.so</text>
+<text x="300" y="128" text-anchor="middle" class="small">radio backend, chat, settings adapter, privileges</text>
+<rect x="635" y="74" width="490" height="73" rx="13" class="card"/>
+<text x="880" y="105" text-anchor="middle" class="label">Other GTK / SDR / audio apps</text>
+<text x="880" y="128" text-anchor="middle" class="small">custom backend, models, permissions and settings</text>
+<path class="arrow" d="M300 147 V179 H416 V205"/><path class="arrow" d="M880 147 V179 H764 V205"/>
+<rect x="95" y="205" width="990" height="298" rx="18" class="core"/>
+<text x="590" y="240" text-anchor="middle" class="head">librustygui (GTK3)</text>
+<rect x="125" y="269" width="290" height="91" rx="11" class="card"/>
+<text x="270" y="296" text-anchor="middle" class="label">Workspace, panels &amp; toolbar</text>
+<text x="270" y="320" text-anchor="middle" class="small">docking · zoom · touch · persistence</text>
+<text x="270" y="340" text-anchor="middle" class="small">logical ID → instance ID</text>
+<rect x="445" y="269" width="290" height="91" rx="11" class="card"/>
+<text x="590" y="296" text-anchor="middle" class="label">Registry + event router</text>
+<text x="590" y="320" text-anchor="middle" class="small">ui.request · ui.response · ui.event</text>
+<text x="590" y="340" text-anchor="middle" class="small">pending correlation-ID map</text>
+<rect x="765" y="269" width="290" height="91" rx="11" class="card"/>
+<text x="910" y="296" text-anchor="middle" class="label">Radio / DSP widgets</text>
+<text x="910" y="320" text-anchor="middle" class="small">spectrum · freqentry · waterfall</text>
+<text x="910" y="340" text-anchor="middle" class="small">meter · graph · VFO · mode</text>
+<path class="arrow" d="M415 315 H443"/><path class="arrow" d="M735 315 H763"/>
+<rect x="223" y="396" width="735" height="75" rx="11" class="card"/>
+<text x="590" y="423" text-anchor="middle" class="label">GTK execution domain</text>
+<text x="590" y="445" text-anchor="middle" class="small">mutate widgets only on GTK thread · validate request actions · drain on unload</text>
+<path class="arrow" d="M590 360 V395"/>
+<rect x="145" y="563" width="400" height="83" rx="12" class="card"/>
+<text x="345" y="591" text-anchor="middle" class="label">librustyaxe</text>
+<text x="345" y="615" text-anchor="middle" class="small">owned messages, event domains, listener tokens</text>
+<text x="345" y="634" text-anchor="middle" class="tiny">no GTK dependency</text>
+<rect x="635" y="563" width="400" height="83" rx="12" class="card"/>
+<text x="835" y="591" text-anchor="middle" class="label">librustyscript (optional)</text>
+<text x="835" y="615" text-anchor="middle" class="small">namespaced scripts · async correlated replies</text>
+<text x="835" y="634" text-anchor="middle" class="tiny">no raw GtkWidget pointers</text>
+<path class="arrow" d="M480 503 V530 H345 V562"/><path class="arrow" d="M700 503 V530 H835 V562"/>
+<text x="590" y="694" text-anchor="middle" class="small">Separate IDs: widget logical identity · widget instance identity · request correlation identity</text>
+</svg>
