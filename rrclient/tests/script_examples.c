@@ -104,7 +104,7 @@ int main(int argc, char **argv) {
    event=rrs_dictionary();
    rrs_value_t *room=rrs_string("#hamradio");
    rrs_value_t *nick=rrs_string("artist");
-   rrs_value_t *body=rrs_string("\\00304,01 colored artwork");
+   rrs_value_t *body=rrs_string("\00304,01 colored artwork");
    assert(event&&room&&nick&&body);
    assert(rrs_dict_put(event,"room",room));
    assert(rrs_dict_put(event,"nick",nick));
