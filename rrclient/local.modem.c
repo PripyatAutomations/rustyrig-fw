@@ -186,28 +186,6 @@ static uint64_t decoder_source_frequency(const char *source) {
 }
 
 /* Whole-token matching, independent of GTK and active Terminal tabs. */
-static const char *decode_band(uint64_t hz) {
-   static const struct {uint64_t lo,hi;const char *name;} ranges[]={
-      {135700,137800,"2200m"},{472000,479000,"630m"},
-      {1800000,2000000,"160m"},{3500000,4000000,"80m"},
-      {5330000,5410000,"60m"},{7000000,7300000,"40m"},
-      {10100000,10150000,"30m"},{14000000,14350000,"20m"},
-      {18068000,18168000,"17m"},{21000000,21450000,"15m"},
-      {24890000,24990000,"12m"},{28000000,29700000,"10m"},
-      {50000000,54000000,"6m"},{144000000,148000000,"2m"},
-      {222000000,225000000,"1.25m"},{420000000,450000000,"70cm"},
-      {902000000,928000000,"33cm"},{1240000000,1300000000,"23cm"}
-   };
-   for(guint i=0;i<G_N_ELEMENTS(ranges);i++)
-      if(hz>=ranges[i].lo&&hz<=ranges[i].hi)return ranges[i].name;
-   return NULL;
-}
-static const char *decode_mode(const rr_local_modem_decode_t *d) {
-   if(!g_ascii_strcasecmp(d->engine,"ft8"))return "FT8";
-   if(!g_ascii_strcasecmp(d->engine,"olivia"))return "Olivia";
-   if(!g_ascii_strcasecmp(d->engine,"psk"))return d->mode[0]?d->mode:"PSK";
-   return d->mode[0]?d->mode:d->engine;
-}
 static char *decode_plain(const rr_local_modem_decode_t *d) {
    if(d->line[0]!='{')return g_strdup(d->line);
    dict *json=json2dict(d->line);
@@ -231,9 +209,9 @@ static void callsign_notify(const rr_local_modem_decode_t *d,const char *body,
    dict_add_long(fields,"time_ms",(long)(g_get_real_time()/1000));
    dict_add_bool(fields,"own",!strcmp(kind,"own"));
    dict_add(fields,"engine",d->engine);
-   dict_add(fields,"mode",decode_mode(d));
+   dict_add(fields,"mode",rr_modem_callsign_mode(d));
    dict_add(fields,"source",d->source);
-   const char *band=decode_band(d->frequency_hz);
+   const char *band=rr_modem_callsign_band(d->frequency_hz);
    dict_add(fields,"band",band?band:"");
    dict_add_int(fields,"slot",(int)d->slot);
    dict_add_long(fields,"frequency_hz",(long)d->frequency_hz);
@@ -259,7 +237,7 @@ static void watch_hit_free(gpointer data) {
 static void callsign_watch_rule(const rrclient_watched_call_t *rule,void *data) {
    watch_context_t *ctx=data;
    if(!rule->callsign||!rr_modem_callsign_in_text(ctx->text,rule->callsign))return;
-   const char *mode=decode_mode(ctx->decode),*band=decode_band(ctx->decode->frequency_hz);
+   const char *mode=rr_modem_callsign_mode(ctx->decode),*band=rr_modem_callsign_band(ctx->decode->frequency_hz);
    gboolean mode_ok=!g_ascii_strcasecmp(rule->mode,"Any")||
       !g_ascii_strcasecmp(rule->mode,mode)||
       (!g_ascii_strcasecmp(rule->mode,"PSK31")&&
