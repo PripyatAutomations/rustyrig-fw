@@ -671,23 +671,6 @@ static script_file_t *find_script(rrscript_host_t *host,const char *name,guint *
 static script_file_t *find_script(rrscript_host_t *host,const char *name,guint *index);
 /* Read-only debugger helpers. They inspect another script's state without
  * executing its handlers or changing its interpreter variables. */
-static char *script_value_format(const rrs_value_t *v) {
-   if(!v)return g_strdup("null");
-   switch(rrs_value_type(v)) {
-      case RRS_NULL:return g_strdup("null");
-      case RRS_BOOL:return g_strdup(rrs_value_bool(v)?"true":"false");
-      case RRS_INT:return g_strdup_printf("%" G_GINT64_FORMAT,(gint64)rrs_value_int(v));
-      case RRS_FLOAT: {
-         char buf[G_ASCII_DTOSTR_BUF_SIZE];
-         g_ascii_dtostr(buf,sizeof(buf),rrs_value_float(v));
-         return g_strdup(buf);
-      }
-      case RRS_STRING:return g_strdup(rrs_value_string(v));
-      case RRS_CHAR:return g_strdup("<character>");
-      case RRS_DICT:return g_strdup("{dictionary}");
-      default:return g_strdup("<unknown>");
-   }
-}
 static rrs_value_t *native_debug_namespaces(rrs_vm_t *vm,int argc,
    const rrs_value_t *const argv[],void *userdata) {
    (void)argv;
@@ -1082,7 +1065,7 @@ bool rrscript_host_console_eval(rrscript_host_t *host,const char *source,
    g_rec_mutex_lock(&script->mutex);
    bool ok=rrs_vm_eval(script->vm,source,&result);
    if(ok) {
-      if(output)*output=script_value_format(result);
+      if(output)*output=rrs_value_repr(result);
    } else if(error)*error=g_strdup(rrs_vm_error(script->vm));
    rrs_value_free(result);
    g_rec_mutex_unlock(&script->mutex);
