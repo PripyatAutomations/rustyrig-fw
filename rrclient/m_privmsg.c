@@ -958,6 +958,10 @@ static void rrclient_irc_message(const char *event, const char *data, rrconn_t *
          }
       }
    } else if (!strcmp(cmd, "366") && argc >= 3) {
+      /* An empty channel gets 366 without any preceding 353. Complete an
+       * empty snapshot rather than leaving stale users visible indefinitely. */
+      if (!userlist_names_pending(arg2) && rrclient_room_is_joined(arg2))
+         userlist_names_begin(arg2);
       userlist_names_end(arg2);
    } else if (!strcasecmp(cmd, "MODE") && argc >= 3 && (arg1[0] == '#' || arg1[0] == '&')) {
       GString *details = g_string_new(arg2);
