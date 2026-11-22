@@ -281,7 +281,7 @@ static gboolean art_playback_tick(gpointer unused) {
       art_playback.timer=0;
       g_strfreev(art_playback.lines);
       art_playback.lines=NULL;
-      art_playback.id=0;
+      /* Retain the ID so Stop can cancel lines still in the core send queue. */
       return G_SOURCE_REMOVE;
    }
    const char *line=art_playback.lines[art_playback.cursor++];
@@ -303,6 +303,14 @@ static gboolean art_playback_tick(gpointer unused) {
 static rrs_value_t *native_art_control(rrs_vm_t *vm,int argc,
    const rrs_value_t *const argv[],void *user) {
    const char *op=user;
+   if(!strcmp(op,"dir")) {
+      if(argc){rrs_vm_raise(vm,"art.dir() takes no arguments");return NULL;}
+      char *path=g_build_filename(g_get_user_data_dir(),"rustyrig","artwork",NULL);
+      g_mkdir_with_parents(path,0700);
+      rrs_value_t *value=rrs_string(path);
+      g_free(path);
+      return value;
+   }
    if(!strcmp(op,"stop")) {
       if(argc){rrs_vm_raise(vm,"art.stop() takes no arguments");return NULL;}
       art_playback_stop();
@@ -312,12 +320,23 @@ static rrs_value_t *native_art_control(rrs_vm_t *vm,int argc,
    if(argc!=want){rrs_vm_raise(vm,"Invalid artwork function arguments");return NULL;}
    for(int i=0;i<argc;i++)
       if(rrs_value_type(argv[i])!=RRS_STRING &&
-         !(i==1 && !strcmp(op,"rate_set") && rrs_value_type(argv[i])==RRS_INT) &&
+         !(i==1 && !strcmp(op,"rate_set") &&
+           (rrs_value_type(argv[i])==RRS_INT || rrs_value_type(argv[i])==RRS_FLOAT)) &&
          !(i==2 && !strcmp(op,"play") && (rrs_value_type(argv[i])==RRS_INT ||
                                           rrs_value_type(argv[i])==RRS_FLOAT))) {
          rrs_vm_raise(vm,"Invalid artwork argument type");return NULL;
       }
    const char *name=rrs_value_string(argv[0]);
+   if(!strcmp(op,"edit")) {
+      char *path=art_safe_path(name);
+      if(!path){rrs_vm_raise(vm,"Invalid .mac filename");return NULL;}
+      g_free(path);
+      rr_artwork_edit_t edit={0};
+      g_strlcpy(edit.basename,name,sizeof(edit.basename));
+      rr_event_message_t message={.name=RR_ARTWORK_EDIT_EVENT,.payload=&edit,.length=sizeof(edit)};
+      event_emit_message(&message);
+      return rrs_boolean(true);
+   }
    if(!strcmp(op,"path")) {
       char *path=art_safe_path(name);
       if(!path){rrs_vm_raise(vm,"Invalid .mac filename");return NULL;}
@@ -333,7 +352,8 @@ static rrs_value_t *native_art_control(rrs_vm_t *vm,int argc,
          g_free(saved);g_free(key);
          return rrs_integer(CLAMP(rate,1,10));
       }
-      int64_t rate=rrs_value_int(argv[1]);
+      int64_t rate=rrs_value_type(argv[1])==RRS_INT ?
+         rrs_value_int(argv[1]) : (int64_t)rrs_value_float(argv[1]);
       if(rate<1||rate>10) {
          g_free(key);rrs_vm_raise(vm,"Rate must be 1..10 lines/sec");return NULL;
       }
@@ -683,7 +703,9 @@ static bool register_gui_api(rrs_vm_t *vm) {
 }
 
 static bool register_window_api(rrs_vm_t *vm) {
-   return rrs_vm_register_native(vm,"art.path",native_art_control,"path") &&
+   return rrs_vm_register_native(vm,"art.dir",native_art_control,"dir") &&
+       rrs_vm_register_native(vm,"art.edit",native_art_control,"edit") &&
+       rrs_vm_register_native(vm,"art.path",native_art_control,"path") &&
        rrs_vm_register_native(vm,"art.play",native_art_control,"play") &&
        rrs_vm_register_native(vm,"art.stop",native_art_control,"stop") &&
        rrs_vm_register_native(vm,"art.rate_get",native_art_control,"rate_get") &&
