@@ -412,7 +412,8 @@ static void vfo_dock_style(void) {
       return;
    }
    vfo_dock_css = gtk_css_provider_new();
-   gtk_css_provider_load_from_data(vfo_dock_css, ".rr-vfo-group { border: 0; border-radius: 2px; padding: 0; }"
+   gtk_css_provider_load_from_data(vfo_dock_css, ".rr-vfo-group { border: 1px solid alpha(currentColor, .26); border-radius: 3px; padding: 2px; }"
+      ".rr-vfo-group.rr-vfo-compact-group { border: 0; border-radius: 2px; padding: 0; }"
       ".rr-vfo-group.rr-vfo-moving { border-color: #66caff; background-color: rgba(80,180,255,.17); }"
       ".rr-vfo-group.rr-vfo-before { border-left: 4px solid #48c5ff; }"
       ".rr-vfo-group.rr-vfo-after { border-right: 4px solid #48c5ff; }"
@@ -561,7 +562,7 @@ static void vfo_control_add(GtkWidget *control, const char *name) {
    /* Do not stretch a lone docked group across the entire FlowBox row. */
    gtk_widget_set_halign(group, GTK_ALIGN_START);
    GtkWidget *handle = gtk_event_box_new();
-   gtk_widget_set_size_request(handle, -1, 6);
+   gtk_widget_set_size_request(handle, -1, !strcmp(name, "⋮⋮ Frequency") ? 8 : 6);
    gtk_widget_set_tooltip_text(handle, "Drag to rearrange VFO controls");
    gtk_box_pack_start(GTK_BOX(group), handle, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(group), control, FALSE, FALSE, 0);
@@ -574,6 +575,9 @@ static void vfo_control_add(GtkWidget *control, const char *name) {
    g_object_set_data(G_OBJECT(child), "rr-vfo-id", (gpointer) id);
    g_object_set_data(G_OBJECT(handle), "rr-vfo-child", child);
    gtk_style_context_add_class(gtk_widget_get_style_context(child), "rr-vfo-group");
+   if (strcmp(name, "⋮⋮ Frequency")) {
+      gtk_style_context_add_class(gtk_widget_get_style_context(child), "rr-vfo-compact-group");
+   }
    gtk_style_context_add_class(gtk_widget_get_style_context(handle), "rr-vfo-grip");
    vfo_dock_style();
    gtk_style_context_add_provider(gtk_widget_get_style_context(child), GTK_STYLE_PROVIDER(vfo_dock_css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
@@ -638,6 +642,7 @@ GtkWidget *create_vfo_box(void) {
    vfo_sdr_button = gtk_button_new();
    GtkWidget *sdr_icon = gtk_image_new_from_icon_name("emblem-system-symbolic", GTK_ICON_SIZE_MENU);
    gtk_button_set_image(GTK_BUTTON(vfo_sdr_button), sdr_icon);
+   gtk_button_set_always_show_image(GTK_BUTTON(vfo_sdr_button), TRUE);
    gtk_widget_set_no_show_all(vfo_sdr_button, TRUE);
    gtk_style_context_add_class(gtk_widget_get_style_context(vfo_sdr_button), "rr-vfo-sdr-settings");
    vfo_dock_style();
