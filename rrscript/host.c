@@ -119,6 +119,11 @@ static void release_script(gpointer data) {
    g_free(script);
 }
 static bool install_event(script_file_t *script,const rrscript_binding_t *b) {
+   /* One event-bus token per (script,event), even with several handlers. */
+   for(event_subscription_t *existing=script->subscriptions;existing;existing=existing->next) {
+      if(strlen(existing->name)==b->name_length &&
+         !strncmp(existing->name,b->name,b->name_length))return true;
+   }
    event_subscription_t *sub=g_new0(event_subscription_t,1);
    sub->owner=script;sub->name=g_strndup(b->name,b->name_length);
    if(!sub->name){g_free(sub);return false;}
@@ -204,18 +209,17 @@ void rrscript_host_close(rrscript_host_t *host) {
 static bool invoke_named(rrscript_host_t *host,rrscript_binding_kind_t kind,
                          const char *name,const rrs_value_t *context) {
    if(!host)return false;
-   bool handled=false;
    for(guint i=0;i<host->scripts->len;i++) {
       script_file_t *script=g_ptr_array_index(host->scripts,i);
       for(size_t j=0;j<rrs_vm_binding_count(script->vm);j++) {
          const rrscript_binding_t *b=rrs_vm_binding(script->vm,j);
          if(b->kind==kind && !g_ascii_strcasecmp(b->name,name)) {
             run(script,kind,b->name,context);
-            handled=true;
+            return true; /* First registered command/hotkey wins. */
          }
       }
    }
-   return handled;
+   return false;
 }
 bool rrscript_host_command(rrscript_host_t *host,const char *line) {
    if(!host||!line||*line!='/')return false;
