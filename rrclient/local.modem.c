@@ -240,7 +240,19 @@ static void callsign_notify(const rr_local_modem_decode_t *d,const char *body,
    free(json);
    dict_free(fields);
 }
-typedef struct {const rr_local_modem_decode_t *decode;const char *text;} watch_context_t;
+/* Collect matches before emitting events. Script handlers may update the
+ * watchlist; never invoke them while SQLite is stepping its SELECT cursor. */
+typedef struct {char *callsign;int id;} watch_hit_t;
+typedef struct {
+   const rr_local_modem_decode_t *decode;
+   const char *text;
+   GPtrArray *hits;
+} watch_context_t;
+static void watch_hit_free(gpointer data) {
+   watch_hit_t *hit=data;
+   g_free(hit->callsign);
+   g_free(hit);
+}
 static void callsign_watch_rule(const rrclient_watched_call_t *rule,void *data) {
    watch_context_t *ctx=data;
    if(!rule->callsign||!rr_modem_callsign_in_text(ctx->text,rule->callsign))return;
@@ -251,16 +263,28 @@ static void callsign_watch_rule(const rrclient_watched_call_t *rule,void *data) 
        (!g_ascii_strcasecmp(mode,"BPSK31")||!g_ascii_strcasecmp(mode,"QPSK31")));
    gboolean band_ok=!g_ascii_strcasecmp(rule->band,"Any")||
       (band&&!g_ascii_strcasecmp(rule->band,band));
-   if(mode_ok&&band_ok)callsign_notify(ctx->decode,ctx->text,rule->callsign,"watchlist",rule->id);
+   if(mode_ok&&band_ok) {
+      watch_hit_t *hit=g_new0(watch_hit_t,1);
+      hit->callsign=g_strdup(rule->callsign);
+      hit->id=rule->id;
+      g_ptr_array_add(ctx->hits,hit);
+   }
 }
 static void notify_decode_callsigns(const rr_local_modem_decode_t *d) {
    char *plain=decode_plain(d);
    if(!plain||!*plain){g_free(plain);return;}
-   watch_context_t ctx={d,plain};
+   GPtrArray *hits=g_ptr_array_new_with_free_func(watch_hit_free);
+   watch_context_t ctx={.decode=d,.text=plain,.hits=hits};
    rrclient_database_watched_calls_foreach(callsign_watch_rule,&ctx);
    char *own=rrclient_database_setting_get("modem.my_callsign");
-   if(own&&rr_modem_callsign_in_text(plain,own))callsign_notify(d,plain,own,"own",0);
+   for(guint i=0;i<hits->len;i++) {
+      const watch_hit_t *hit=g_ptr_array_index(hits,i);
+      callsign_notify(d,plain,hit->callsign,"watchlist",hit->id);
+   }
+   if(own&&rr_modem_callsign_in_text(plain,own))
+      callsign_notify(d,plain,own,"own",0);
    g_free(own);
+   g_ptr_array_unref(hits);
    g_free(plain);
 }
 
