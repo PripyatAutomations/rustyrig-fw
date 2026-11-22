@@ -3365,6 +3365,8 @@ static void routing_compact_selector_sync(routing_compact_control_t *control) {
       if (!control->enum_value[0] ||
           !gtk_combo_box_set_active_id(GTK_COMBO_BOX(combo), control->enum_value)) {
          gtk_combo_box_set_active(GTK_COMBO_BOX(combo), 0);
+         const char *first = gtk_combo_box_get_active_id(GTK_COMBO_BOX(combo));
+         if (first) g_strlcpy(control->enum_value, first, sizeof(control->enum_value));
       }
       control->updating = old;
       return;
