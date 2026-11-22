@@ -56,6 +56,14 @@ void rr_floating_panel_chat_activate(GtkWidget *page);
 void rr_floating_panel_set_chat_room(RRFloatPanel *panel, const char *server, const char *room);
 /* Use a dock edge only if no user choice has been saved for this panel. */
 void rr_floating_panel_default_dock(RRFloatPanel *panel, guint edge);
+/* Client-owned scriptable floating-panel API. Returned strings are g_free'd
+ * by caller. Regex matches titles; location is N/E/W/S/M or *.
+ * A returned ID is a stable name, not a borrowed GTK pointer. */
+gboolean rr_floating_panel_find_match(const char *pattern, const char *location,
+                                      char **id, char **title, char **where);
+gboolean rr_floating_panel_move_named(const char *id, const char *location, gint x, gint y);
+gboolean rr_floating_panel_zoom_named(const char *id, gint percent);
+gboolean rr_floating_panel_opacity_named(const char *id, gint percent);
 void rr_floating_panels_set_hidden(guint reason, gboolean hidden);
 gboolean rr_floating_panels_hidden(guint reason);
 
