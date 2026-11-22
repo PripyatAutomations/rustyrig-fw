@@ -194,8 +194,16 @@ test-hamlib-dummy: bin/rrhamlib
 	$(CC) -std=gnu23 -Wall -Wextra -Werror -O2 -pthread -o $(BUILD_DIR)/tests/test-hamlib-dummy tests/rrserver/test_hamlib_dummy.c rrserver/hamlib.transport.c
 	python3 tests/rrserver/run_hamlib_dummy.py $(PROFILE)
 
-# Build/test both transports without mixing shared bin/ outputs or object files.
-.PHONY: test-transports
+# Full regression suites for both transport implementations. Disposable
+# worktrees keep their shared bin/ outputs, generated headers and build objects
+# independent even though each uses a distinct build profile.
+.PHONY: test-native test-mongoose test-transports
+test-native:
+	bash tests/test-transports.sh native
+
+test-mongoose:
+	bash tests/test-transports.sh mongoose
+
 test-transports:
 	bash tests/test-transports.sh both
 
