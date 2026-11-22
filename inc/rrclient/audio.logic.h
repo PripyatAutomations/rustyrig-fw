@@ -21,4 +21,19 @@ typedef struct {
 bool rr_gate_evaluate(const rr_gate_state_t *gate, bool *output);
 const char *rr_gate_kind_name(rr_gate_kind_t kind);
 bool rr_gate_kind_parse(const char *name, rr_gate_kind_t *out);
+/* Numeric threshold/comparator. Boundaries are inclusive: min <= value <= max.
+ * Each numeric pin may override its configured constant. Unconnected min
+ * defaults to 0; unconnected max defaults to +INFINITY (no upper bound).
+ * The optional boolean signal pin enables comparison (unconnected = true).
+ * Connected pins whose data is stale/invalid fail LOW, even for NOT/NAND-like
+ * downstream logic. The validity return indicates whether output is usable. */
+typedef struct {
+   double value, min, max;
+   bool value_valid;           /* The numeric INPUT pin is required. */
+   bool min_connected, min_valid;
+   bool max_connected, max_valid;
+   bool signal_connected, signal_valid, signal_high;
+   bool invert;                /* Optional outside-range comparator mode. */
+} rr_threshold_state_t;
+bool rr_threshold_evaluate(const rr_threshold_state_t *state, bool *output);
 #endif
