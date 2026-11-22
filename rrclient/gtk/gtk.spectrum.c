@@ -22,7 +22,7 @@
 #define HISTORY 48
 typedef struct {
    char *server, *room;
-   GtkWidget *drawing, *mode, *gain, *source, *ear;
+   GtkWidget *drawing, *mode, *gain, *source;
    unsigned zoom, palette_index, style;
    uint32_t max_hz;             /* source's real Nyquist, independent of the 16 kHz FFT */
    double pan_hz, drag_start_x, drag_start_pan;
@@ -1003,23 +1003,6 @@ static void gain_changed(GtkRange *range, gpointer data) {
    gtk_widget_queue_draw(p->drawing);
 }
 
-static void ear_changed(GtkRange *range, gpointer data) {
-   spectrum_panel_t *p = data;
-   unsigned pos = (unsigned)gtk_range_get_value(range);
-   char next = pos == 0 ? 'L' : pos == 2 ? 'R' : 'M';
-
-   if (next == p->source_mode) {
-      return;
-   }
-   p->source_mode = next;
-   p->max_hz = RR_AF_MAX_HZ;
-   p->pan_hz = 0.;
-   p->source_id[0] = 0;
-   p->head = p->count = 0;
-   p->af_pending = false;
-   gtk_widget_queue_draw(p->drawing);
-}
-
 /* Spectrum selectors should not cover the trace when idle. The menu and focused/hovered widget always remain fully opaque and usable. */
 static gboolean spectrum_popup_shown(GtkWidget *widget) {
    gboolean shown = FALSE;
@@ -1141,31 +1124,11 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    spectrum_selector_fade(gain_row);
    gtk_overlay_add_overlay(GTK_OVERLAY(overlay), gain_row);
 
-   GtkWidget *ear_row = gtk_event_box_new();
-   gtk_event_box_set_visible_window(GTK_EVENT_BOX(ear_row), FALSE);
-   GtkWidget *ear_contents = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 3);
-   gtk_container_add(GTK_CONTAINER(ear_row), ear_contents);
-   GtkWidget *ear_label = gtk_label_new("Ear");
-   gtk_box_pack_start(GTK_BOX(ear_contents), ear_label, FALSE, FALSE, 0);
-   p->ear = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 2, 1);
-   gtk_range_set_value(GTK_RANGE(p->ear), 1);
-   gtk_scale_set_draw_value(GTK_SCALE(p->ear), FALSE);
-   gtk_widget_set_size_request(p->ear, 94, -1);
-   gtk_widget_set_tooltip_text(ear_row, "Ear: Left / Mix / Right");
-   gtk_box_pack_start(GTK_BOX(ear_contents), p->ear, FALSE, FALSE, 0);
-   gtk_widget_set_halign(ear_row, GTK_ALIGN_END);
-   gtk_widget_set_valign(ear_row, GTK_ALIGN_START);
-   gtk_widget_set_margin_top(ear_row, 53);
-   gtk_widget_set_margin_end(ear_row, 3);
-   spectrum_selector_fade(ear_row);
-   gtk_overlay_add_overlay(GTK_OVERLAY(overlay), ear_row);
-
    g_signal_connect(p->drawing, "draw", G_CALLBACK(draw_spectrum), p);
    g_signal_connect(p->drawing, "button-press-event", G_CALLBACK(af_click), p);
    g_signal_connect(p->drawing, "motion-notify-event", G_CALLBACK(af_motion), p);
    g_signal_connect(p->drawing, "button-release-event", G_CALLBACK(af_release), p);
    g_signal_connect(p->source, "changed", G_CALLBACK(source_changed), p);
-   g_signal_connect(p->ear, "value-changed", G_CALLBACK(ear_changed), p);
    g_signal_connect(p->gain, "value-changed", G_CALLBACK(gain_changed), p);
    p->af_result_token = event_on_message_domain_token(RRCLIENT_AF_SPECTRUM_RESULT, af_result_event, p, "gtk");
    p->streams_token = event_on_message_domain_token(RRCLIENT_AUDIO_SNAPSHOT_RESULT, source_snapshot, p, "gtk");
