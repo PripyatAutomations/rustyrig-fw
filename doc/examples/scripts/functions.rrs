@@ -27,7 +27,7 @@ script("/references", {
     log.info("counter=" + string.str(counter) +
              " snapshot=" + string.str(snapshot) +
              " doubled=" + string.str(doubled))
-    log.info("rooms: " + string.str(rooms))
+    // The rooms array can be passed directly to chat.send(rooms, text).
     log.info("managed bytes: " + string.str(memory.used) +
              ", peak: " + string.str(memory.peak))
 });
