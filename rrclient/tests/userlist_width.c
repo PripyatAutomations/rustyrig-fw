@@ -218,7 +218,7 @@ static void test_side_panel_roster_fits(void) {
    GtkWidget *view = userlist_view_create();
    userlist_fit_columns(view);
    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll),
-                                  GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+                                  GTK_POLICY_EXTERNAL, GTK_POLICY_AUTOMATIC);
    gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(scroll), 80);
    gtk_container_add(GTK_CONTAINER(scroll), view);
    g_signal_connect(scroll, "size-allocate",
@@ -234,7 +234,7 @@ static void test_side_panel_roster_fits(void) {
    pump_layout();
    GtkPolicyType horizontal, vertical;
    gtk_scrolled_window_get_policy(GTK_SCROLLED_WINDOW(scroll), &horizontal, &vertical);
-   assert(horizontal == GTK_POLICY_NEVER);
+   assert(horizontal == GTK_POLICY_EXTERNAL);
    GtkTreeViewColumn *username = userlist_column(view, COL_USERNAME);
    int first = gtk_tree_view_column_get_fixed_width(username);
    GtkAllocation narrow = {.width = 170, .height = 200};
@@ -257,7 +257,7 @@ static void test_floating_userlist_no_autogrow(void) {
    userlist_fit_columns(view);
    gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(scroll), 80);
    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll),
-                                  GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+                                  GTK_POLICY_EXTERNAL, GTK_POLICY_AUTOMATIC);
    gtk_container_add(GTK_CONTAINER(scroll), view);
    g_signal_connect(scroll, "size-allocate", G_CALLBACK(userlist_scroll_allocate), view);
    gtk_box_pack_start(GTK_BOX(panel), scroll, TRUE, TRUE, 0);
@@ -531,7 +531,7 @@ int main(void) {
    irc_capabilities_clear(&client);
    GtkListStore *store = GTK_LIST_STORE(gtk_tree_view_get_model(GTK_TREE_VIEW(view)));
    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
-   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_EXTERNAL, GTK_POLICY_AUTOMATIC);
    gtk_container_add(GTK_CONTAINER(scroll), view);
    GtkWidget *paned = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
    GtkWidget *panel = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
@@ -580,7 +580,7 @@ int main(void) {
    assert(narrow_width > 0 && wide_width > narrow_width);
    GtkPolicyType horizontal_policy, vertical_policy;
    gtk_scrolled_window_get_policy(GTK_SCROLLED_WINDOW(scroll), &horizontal_policy, &vertical_policy);
-   assert(horizontal_policy == GTK_POLICY_NEVER);
+   assert(horizontal_policy == GTK_POLICY_EXTERNAL);
 
    // Controls can grow after the initial allocation (CAT mode/frequency updates).
    gtk_label_set_text(GTK_LABEL(frequency), "145.123000 MHz (independent receiver)");
