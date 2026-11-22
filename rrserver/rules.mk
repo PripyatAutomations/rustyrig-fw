@@ -166,6 +166,15 @@ rrserver_objs += script.o
 rrserver_objs += rrscript/host.o
 CFLAGS_RRSERVER += -DRR_HAVE_RUSTYSCRIPT $(shell pkg-config --cflags librustyscript)
 RRSERVER_SCRIPT_LIBS := $(shell pkg-config --libs librustyscript)
+# Check the actual linked runtime, not just the existence of librustyscript.pc.
+# A stale .so can satisfy pkg-config but lack the required VM symbols.
+.PHONY: rrserver-rustyscript-link-check
+rrserver-rustyscript-link-check:
+	@printf '%s\n' 'extern void *rrs_vm_new(void); int main(void) { return !rrs_vm_new(); }' | \
+	   $(CC) $(CFLAGS) -x c - -x none $(RRSERVER_SCRIPT_LIBS) $(LDFLAGS) -o /dev/null || { \
+	   echo 'ERROR: librustyscript runtime link failed; reinstall rebuilt librustyscript0 and librustyscript-dev'; \
+	   echo 'pkg-config libs:'; pkg-config --libs librustyscript; exit 1; }
+bin/rrserver: rrserver-rustyscript-link-check
 ${BUILD_DIR}/rrserver/rrscript/host.o: rrscript/host.c inc/rrscript/host.h ${BUILD_HEADERS}
 	@mkdir -p $(dir $@)
 	@$(CC) $(CFLAGS_RRSERVER) $(CFLAGS) $(CFLAGS_WARN) -o $@ -c $< || exit 2
