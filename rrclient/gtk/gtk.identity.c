@@ -379,8 +379,8 @@ static void gtk_manage_certificates(GtkWidget *unused, gpointer unused_data) {
                g_snprintf(fingerprint + i * 3, sizeof(fingerprint) - i * 3, i == sizeof(hash) - 1 ? "%02X" : "%02X:", hash[i]);
             }
 
-            char *name = g_path_get_basename(path);
-            char *details = g_strdup_printf("Identity: %s\nAlgorithm: Ed25519\nStatus: %s\n"
+            char *name = rrclient_identity_display_name(path);
+            char *details = g_strdup_printf("Display name: %s\nAlgorithm: Ed25519\nStatus: %s\n"
                "Public key SHA-256: %s\nFile: %s\n" "This fingerprint identifies the raw Ed25519 public key, " "not a TLS certificate or TLS SPKI fingerprint.",
                name, rrclient_identity_get(path) ? "Unlocked" : "Locked", fingerprint, path);
             identity_message(GTK_WINDOW(dlg), GTK_MESSAGE_INFO, details);
