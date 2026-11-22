@@ -694,13 +694,13 @@ static void tabs_page_width_diagnostic(GtkWidget *widget, GtkAllocation *allocat
    last_bucket = bucket;
    last_page = culprit;
    last_excess = excess;
-   g_warning("gtk.tabs: notebook=%d viewport=%d excess=%d; widest page=%d/%d min=%d", allocation->width, visible, excess, culprit, page_count, maximum);
+   g_debug("gtk.tabs: notebook=%d viewport=%d excess=%d; widest page=%d/%d min=%d", allocation->width, visible, excess, culprit, page_count, maximum);
 
    if (culprit >= 0) {
       GtkWidget *page = gtk_notebook_get_nth_page(book, culprit);
       GString *chain = g_string_new(NULL);
       tabs_width_pressure_chain(page, chain);
-      g_warning("gtk.tabs: width culprit: %s", chain->str);
+      g_debug("gtk.tabs: width culprit: %s", chain->str);
       g_string_free(chain, TRUE);
    }
 }

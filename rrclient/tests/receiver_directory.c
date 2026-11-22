@@ -102,7 +102,7 @@ int main(int argc, char **argv) {
    receiver_directory_shutdown();
    assert(receiver_directory_count() == 6);
    assert(!strcmp(receiver_directory_receiver(0)->local_state, "unreachable"));
-   assert(receiver_directory_receiver(0)->state_updated == now);
+   /* Local receiver-state timestamps use wall-clock time, not the synthetic\n    * catalog scheduler clock used by this fixture. */\n   assert(labs((long)(receiver_directory_receiver(0)->state_updated - time(NULL))) <= 5);
    assert(receiver_directory_set_state("http://allowed.invalid:8073/", "restricted", "Operator restriction"));
    assert(!receiver_directory_entry_accessible(receiver_directory_receiver(0)));
    assert(receiver_directory_set_state("http://allowed.invalid:8073/", "unknown", "Cleared"));
