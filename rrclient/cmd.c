@@ -519,8 +519,8 @@ static void artwork_line_event(const rr_event_message_t *event, void *unused) {
    rrconn_t *connection=rrclient_connection_find(line.profile);
    bool channel=line.room[0]=='#' || line.room[0]=='&';
    if(!connection || !connection->authenticated || rrclient_connection_state(line.profile)!=1 ||
-      (channel ? !rrclient_room_is_joined(line.room) :
-                 !rrclient_window_find_for_connection(connection,line.room)) ||
+      !rrclient_window_find_for_connection(connection,line.room) ||
+      (channel && !rrclient_room_is_joined(line.room)) ||
       rrclient_room_offline(line.room))return;
    dict *message=dict_new();
    if(!message)return;
