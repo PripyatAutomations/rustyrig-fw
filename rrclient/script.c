@@ -2,6 +2,7 @@
  * SPDX-License-Identifier: GPL-2.0-only */
 #include <rrscript/host.h>
 #include <rrclient/script.gui.h>
+#include <rrclient/database.h>
 #include <librustyaxe/event-bus.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/frontend.h>
@@ -16,310 +17,6 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <stdio.h>
-
-/* Capture colorized IRC art without exposing arbitrary script filesystem I/O.
- * Sequential colored lines from the same sender/room form one artwork. */
-typedef struct {
-   char *path;
-   gint64 updated_at;
-   unsigned lines;
-} rr_art_session_t;
-static GHashTable *rr_art_sessions;
-static GMutex rr_art_lock;
-static char *rr_art_slug(const char *src) {
-   GString *out=g_string_sized_new(40);
-   for (const unsigned char *s=(const unsigned char *)src;*s&&out->len<48;s++)
-      g_string_append_c(out,g_ascii_isalnum(*s)||*s=='_'||*s=='-'?(char)*s:'_');
-   if(!out->len)g_string_append(out,"unknown");
-   return g_string_free(out,FALSE);
-}
-static bool rr_art_colored(const char *text) {
-   for (const unsigned char *p=(const unsigned char *)text;*p;p++) {
-      if(*p==3 && g_ascii_isdigit(p[1]))return true;
-      if(*p==4) {
-         bool valid=true;
-         for(unsigned i=1;i<=6;i++) {
-            if(!p[i]||!g_ascii_isxdigit(p[i])){valid=false;break;}
-         }
-         if(valid)return true;
-      }
-   }
-   return false;
-}
-static void rr_art_session_free(gpointer data) {
-   rr_art_session_t *session=data;
-   g_free(session->path);
-   g_free(session);
-}
-static rrs_value_t *native_art_capture(rrs_vm_t *vm,int argc,
-   const rrs_value_t *const argv[],void *user) {
-   (void)user;
-   if(argc!=3 || rrs_value_type(argv[0])!=RRS_STRING ||
-      rrs_value_type(argv[1])!=RRS_STRING || rrs_value_type(argv[2])!=RRS_STRING) {
-      rrs_vm_raise(vm,"art.capture(text, nick, room) expects three strings");
-      return NULL;
-   }
-   const char *line=rrs_value_string(argv[0]);
-   const char *nick=rrs_value_string(argv[1]);
-   const char *room=rrs_value_string(argv[2]);
-   size_t len=strlen(line);
-   if(!len||len>4096||!nick[0]||!room[0])
-      return rrs_boolean(false);
-   char *folder=g_build_filename(g_get_user_data_dir(),"rustyrig","artwork",NULL);
-   if(g_mkdir_with_parents(folder,0700)<0) {
-      g_free(folder);
-      rrs_vm_raise(vm,"Cannot create artwork archive directory");
-      return NULL;
-   }
-   char *key=g_strdup_printf("%s\n%s",room,nick);
-   gint64 now=g_get_monotonic_time();
-   g_mutex_lock(&rr_art_lock);
-   if(!rr_art_sessions)
-      rr_art_sessions=g_hash_table_new_full(g_str_hash,g_str_equal,g_free,rr_art_session_free);
-   rr_art_session_t *session=g_hash_table_lookup(rr_art_sessions,key);
-   bool continuing=session && now-session->updated_at<=15*G_USEC_PER_SEC && session->lines<100;
-   /* A colored line starts an artwork; plain lines may continue it. */
-   if(!rr_art_colored(line) && !continuing) {
-      g_mutex_unlock(&rr_art_lock);
-      g_free(folder);g_free(key);
-      return rrs_boolean(false);
-   }
-   if(!continuing) {
-      char *safe_nick=rr_art_slug(nick),*safe_room=rr_art_slug((*room=='#'||*room=='&')?room+1:room);
-      GDateTime *date=g_date_time_new_now_local();
-      char *stamp=g_date_time_format(date,"%Y%m%d-%H%M%S");
-      /* Requested channel-nick-date naming. Preserve existing captures
-       * when two sessions happen to start in the same second. */
-      char *basename=g_strdup_printf("%s-%s-%s",safe_room,safe_nick,stamp);
-      char *filename=g_strdup_printf("%s.mac",basename);
-      rr_art_session_t *fresh=g_new0(rr_art_session_t,1);
-      fresh->path=g_build_filename(folder,filename,NULL);
-      for(unsigned suffix=2; g_file_test(fresh->path,G_FILE_TEST_EXISTS); suffix++) {
-         g_free(filename);
-         g_free(fresh->path);
-         filename=g_strdup_printf("%s-%u.mac",basename,suffix);
-         fresh->path=g_build_filename(folder,filename,NULL);
-      }
-      g_free(basename);
-      g_hash_table_replace(rr_art_sessions,g_strdup(key),fresh);
-      session=fresh;
-      g_free(filename);g_free(stamp);g_date_time_unref(date);
-      g_free(safe_nick);g_free(safe_room);
-   }
-   /* Store the actual IRC control bytes. Never reinterpret or strip colors. */
-   int fd=g_open(session->path,O_WRONLY|O_APPEND|O_CREAT|O_NOFOLLOW,0600);
-   bool ok=fd>=0;
-   if(ok) {
-      size_t off=0;
-      while(off<len) {
-         ssize_t n=write(fd,line+off,len-off);
-         if(n<0 && errno==EINTR)continue;
-         if(n<=0){ok=false;break;}
-         off+=(size_t)n;
-      }
-      if(ok && write(fd,"\n",1)!=1)ok=false;
-      if(close(fd)<0)ok=false;
-   }
-   if(ok){session->updated_at=now;session->lines++;}
-   else g_hash_table_remove(rr_art_sessions,key);
-   g_mutex_unlock(&rr_art_lock);
-   g_free(folder);g_free(key);
-   if(!ok){rrs_vm_raise(vm,"Unable to append artwork");return NULL;}
-   return rrs_boolean(true);
-}
-
-
-/* The artwork manager is script-defined. Native support owns the paced,
- * cancellable transmit sequence, so a busy UI cannot bypass the chat queue. */
-#include <rrclient/artwork.h>
-#include <rrclient/database.h>
-
-typedef struct {
-   guint timer, interval_ms;
-   guint64 id;
-   guint cursor;
-   char **lines;
-   char profile[128], room[128], owner[32];
-} rr_art_playback_t;
-static rr_art_playback_t art_playback;
-static guint64 art_serial;
-
-static char *art_safe_path(const char *basename) {
-   if (!basename || !*basename || strlen(basename)>180 ||
-       strstr(basename,"..") || basename[0]=='/' || strchr(basename,'\\') ||
-       !g_str_has_suffix(basename,".mac"))
-      return NULL;
-   return g_build_filename(g_get_user_data_dir(),"rustyrig","artwork",basename,NULL);
-}
-static char *art_rate_key(const char *target) {
-   char *hash=g_compute_checksum_for_string(G_CHECKSUM_SHA256,target,-1);
-   char *key=g_strdup_printf("ui.artwork.lps.%s",hash);
-   g_free(hash);
-   return key;
-}
-static void art_playback_stop(void) {
-   if (art_playback.timer) {
-      g_source_remove(art_playback.timer);
-      art_playback.timer=0;
-   }
-   if (art_playback.id) {
-      rr_artwork_cancel_t cancel={.playback_id=art_playback.id};
-      rr_event_message_t message={
-         .name=RR_ARTWORK_CANCEL_EVENT,.payload=&cancel,.length=sizeof(cancel)
-      };
-      event_emit_message(&message);
-      art_playback.id=0;
-   }
-   g_strfreev(art_playback.lines);
-   art_playback.lines=NULL;
-   art_playback.cursor=0;
-   art_playback.owner[0]=0;
-}
-static gboolean art_playback_tick(gpointer unused) {
-   (void)unused;
-   if (!art_playback.lines || !art_playback.lines[art_playback.cursor]) {
-      art_playback.timer=0;
-      g_strfreev(art_playback.lines);
-      art_playback.lines=NULL;
-      /* Retain the ID so Stop can cancel lines still in the core send queue. */
-      return G_SOURCE_REMOVE;
-   }
-   const char *line=art_playback.lines[art_playback.cursor++];
-   if (*line && strlen(line)<=RR_ARTWORK_MAX_LINE) {
-      rr_artwork_line_t request={
-         .playback_id=art_playback.id,
-         .interval_ms=art_playback.interval_ms
-      };
-      g_strlcpy(request.profile,art_playback.profile,sizeof(request.profile));
-      g_strlcpy(request.room,art_playback.room,sizeof(request.room));
-      g_strlcpy(request.text,line,sizeof(request.text));
-      rr_event_message_t message={
-         .name=RR_ARTWORK_LINE_EVENT,.payload=&request,.length=sizeof(request)
-      };
-      event_emit_message(&message);
-   }
-   return G_SOURCE_CONTINUE;
-}
-static char art_op_dir[]="dir";
-static char art_op_edit[]="edit";
-static char art_op_path[]="path";
-static char art_op_play[]="play";
-static char art_op_stop[]="stop";
-static char art_op_rate_get[]="rate_get";
-static char art_op_rate_set[]="rate_set";
-static rrs_value_t *native_art_control(rrs_vm_t *vm,int argc,
-   const rrs_value_t *const argv[],void *user) {
-   const char *op=user;
-   if(!strcmp(op,"dir")) {
-      if(argc){rrs_vm_raise(vm,"art.dir() takes no arguments");return NULL;}
-      char *path=g_build_filename(g_get_user_data_dir(),"rustyrig","artwork",NULL);
-      g_mkdir_with_parents(path,0700);
-      rrs_value_t *value=rrs_string(path);
-      g_free(path);
-      return value;
-   }
-   if(!strcmp(op,"stop")) {
-      if(argc){rrs_vm_raise(vm,"art.stop() takes no arguments");return NULL;}
-      art_playback_stop();
-      return rrs_boolean(true);
-   }
-   int want=!strcmp(op,"play")?3:!strcmp(op,"rate_set")?2:1;
-   if(argc!=want){rrs_vm_raise(vm,"Invalid artwork function arguments");return NULL;}
-   for(int i=0;i<argc;i++)
-      if(rrs_value_type(argv[i])!=RRS_STRING &&
-         !(i==1 && !strcmp(op,"rate_set") &&
-           (rrs_value_type(argv[i])==RRS_INT || rrs_value_type(argv[i])==RRS_FLOAT)) &&
-         !(i==2 && !strcmp(op,"play") && (rrs_value_type(argv[i])==RRS_INT ||
-                                          rrs_value_type(argv[i])==RRS_FLOAT))) {
-         rrs_vm_raise(vm,"Invalid artwork argument type");return NULL;
-      }
-   const char *name=rrs_value_string(argv[0]);
-   if(!strcmp(op,"edit")) {
-      char *path=art_safe_path(name);
-      if(!path){rrs_vm_raise(vm,"Invalid .mac filename");return NULL;}
-      g_free(path);
-      rr_artwork_edit_t edit={0};
-      g_strlcpy(edit.basename,name,sizeof(edit.basename));
-      rr_event_message_t message={.name=RR_ARTWORK_EDIT_EVENT,.payload=&edit,.length=sizeof(edit)};
-      event_emit_message(&message);
-      return rrs_boolean(true);
-   }
-   if(!strcmp(op,"path")) {
-      char *path=art_safe_path(name);
-      if(!path){rrs_vm_raise(vm,"Invalid .mac filename");return NULL;}
-      rrs_value_t *ret=rrs_string(path);
-      g_free(path);
-      return ret;
-   }
-   if(!strcmp(op,"rate_get")||!strcmp(op,"rate_set")) {
-      char *key=art_rate_key(name);
-      if(!strcmp(op,"rate_get")) {
-         char *saved=rrclient_database_setting_get(key);
-         int rate=saved?atoi(saved):1;
-         g_free(saved);g_free(key);
-         return rrs_integer(CLAMP(rate,1,10));
-      }
-      int64_t rate=rrs_value_type(argv[1])==RRS_INT ?
-         rrs_value_int(argv[1]) : (int64_t)rrs_value_float(argv[1]);
-      if(rate<1||rate>10) {
-         g_free(key);rrs_vm_raise(vm,"Rate must be 1..10 lines/sec");return NULL;
-      }
-      char value[16];
-      g_snprintf(value,sizeof(value),"%" G_GINT64_FORMAT,(gint64)rate);
-      bool saved=rrclient_database_setting_set(key,value);
-      g_free(key);
-      if(!saved){rrs_vm_raise(vm,"Could not persist room rate");return NULL;}
-      return rrs_boolean(true);
-   }
-   if(!strcmp(op,"play")) {
-      const char *target=rrs_value_string(argv[1]);
-      char **parts=g_strsplit(target,"|",3);
-      bool valid=parts[0]&&parts[1]&&!parts[2]&&strlen(parts[0])<sizeof(art_playback.profile)&&
-         strlen(parts[1])<sizeof(art_playback.room)&&
-         parts[1][0] && g_ascii_strcasecmp(parts[1],"status") &&
-         !strpbrk(parts[1],"\r\n ,");
-      int rate=rrs_value_type(argv[2])==RRS_INT?
-         (int)rrs_value_int(argv[2]):(int)rrs_value_float(argv[2]);
-      char *path=art_safe_path(name);
-      if(!valid||!path||rate<1||rate>10) {
-         g_strfreev(parts);g_free(path);
-         rrs_vm_raise(vm,"art.play expects .mac, profile|target, and 1..10 lines/sec");
-         return NULL;
-      }
-      char *content=NULL;gsize length=0;
-      bool readable=g_file_get_contents(path,&content,&length,NULL);
-      g_free(path);
-      if(!readable||length>131072||!g_utf8_validate(content,length,NULL)) {
-         g_free(content);g_strfreev(parts);
-         rrs_vm_raise(vm,"Cannot read UTF-8 artwork (maximum 128 KiB)");return NULL;
-      }
-      char **lines=g_strsplit(content,"\n",256);
-      g_free(content);
-      for(guint i=0;lines[i];i++) {
-         if(strlen(lines[i])>RR_ARTWORK_MAX_LINE || strchr(lines[i],'\r')) {
-            g_strfreev(lines);g_strfreev(parts);
-            rrs_vm_raise(vm,"Artwork contains oversized or invalid chat lines");return NULL;
-         }
-      }
-      art_playback_stop();
-      art_playback.id=++art_serial;
-      if(!rrscript_host_vm_owner(vm,art_playback.owner)) {
-         art_playback_stop();
-         g_strfreev(parts);g_strfreev(lines);
-         rrs_vm_raise(vm,"Unable to determine artwork script owner");
-         return NULL;
-      }
-      art_playback.interval_ms=(guint)(1000/rate);
-      art_playback.lines=lines;
-      g_strlcpy(art_playback.profile,parts[0],sizeof(art_playback.profile));
-      g_strlcpy(art_playback.room,parts[1],sizeof(art_playback.room));
-      g_strfreev(parts);
-      art_playback.timer=g_timeout_add(art_playback.interval_ms,art_playback_tick,NULL);
-      art_playback_tick(NULL);
-      return rrs_boolean(true);
-   }
-   rrs_vm_raise(vm,"Unknown artwork function");return NULL;
-}
 
 /* Scripts only see immutable IDs and properties; no GTK pointers escape.
  * These operations use the same GTK floating panel manager as drag/drop. */
@@ -454,9 +151,6 @@ static void script_gui_core_command(const rr_event_message_t *message,void *unus
    memcpy(&cmd,message->payload,sizeof(cmd));
    if(cmd.version!=RR_SCRIPT_GUI_PROTOCOL_VERSION || !memchr(cmd.owner,0,sizeof(cmd.owner)) ||
       !memchr(cmd.id,0,sizeof(cmd.id)))return;
-   if(cmd.action==RR_GUI_RELEASE && art_playback.id &&
-      !strcmp(cmd.owner,art_playback.owner))
-      art_playback_stop();
    if(!script_gui_values)return;
    if(cmd.action==RR_GUI_DESTROY) {
       char *key=script_gui_key(cmd.owner,cmd.id);
@@ -623,15 +317,7 @@ static bool register_gui_api(rrs_vm_t *vm) {
 }
 
 static bool register_window_api(rrs_vm_t *vm) {
-   return rrs_vm_register_native(vm,"art.dir",native_art_control,art_op_dir) &&
-       rrs_vm_register_native(vm,"art.edit",native_art_control,art_op_edit) &&
-       rrs_vm_register_native(vm,"art.path",native_art_control,art_op_path) &&
-       rrs_vm_register_native(vm,"art.play",native_art_control,art_op_play) &&
-       rrs_vm_register_native(vm,"art.stop",native_art_control,art_op_stop) &&
-       rrs_vm_register_native(vm,"art.rate_get",native_art_control,art_op_rate_get) &&
-       rrs_vm_register_native(vm,"art.rate_set",native_art_control,art_op_rate_set) &&
-       rrs_vm_register_native(vm,"art.capture",native_art_capture,NULL) &&
-       rrs_vm_register_native(vm,"window.find",native_window_find,NULL) &&
+   return rrs_vm_register_native(vm,"window.find",native_window_find,NULL) &&
       rrs_vm_register_native(vm,"window.move",native_window_move,NULL) &&
       rrs_vm_register_native(vm,"window.zoom",native_window_percent,GINT_TO_POINTER(1)) &&
       rrs_vm_register_native(vm,"window.opacity",native_window_percent,NULL) &&
@@ -657,12 +343,8 @@ void rrclient_script_init(void) {
    g_free(default_path);
 }
 void rrclient_script_shutdown(void) {
-   art_playback_stop();
    rrscript_host_close(rrclient_script_host);
    rrclient_script_host=NULL;
-   g_mutex_lock(&rr_art_lock);
-   g_clear_pointer(&rr_art_sessions,g_hash_table_destroy);
-   g_mutex_unlock(&rr_art_lock);
    if(script_gui_value_token){event_off_token(script_gui_value_token);script_gui_value_token=0;}
    if(script_gui_command_token){event_off_token(script_gui_command_token);script_gui_command_token=0;}
    g_clear_pointer(&script_gui_values,g_hash_table_destroy);
