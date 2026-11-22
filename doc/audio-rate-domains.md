@@ -43,6 +43,25 @@ native floating-point internal mix and clock-drift compensation remain
 future work. Source resampling is band-limited and performed on its
 producer side, not inside the output mixing deadline.
 
+### Modem TX: direct rig sink or TX mixer
+
+Local modem workers produce 16 kHz mono S16LE PCM. In Audio Routing, the
+modem's **audio** output can be wired either to `tx.mix` or directly to
+the active `rig.sink` audio input; its **PTT** output remains a separate
+red control wire that must be connected to a valid TX rig.
+
+The direct rig connection is a logical patch to the same bounded TX encoder
+pipeline, not a second sound-device path or a bypass around PTT, active TX
+resource checks, or negotiated codec validation. Either route feeds the
+modem PCM into the TX engine. Each modem stream declares its source format,
+allowing the engine to resample automatically if the TX mix clock differs.
+No explicit resampler widget or manual intermediary is required.
+
+A disconnected audio wire mutes that modem source. Connecting an audio wire
+does not key the transmitter: the modem must also have TX enabled, a valid
+PTT wire, and an acknowledged authorized PTT assertion before samples are
+accepted. The RX buses and physical speaker volume are not affected.
+
 ### Device endpoint sample-rate API
 
 ```ini
