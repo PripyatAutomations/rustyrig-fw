@@ -525,6 +525,65 @@ gboolean rr_pipeline_graph_add_link(rr_pipeline_graph_t *graph, guint src, guint
    return TRUE;
 }
 
+/* Pipeline editor port gesture. A capture source and existing effect normally
+ * already have a downstream pad connected. Instead of silently adding two
+ * consumers to a single non-request pad, splice a previously isolated effect
+ * into that existing edge. All allocations/pad checks precede mutation. */
+gboolean rr_pipeline_graph_connect(rr_pipeline_graph_t *graph, guint src, guint dst, GError **error) {
+   if(!graph || src>=graph->nodes->len || dst>=graph->nodes->len || src==dst)
+      return rr_pipeline_graph_add_link(graph,src,dst,error);
+   rr_pipeline_link_t *outgoing=NULL, *incoming=NULL;
+   guint out_count=0, in_count=0, src_in=0, dst_out=0;
+   for(guint i=0;i<graph->links->len;i++) {
+      rr_pipeline_link_t *link=g_ptr_array_index(graph->links,i);
+      if(link->src==src) { outgoing=link;out_count++; }
+      if(link->dst==dst) { incoming=link;in_count++; }
+      if(link->dst==src)src_in++;
+      if(link->src==dst)dst_out++;
+      if(link->src==src && link->dst==dst)
+         return rr_pipeline_graph_add_link(graph,src,dst,error);
+   }
+   if(!out_count && !in_count)
+      return rr_pipeline_graph_add_link(graph,src,dst,error);
+   /* Only rewrite a linear edge with one fully unconnected insertion node.
+    * Existing branching/tee topology is never modified implicitly. */
+   gboolean insert_after=out_count==1 && in_count==0 && dst_out==0;
+   gboolean insert_before=out_count==0 && src_in==0 && in_count==1;
+   if(!insert_after && !insert_before) {
+      g_set_error(error,RR_PIPELINE_ERROR,RR_PIPELINE_ERROR_LINK,
+         "Both ports are already wired; disconnect a link or add a tee to branch");
+      return FALSE;
+   }
+   guint inserted=insert_after?dst:src;
+   rr_pipeline_node_t *node=g_ptr_array_index(graph->nodes,inserted);
+   gchar *sink_pad=rr_pipeline_choose_pad(node->element,GST_PAD_SINK);
+   gchar *src_pad=rr_pipeline_choose_pad(node->element,GST_PAD_SRC);
+   if(!sink_pad || !src_pad) {
+      g_free(sink_pad);g_free(src_pad);
+      g_set_error(error,RR_PIPELINE_ERROR,RR_PIPELINE_ERROR_LINK,
+         "Inserted element must have both audio input and output pads");
+      return FALSE;
+   }
+   rr_pipeline_link_t *new_link=g_new0(rr_pipeline_link_t,1);
+   if(!new_link) {
+      g_free(sink_pad);g_free(src_pad);
+      g_set_error(error,RR_PIPELINE_ERROR,RR_PIPELINE_ERROR_LINK,"Out of memory while inserting pipeline element");
+      return FALSE;
+   }
+   rr_pipeline_link_t *old=insert_after?outgoing:incoming;
+   guint original_dst=old->dst;
+   gchar *original_dst_pad=old->dst_pad;
+   old->dst=inserted;
+   old->dst_pad=sink_pad;
+   new_link->src=inserted;
+   new_link->dst=original_dst;
+   new_link->src_pad=src_pad;
+   new_link->dst_pad=original_dst_pad;
+   g_ptr_array_add(graph->links,new_link);
+   graph->modified=TRUE;
+   return TRUE;
+}
+
 gboolean rr_pipeline_graph_remove_node(rr_pipeline_graph_t *graph, guint index, GError **error) {
    if (!graph || index >= graph->nodes->len) {
       g_set_error(error, RR_PIPELINE_ERROR, RR_PIPELINE_ERROR_ELEMENT, "Select a pipeline element to remove");

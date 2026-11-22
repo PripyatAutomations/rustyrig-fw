@@ -114,6 +114,56 @@ static void test_new_pipeline_from_toolbox(void) {
    rr_pipeline_graph_free(graph);
 }
 
+/* Already-connected microphone/capture output and effect outputs should accept
+ * insertion of another audio processor without leaving duplicate pad users.
+ * identity stands in for an LV2 element without requiring installed bundles. */
+static void test_connect_effect_chain(void) {
+   GError *error=NULL;
+   rr_pipeline_graph_t *graph=rr_pipeline_graph_parse(
+      "fakesrc name=mic ! fakesink name=speaker",&error);
+   assert(graph && !error);
+   guint mic=find_factory(graph,"fakesrc"),speaker=find_factory(graph,"fakesink");
+   guint effect1=0,effect2=0;
+   assert(rr_pipeline_graph_add_element(graph,"identity",240,40,&effect1,&error));
+   assert(rr_pipeline_graph_add_element(graph,"identity",440,40,&effect2,&error));
+   /* Insert effect1 between the already connected mic and speaker. */
+   assert(rr_pipeline_graph_connect(graph,mic,effect1,&error));
+   assert(rr_pipeline_graph_link_count(graph)==2);
+   /* Chain another effect after the first one. */
+   assert(rr_pipeline_graph_connect(graph,effect1,effect2,&error));
+   assert(rr_pipeline_graph_link_count(graph)==3);
+   const rr_pipeline_link_t *l0=rr_pipeline_graph_link(graph,0);
+   const rr_pipeline_link_t *l1=rr_pipeline_graph_link(graph,1);
+   const rr_pipeline_link_t *l2=rr_pipeline_graph_link(graph,2);
+   assert(l0->src==mic && l0->dst==effect1);
+   assert(l1->src==effect1 && l1->dst==effect2);
+   assert(l2->src==effect2 && l2->dst==speaker);
+   gchar *launch=rr_pipeline_graph_serialize(graph,&error);
+   assert(launch && !error);
+   rr_pipeline_graph_t *parsed=rr_pipeline_graph_parse(launch,&error);
+   assert(parsed && !error && rr_pipeline_graph_link_count(parsed)==3);
+   rr_pipeline_graph_free(parsed);
+   g_free(launch);
+   rr_pipeline_graph_free(graph);
+
+   /* Input-first connection is equivalent: an isolated effect splices
+    * immediately upstream of a connected effect's input. */
+   graph=rr_pipeline_graph_parse("fakesrc name=mic ! identity name=fx ! fakesink name=speaker",&error);
+   assert(graph && !error);
+   guint newfx=0;
+   assert(rr_pipeline_graph_add_element(graph,"identity",240,160,&newfx,&error));
+   guint existing=find_factory(graph,"identity");
+   assert(rr_pipeline_graph_connect(graph,newfx,existing,&error));
+   assert(rr_pipeline_graph_link_count(graph)==3);
+   launch=rr_pipeline_graph_serialize(graph,&error);
+   assert(launch && !error);
+   parsed=rr_pipeline_graph_parse(launch,&error);
+   assert(parsed && !error && rr_pipeline_graph_link_count(parsed)==3);
+   rr_pipeline_graph_free(parsed);
+   g_free(launch);
+   rr_pipeline_graph_free(graph);
+}
+
 static void test_edited_string_property(void) {
    GError *error = NULL;
    rr_pipeline_graph_t *graph = rr_pipeline_graph_parse("fakesrc name=src ! filesink location=old.wav name=sink", &error);
@@ -173,6 +223,7 @@ int main(int argc, char **argv) {
    test_existing_tee_branches();
    test_tee_insertion();
    test_new_pipeline_from_toolbox();
+   test_connect_effect_chain();
    test_edited_string_property();
    test_caps_and_property_round_trip();
    test_invalid_pipeline_and_property();

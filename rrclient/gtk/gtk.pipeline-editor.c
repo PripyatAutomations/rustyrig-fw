@@ -536,7 +536,7 @@ static gboolean canvas_button_release(GtkWidget *widget, GdkEventButton *event, 
          }
          GError *error = NULL;
 
-         if (rr_pipeline_graph_add_link(pipeline->graph, editor->wire_source, i, &error)) {
+         if (rr_pipeline_graph_connect(pipeline->graph, editor->wire_source, i, &error)) {
             rr_pipeline_graph_auto_layout(pipeline->graph);
          } else {
             show_error(editor, error ? error->message : "Cannot connect those elements.");
