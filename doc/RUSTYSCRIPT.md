@@ -266,7 +266,7 @@ host exits; it is not persistent storage.
 | `window.move(id, location[, x, y])`, `window.zoom(id, percent)`, `window.opacity(id, percent)` | Change panel placement/display (GTK only); `panel.*` aliases available |
 | `ui.*`, `gui.*`, `control.val/set` | Build and control logical UI widgets; see [RustyScript UI model](RUSTYSCRIPT-UI.md) |
 
-Destination strings use **`#room@network`** (or `&room@network`) where `network` is the configured client connection/profile name, whether IRC or RustyRig WS. The legacy `profile|room` form still works. You may pass an array literal such as `["#hamradio-test@efnet", "#test@rig-profile"]` or a `char[][]` variable. The optional tag defaults to `"message"`; the array limit is 32 rooms and sends are queued independently to each already-joined room. A failure may mean earlier destinations were queued; check the boolean result. The default chat interval is **1,000 ms** and explicitly supplied intervals
+Destination strings use **`#room@network`** (or `&room@network`) where `network` is the configured client connection/profile name, whether IRC or RustyRig WS. The legacy `profile|room` form still works. You may pass an array literal such as `["#hamradio-test@efnet", "#test@rig-profile"]` or a `char rooms[][]` variable. The optional tag defaults to `"message"`; the array limit is 32 rooms and sends are queued independently to each already-joined room. A failure may mean earlier destinations were queued; check the boolean result. The default chat interval is **1,000 ms** and explicitly supplied intervals
 must be **100–10,000 ms**. A tag is 1–40 bytes and belongs to the script's
 generation, preventing another script from cancelling its queued lines.
 The target must already be an open chat or query. `setting.*` keys are
@@ -280,10 +280,37 @@ available to both hosts. See the [filesystem section](#filesystem-primitives-cli
 for path handling, size limits, and access warnings. These calls act with
 the process's OS privileges, including when evaluated in the debugger.
 
-### Execution and language limits
+### Value assignment, managed references, and const
+
+RustyScript uses familiar C-style declarations, including `char rooms[][] = ["general", "radio"]`. The older `char[][] rooms` spelling remains accepted for compatibility. Text is represented by strings; a single character can be written as a one-character string.
+
+`=` makes a value copy, including recursively copied arrays and dictionaries. `:=` binds a managed reference to an **existing variable**; assigning through that reference updates its original storage. The binding can be redirected with another `:=`. Neither operator exposes an address, and reference storage remains alive while any binding owns it.
+
+```c
+int a = 10;
+int copy = a;
+int alias := a;
+copy = 20;      // a is still 10
+alias = 30;     // a becomes 30
+
+int other = 100;
+alias := other;  // Rebind, not a value copy
+alias = 200;     // other becomes 200
+
+const int limit = 5;
+const int view := a;
+a = 40;         // Allowed, view observes 40
+view = 50;      // Error: const binding
+```
+
+`const` is read-only **through the binding**, not a global freeze of the underlying value. A mutable reference cannot bind to a const variable; a const reference may bind to a mutable variable. Const references cannot be rebound. Const declarations require an initializer. Reference binding to expressions or temporary values is rejected.
+
+**Current implementation boundary:** this release implements variable bindings with managed, reference-counted storage; it does *not* yet implement user-defined function declarations, by-reference function parameters, cyclic garbage collection, per-script GC statistics, or recursive const enforcement on nested member mutations. Those features are part of the planned full language and must not be assumed to work now. Calls to host-native functions currently evaluate and pass value copies.
+
+## Execution and language limits
 
 The current interpreter supports `int`, `float`, `bool`, `char`,
-`char[]` strings, `char[][]` array variables, array literals (`["a", "b"]`), and `dict` values; local declarations/assignments,
+strings, `char rooms[][]` array variables, array literals (`["a", "b"]`), and `dict` values; local declarations/assignments,
 arithmetic, comparisons, property access (`event.room`), synchronous
 native calls, and `if/else` blocks. Curly braces are mandatory for
 conditionals; semicolons are optional separators. Line comments may use
@@ -366,7 +393,7 @@ produce both if the callsign is also on the watchlist.
 | `event.audio_hz`, `event.dt`, `event.sync_score`, `event.snr` | Optional decoder-provided metrics, included when present; numeric worker values remain numeric, string worker values remain strings |
 
 The [callsign-alert example](examples/scripts/callsign-alert.rrs) begins with
-an easy configuration block: a `char[][] rooms` array of `#room@network`
+an easy configuration block: a `const char rooms[][]` array of `#room@network`
 destinations (default `#hamradio-test@efnet`), a popup toggle, a room
 announcement toggle, and a 30-minute per-callsign *absence* window (reset by every matching decode). It assembles a
 single message like `Spotted K1ABC on 20m FT8 at 14.074 MHz, using
