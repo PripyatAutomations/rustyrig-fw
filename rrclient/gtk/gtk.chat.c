@@ -43,6 +43,7 @@
 #include <rrclient/gtk/gtk.spectrum.h>
 #include <rrclient/gtk/gtk.connect-button.h>
 #include <rrclient/gtk/gtk.vfo-box.h>
+#include <rrclient/gtk/gtk.mode-box.h>
 #include <rrclient/userlist.h>
 #include <rrclient/irc.whois.h>
 
@@ -1265,6 +1266,8 @@ bool gtk_chat_history_keypress(GtkWidget *widget, GdkEventKey *event) {
 /* The room VFO title operates only on VFOs mapped to the room displayed by the floating rig controls. The server's selection acknowledgement remains
  * authoritative for the active VFO. */
 static char room_vfo_title_room[128];
+static char room_vfo_last_active;
+static char room_vfo_last_room[128];
 /* The floating controls are bound to a rig room, not necessarily the currently selected notebook page (which may be Receiver Directory). */
 const char *gtk_chat_controls_room(void) {
    return room_vfo_title_room[0] ? room_vfo_title_room : gtk_chat_current_room();
@@ -1507,6 +1510,15 @@ static gboolean room_vfo_title_tick(gpointer unused) {
       return G_SOURCE_CONTINUE;
    }
    char active = rrclient_room_active_vfo(room_vfo_title_room);
+   if (room_vfo_last_active != active || g_strcmp0(room_vfo_last_room,room_vfo_title_room)) {
+      room_vfo_last_active = active;
+      g_strlcpy(room_vfo_last_room,room_vfo_title_room,sizeof(room_vfo_last_room));
+      /* A VFO switch must not inherit an edit-in-progress delay from the
+       * previous VFO's mode/width control. */
+      modebox_vfo_switched();
+      if (g_ascii_strcasecmp(room_vfo_title_room,"&local-sdr"))
+         vfo_update_ui();
+   }
    char *title = !g_ascii_strcasecmp(room_vfo_title_room, "&local-sdr")
       ? g_strdup_printf("&local-sdr — local.sdr.%c", active >= 'A' && active <= 'Z' ? active : '?')
       : g_strdup_printf("%s — VFO %c", room_vfo_title_room, active >= 'A' && active <= 'Z' ? active : '?');
@@ -1523,7 +1535,7 @@ static gboolean room_vfo_title_tick(gpointer unused) {
          hz = local.frequency_hz;
       }
 
-      if (hz && freq_entry) {
+      if (freq_entry) {
          GtkFreqEntry *fe = GTK_FREQ_ENTRY(freq_entry);
 
          if (!gtk_freq_entry_is_editing(fe) && gtk_freq_entry_get_frequency(fe) != (unsigned long)hz) {
@@ -1534,6 +1546,14 @@ static gboolean room_vfo_title_tick(gpointer unused) {
    }
 
    return G_SOURCE_CONTINUE;
+}
+
+/* The core posts client.vfo.changed on the GTK domain immediately after
+ * acknowledging selection; refresh without waiting for the title timer. */
+static void room_vfo_selection_event(const char *event, const char *data,
+   rrconn_t *connection, void *unused) {
+   (void)event; (void)data; (void)connection; (void)unused;
+   room_vfo_title_tick(NULL);
 }
 
 /* AF is a single, graph-wide floating tool, not one copy per chat tab. The widget owns its listener and GTK event tokens for its lifetime. */
@@ -2819,6 +2839,7 @@ bool chat_init(void) {
    typing_shutting_down = FALSE;
    extern bool rr_module_token_add(rr_event_token_t token);
    rr_module_token_add(event_on_domain_token("client.server.selected", gtk_chat_server_selected, NULL, "gtk"));
+   rr_module_token_add(event_on_domain_token("client.vfo.changed", room_vfo_selection_event, NULL, "gtk"));
    rr_module_token_add(event_on_domain_token("client.local-bridge.vfo", room_rf_source_changed, NULL, "gtk"));
    /* Capabilities may arrive after the VFO goes online; do not wait for another room/VFO switch before displaying the RF spectrum panel. */
    rr_module_token_add(event_on_domain_token("client.local-bridge.capabilities", room_rf_source_changed, NULL, "gtk"));

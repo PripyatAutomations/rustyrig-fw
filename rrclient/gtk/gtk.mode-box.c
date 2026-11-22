@@ -201,6 +201,12 @@ static void on_selector_popup(GtkComboBox *combo, GParamSpec *pspec, gpointer us
    }
 }
 
+/* A different VFO must not inherit the previous VFO's pending UI edit guard. */
+void modebox_vfo_switched(void) {
+   modebox_last_send = 0;
+   widthbox_last_send = 0;
+}
+
 // Server observations must not fire the user-edit handlers and send controls back.
 void modebox_update_state(const char *mode, int width) {
    if (mode_combo) {
