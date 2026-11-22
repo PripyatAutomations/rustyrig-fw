@@ -85,7 +85,7 @@ static rrs_value_t *native_art_capture(rrs_vm_t *vm,int argc,
       return rrs_boolean(false);
    }
    if(!continuing) {
-      char *safe_nick=rr_art_slug(nick),*safe_room=rr_art_slug(room);
+      char *safe_nick=rr_art_slug(nick),*safe_room=rr_art_slug((*room=='#'||*room=='&')?room+1:room);
       GDateTime *date=g_date_time_new_now_local();
       char *stamp=g_date_time_format(date,"%Y%m%d-%H%M%S");
       /* Requested channel-nick-date naming. Preserve existing captures
@@ -247,7 +247,7 @@ static guint64 art_serial;
 
 static char *art_safe_path(const char *basename) {
    if (!basename || !*basename || strlen(basename)>180 ||
-       strstr(basename,"..") || strchr(basename,'/') || strchr(basename,'\\') ||
+       strstr(basename,"..") || basename[0]=='/' || strchr(basename,'\\') ||
        !g_str_has_suffix(basename,".mac"))
       return NULL;
    return g_build_filename(g_get_user_data_dir(),"rustyrig","artwork",basename,NULL);
