@@ -215,6 +215,32 @@ int main(void) {
    assert(rr_audio_engine_stream_status(engine, "wide", &wide_status));
    assert(wide_status.dropped_frames > 0 && wide_status.queued_frames <= 11520);
    rr_audio_engine_free(engine);
+   /* Modem TX is always 16 kHz mono S16LE. Both direct rig.sink and
+    * tx.mix patches use this single encoder bus; its source must convert
+    * automatically if a future TX bus runs at 48 kHz. A missing patch mutes
+    * the modem even if its subprocess continues producing PCM. */
+   engine=rr_audio_engine_new_rate(48000,NULL,NULL);
+   assert(engine && rr_audio_engine_add_stream_format(engine,"modem1.tx",&old_native));
+   assert(rr_audio_engine_route(engine,"modem1.tx",'M'));
+   assert(rr_audio_engine_push(engine,"modem1.tx",pcm,1600));
+   rr_audio_stream_status_t modem_status={0};
+   assert(rr_audio_engine_stream_status(engine,"modem1.tx",&modem_status));
+   assert(modem_status.resampling && modem_status.source.sample_rate_hz==16000 &&
+      modem_status.source.channels==1 && modem_status.mixer_rate_hz==48000);
+   tick(engine,wide_stereo,&active);
+   assert(!active);
+   assert(rr_audio_engine_route(engine,"modem1.tx",'S'));
+   assert(rr_audio_engine_push(engine,"modem1.tx",pcm,1600));
+   gboolean tx_heard=FALSE;
+   for(unsigned i=0;i<5;i++) {
+      tick(engine,wide_stereo,&active);
+      if(active && wide_stereo[200]>0 && wide_stereo[201]>0) tx_heard=TRUE;
+   }
+   assert(tx_heard);
+   assert(rr_audio_engine_route(engine,"modem1.tx",'M'));
+   tick(engine,wide_stereo,&active);
+   assert(!active);
+   rr_audio_engine_free(engine);
    /* Two independent mixer clocks: the legacy 16 kHz radio bus is resampled once into 48 kHz, alongside a direct 48 kHz HQ source. */
    rr_audio_engine_t *narrow_bus = rr_audio_engine_new(NULL, NULL);
    rr_audio_engine_t *hq_bus = rr_audio_engine_new_rate(48000, NULL, NULL);
