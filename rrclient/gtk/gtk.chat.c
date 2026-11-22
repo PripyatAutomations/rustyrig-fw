@@ -1616,7 +1616,9 @@ static void room_rf_panel_refresh(void) {
       rr_floating_panel_set_closable(room_rf_panel, FALSE);
       room_rf_strip = rr_gtk_rf_spectrum_new();
       g_object_add_weak_pointer(G_OBJECT(room_rf_strip), (gpointer *) &room_rf_strip);
-      gtk_widget_set_size_request(room_rf_strip, 420, 190);
+      /* The spectrum grows with its floating panel; 420x190 is a default,
+        * not a permanent minimum that blocks user resizing. */
+       gtk_widget_set_size_request(room_rf_strip, 180, 100);
       gtk_widget_set_hexpand(room_rf_strip, TRUE);
       gtk_widget_set_vexpand(room_rf_strip, TRUE);
       gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(room_rf_panel)), room_rf_strip, TRUE, TRUE, 0);
