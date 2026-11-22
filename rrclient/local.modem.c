@@ -14,6 +14,7 @@
 #include <rrclient/objects.h>
 #include <rrclient/local.bridge.h>
 #include <rrclient/local.modem.h>
+#include <rrclient/modem.callsign.h>
 #include <rrclient/database.h>
 #include <librustyaxe/json.h>
 #include <rrclient/ui.h>
@@ -185,17 +186,6 @@ static uint64_t decoder_source_frequency(const char *source) {
 }
 
 /* Whole-token matching, independent of GTK and active Terminal tabs. */
-static gboolean call_token(const char *text,const char *call) {
-   if(!text||!call||!*call)return FALSE;
-   size_t n=strlen(call);
-   for(const char *p=text;*p;p++) {
-      if(g_ascii_strncasecmp(p,call,n))continue;
-      if(p!=text&&(g_ascii_isalnum(p[-1])||p[-1]=='/'))continue;
-      if(g_ascii_isalnum(p[n])||p[n]=='/')continue;
-      return TRUE;
-   }
-   return FALSE;
-}
 static const char *decode_band(uint64_t hz) {
    static const struct {uint64_t lo,hi;const char *name;} ranges[]={
       {135700,137800,"2200m"},{472000,479000,"630m"},
@@ -253,7 +243,7 @@ static void callsign_notify(const rr_local_modem_decode_t *d,const char *body,
 typedef struct {const rr_local_modem_decode_t *decode;const char *text;} watch_context_t;
 static void callsign_watch_rule(const rrclient_watched_call_t *rule,void *data) {
    watch_context_t *ctx=data;
-   if(!rule->callsign||!call_token(ctx->text,rule->callsign))return;
+   if(!rule->callsign||!rr_modem_callsign_in_text(ctx->text,rule->callsign))return;
    const char *mode=decode_mode(ctx->decode),*band=decode_band(ctx->decode->frequency_hz);
    gboolean mode_ok=!g_ascii_strcasecmp(rule->mode,"Any")||
       !g_ascii_strcasecmp(rule->mode,mode)||
@@ -269,7 +259,7 @@ static void notify_decode_callsigns(const rr_local_modem_decode_t *d) {
    watch_context_t ctx={d,plain};
    rrclient_database_watched_calls_foreach(callsign_watch_rule,&ctx);
    char *own=rrclient_database_setting_get("modem.my_callsign");
-   if(own&&call_token(plain,own))callsign_notify(d,plain,own,"own",0);
+   if(own&&rr_modem_callsign_in_text(plain,own))callsign_notify(d,plain,own,"own",0);
    g_free(own);
    g_free(plain);
 }
