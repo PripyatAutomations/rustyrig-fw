@@ -33,7 +33,12 @@ static gboolean valid_script_name(const char *name) {
       return FALSE;
    const char *base = name;
    if (g_str_has_prefix(name, "autoload/")) base = name + strlen("autoload/");
-   if (!*base || strchr(base, '/') || base[0] == '.') return FALSE;
+   if (!*base || strchr(base, '/') || strlen(base) <= 4) return FALSE;
+   /* Mirror rrscript/host.c's filename contract so the manager never
+    * offers operations the runtime cannot resolve. */
+   for (const char *p = base; *p; p++)
+      if (!g_ascii_isalnum(*p) && *p != '_' && *p != '-' && *p != '.')
+         return FALSE;
    return TRUE;
 }
 
