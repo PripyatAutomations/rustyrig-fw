@@ -1312,7 +1312,7 @@ static void backup_pick_scan(backup_pick_t *p) {
    g_dir_close(dir);
    gtk_widget_show_all(p->list);
 }
-static void backup_pick_go(GtkEntry *entry,gpointer data) {
+static void backup_pick_go(GtkWidget *entry,gpointer data) {
    (void)entry;
    backup_pick_scan(data);
 }
@@ -1358,6 +1358,8 @@ static char *backup_choose_import_file(void) {
    const char *downloads=g_get_user_special_dir(G_USER_DIRECTORY_DOWNLOAD);
    gtk_entry_set_text(GTK_ENTRY(p.folder),downloads?downloads:g_get_home_dir());
    gtk_box_pack_start(GTK_BOX(row),p.folder,TRUE,TRUE,0);
+   GtkWidget *go=gtk_button_new_with_label("Go");
+   gtk_box_pack_start(GTK_BOX(row),go,FALSE,FALSE,0);
    GtkWidget *up=gtk_button_new_with_label("Up");
    gtk_box_pack_start(GTK_BOX(row),up,FALSE,FALSE,0);
    gtk_box_pack_start(GTK_BOX(box),row,FALSE,FALSE,4);
@@ -1372,6 +1374,7 @@ static char *backup_choose_import_file(void) {
    gtk_entry_set_placeholder_text(GTK_ENTRY(p.filename),"Select or paste an absolute .rrbk path");
    gtk_box_pack_start(GTK_BOX(box),p.filename,FALSE,FALSE,3);
    g_signal_connect(p.folder,"activate",G_CALLBACK(backup_pick_go),&p);
+   g_signal_connect(go,"clicked",G_CALLBACK(backup_pick_go),&p);
    g_signal_connect(up,"clicked",G_CALLBACK(backup_pick_up),&p);
    g_signal_connect(p.list,"row-selected",G_CALLBACK(backup_pick_select),&p);
    g_signal_connect(p.list,"row-activated",G_CALLBACK(backup_pick_activate),&p);
