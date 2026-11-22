@@ -110,7 +110,7 @@ static room_userlist_entry_t rig_userlist_entry;
 static void on_room_userlist_dock_clicked(GtkButton *button, gpointer data);
 static void room_userlist_fit(room_userlist_entry_t *entry, int width);
 /* COL_DISPLAY_NAME is a model-only field, not a GtkTreeViewColumn. */
-#define USERLIST_VIEW_COLS COL_DISPLAY_NAME
+#define USERLIST_VIEW_COLS 2
 static GtkTreeViewColumn *userlist_column(GtkWidget *view, int id);
 
 static room_userlist_entry_t *current_room_userlist(void) {
@@ -497,12 +497,12 @@ static void userlist_apply_layout(GtkWidget *view, const char *type) {
    g_object_set_data_full(G_OBJECT(view), "rr-roster-order", g_strdup(order), g_free);
    int ids[USERLIST_VIEW_COLS], used = 0;
 
-   if (!order || sscanf(order, "%d,%d,%d,%d,%d", &ids[0], &ids[1], &ids[2], &ids[3], &ids[4]) != USERLIST_VIEW_COLS) {
+   if (!order || sscanf(order, "%d,%d", &ids[0], &ids[1]) != USERLIST_VIEW_COLS) {
       return;
    }
 
    const int sort_fields[] = {
-      COL_PRIV_ICON, COL_USERNAME, COL_TALK_ICON, COL_MUTE_ICON, COL_ELMERNOOB_ICON
+      COL_PRIV_ICON, COL_USERNAME
    };
 
    for (int i = 0 ; i < USERLIST_VIEW_COLS ; i++) {
@@ -541,30 +541,9 @@ static bool userlist_set_columns(GtkWidget *view, const char *room) {
    const char *type = has_vfos ? "vfo" : connection && !connection->is_ws ? "irc" : "room";
    bool changed = g_strcmp0(g_object_get_data(G_OBJECT(view), "rr-roster-type"), type) != 0;
    userlist_apply_layout(view, type);
-   /* Layout reloads may reorder columns, but must not resurrect Privs. */
-   GtkTreeViewColumn *privs = userlist_column(view, COL_PRIV_ICON);
-
-   if (gtk_tree_view_column_get_visible(privs)) {
-      gtk_tree_view_column_set_visible(privs, FALSE);
-      changed = true;
-   }
-
-   /* Radio status belongs to VFO-enabled rooms, independent of transport. */
-   const int ids[] = {
-      COL_TALK_ICON, COL_MUTE_ICON, COL_ELMERNOOB_ICON
-   };
-   const bool visible[] = {
-      has_vfos, has_vfos, extensions || has_vfos
-   };
-
-   for (unsigned i = 0 ; i < sizeof(ids) / sizeof(ids[0]) ; i++) {
-      GtkTreeViewColumn *column = userlist_column(view, ids[i]);
-
-      if (gtk_tree_view_column_get_visible(column) != visible[i]) {
-         gtk_tree_view_column_set_visible(column, visible[i]);
-         changed = true;
-      }
-   }
+   /* Radio/role/mute statuses are all represented in Flags. */
+   (void)extensions;
+   (void)has_vfos;
 
    return changed;
 }
@@ -667,9 +646,13 @@ static void userlist_redraw_view(GtkWidget *view, const char *room) {
       char *display = g_strdup_printf("%s%s", prefix, decorated);
       char *safe_decorated = userlist_safe_display(display);
       g_free(display);
+      GString *flags=g_string_new(!strncmp(c->privs,"irc:",4) ? "" : select_user_icon(c));
+      if(c->is_ptt)g_string_append(flags,"🎤");
+      if(c->is_muted)g_string_append(flags,"🙊");
+      g_string_append(flags,select_elmernoob_icon(c));
       const char *values[NUM_COLS] = {
-         !strncmp(c->privs, "irc:", 4) ? "" : select_user_icon(c), safe_name, c->is_ptt ? "🎤" : "", c->is_muted ? "🙊" : "", select_elmernoob_icon(c),
-         safe_decorated
+         flags->str, safe_name, c->is_ptt ? "🎤" : "", c->is_muted ? "🙊" : "",
+         select_elmernoob_icon(c), safe_decorated
       };
       char *previous[NUM_COLS] = {
          0
@@ -688,6 +671,7 @@ static void userlist_redraw_view(GtkWidget *view, const char *room) {
             COL_MUTE_ICON, values[COL_MUTE_ICON], COL_ELMERNOOB_ICON, values[COL_ELMERNOOB_ICON], COL_DISPLAY_NAME, values[COL_DISPLAY_NAME], -1);
          changed = true;
       }
+      g_string_free(flags,TRUE);
       g_free(safe_name);
       g_free(safe_decorated);
       cursor = row;
@@ -1388,43 +1372,18 @@ static GtkWidget *userlist_view_create(void) {
    g_signal_connect(view, "button-release-event", G_CALLBACK(userlist_button_press), NULL);
    g_object_unref(store);
 
-   GtkCellRenderer *priv_icon = gtk_cell_renderer_text_new();
-   GtkTreeViewColumn *priv_col = gtk_tree_view_column_new_with_attributes("Privs", priv_icon, "text", COL_PRIV_ICON, NULL);
-   g_object_set(priv_icon, "xalign", 0.5, "scale", 1.25, NULL);
-   gtk_tree_view_column_set_sizing(priv_col, GTK_TREE_VIEW_COLUMN_AUTOSIZE);
-   gtk_tree_view_append_column(GTK_TREE_VIEW(view), priv_col);
+   GtkCellRenderer *flags=gtk_cell_renderer_text_new();
+   GtkTreeViewColumn *flags_col=gtk_tree_view_column_new_with_attributes("Flags",flags,"text",COL_PRIV_ICON,NULL);
+   g_object_set(flags,"xalign",0.0,"xpad",2,"ypad",0,"scale",1.10,NULL);
+   gtk_tree_view_column_set_sizing(flags_col,GTK_TREE_VIEW_COLUMN_AUTOSIZE);
+   gtk_tree_view_append_column(GTK_TREE_VIEW(view),flags_col);
 
-   GtkCellRenderer *text = gtk_cell_renderer_text_new();
-   GtkTreeViewColumn *user_col = gtk_tree_view_column_new();
-   gtk_tree_view_column_set_title(user_col, "Username");
-   g_object_set_data(G_OBJECT(view), "rr-username-renderer", text);
-   /* Show the privilege glyph immediately before the nickname, alongside the existing @/+ /! name prefixes. Keep the legacy Privs column in the model/layout
-    * index for saved column orders, but never display it. */
-   GtkCellRenderer *inline_priv = gtk_cell_renderer_text_new();
-   g_object_set(inline_priv, "xpad", 2, "ypad", 0, "scale", 1.15, NULL);
-   gtk_tree_view_column_pack_start(user_col, inline_priv, FALSE);
-   gtk_tree_view_column_add_attribute(user_col, inline_priv, "text", COL_PRIV_ICON);
-   /* GtkTreeViewColumn packs renderers in insertion order: icon first. */
-   gtk_tree_view_column_pack_start(user_col, text, TRUE);
-   gtk_tree_view_column_add_attribute(user_col, text, "text", COL_DISPLAY_NAME);
-   gtk_tree_view_column_set_sizing(user_col, GTK_TREE_VIEW_COLUMN_AUTOSIZE);
-   gtk_tree_view_column_set_expand(user_col, TRUE);
-   gtk_tree_view_append_column(GTK_TREE_VIEW(view), user_col);
-
-   GtkCellRenderer *talk_icon = gtk_cell_renderer_text_new();
-   GtkTreeViewColumn *talk_col = gtk_tree_view_column_new_with_attributes("TX", talk_icon, "text", COL_TALK_ICON, NULL);
-   g_object_set(talk_icon, "xalign", 0.5, "scale", 1.25, NULL);
-   gtk_tree_view_append_column(GTK_TREE_VIEW(view), talk_col);
-
-   GtkCellRenderer *mute_icon = gtk_cell_renderer_text_new();
-   GtkTreeViewColumn *mute_col = gtk_tree_view_column_new_with_attributes("Mute", mute_icon, "text", COL_MUTE_ICON, NULL);
-   g_object_set(mute_icon, "xalign", 0.5, "scale", 1.25, NULL);
-   gtk_tree_view_append_column(GTK_TREE_VIEW(view), mute_col);
-
-   GtkCellRenderer *elmernoob_icon = gtk_cell_renderer_text_new();
-   GtkTreeViewColumn *elmernoob_col = gtk_tree_view_column_new_with_attributes("Role", elmernoob_icon, "text", COL_ELMERNOOB_ICON, NULL);
-   g_object_set(elmernoob_icon, "xalign", 0.5, "scale", 1.25, NULL);
-   gtk_tree_view_append_column(GTK_TREE_VIEW(view), elmernoob_col);
+   GtkCellRenderer *text=gtk_cell_renderer_text_new();
+   GtkTreeViewColumn *user_col=gtk_tree_view_column_new_with_attributes("Username",text,"text",COL_DISPLAY_NAME,NULL);
+   g_object_set_data(G_OBJECT(view),"rr-username-renderer",text);
+   gtk_tree_view_column_set_sizing(user_col,GTK_TREE_VIEW_COLUMN_AUTOSIZE);
+   gtk_tree_view_column_set_expand(user_col,TRUE);
+   gtk_tree_view_append_column(GTK_TREE_VIEW(view),user_col);
 
    for (int i = 0 ; i < USERLIST_VIEW_COLS ; i++) {
       GtkTreeViewColumn *column = gtk_tree_view_get_column(GTK_TREE_VIEW(view), i);
@@ -1445,7 +1404,6 @@ static GtkWidget *userlist_view_create(void) {
 
    }
 
-   gtk_tree_view_column_set_visible(priv_col, FALSE);
    userlist_set_columns(view, NULL);
    g_signal_connect(view, "columns-changed", G_CALLBACK(userlist_columns_changed), NULL);
 
