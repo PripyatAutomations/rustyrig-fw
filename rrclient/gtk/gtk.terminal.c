@@ -194,7 +194,7 @@ static gboolean decode_watch_matches(const rr_local_modem_decode_t *d, const cha
       return FALSE;
    }
    DecodeWatchMatch match = {
-      .message = body, .mode = rr_modem_callsign_mode(d),
+      .message = body, .mode = rr_modem_callsign_mode(d->engine,d->mode),
       .band = rr_modem_callsign_band(d->frequency_hz)
    };
    rrclient_database_watched_calls_foreach(decode_watch_match_entry, &match);
