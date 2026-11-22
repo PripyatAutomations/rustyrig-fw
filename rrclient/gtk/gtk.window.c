@@ -6,6 +6,7 @@
 #include "gtk.screensaver.h"
 #include "gtk.freqentry.h"
 #include "gtk.floating-panel.h"
+#include "gtk.scripts.h"
 #include "gtk.chat.h"
 #include "gtk.tabs.h"
 #include "gtk.winmgr.h"
@@ -38,7 +39,7 @@ extern bool chat_init(void);
 extern bool cfg_fullscreen;
 
 /* Labels are separate widgets so the icon and hit target remain intact when the toolbar is compacted. The scroll viewport provides the usable width. */
-#define RR_TOOLBAR_ACTIONS 8
+#define RR_TOOLBAR_ACTIONS 10
 static GtkWidget *toolbar_action_labels[RR_TOOLBAR_ACTIONS];
 static unsigned toolbar_action_count;
 static bool toolbar_titles_visible;
@@ -575,6 +576,8 @@ static void main_toolbar_tool_clicked(GtkButton *button, gpointer data) {
       event_emit("client.receiver-directory.show", NULL, NULL);
    } else if (!strcmp(tool, "recordings")) {
       event_emit("client.recordings.open", NULL, NULL);
+   } else if (!strcmp(tool, "scripts")) {
+      gtk_scripts_open();
    } else if (!strcmp(tool, "audio")) {
       gtk_audio_graph_toggle();
    } else if (!strcmp(tool, "virtual-rigs")) {
@@ -969,6 +972,7 @@ bool gui_init(void) {
    main_toolbar_tool(rr_main_toolbar, "Explorer", "system-search-symbolic", "explorer", "Explorer: Explore available resources in the cluster");
    main_toolbar_tool(rr_main_toolbar, "Remote SDRs", "network-wireless-symbolic", "sdr-directory", "Remote SDRs: Access remote SDRs such as KiwiSDR");
    main_toolbar_tool(rr_main_toolbar, "Recordings", "media-record-symbolic", "recordings", "Record and manage client audio recordings");
+   main_toolbar_tool(rr_main_toolbar, "Scripts", "text-x-script-symbolic", "scripts", "Manage RustyScript files, loading and editing");
    main_toolbar_tool(rr_main_toolbar, "Routing", "audio-card-symbolic", "audio", "Routing: Audio, modem RX/TX, port trims and DSP pipelines");
    main_toolbar_tool(rr_main_toolbar, "Virtual Rigs", "network-wired-symbolic", "virtual-rigs",
       "Virtual Rigs: Independently pin ttyCAT#/ttyGPS# to a remote rig");
