@@ -70,7 +70,8 @@ currently has one active encoder format for its listeners.
 ## Consolidated client LV2 chains (experimental)
 
 In the GTK Routing canvas, connect a decoded 16 kHz source to an LV2
-effect input, connect its output to the next mono effect, and route the last
+effect input, connect its corresponding outputs to the next compatible effect,
+and route the last
 output to the RX mixer. The upstream effects must have their independent mixer
 outputs disconnected (mute route `M`). A linear, unbranched series of two or
 more mono or stereo effects with matching channel layouts is compiled into
@@ -99,7 +100,7 @@ than eliminating the signal path. No change is made to RF, PTT or TX routing.
 **Verification before general release:** test two- and three-effect mono and stereo chains,
 adjust both effects' live and saved controls, detach/reconnect a stage, restart
 rrclient, deliberately fail a plugin, and verify that the process count equals
-the number of active chains plus independent effects. Also verify that stereo
+the number of active chains plus independent effects. Also verify that mixed-format
 and split-output graphs stay on the independent-worker path.
 
 ## Audio Routing graph and per-pin gains
