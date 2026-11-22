@@ -238,13 +238,13 @@ static void script_preview_file(GtkWidget *scroller,const char *filename) {
    GtkWidget *label=g_object_get_data(G_OBJECT(scroller),"rr-preview-label");
    if(!GTK_IS_LABEL(label))return;
    char *root=g_build_filename(g_get_user_data_dir(),"rustyrig","artwork",NULL);
-   char *path=filename && *filename && !strchr(filename,'/') &&
+   char *path=filename && *filename && filename[0]!='/' &&
       !strchr(filename,'\\') && !strstr(filename,"..") &&
       g_str_has_suffix(filename,".mac")?g_build_filename(root,filename,NULL):NULL;
    char *contents=NULL;
    gsize length=0;
    GStatBuf stat;
-   if(!path || g_stat(path,&stat)!=0 || stat.st_size<0 ||
+   if(!path || g_file_test(path,G_FILE_TEST_IS_SYMLINK) || g_stat(path,&stat)!=0 || stat.st_size<0 ||
       stat.st_size>128*1024 || !g_file_get_contents(path,&contents,&length,NULL) ||
       !g_utf8_validate(contents,length,NULL)) {
       gtk_label_set_text(GTK_LABEL(label),"Select a .mac file to preview");
@@ -314,6 +314,8 @@ static void script_gui_add(const rr_script_gui_command_t *cmd) {
       g_mkdir_with_parents(root,0700);
       w=rr_local_browser_new(root,".mac",NULL,0,NULL,NULL);
       gtk_widget_set_size_request(w,240,220);
+      packing=gtk_frame_new(cmd->text);
+      gtk_container_add(GTK_CONTAINER(packing),w);
       g_free(root);
    } else if(!strcmp(cmd->kind,"irc-preview")) {
       w=gtk_scrolled_window_new(NULL,NULL);
@@ -497,7 +499,7 @@ static void artwork_editor_open(const rr_event_message_t *message,void *unused) 
    rr_artwork_edit_t edit;
    memcpy(&edit,message->payload,sizeof(edit));
    edit.basename[sizeof(edit.basename)-1]=0;
-   if(!edit.basename[0] || strchr(edit.basename,'/') ||
+   if(!edit.basename[0] || edit.basename[0]=='/' ||
       strchr(edit.basename,'\\') || strstr(edit.basename,"..") ||
       !g_str_has_suffix(edit.basename,".mac"))return;
    char *path=g_build_filename(g_get_user_data_dir(),"rustyrig","artwork",edit.basename,NULL);
