@@ -39,6 +39,20 @@ int main(void) {
    t.invert=true;
    assert(rr_threshold_evaluate(&t,&out) && out);
    t.invert=false;
+   /* Wire this block's constant TRUE output to its INVERT input. */
+   assert(rr_logic_constant(true));
+   assert(!rr_logic_constant(false));
+   t.invert_connected=true;
+   t.invert_valid=true;
+   t.invert_high=rr_logic_constant(true);
+   assert(rr_threshold_evaluate(&t,&out) && out); /* outside range */
+   t.invert_high=rr_logic_constant(false);
+   assert(rr_threshold_evaluate(&t,&out) && !out);
+   t.invert_high=true;
+   t.invert_valid=false;
+   assert(!rr_threshold_evaluate(&t,&out) && !out); /* stale invert fails low */
+   t.invert_connected=false;
+   t.invert_valid=false;
    t.value=-1.;
    assert(rr_threshold_evaluate(&t,&out) && !out);
    t.value=5.; t.max=INFINITY;
