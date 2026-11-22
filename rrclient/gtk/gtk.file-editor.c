@@ -445,6 +445,7 @@ typedef struct {
    GtkWidget *window;
    RRFloatPanel *panel, *confirmation;
    GtkTextBuffer *buffer;
+   GtkWidget *textview;
    gchar *filepath;
    gboolean modified;
    gboolean config_edit;
@@ -819,6 +820,7 @@ void gui_file_editor_open(const char *filepath) {
    gtk_box_pack_start(GTK_BOX(vbox), scrolled, TRUE, TRUE, 0);
 
    GtkWidget *textview = gtk_text_view_new();
+   ctx->textview = textview;
    gtk_container_add(GTK_CONTAINER(scrolled), textview);
 
    ctx->buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(textview));
@@ -914,6 +916,25 @@ void gui_file_editor_open(const char *filepath) {
    g_signal_connect(btn_save_as, "clicked", G_CALLBACK(on_save_other_clicked), ctx);
    g_signal_connect(btn_discard, "clicked", G_CALLBACK(on_discard_clicked), ctx);
    rr_floating_panel_present(ctx->panel);
+}
+
+void gui_file_editor_open_at(const char *filepath,unsigned line,unsigned column) {
+   if(!filepath)return;
+   gui_file_editor_open(filepath);
+   /* Don't jump in an unrelated editor if a different file is being edited. */
+   if(!active_editor || !active_editor->textview ||
+      g_strcmp0(active_editor->filepath,filepath))return;
+   if(!line)return;
+   GtkTextBuffer *buffer=active_editor->buffer;
+   gint last=gtk_text_buffer_get_line_count(buffer);
+   GtkTextIter iter;
+   gtk_text_buffer_get_iter_at_line(buffer,&iter,MIN((gint)line-1,MAX(0,last-1)));
+   gint chars=gtk_text_iter_get_chars_in_line(&iter);
+   if(column>1)gtk_text_iter_forward_chars(&iter,MIN((gint)column-1,chars));
+   gtk_text_buffer_place_cursor(buffer,&iter);
+   gtk_text_view_scroll_to_iter(GTK_TEXT_VIEW(active_editor->textview),&iter,
+      0.25,FALSE,0,0);
+   gtk_widget_grab_focus(active_editor->textview);
 }
 
 void gui_file_editor_open_config(const char *filepath) {
