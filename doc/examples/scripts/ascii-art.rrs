@@ -30,6 +30,9 @@ script("/artwork", {
     ui.add("artwork_layout", "row", "artwork_file_actions", "")
     ui.add("artwork_file_actions", "entry", "artwork_newname", "New filename.mac")
     ui.add("artwork_file_actions", "button", "artwork_rename", "Rename / Move")
+    ui.add("artwork_layout", "row", "artwork_folder_row", "")
+    ui.add("artwork_folder_row", "entry", "artwork_folder", "New folder name")
+    ui.add("artwork_folder_row", "button", "artwork_mkdir", "New Folder")
     ui.add("artwork_file_actions", "button", "artwork_delete", "Delete")
     ui.add("artwork_file_actions", "check", "artwork_confirm_delete", "Confirm deletion", "true")
     ui.add("artwork_layout", "label", "artwork_status", "Choose a macro and a destination room")
@@ -77,6 +80,11 @@ event ui.click {
             ui.set("artwork_files", "refresh")
             ui.set("artwork_status", "Macro renamed / moved")
         }
+    }
+    if (event.id == "artwork_mkdir") {
+        file.mkdir(art.dir() + "/" + ui.val("artwork_folder"))
+        ui.set("artwork_files", "refresh")
+        ui.set("artwork_status", "Artwork folder created")
     }
     if (event.id == "artwork_delete") {
         if (ui.val("artwork_confirm_delete")) {
