@@ -152,12 +152,13 @@ consumer (subject to final sink authorization), triggering a gate, alarm, COS,
 squelch or other signal logic.
 
 ```text
-         +-----------------------+
- value --| INPUT           OUT o |--- boolean (red)
- min ----| MIN   default 0       |
- max ----| MAX   default +inf    |
- enable -| SIGNAL optional       |
-         +-----------------------+
+         +----------------------------+
+ VALUE --| INPUT              OUT o  |--- boolean (red)
+ MIN ----| MIN (default 0)           |
+ MAX ----| MAX (default +inf) TRUE o |--- constant boolean
+ SIGNAL -| ENABLE (optional)         |       |
+ INVERT -| INVERT (optional)  o------|-------+ (wire TRUE -> INVERT)
+         +----------------------------+
 ```
 
 - Output is **true** only when the enable signal is high (or unconnected)
@@ -167,6 +168,15 @@ squelch or other signal logic.
   Wired numeric inputs override the properties; values must be finite.
 - The optional boolean `SIGNAL` input enables the comparator. Unwired
   means enabled; connected and low means disabled.
+- The red `INVERT` input defaults to FALSE when unwired. Connecting the
+  block's own always-TRUE red output to INVERT turns it into an outside-range
+  comparator. INVERT can also come from another boolean source for dynamic
+  inversion. A configured `invert` property is XORed with the connected pin
+  value, so both may be used predictably.
+- The `TRUE` output is a **constant**, independent of the comparator's
+  numeric input health. It can also supply constant enable/high values to
+  other control blocks. Where useful, general control blocks may expose both
+  `TRUE` and `FALSE` constant outputs; avoid cluttering every node.
 - Properties can select `Inside` versus `Outside` (invert comparator).
   **Missing, stale or invalid connected inputs always force a low output**
   even when inverted; NaN and invalid ranges are rejected.
@@ -176,6 +186,18 @@ squelch or other signal logic.
   enforced when wiring numeric pins (or through explicit converters).
 - Include optional tests for threshold crossing, invalid inputs, noisy values,
   reconnect, gate chains, and signal-type mismatch.
+
+Core foundation also includes the `rr_logic_constant()` helper and the
+`invert_connected` / `invert_valid` / `invert_high` state fields.
+- [ ] Add both `INVERT` input and `TRUE` constant output to the live
+      THRESHOLD canvas node/pin inventory and signal scheduler.
+- [ ] Allow self-node connections from TRUE to INVERT, while still preventing
+      genuine combinational feedback cycles. Constant outputs are independent
+      of the node's comparator result and cannot form a data-dependent cycle.
+- [ ] Evaluate INVERT signal freshness separately from the comparator's
+      VALUE/MIN/MAX inputs and make stale connections force low.
+- [ ] For reusable GATE blocks, consider an optional constant `TRUE` or
+      `FALSE` output where valuable, not necessarily both on every block.
 
 Core foundation implemented in `inc/rrclient/audio.logic.h` and
 `rrclient/audio.logic.c` through `rr_threshold_default()` and
