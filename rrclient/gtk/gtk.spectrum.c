@@ -677,8 +677,10 @@ static gboolean draw_spectrum(GtkWidget *widget, cairo_t *cr, gpointer data) {
    /* Draw the true, source-constrained viewport frequency scale. The same bounds drive AF offset click tuning and the FFT bin crop. */
    cairo_set_font_size(cr, 10);
 
-   for (unsigned tick = 0 ; tick <= 4 ; tick++) {
-      double x = (width - 1.) * tick / 4.;
+   /* Reduce tick density on narrow panels; never truncate the frequency span. */
+   unsigned tick_intervals = width < 220 ? 1 : width < 360 ? 2 : 4;
+   for (unsigned tick = 0 ; tick <= tick_intervals ; tick++) {
+      double x = (width - 1.) * tick / tick_intervals;
       unsigned hz = af_x_to_hz(p, x, width);
       char label[24];
 
@@ -1087,7 +1089,14 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    g_object_set_data_full(G_OBJECT(box), "rr-spectrum", p, destroy_panel);
    GtkWidget *toolbar = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
    GtkWidget *settings_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
-   gtk_box_pack_start(GTK_BOX(toolbar), settings_row, FALSE, FALSE, 0);
+   /* The controls may need more width than a narrow waterfall. Scroll the
+    * controls rather than forcing GTK to crop the frequency display. */
+   GtkWidget *controls_scroll = gtk_scrolled_window_new(NULL, NULL);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(controls_scroll), GTK_POLICY_AUTOMATIC, GTK_POLICY_NEVER);
+   gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(controls_scroll), 1);
+   gtk_widget_set_hexpand(controls_scroll, TRUE);
+   gtk_container_add(GTK_CONTAINER(controls_scroll), settings_row);
+   gtk_box_pack_start(GTK_BOX(toolbar), controls_scroll, FALSE, FALSE, 0);
    p->source_mode = 'M';
    p->zoom = 2;                 /* Default to the most useful lower 0..Nyquist/2 range. */
    p->max_hz = RR_AF_MAX_HZ;
@@ -1568,9 +1577,11 @@ static gboolean rf_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
    cairo_set_source_rgb(cr, .85, .88, .91);
    cairo_set_font_size(cr, 10);
 
-   for (int tick = 0 ; tick <= 4 ; tick++) {
-      double x = (w - 1.) * tick / 4.;
-      double mhz = low + (high - low) * tick / 4.;
+   /* Narrow RF panels show fewer labels, but still cover the full RF span. */
+   int tick_intervals = w < 220 ? 1 : w < 360 ? 2 : 4;
+   for (int tick = 0 ; tick <= tick_intervals ; tick++) {
+      double x = (w - 1.) * tick / tick_intervals;
+      double mhz = low + (high - low) * tick / tick_intervals;
       char label[40];
       snprintf(label, sizeof(label), "%.3f", mhz);
       cairo_text_extents_t ext;

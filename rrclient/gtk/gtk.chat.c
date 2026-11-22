@@ -1553,9 +1553,9 @@ static void room_af_panel_show(void) {
       rr_floating_panel_set_minimizable(room_af_panel, TRUE);
       rr_floating_panel_set_resizable(room_af_panel, TRUE);
       GtkWidget *view = rr_gtk_spectrum_panel_new("", "");
-      /* The drawing sets its own modest minimum. A 220px request here
-       * made the entire AF spectrum impossible to shrink vertically. */
-      gtk_widget_set_size_request(view, 460, -1);
+      /* Keep a modest default width, not a fixed 460px minimum. The AF
+       * drawing maps the entire selected frequency span into its allocation. */
+      gtk_widget_set_size_request(view, 160, -1);
       gtk_widget_set_hexpand(view, TRUE);
       gtk_widget_set_vexpand(view, TRUE);
       gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(room_af_panel)), view, TRUE, TRUE, 0);
