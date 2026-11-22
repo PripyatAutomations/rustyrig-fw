@@ -130,6 +130,30 @@ int main(int argc, char **argv) {
    g_assert_true(gtk_widget_get_visible(rr_floating_panel_widget(new_panel)));
    rr_floating_panel_destroy(new_panel);
 
+   /* Compact indicators retain natural geometry even after zoom and a
+    * container transition; a dock must never turn them resizable. */
+   RRFloatPanel *compact = rr_floating_panel_new(GTK_OVERLAY(overlay), GTK_NOTEBOOK(tabs),
+      "compact-sizing-test", "ON AIR");
+   GtkWidget *compact_canvas = gtk_drawing_area_new();
+   gtk_widget_set_size_request(compact_canvas, 95, 42);
+   gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(compact)), compact_canvas, FALSE, FALSE, 0);
+   rr_floating_panel_set_content_sized(compact);
+   rr_floating_panel_show(compact);
+   drain_events();
+   g_assert_false(compact->resizable);
+   gint natural_width = gtk_widget_get_allocated_width(compact->frame);
+   gint natural_height = gtk_widget_get_allocated_height(compact->frame);
+   compact->zoom = 25;
+   panel_zoom_apply(compact, 0, natural_width, natural_height);
+   drain_events();
+   gint requested_width, requested_height;
+   gtk_widget_get_size_request(compact->frame, &requested_width, &requested_height);
+   g_assert_cmpint(requested_width, ==, -1);
+   g_assert_cmpint(requested_height, ==, -1);
+   g_assert_cmpint(gtk_widget_get_allocated_width(compact->frame), >, natural_width);
+   g_assert_cmpint(gtk_widget_get_allocated_height(compact->frame), >, natural_height);
+   rr_floating_panel_destroy(compact);
+
    /* New/Edit Server uses an explicit present, even when the picker remains temporarily masked. Only the requested editor may show. */
    rr_floating_panels_set_hidden(RR_FLOATING_HIDE_TAB, TRUE);
    RRFloatPanel *editor_panel = rr_floating_panel_new(GTK_OVERLAY(overlay), GTK_NOTEBOOK(tabs), "serveredit", "New Server");
