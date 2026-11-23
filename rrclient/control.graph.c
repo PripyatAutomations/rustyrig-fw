@@ -102,21 +102,33 @@ bool rr_control_graph_disconnect(rr_control_graph_t *g,const char *from,const ch
       }
    return false;
 }
-bool rr_control_graph_gate_remove(rr_control_graph_t *g,const char *name) {
-   int at=lookup(g,name);
-   if (at<0 || !g->nodes[at].gate) return false;
+static bool remove_node(rr_control_graph_t *g,unsigned at) {
    unsigned keep=0;
    for (unsigned i=0;i<g->n_wires;i++) {
       control_wire_t w=g->wires[i];
-      if (w.src==(unsigned)at || w.dst==(unsigned)at) continue;
-      if (w.src>(unsigned)at) w.src--;
-      if (w.dst>(unsigned)at) w.dst--;
+      if (w.src==at || w.dst==at) continue;
+      if (w.src>at) w.src--;
+      if (w.dst>at) w.dst--;
       g->wires[keep++]=w;
    }
    g->n_wires=keep;
    memmove(&g->nodes[at],&g->nodes[at+1],
-           (g->n_nodes-(unsigned)at-1)*sizeof(g->nodes[0]));
-   g->n_nodes--;g->n_gates--;
+           (g->n_nodes-at-1)*sizeof(g->nodes[0]));
+   g->n_nodes--;
+   return true;
+}
+bool rr_control_graph_source_remove(rr_control_graph_t *g,const char *name) {
+   int at=lookup(g,name);
+   if (at<0 || g->nodes[at].gate) return false;
+   remove_node(g,(unsigned)at);
+   g->n_sources--;
+   return true;
+}
+bool rr_control_graph_gate_remove(rr_control_graph_t *g,const char *name) {
+   int at=lookup(g,name);
+   if (at<0 || !g->nodes[at].gate) return false;
+   remove_node(g,(unsigned)at);
+   g->n_gates--;
    return true;
 }
 typedef struct {
