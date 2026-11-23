@@ -46,7 +46,22 @@ int main(void) {
    assert(rr_control_graph_connect(g,"local.ptt","any",0));
    assert(rr_control_graph_connect(g,"modem.ptt","any",1));
    assert(rr_control_graph_output(g,"any",&valid,&high) && valid && !high);
+   /* TRUE/FALSE constants are normal source nodes. Fanout works, and
+    * removing a constant invalidates any dependent gate (fail-low). */
+   assert(rr_control_graph_source_add(g,"constant.true"));
+   assert(rr_control_graph_source_set(g,"constant.true",true,true));
+   assert(rr_control_graph_source_add(g,"constant.false"));
+   assert(rr_control_graph_source_set(g,"constant.false",true,false));
+   assert(rr_control_graph_gate_add(g,"constant.xnor",RR_GATE_XNOR,2));
+   assert(rr_control_graph_connect(g,"constant.true","constant.xnor",0));
+   assert(rr_control_graph_connect(g,"constant.true","constant.xnor",1));
+   assert(rr_control_graph_output(g,"constant.xnor",&valid,&high) && valid && high);
+   assert(rr_control_graph_disconnect(g,"constant.true","constant.xnor",1));
+   assert(rr_control_graph_connect(g,"constant.false","constant.xnor",1));
+   assert(rr_control_graph_output(g,"constant.xnor",&valid,&high) && valid && !high);
+   assert(rr_control_graph_source_remove(g,"constant.false"));
+   assert(rr_control_graph_output(g,"constant.xnor",&valid,&high) && !valid && !high);
    rr_control_graph_free(g);
-   puts("boolean control graph wired-OR, XNOR, PTT, cycles and fail-low passed");
+   puts("boolean control graph wired-OR, XNOR, constants, cycles and fail-low passed");
    return 0;
 }
