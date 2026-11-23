@@ -2,6 +2,7 @@
 #ifndef RRCLIENT_GTK_ROUTING_PINS_H
 #define RRCLIENT_GTK_ROUTING_PINS_H
 #include <rrclient/audio.graph.h>
+#include <string.h>
 
 /* Physical audio connectors use pin 0=L/mono and pin 1=R.
  * On modem TX and rig.sink, pin 1 is instead the red PTT/control pin.
