@@ -71,10 +71,19 @@ static double input_x(const gate_view_t *b,unsigned pin) {
       b->kind==RR_GATE_NOR || b->kind==RR_GATE_XNOR;
    double fraction=.22;
    if(curved) {
+      /* OR/XOR's left edge is a cubic Bezier from (23%,100%) to
+       * (23%,0%), with both control points at (43%,50%). Invert
+       * y(t) numerically so every pin center sits on that edge. */
       double py=b->inputs==1?56.:20.+72.*pin/(b->inputs-1);
-      double t=CLAMP((py-RR_GTK_GRAPH_NODE_H*.10)/
-                       (RR_GTK_GRAPH_NODE_H*.80),0.,1.);
-      fraction=.23+.12*sin(G_PI*t);
+      double target=CLAMP(py/RR_GTK_GRAPH_NODE_H,0.,1.);
+      double lo=0.,hi=1.;
+      for(unsigned i=0;i<24;i++) {
+         double t=(lo+hi)*.5;
+         double y=1.-3.*t*t+2.*t*t*t;
+         if(y>target)lo=t;else hi=t;
+      }
+      double t=(lo+hi)*.5;
+      fraction=.23+.60*t*(1.-t);
    } else if(b->kind==RR_GATE_NOT)fraction=.24;
    return b->x+RR_GTK_GRAPH_NODE_W*fraction;
 }
