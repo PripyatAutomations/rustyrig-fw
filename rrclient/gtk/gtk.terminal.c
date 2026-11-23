@@ -12,6 +12,7 @@
 #include <rrclient/serial.h>
 #include "gtk.serial.h"
 #include "gtk.decoders.h"
+#include "gtk.modem-terminal.h"
 #include <rrclient/gtk/gtk.chat.h>
 #ifdef RR_HAVE_VTE
 #include <vte/vte.h>
@@ -372,6 +373,7 @@ static void terminal_session_destroy(GtkWidget *widget, gpointer data) {
 /* Release per-page event listeners before ws_fini() emits disconnects. */
 void gtk_terminal_shutdown(void) {
    gtk_decoder_view_shutdown();
+   rr_gtk_modem_terminal_shutdown();
    if (terminal_notebook && GTK_IS_NOTEBOOK(terminal_notebook)) {
       while (gtk_notebook_get_n_pages(GTK_NOTEBOOK(terminal_notebook)) > 0) {
          GtkWidget *page = gtk_notebook_get_nth_page(GTK_NOTEBOOK(terminal_notebook), 0);
@@ -608,6 +610,7 @@ GtkWidget *init_terminal_tab(void) {
    gtk_notebook_set_tab_pos(GTK_NOTEBOOK(terminal_notebook), GTK_POS_TOP);
    gtk_notebook_set_scrollable(GTK_NOTEBOOK(terminal_notebook), TRUE);
    gtk_box_pack_start(GTK_BOX(root), terminal_notebook, TRUE, TRUE, 0);
+   rr_gtk_modem_terminal_init(terminal_notebook);
    gtk_decoder_view_init(terminal_notebook,toolbar);
    g_signal_connect(refresh, "clicked", G_CALLBACK(terminal_refresh), NULL);
    g_signal_connect(open, "clicked", G_CALLBACK(terminal_open), NULL);
