@@ -329,6 +329,26 @@ void rr_logic_canvas_bounds(double *width,double *height) {
       *height=MAX(*height,blocks[i].y+RR_GTK_GRAPH_NODE_H+45.);
    }
 }
+/* LEDs are separate from connectors: rim for legibility, green HIGH,
+ * red LOW, muted gray for missing/unresolved values. Draw inside the gate. */
+static void logic_status_light(cairo_t *cr,double x,double y,
+                               gboolean valid,gboolean high) {
+   cairo_save(cr);
+   cairo_new_path(cr);
+   cairo_arc(cr,x,y,5.5,0,2*G_PI);
+   cairo_set_source_rgb(cr,.09,.12,.14);
+   cairo_fill_preserve(cr);
+   cairo_set_source_rgb(cr,.62,.68,.72);
+   cairo_set_line_width(cr,1.1);
+   cairo_stroke(cr);
+   cairo_new_path(cr);
+   cairo_arc(cr,x,y,3.8,0,2*G_PI);
+   if(!valid) cairo_set_source_rgb(cr,.40,.43,.47);
+   else if(high) cairo_set_source_rgb(cr,.25,.91,.38);
+   else cairo_set_source_rgb(cr,.91,.25,.27);
+   cairo_fill(cr);
+   cairo_restore(cr);
+}
 void rr_logic_canvas_draw(cairo_t *cr) {
    if (!model) return;
    cairo_save(cr);
@@ -414,12 +434,7 @@ skip_preview:;
                !valid_input) fresh=FALSE;
             if(valid_input && high_input)level=TRUE;
          }
-         cairo_set_source_rgb(cr,connected&&fresh?(level?.30:.75):.44,
-                                  connected&&fresh?(level?.96:.20):.44,
-                                  connected&&fresh?(level?.30:.20):.44);
-         cairo_new_path(cr);
-         cairo_arc(cr,px+12.,py,4.2,0,2*G_PI);
-         cairo_fill(cr);
+         logic_status_light(cr,px+12.,py,connected&&fresh,level);
          cairo_set_source_rgb(cr,.95,.95,.95);
       }
       cairo_set_source_rgb(cr,.94,.94,.94);
@@ -427,12 +442,7 @@ skip_preview:;
       cairo_set_font_size(cr,9.);
       cairo_move_to(cr,output_x(b)-41.,b->y+43.);
       cairo_show_text(cr,"OUT");
-      cairo_set_source_rgb(cr,valid?(high?.27:.75):.46,
-                                valid?(high?.96:.20):.46,
-                                valid?(high?.32:.20):.46);
-      cairo_new_path(cr);
-      cairo_arc(cr,output_x(b)-13.,b->y+56.,4.,0,2*G_PI);
-      cairo_fill(cr);
+      logic_status_light(cr,output_x(b)-13.,b->y+56.,valid,high);
    }
    cairo_restore(cr);
 }
