@@ -885,6 +885,7 @@ static void handle_script_admin(rrconn_t *client, dict *request, const char *act
 #endif
 
 #ifdef USE_SQLITE
+static void admin_routing_config(rrconn_t *client, dict *request, const char *action);
 /* Bound SQL parameters only: free-form request messages never become SQL. */
 static void admin_access_requests(rrconn_t *client, dict *request) {
    const char *action = dict_get(request, "talk.action", "");
