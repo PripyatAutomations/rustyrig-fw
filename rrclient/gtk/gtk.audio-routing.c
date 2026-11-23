@@ -337,6 +337,7 @@ static gboolean routing_is_touch_event(const GdkEvent *event) {
 #define GRAPH_WIRE_SAG_KEY "ui.patchbay.wire-sag"
 extern void gtk_script_gui_wire_sag_sync(double sag);
 static GtkWidget *routing_wire_sag_spin;
+static gulong routing_wire_sag_handler;
 static void routing_wire_sag_changed(GtkSpinButton *spin,gpointer user);
 double rr_gtk_routing_wire_sag_get(void) {
    return rr_gtk_graph_wire_sag();
@@ -350,11 +351,11 @@ void rr_gtk_routing_wire_sag_set(double sag) {
    rrclient_database_setting_set(GRAPH_WIRE_SAG_KEY,value);
    if(routing_wire_sag_spin && GTK_IS_SPIN_BUTTON(routing_wire_sag_spin) &&
       fabs(gtk_spin_button_get_value(GTK_SPIN_BUTTON(routing_wire_sag_spin))-sag)>0.0001) {
-      g_signal_handlers_block_by_func(routing_wire_sag_spin,
-           G_CALLBACK(routing_wire_sag_changed),NULL);
+      if(routing_wire_sag_handler)
+         g_signal_handler_block(routing_wire_sag_spin,routing_wire_sag_handler);
       gtk_spin_button_set_value(GTK_SPIN_BUTTON(routing_wire_sag_spin),sag);
-      g_signal_handlers_unblock_by_func(routing_wire_sag_spin,
-           G_CALLBACK(routing_wire_sag_changed),NULL);
+      if(routing_wire_sag_handler)
+         g_signal_handler_unblock(routing_wire_sag_spin,routing_wire_sag_handler);
    }
    graph_canvas_update_size();
    gtk_script_gui_wire_sag_sync(sag);
@@ -7780,7 +7781,8 @@ void gtk_audio_graph_present(void) {
       rr_gtk_graph_set_wire_sag(sag);
       gtk_spin_button_set_value(GTK_SPIN_BUTTON(wire_sag),sag);
       gtk_widget_set_tooltip_text(wire_sag,"0 = traditional patch cords; increase for Carla-style drooping cables");
-      g_signal_connect(wire_sag,"value-changed",G_CALLBACK(routing_wire_sag_changed),NULL);
+      routing_wire_sag_handler=g_signal_connect(wire_sag,"value-changed",
+         G_CALLBACK(routing_wire_sag_changed),NULL);
       gtk_flow_box_insert(GTK_FLOW_BOX(tools),wire_sag,-1);
       GtkWidget *show_controls = gtk_check_button_new_with_label("Controls");
       char *show_setting = rrclient_database_setting_get("audio.graph.show-controls");
