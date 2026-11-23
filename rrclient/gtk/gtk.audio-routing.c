@@ -2071,6 +2071,36 @@ static void routing_rate_label(guint32 rate, char *out, size_t size) {
    }
 }
 
+/* A full LV2 factory identifier belongs in the tooltip, not on the canvas.
+ * Prefer the final two dotted components, falling back to the final one
+ * if the result would still be too wide for a processor block. */
+static void routing_lv2_short_name(const char *full,char *out,gsize size) {
+   if(!out || !size)return;
+   out[0]=0;
+   if(!full || !*full)return;
+   const char *last=strrchr(full,'.');
+   const char *name=full;
+   if(last && last[1]) {
+      const char *p=last;
+      while(p>full && p[-1]!='.')p--;
+      if(p>full) {
+         const char *prev=p-1;
+         while(prev>full && prev[-1]!='.')prev--;
+         name=prev;
+      }
+      if(g_utf8_strlen(name,-1)>30)name=last+1;
+   }
+   if(g_utf8_strlen(name,-1)<=30) {
+      g_strlcpy(out,name,size);
+      return;
+   }
+   /* Keep the tail readable without cutting through a UTF-8 codepoint. */
+   const char *end=g_utf8_offset_to_pointer(name,29);
+   gchar *prefix=g_strndup(name,(gsize)(end-name));
+   g_snprintf(out,size,"%s…",prefix);
+   g_free(prefix);
+}
+
 static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unused) {
    (void)widget;
    (void)unused;
@@ -2122,8 +2152,7 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
       }
 
       if (g_str_has_prefix(n->id, "proc.lv2.") && n->rig[0]) {
-         /* The full LV2 factory name often exceeds the 300px PCM node. */
-         g_snprintf(lv2_subtitles[i], sizeof(lv2_subtitles[i]), "%.31s%s", n->rig, strlen(n->rig) > 31 ? "…" : "");
+         routing_lv2_short_name(n->rig,lv2_subtitles[i],sizeof(lv2_subtitles[i]));
       }
       nodes[i] = (rr_gtk_graph_node_t) {
          .x = routing_node_x(n), .y = routing_node_y(n),
@@ -5666,7 +5695,13 @@ static gboolean routing_graph_tooltip(GtkWidget *widget, gint px, gint py, gbool
          && n->type == RR_AG_SINK ? " (requested, not measured)" : "", n->resampling ? "active" : "none or not known", n->queued_ms, n->dropped_frames, n->
          starvation_events, g_str_has_prefix(n->id, "proc.lv2.") ? "\nInput and output require separate patch connections" : n->read_only ?
          "\nRead-only topology" : "");
-      gtk_tooltip_set_text(tooltip, details);
+      if(g_str_has_prefix(n->id,"proc.lv2.") && n->rig[0]) {
+         gchar *with_name=g_strdup_printf("LV2 plugin: %s\n%s",n->rig,details);
+         gtk_tooltip_set_text(tooltip,with_name);
+         g_free(with_name);
+      } else {
+         gtk_tooltip_set_text(tooltip,details);
+      }
       g_free(details);
 
       return TRUE;
