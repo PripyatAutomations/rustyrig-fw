@@ -178,6 +178,22 @@ static double pin_y(const rr_gtk_graph_node_t *n, rr_gtk_graph_pin_t channel, gb
    return n->y + 68;
 }
 
+/* Place top/bottom port labels outside their blocks, consistently to
+ * the LEFT of the pin rather than centered inside the block silhouette. */
+static void graph_vertical_pin_label(cairo_t *cr,const char *label,
+                                     double x,double y,gboolean bottom) {
+   cairo_save(cr);
+   cairo_set_source_rgb(cr,.85,.89,.93);
+   cairo_select_font_face(cr,"Sans",CAIRO_FONT_SLANT_NORMAL,CAIRO_FONT_WEIGHT_BOLD);
+   cairo_set_font_size(cr,9.);
+   cairo_text_extents_t ext;
+   cairo_text_extents(cr,label,&ext);
+   cairo_move_to(cr,x-ext.width-ext.x_bearing-11.,
+                 bottom ? y+16. : y-9.);
+   cairo_show_text(cr,label);
+   cairo_restore(cr);
+}
+
 /* Keep the existing audio-routing canvas unchanged. The pipeline editor uses these same nodes and line colors with vertical port placement. */
 void rr_gtk_graph_draw_vertical(cairo_t *cr, const rr_gtk_graph_node_t *nodes, guint n_nodes, const rr_gtk_graph_edge_t *edges, guint n_edges) {
    if ((!nodes && n_nodes) || (!edges && n_edges)) {
@@ -269,20 +285,26 @@ void rr_gtk_graph_draw_vertical(cairo_t *cr, const rr_gtk_graph_node_t *nodes, g
       if (n->cos_input) {
          cairo_set_source_rgb(cr, 1., .87, .13);
          pin(cr, n->x + RR_GTK_GRAPH_NODE_W - 12., n->y, FALSE, TRUE);
+         graph_vertical_pin_label(cr,"COS",n->x+RR_GTK_GRAPH_NODE_W-12.,n->y,FALSE);
       }
 
       if (n->cos_pin) {
          cairo_set_source_rgb(cr, 1., .87, .13);
          pin(cr, n->x + RR_GTK_GRAPH_NODE_W - 12., n->y + RR_GTK_GRAPH_NODE_H, FALSE, FALSE);
+         graph_vertical_pin_label(cr,"COS",n->x+RR_GTK_GRAPH_NODE_W-12.,
+                                  n->y+RR_GTK_GRAPH_NODE_H,TRUE);
       }
       cairo_set_source_rgb(cr, .30, .77, .92);
 
       if (n->io != RR_GTK_GRAPH_IO_SOURCE) {
          pin(cr, n->x + RR_GTK_GRAPH_NODE_W / 2., n->y, FALSE, TRUE);
+         graph_vertical_pin_label(cr,"IN",n->x+RR_GTK_GRAPH_NODE_W/2.,n->y,FALSE);
       }
 
       if (n->io != RR_GTK_GRAPH_IO_SINK) {
          pin(cr, n->x + RR_GTK_GRAPH_NODE_W / 2., n->y + RR_GTK_GRAPH_NODE_H, FALSE, FALSE);
+         graph_vertical_pin_label(cr,"OUT",n->x+RR_GTK_GRAPH_NODE_W/2.,
+                                  n->y+RR_GTK_GRAPH_NODE_H,TRUE);
       }
    }
 }
