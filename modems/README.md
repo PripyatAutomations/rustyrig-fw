@@ -32,6 +32,28 @@ samples to the normal TX encoder, excludes microphone TX, and requests
 PTT OFF when finished or on failure/timeout. PTT is sourced specifically
 from `modemN.ptt` and can be monitored by the floating ON AIR panel.
 
+### PSK live keyboard terminal
+
+Client-local PSK decoders now use a subtab of the normal **Terminal** page,
+rather than the message-send decoder view. RX characters appear as they are
+decoded (they do not wait for a newline). The entry queues typed/pasted
+characters while TX is active. **TX** obtains the existing modem-owned,
+authorized rig PTT session, **RX (drain)** finishes the queued characters
+before releasing PTT, and **Abort** cancels the waveform and releases it
+immediately. The worker accepts `START`, bounded hex-encoded `DATAHEX`
+and `END` messages in addition to the existing `TX <message>` protocol.
+
+The terminal's top-right **TX MM:SS** indicator is computed from the core
+monotonic timestamp set after confirmed PTT authorization; it continues
+through drain and clears on release. Snapshot updates are requested once
+per second while a PSK tab is present. The existing finite TX timeout and
+server interlocks remain in effect; this clock is a display, not a substitute
+for the transmitter's own timeout protection.
+
+Olivia and other message-style decoders retain their message composer.
+The module is intentionally structured for future streaming keyboard modes,
+but currently only the PSK engine advertises this UI flow.
+
 **FT8 remains RX-only**; the worker does not have slot-synchronized TX.
 The interim 16→8 kHz receive conversion is still a two-sample box average,
 and the TX upsampler is also provisional, not a band-limited converter.
