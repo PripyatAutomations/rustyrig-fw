@@ -315,11 +315,10 @@ bool audio_local_rx_push(const char *id, const int16_t *pcm, size_t frames) {
    rr_af_spectrum_push(id, pcm, frames);
    rr_local_modem_feed(id, pcm, frames);
 
-   if (audio_lv2_feed(id, pcm, frames * sizeof(int16_t))) {
-      return true;
-   }
-
-   return rx_engine && rr_audio_engine_push(rx_engine, id, pcm, frames);
+   /* Effects are explicit additional consumers, not an automatic
+    * replacement for an independently configured direct mixer route. */
+   audio_lv2_feed(id,pcm,frames*sizeof(int16_t));
+   return rx_engine && rr_audio_engine_push(rx_engine,id,pcm,frames);
 }
 
 void audio_local_rx_stop(const char *id) {
@@ -1318,9 +1317,10 @@ static void audio_lv2_result(const char *name, const void *samples, size_t bytes
       &lv2_effects[fx->chain_tail - 1] : fx;
    if (!g_atomic_int_get(&last->active) || !last->output_stream[0][0]) return;
    if (fx->channels == 1) {
-      if (!audio_lv2_feed(last->output_stream[0], samples, bytes)) {
-         rr_audio_engine_push(rx_engine, last->output_stream[0], (const int16_t *)samples, bytes / sizeof(int16_t));
-      }
+      audio_lv2_feed(last->output_stream[0],samples,bytes);
+      if(last->output[0]!='M')
+         rr_audio_engine_push(rx_engine,last->output_stream[0],
+                              (const int16_t *)samples,bytes/sizeof(int16_t));
    } else {
       if (!last->output_stream[1][0] || (bytes % (2 * sizeof(int16_t)))) return;
       const int16_t *pcm = samples;
@@ -1335,12 +1335,12 @@ static void audio_lv2_result(const char *name, const void *samples, size_t bytes
             right[i] = pcm[2 * (offset + i) + 1];
          }
 
-         if (!audio_lv2_feed(last->output_stream[0], left, n * sizeof(int16_t))) {
-            rr_audio_engine_push(rx_engine, last->output_stream[0], left, n);
-         }
-         if (!audio_lv2_feed(last->output_stream[1], right, n * sizeof(int16_t))) {
-            rr_audio_engine_push(rx_engine, last->output_stream[1], right, n);
-         }
+         audio_lv2_feed(last->output_stream[0],left,n*sizeof(int16_t));
+         if(last->output[0]!='M')
+            rr_audio_engine_push(rx_engine,last->output_stream[0],left,n);
+         audio_lv2_feed(last->output_stream[1],right,n*sizeof(int16_t));
+         if(last->output[1]!='M')
+            rr_audio_engine_push(rx_engine,last->output_stream[1],right,n);
       }
    }
 }
@@ -2076,26 +2076,6 @@ static void audio_lv2_request(const rr_event_message_t *msg, void *unused) {
                }
             }
          }
-         /* A processor connected directly to another processor should
-          * not also leak the same audio to the RX mixer. Muting the
-          * intermediate output is what enables single-process chaining.
-          * It does not alter the downstream plugin's own mixer route. */
-         gint upstream = audio_lv2_output_owner(req.source);
-         if (upstream >= 0 && (guint)upstream != req.slot - 1) {
-            rr_lv2_effect_t *parent = &lv2_effects[upstream];
-            for (guint out = 0; out < parent->channels; out++) {
-               if (strcmp(parent->output_stream[out], req.source))
-                  continue;
-               if (parent->output[out] != 'M') {
-                  parent->output[out] = 'M';
-                  rr_audio_engine_route(rx_engine, parent->output_stream[out], 'M');
-                  char *outkey = g_strdup_printf(out ?
-                     "audio.lv2.%u.output-right" : "audio.lv2.%u.output", upstream + 1);
-                  rrclient_database_setting_set(outkey, "M");
-                  g_free(outkey);
-               }
-            }
-         }
          Log(LOG_INFO, "audio.lv2", "Connected %s -> %s input %u", req.source[0] ? req.source : "(disconnected)", fx->name, req.channel);
       } else {
          Log(LOG_WARN, "audio.lv2", "Cannot patch input channel %u on LV2 slot %u", req.channel, req.slot);
@@ -2207,10 +2187,9 @@ static void client_channel_pcm(const char *name, const void *samples, size_t len
    rr_af_spectrum_push(route->identity, samples, len / sizeof(int16_t));
    rr_local_modem_feed(route->identity, samples, len / sizeof(int16_t));
 
-   if (audio_lv2_feed(route->identity, samples, len)) {
-      return;
-   }
-
+   audio_lv2_feed(route->identity,samples,len);
+   /* The RX route remains independently owned by the operator. Adding
+    * an effect input must not silently disconnect or replace it. */
    if (route->output == 'M') {
       if (len && rx_pcm_audible(samples, len / sizeof(int16_t))) {
          g_atomic_int_inc(&rx_muted_pcm_blocks);
@@ -2702,18 +2681,8 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
       unsigned channels = stream->output == 'L' ? RR_AG_CHANNEL_LEFT :
          stream->output == 'R' ? RR_AG_CHANNEL_RIGHT : stream->output == 'M' ? 0 : RR_AG_CHANNEL_STEREO;
 
-      gboolean intercepted = FALSE;
-
-      for (guint slot = 0 ; slot < RR_AUDIO_EFFECT_MAX ; slot++) {
-         if (g_atomic_int_get(&lv2_effects[slot].active) &&
-            !g_atomic_int_get(&lv2_effects[slot].failed) &&
-            (!strcmp(lv2_effects[slot].source[0], stream->id) || (lv2_effects[slot].channels == 2 && !strcmp(lv2_effects[slot].source[1], stream->id)))) {
-            intercepted = TRUE;
-         }
-      }
-
-      if (channels && !intercepted) {
-         /* With an active effect, dry PCM is bypassed in the actual mixer path too. Never draw both dry and processed edges at once. */
+      if (channels) {
+         /* This edge reflects the user's direct RX route, independent of any explicit LV2 taps. */
          rr_audio_engine_t *owner = audio_stream_engine(stream->id);
          rr_audio_graph_add_channel_link(graph, source_id, owner == hq_engine ? "hq.mix" : "rx.mix", RR_AG_NORMAL, channels);
       }
