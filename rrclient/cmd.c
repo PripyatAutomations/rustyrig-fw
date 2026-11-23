@@ -450,10 +450,16 @@ static gboolean chat_flush(gpointer unused) {
       chat_tokens-=1.0;
       chat_pending_t *next=g_queue_pop_head(chat_queue);
       if (next->connection && next->profile && rrclient_connection_find(next->profile) == next->connection && next->connection->authenticated) {
-         if (next->irc) {
-            irc_send_dict(next->connection, next->message);
-         } else {
-            ws_send_dict(NULL, next->connection, next->message, WEBSOCKET_OP_TEXT);
+         bool sent=next->irc?
+            irc_send_dict(next->connection,next->message):
+            ws_send_dict(NULL,next->connection,next->message,WEBSOCKET_OP_TEXT);
+         if(!sent) {
+            const char *target=dict_get(next->message,"talk.target","");
+            Log(LOG_WARN,"chat.send","Outgoing %s message to %s on %s failed (tag=%s, bytes=%zu)",
+                next->irc?"IRC":"WS",target,next->profile,
+                next->script_tag?next->script_tag:"manual",
+                strlen(dict_get(next->message,"talk.data","")));
+            ui_print(next->window,"Outgoing message to %s on %s failed; check IRC line limit/connection.",target,next->profile);
          }
       } else {
          ui_print(next->window, "Queued chat discarded: server disconnected.");
@@ -511,12 +517,23 @@ bool rrclient_script_chat_send(const char *profile,const char *target,
                                const char *text,const char *tag,unsigned interval_ms) {
    if(!profile||!*profile||!target||!*target||!text||!*text ||
       strlen(text)>400 || strpbrk(target,"\r\n ,") ||
-      strchr(text,'\r')||strchr(text,'\n'))return false;
+      strchr(text,'\r')||strchr(text,'\n')) {
+      Log(LOG_WARN,"chat.send","Script chat rejected invalid target/text (profile=%s, target=%s, bytes=%zu)",
+          profile?profile:"",target?target:"",text?strlen(text):0);
+      return false;
+   }
    rrconn_t *connection=rrclient_connection_find(profile);
    bool channel=target[0]=='#'||target[0]=='&';
    if(!connection||!connection->authenticated||rrclient_connection_state(profile)!=1||
       !rrclient_window_find_for_connection(connection,target)||
-      (channel&&!rrclient_room_is_joined(target)))return false;
+      (channel&&!rrclient_room_is_joined(target))) {
+      Log(LOG_WARN,"chat.send","Script chat destination unavailable: profile=%s target=%s (connection=%s, authenticated=%d, state=%d, window=%d, joined=%d)",
+          profile,target,connection?"yes":"no",connection?connection->authenticated:0,
+          rrclient_connection_state(profile),
+          connection && rrclient_window_find_for_connection(connection,target)!=NULL,
+          !channel||rrclient_room_is_joined(target));
+      return false;
+   }
    dict *message=dict_new();
    if(!message)return false;
    dict_add(message,"msg.type","talk");
