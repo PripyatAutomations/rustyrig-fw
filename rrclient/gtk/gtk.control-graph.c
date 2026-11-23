@@ -138,6 +138,14 @@ static gboolean output_hit(double x,double y,char out[RR_CONTROL_NAME_LEN]) {
    }
    return FALSE;
 }
+gboolean rr_logic_canvas_output_at(double x,double y,char *id,size_t capacity) {
+   if(!id||capacity==0)return FALSE;
+   id[0]=0;
+   char source[RR_CONTROL_NAME_LEN];
+   if(!output_hit(x,y,source))return FALSE;
+   g_strlcpy(id,source,capacity);
+   return TRUE;
+}
 static void save_model(void) {
    GKeyFile *k=g_key_file_new();
    g_key_file_set_integer(k,"control","version",1);
