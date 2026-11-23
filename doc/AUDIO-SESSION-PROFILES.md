@@ -127,6 +127,66 @@ Inputs have separate `present` and `high` masks; disconnected/stale inputs
 force the output **low** and report no valid result. This avoids accidentally
 treating an unknown input as false and asserting NAND/NOR/NOT into a transmitter.
 
+### Server Routing groundwork and shared graph snapshots (2026-11-22)
+
+The Routing tool has **Routing**, **Server Routing** and **Pipelines** subtabs.
+The Server Routing tab now fetches a server-owned, versioned **control graph
+configuration** through the existing authenticated admin transport.
+Its initial editor is a text representation of the same neutral GKeyFile
+snapshot used by the client graph; it provides **Refresh**, **Stage Client
+Graph**, **Validate**, **Save to Server**, **Copy**, and **Apply to Client**.
+Applying to the client swaps to a validated graph model and rolls back if
+the import fails; it does not alter server TX state.
+
+The server stores revisions in SQLite table `server_routing_graphs` and
+checks expected revisions to prevent overwriting another editor's changes.
+Reads require admin/owner/superadmin, while writes require owner or
+superadmin; remote administrators must also hold the existing
+`remote-admin` resource permission. Saves are audited. Both executables
+compile the **same** GTK-independent `audio.logic.c`,
+`control.graph.c` and `control.graph.codec.c` evaluator/validator.
+Snapshots carry `[control] version=1` (legacy implicit v1 still loads).
+
+**Safety boundary:** the stored server graph is not yet a live DSP or
+hardware-routing graph. In particular, graph import/save does not assert
+PTT, attach GPIO, start a server modem, or connect server audio effects.
+The following work remains before a full visual server patchbay exists:
+
+- [x] Shared graph snapshot validation and guarded client import/export.
+- [x] Versioned server-side configuration storage and owner/superadmin
+      authorization through existing admin transport.
+- [x] Separate Server Routing configuration tab.
+- [ ] Refactor the current GTK-only drawing/controller state to support
+      multiple interactive graph instances, so Server Routing can use the
+      same drag/drop canvas as local Routing.
+- [ ] Implement server-owned DSP/serial/boolean source inventory, editable
+      live graph transaction/apply engine, remote result events and full
+      safe rollback across worker restarts.
+- [ ] Expose the neutral graph snapshot and typed change transactions through
+      RustyScript APIs; keep script authorization identical to remote editing.
+- [ ] Enforce physical PTT sink lease, fail-low and interlock policies on
+      server-side runtime graph activation.
+
+### Routing ergonomics and explicit LV2 wires (2026-11-22)
+
+- Vertical graph top/bottom pin labels are outside their blocks; each is
+  positioned to the left of its pin. The bottom label is below the block.
+- The persisted **Connect** tolerance setting ranges from 0.5× to 3×,
+  controlling how loosely drag targets snap for audio and boolean wires.
+- **+ Control** includes boolean gates and TRUE/FALSE constants as well as
+  slider/knob/ON AIR and a restorable local PTT **display**. Removing the
+  PTT display never sends a hardware PTT command.
+- The LV2 graph accepts explicit source fan-out, two mono sources for
+  a stereo processor, and independently wired L/R stereo outputs into a
+  mono processor. For two sources into one mono effect, the core averages
+  them with headroom. No effect output is automatically connected or muted
+  when another processor consumes its output; explicit user wiring determines
+  paths. Non-linear/fan-out links remain independent subprocesses rather
+  than being silently consolidated.
+- The shared selection layer includes gates, constants, controls, ON AIR
+  and the PTT display. Delete removes user-created graph widgets, never a
+  core-owned hardware source or transmitter PTT lease.
+
 ### Interactive logic gates and boolean constants (2026-11-22)
 
 The Routing canvas has a **+ Gate** toolbar action and dedicated **+ TRUE**
