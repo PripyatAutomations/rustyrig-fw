@@ -1,0 +1,101 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/* Shared, GTK-free graph snapshot validation. Both script hosts and
+ * remote graph administration must use this validator before applying data. */
+#include <rrclient/control.graph.h>
+#include <glib.h>
+#include <math.h>
+#include <string.h>
+#include <stdlib.h>
+#include <errno.h>
+
+static gboolean graph_id_ok(const char *s) {
+   if (!s || !*s || strlen(s)>=RR_CONTROL_NAME_LEN) return FALSE;
+   for (const unsigned char *p=(const unsigned char *)s;*p;p++)
+      if (!g_ascii_isalnum(*p) && !strchr("._:-",*p)) return FALSE;
+   return TRUE;
+}
+static gboolean graph_number(GKeyFile *kf,const char *group,const char *field,
+                              double *out) {
+   gchar *v=g_key_file_get_string(kf,group,field,NULL);
+   if (!v) return FALSE;
+   char *end=NULL;
+   errno=0;
+   double n=g_ascii_strtod(v,&end);
+   gboolean ok=end!=v && !*end && errno!=ERANGE && isfinite(n) &&
+               n>=0. && n<=100000.;
+   if(ok)*out=n;
+   g_free(v);
+   return ok;
+}
+static gboolean graph_int(GKeyFile *kf,const char *group,const char *field,
+                           int low,int high,int *out) {
+   GError *e=NULL;
+   gint n=g_key_file_get_integer(kf,group,field,&e);
+   gboolean ok=!e && n>=low && n<=high;
+   g_clear_error(&e);
+   if(ok)*out=n;
+   return ok;
+}
+bool rr_control_graph_text_validate(const char *snapshot,char **error) {
+   if(error)*error=NULL;
+   if(!snapshot || !*snapshot || strlen(snapshot)>131072) {
+      if(error)*error=g_strdup("Graph data is empty or exceeds 128 KiB");
+      return false;
+   }
+   GKeyFile *kf=g_key_file_new();
+   rr_control_graph_t *g=rr_control_graph_new();
+   gboolean valid=FALSE;
+   int ng=0,nw=0,serial=0;
+   if(!g || !g_key_file_load_from_data(kf,snapshot,-1,G_KEY_FILE_NONE,NULL) ||
+      !graph_int(kf,"control","gates",0,RR_CONTROL_MAX_GATES,&ng) ||
+      !graph_int(kf,"control","wires",0,RR_CONTROL_MAX_WIRES,&nw) ||
+      !graph_int(kf,"control","serial",0,1000000,&serial)) goto done;
+   for(int i=0;i<ng;i++) {
+      char group[40];g_snprintf(group,sizeof(group),"gate.%d",i);
+      gchar *id=g_key_file_get_string(kf,group,"id",NULL);
+      gchar *kind=g_key_file_get_string(kf,group,"kind",NULL);
+      int inputs=0;
+      double x=0,y=0;
+      rr_gate_kind_t gate=RR_GATE_AND;
+      gboolean constant=kind && (!strcmp(kind,"TRUE") || !strcmp(kind,"FALSE"));
+      gboolean ok=graph_id_ok(id) && kind &&
+         (constant ? g_str_has_prefix(id,"constant.") :
+                     g_str_has_prefix(id,"gate.")) &&
+         graph_int(kf,group,"inputs",0,32,&inputs) &&
+         graph_number(kf,group,"x",&x) &&
+         graph_number(kf,group,"y",&y);
+      if(ok) {
+         if(constant) {
+            ok=inputs==0 && rr_control_graph_source_add(g,id);
+            if(ok)ok=rr_control_graph_source_set(g,id,true,!strcmp(kind,"TRUE"));
+         } else ok=rr_gate_kind_parse(kind,&gate) &&
+                    rr_control_graph_gate_add(g,id,gate,(unsigned)inputs);
+      }
+      g_free(id);g_free(kind);
+      if(!ok)goto done;
+   }
+   for(int i=0;i<nw;i++) {
+      char group[40];g_snprintf(group,sizeof(group),"wire.%d",i);
+      gchar *src=g_key_file_get_string(kf,group,"from",NULL);
+      gchar *dst=g_key_file_get_string(kf,group,"to",NULL);
+      int pin=0;
+      gboolean ok=graph_id_ok(src) && graph_id_ok(dst) &&
+                   graph_int(kf,group,"pin",0,31,&pin);
+      if(ok && !g_str_has_prefix(src,"gate.") &&
+         !g_str_has_prefix(src,"constant.")) {
+         /* Reused hardware/remote inputs are inert placeholders during
+          * validation. Runtime binding requires separate authorization. */
+         rr_control_graph_source_add(g,src);
+      }
+      if(ok)ok=rr_control_graph_connect(g,src,dst,(unsigned)pin);
+      g_free(src);g_free(dst);
+      if(!ok)goto done;
+   }
+   valid=TRUE;
+done:
+   if(!valid && error)*error=g_strdup(
+      "Invalid graph nodes, ports, wires, coordinates, or combinational cycle");
+   rr_control_graph_free(g);
+   g_key_file_unref(kf);
+   return valid;
+}
