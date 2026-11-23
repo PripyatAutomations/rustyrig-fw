@@ -1510,9 +1510,11 @@ static void routing_graph_bounds(double *width, double *height) {
       max_y = MAX(max_y, n->y + ROUTING_SERIAL_H + GRAPH_LAYOUT_MARGIN);
    }
 
-   if (onair_visible) {
-      max_x = MAX(max_x, MAX(onair_x + ONAIR_W, ptt_visible ? ptt_x + 150. : 0.) + GRAPH_LAYOUT_MARGIN);
-      max_y = MAX(max_y, MAX(onair_y + ONAIR_H, ptt_visible ? ptt_y + 70. : 0.) + GRAPH_LAYOUT_MARGIN);
+   if (onair_visible || ptt_visible) {
+      max_x = MAX(max_x, MAX(onair_visible ? onair_x + ONAIR_W : 0.,
+                             ptt_visible ? ptt_x + 150. : 0.) + GRAPH_LAYOUT_MARGIN);
+      max_y = MAX(max_y, MAX(onair_visible ? onair_y + ONAIR_H : 0.,
+                             ptt_visible ? ptt_y + 70. : 0.) + GRAPH_LAYOUT_MARGIN);
    }
    rr_logic_canvas_bounds(&max_x, &max_y);
    rr_marks_bounds(routing_marks, &max_x, &max_y);
@@ -6008,8 +6010,8 @@ static void routing_marquee_update(void) {
       }
    }
 
-   if (onair_visible) {
-      if (routing_marquee_contains(onair_x, onair_y, ONAIR_W, ONAIR_H)) {
+   if (onair_visible || ptt_visible) {
+      if (onair_visible && routing_marquee_contains(onair_x, onair_y, ONAIR_W, ONAIR_H)) {
          routing_graph_select("ui.onair", TRUE);
       }
 
@@ -6163,8 +6165,8 @@ static void routing_marquee_draw(cairo_t *cr) {
             cairo_rectangle(cr,c->x-3.,c->y-3.,ROUTING_CONTROL_WIDTH+6.,ROUTING_CONTROL_HEIGHT+6.);
       }
    }
-   if (onair_visible) {
-      if (routing_graph_is_selected("ui.onair")) {
+   if (onair_visible || ptt_visible) {
+      if (onair_visible && routing_graph_is_selected("ui.onair")) {
          cairo_rectangle(cr, onair_x - 3., onair_y - 3., ONAIR_W + 6., ONAIR_H + 6.);
       }
 
