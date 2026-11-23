@@ -7,6 +7,7 @@
 #include "gtk.floating-panel.h"
 #include "gtk.local-browser.h"
 #include "gtk.file-editor.h"
+#include "gtk.audio-routing.h"
 #include <glib/gstdio.h>
 #include <rrclient/gtk/gtk.core.h>
 #include <string.h>
@@ -19,6 +20,7 @@ typedef struct {
    char owner[32], id[64], kind[24];
    GtkWidget *widget;
    RRFloatPanel *panel;
+   char bound_property[128];
    guint32 last_time, interval_ms, state, button, clicks;
 } script_widget_t;
 static GHashTable *script_widgets;
@@ -93,6 +95,12 @@ static const char *widget_value(script_widget_t *entry,char *buffer,size_t size)
       g_free(selected);
       return buffer;
    }
+   if(!strcmp(entry->kind,"knob")) {
+      GtkAdjustment *adjustment=g_object_get_data(G_OBJECT(w),"rr-script-knob-adjustment");
+      if(!adjustment)return "";
+      g_ascii_dtostr(buffer,size,gtk_adjustment_get_value(adjustment));
+      return buffer;
+   }
    if(GTK_IS_SWITCH(w))return gtk_switch_get_active(GTK_SWITCH(w))?"true":"false";
    if(GTK_IS_COLOR_BUTTON(w)) {
       GdkRGBA rgba;
@@ -136,6 +144,12 @@ static void widget_changed(GtkWidget *widget,gpointer data) {
    g_strlcpy(change.kind,entry->kind,sizeof(change.kind));
    char buffer[256]={0};
    g_strlcpy(change.value,widget_value(entry,buffer,sizeof(buffer)),sizeof(change.value));
+   if(!strcmp(entry->bound_property,"ui.patchbay.wire-sag")) {
+      char *end=NULL;
+      double value=g_ascii_strtod(change.value,&end);
+      if(end && end!=change.value && !*end && isfinite(value))
+         rr_gtk_routing_wire_sag_set(value);
+   }
    rr_event_message_t message={
       .name=RR_SCRIPT_GUI_CHANGE,.payload=&change,.length=sizeof(change)
    };
@@ -319,6 +333,95 @@ static void script_control_range(const char *spec,double *minimum,double *maximu
       *minimum=lo;*maximum=hi;*step=inc;*value=CLAMP(initial,lo,hi);
    }
 }
+/* Toolkit-local circular dial backed by GtkAdjustment. No GTK pointers cross
+ * the script ABI; the same numeric control can be rendered by other frontends. */
+typedef struct {
+   GtkAdjustment *adjustment;
+   gboolean dragging;
+   double start_y,start_value;
+} script_knob_t;
+static void script_knob_free(gpointer data) {
+   script_knob_t *knob=data;
+   if(knob->adjustment)g_object_unref(knob->adjustment);
+   g_free(knob);
+}
+static gboolean script_knob_draw(GtkWidget *widget,cairo_t *cr,gpointer user) {
+   script_knob_t *knob=user;
+   double w=gtk_widget_get_allocated_width(widget);
+   double h=gtk_widget_get_allocated_height(widget);
+   double cx=w/2.,cy=h/2.-7.,radius=MIN(w,h-14.)*.38;
+   double min=gtk_adjustment_get_lower(knob->adjustment);
+   double max=gtk_adjustment_get_upper(knob->adjustment);
+   double value=gtk_adjustment_get_value(knob->adjustment);
+   double fraction=max>min?(value-min)/(max-min):0.;
+   double start=G_PI*.75,stop=G_PI*2.25;
+   cairo_set_line_cap(cr,CAIRO_LINE_CAP_ROUND);
+   cairo_set_line_width(cr,5.);
+   cairo_set_source_rgb(cr,.23,.26,.29);
+   cairo_arc(cr,cx,cy,radius,start,stop);cairo_stroke(cr);
+   cairo_set_source_rgb(cr,.23,.72,.91);
+   cairo_arc(cr,cx,cy,radius,start,start+(stop-start)*fraction);cairo_stroke(cr);
+   cairo_set_source_rgb(cr,.15,.17,.20);
+   cairo_arc(cr,cx,cy,radius-7.,0,2*G_PI);cairo_fill(cr);
+   double angle=start+(stop-start)*fraction;
+   cairo_set_source_rgb(cr,.94,.96,.98);
+   cairo_set_line_width(cr,3.);
+   cairo_move_to(cr,cx,cy);
+   cairo_line_to(cr,cx+cos(angle)*(radius-12.),cy+sin(angle)*(radius-12.));
+   cairo_stroke(cr);
+   char label[32];g_snprintf(label,sizeof(label),"%.0f",value);
+   cairo_select_font_face(cr,"Sans",CAIRO_FONT_SLANT_NORMAL,CAIRO_FONT_WEIGHT_BOLD);
+   cairo_set_font_size(cr,12.);
+   cairo_text_extents_t ext;cairo_text_extents(cr,label,&ext);
+   cairo_move_to(cr,cx-ext.width/2.,h-4.);
+   cairo_show_text(cr,label);
+   return FALSE;
+}
+static gboolean script_knob_press(GtkWidget *w,GdkEventButton *ev,gpointer user) {
+   (void)w;
+   script_knob_t *knob=user;
+   if(ev->button!=1 || ev->type!=GDK_BUTTON_PRESS)return FALSE;
+   knob->dragging=TRUE;knob->start_y=ev->y;
+   knob->start_value=gtk_adjustment_get_value(knob->adjustment);
+   return TRUE;
+}
+static gboolean script_knob_release(GtkWidget *w,GdkEventButton *ev,gpointer user) {
+   (void)w;
+   script_knob_t *knob=user;
+   if(ev->button!=1)return FALSE;
+   knob->dragging=FALSE;
+   return TRUE;
+}
+static gboolean script_knob_motion(GtkWidget *w,GdkEventMotion *ev,gpointer user) {
+   (void)w;
+   script_knob_t *knob=user;
+   if(!knob->dragging)return FALSE;
+   double lo=gtk_adjustment_get_lower(knob->adjustment);
+   double hi=gtk_adjustment_get_upper(knob->adjustment);
+   double step=gtk_adjustment_get_step_increment(knob->adjustment);
+   double value=CLAMP(knob->start_value+(knob->start_y-ev->y)*(hi-lo)/150.,lo,hi);
+   if(step>0)value=lo+round((value-lo)/step)*step;
+   gtk_adjustment_set_value(knob->adjustment,CLAMP(value,lo,hi));
+   return TRUE;
+}
+static gboolean script_knob_scroll(GtkWidget *w,GdkEventScroll *ev,gpointer user) {
+   (void)w;
+   script_knob_t *knob=user;
+   double delta=ev->direction==GDK_SCROLL_UP?1.:
+      ev->direction==GDK_SCROLL_DOWN?-1.:0.;
+   if(ev->direction==GDK_SCROLL_SMOOTH) {
+      double dx=0.,dy=0.;gdk_event_get_scroll_deltas((GdkEvent *)ev,&dx,&dy);
+      delta=-dy;
+   }
+   gtk_adjustment_set_value(knob->adjustment,
+      gtk_adjustment_get_value(knob->adjustment)+
+      delta*gtk_adjustment_get_step_increment(knob->adjustment));
+   return delta!=0.;
+}
+static void script_knob_adjusted(GtkAdjustment *adj,gpointer user) {
+   (void)adj;
+   gtk_widget_queue_draw(GTK_WIDGET(user));
+}
 static void script_gui_add(const rr_script_gui_command_t *cmd) {
    script_widget_t *parent=widget_find(cmd->owner,cmd->parent);
    if(!parent||!parent->widget || widget_find(cmd->owner,cmd->id))return;
@@ -404,6 +507,25 @@ static void script_gui_add(const rr_script_gui_command_t *cmd) {
       w=gtk_check_button_new_with_label(cmd->text);
       gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(w),
          !strcmp(cmd->value,"true")||!strcmp(cmd->value,"1"));
+   } else if(!strcmp(cmd->kind,"knob")) {
+      double lo,hi,step,value;
+      script_control_range(cmd->value,&lo,&hi,&step,&value);
+      w=gtk_drawing_area_new();
+      gtk_widget_set_size_request(w,92,108);
+      script_knob_t *knob=g_new0(script_knob_t,1);
+      knob->adjustment=GTK_ADJUSTMENT(g_object_ref_sink(
+         gtk_adjustment_new(value,lo,hi,step,step*10.,0.)));
+      g_object_set_data_full(G_OBJECT(w),"rr-script-knob",knob,script_knob_free);
+      g_object_set_data(G_OBJECT(w),"rr-script-knob-adjustment",knob->adjustment);
+      gtk_widget_add_events(w,GDK_BUTTON_PRESS_MASK|GDK_BUTTON_RELEASE_MASK|
+                            GDK_POINTER_MOTION_MASK|GDK_SCROLL_MASK);
+      g_signal_connect(w,"draw",G_CALLBACK(script_knob_draw),knob);
+      g_signal_connect(w,"button-press-event",G_CALLBACK(script_knob_press),knob);
+      g_signal_connect(w,"button-release-event",G_CALLBACK(script_knob_release),knob);
+      g_signal_connect(w,"motion-notify-event",G_CALLBACK(script_knob_motion),knob);
+      g_signal_connect(w,"scroll-event",G_CALLBACK(script_knob_scroll),knob);
+      g_signal_connect(knob->adjustment,"value-changed",
+                       G_CALLBACK(script_knob_adjusted),w);
    } else if(!strcmp(cmd->kind,"slider") || !strcmp(cmd->kind,"spin")) {
       double lo,hi,step,value;
       script_control_range(cmd->value,&lo,&hi,&step,&value);
@@ -438,6 +560,13 @@ static void script_gui_add(const rr_script_gui_command_t *cmd) {
       g_signal_connect(w,"notify::active",G_CALLBACK(script_switch_changed),entry);
    if(GTK_IS_COLOR_BUTTON(w))
       g_signal_connect(w,"color-set",G_CALLBACK(script_color_changed),entry);
+   if(!strcmp(cmd->kind,"knob")) {
+      GtkAdjustment *adj=g_object_get_data(G_OBJECT(w),"rr-script-knob-adjustment");
+      g_signal_connect_swapped(adj,"value-changed",G_CALLBACK(widget_changed),w);
+      /* Notify the script with its owner-scoped entry, not the drawing area. */
+      g_signal_handlers_disconnect_by_func(adj,G_CALLBACK(widget_changed),w);
+      g_signal_connect(adj,"value-changed",G_CALLBACK(widget_changed),entry);
+   }
    if(GTK_IS_SPIN_BUTTON(w))g_signal_connect(w,"value-changed",G_CALLBACK(widget_changed),entry);
    else if(GTK_IS_ENTRY(w))g_signal_connect(w,"changed",G_CALLBACK(widget_changed),entry);
    else if(GTK_IS_TOGGLE_BUTTON(w))g_signal_connect(w,"toggled",G_CALLBACK(widget_changed),entry);
@@ -528,6 +657,21 @@ static void script_gui_command(const rr_event_message_t *message,void *unused) {
       return;
    }
    if(cmd.action==RR_GUI_ADD){script_gui_add(&cmd);return;}
+   if(cmd.action==RR_GUI_BIND) {
+      if(!entry || !entry->widget || strcmp(cmd.value,"ui.patchbay.wire-sag") ||
+         (strcmp(entry->kind,"knob") && strcmp(entry->kind,"slider") &&
+          strcmp(entry->kind,"spin")))return;
+      g_strlcpy(entry->bound_property,cmd.value,sizeof(entry->bound_property));
+      double value=rr_gtk_routing_wire_sag_get();
+      if(!strcmp(entry->kind,"knob")) {
+         GtkAdjustment *adj=g_object_get_data(G_OBJECT(entry->widget),"rr-script-knob-adjustment");
+         if(adj)gtk_adjustment_set_value(adj,value);
+      } else if(GTK_IS_RANGE(entry->widget))
+         gtk_range_set_value(GTK_RANGE(entry->widget),value);
+      else if(GTK_IS_SPIN_BUTTON(entry->widget))
+         gtk_spin_button_set_value(GTK_SPIN_BUTTON(entry->widget),value);
+      return;
+   }
    if(!entry||!entry->widget)return;
    if(cmd.action==RR_GUI_SET) {
       GtkWidget *w=entry->widget;
@@ -548,6 +692,10 @@ static void script_gui_command(const rr_event_message_t *message,void *unused) {
       else if(GTK_IS_COLOR_BUTTON(w)) {
          GdkRGBA color;
          if(gdk_rgba_parse(&color,cmd.value))gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(w),&color);
+      }
+      else if(!strcmp(entry->kind,"knob")) {
+         GtkAdjustment *adj=g_object_get_data(G_OBJECT(w),"rr-script-knob-adjustment");
+         if(adj)gtk_adjustment_set_value(adj,g_ascii_strtod(cmd.value,NULL));
       }
       else if(GTK_IS_SPIN_BUTTON(w))gtk_spin_button_set_value(GTK_SPIN_BUTTON(w),g_ascii_strtod(cmd.value,NULL));
       else if(GTK_IS_ENTRY(w))gtk_entry_set_text(GTK_ENTRY(w),cmd.value);
