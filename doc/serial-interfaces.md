@@ -65,6 +65,45 @@ unless explicitly overridden. Clients may request only a symbolic export name;
 absolute remote paths and `serial.path` requests are rejected. Local device
 paths in client endpoint settings refer only to hardware on the client.
 
+## Modem text terminals versus KISS TNCs
+
+`ttyMODEM<N>` is the generic exported device name for a server-owned modem
+worker. The existing serial tunnel is **binary-transparent**, so a future
+packet-capable worker can expose a KISS TNC on `ttyMODEM0` and a client can
+attach an ordinary local PTY without inventing another serial transport:
+
+```ini
+; Server, after a suitable KISS-capable worker has been implemented
+[serial]
+;ttyMODEM0=modem:/usr/libexec/rustyrig/modems/rrmodem-packet
+
+; Client
+[serial]
+;ttyMODEM0=host:ttyMODEM0
+```
+
+`ttyTNC0` could be a **user-chosen alias**, but the interface name alone
+does not specify a wire protocol. The export must advertise a protocol
+(or capability) such as `text/utf8`, `kiss` or `raw/bytes`. Never reinterpret
+Olivia or PSK keyboard text as KISS packets based on the port name.
+KISS uses binary framing with its own delimiters and escaping; preserve
+all octets and frame boundaries across the existing serial tunnel.
+A packet modem also needs an authorized, rig-bound TX PCM/PTT path before
+the local PTY can transmit RF.
+
+An Olivia/PSK **client-local** decoder is not automatically the same resource
+as a server-owned `ttyMODEM<N>` worker. Client-local transmit text currently
+uses `RR_LOCAL_MODEM_SEND_TEXT` and its core-owned PTT/PCM checks. A text
+composer now lives in each Olivia/PSK decoder tab; its Send action submits
+that request without sending PTT commands from GTK. The server-owned
+modem export remains attachable independently of a terminal window.
+
+For a first packet implementation, prefer a generic `ttyMODEM#` name with
+an explicit **KISS** protocol setting, optional `ttyTNC#` display alias,
+and separate receive-only or TX-enabled privileges. Do not expose a
+generic KISS device until a worker actually parses/emits KISS frames,
+provides packet transmit audio, and holds a server-authorized PTT lease.
+
 ## Discovery and permissions
 
 `/rig list` shows GPS services, their effective coordinates and media UUIDs,
