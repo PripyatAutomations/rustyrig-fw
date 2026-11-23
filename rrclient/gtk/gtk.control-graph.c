@@ -19,6 +19,7 @@ typedef struct {
    char id[RR_CONTROL_NAME_LEN];
    rr_gate_kind_t kind;
    unsigned inputs;
+   gboolean constant, level; /* Constant nodes are ordinary reusable sources. */
    double x,y;
 } gate_view_t;
 typedef struct {
@@ -111,7 +112,9 @@ static void save_model(void) {
       char group[40],x[G_ASCII_DTOSTR_BUF_SIZE],y[G_ASCII_DTOSTR_BUF_SIZE];
       g_snprintf(group,sizeof(group),"gate.%u",i);
       g_key_file_set_string(k,group,"id",blocks[i].id);
-      g_key_file_set_string(k,group,"kind",rr_gate_kind_name(blocks[i].kind));
+      g_key_file_set_string(k,group,"kind",
+         blocks[i].constant ? (blocks[i].level ? "TRUE" : "FALSE") :
+                              rr_gate_kind_name(blocks[i].kind));
       g_key_file_set_integer(k,group,"inputs",(int)blocks[i].inputs);
       g_ascii_formatd(x,sizeof(x),"%.2f",blocks[i].x);
       g_ascii_formatd(y,sizeof(y),"%.2f",blocks[i].y);
@@ -161,14 +164,21 @@ static void restore_model(void) {
       rr_gate_kind_t type;
       int inputs=g_key_file_get_integer(k,group,"inputs",NULL);
       double x=xs?g_ascii_strtod(xs,NULL):-1.,y=ys?g_ascii_strtod(ys,NULL):-1.;
-      if (name && g_str_has_prefix(name,"gate.") && kind &&
-          rr_gate_kind_parse(kind,&type) &&
+      gboolean constant = kind && (!strcmp(kind,"TRUE") || !strcmp(kind,"FALSE"));
+      gboolean level = kind && !strcmp(kind,"TRUE");
+      if (name && (g_str_has_prefix(name,"gate.") ||
+                    g_str_has_prefix(name,"constant.")) && kind &&
+          (constant || rr_gate_kind_parse(kind,&type)) &&
           isfinite(x) && isfinite(y) && x>=0 && x<=100000 &&
           y>=0 && y<=100000 &&
-          rr_control_graph_gate_add(model,name,type,(unsigned)inputs)) {
+          (constant ? rr_control_graph_source_add(model,name) :
+                      rr_control_graph_gate_add(model,name,type,(unsigned)inputs))) {
          gate_view_t *b=&blocks[block_count++];
          g_strlcpy(b->id,name,sizeof(b->id));
-         b->kind=type;b->inputs=(unsigned)inputs;b->x=x;b->y=y;
+         b->kind=constant?RR_GATE_AND:type;
+         b->inputs=constant?0u:(unsigned)inputs;
+         b->constant=constant;b->level=level;b->x=x;b->y=y;
+         if (constant) rr_control_graph_source_set(model,name,true,level);
       }
       g_free(name);g_free(kind);g_free(xs);g_free(ys);
    }
@@ -280,8 +290,9 @@ skip_preview:;
       ports[b->inputs]=(rr_gtk_graph_port_t){"OUT",RR_GTK_GRAPH_SIGNAL_BOOLEAN,TRUE,
                                       RR_GTK_GRAPH_NODE_W,56.};
       rr_gtk_graph_node_t view={.x=b->x,.y=b->y,
-         .title=rr_gate_kind_name(b->kind),
-         .shape=shape_for(b->kind),.ports=ports,.port_count=b->inputs+1,
+         .title=b->constant ? (b->level?"TRUE":"FALSE") : rr_gate_kind_name(b->kind),
+         .shape=b->constant ? RR_GTK_GRAPH_SHAPE_UTILITY : shape_for(b->kind),
+         .ports=ports,.port_count=b->inputs+1,
          .io=RR_GTK_GRAPH_IO_BOTH,.selected=valid && high};
       rr_gtk_graph_draw(cr,&view,1,NULL,0);
       cairo_set_source_rgb(cr,.96,.20,.20);
@@ -327,14 +338,18 @@ static void properties(gate_view_t *b,GtkWidget *parent) {
    for (unsigned i=0;i<=RR_GATE_XNOR;i++)
       gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(kind),
                                     rr_gate_kind_name((rr_gate_kind_t)i));
-   gtk_combo_box_set_active(GTK_COMBO_BOX(kind),b->kind);
+   gtk_combo_box_set_active(GTK_COMBO_BOX(kind),b->constant?-1:b->kind);
+   gtk_widget_set_sensitive(kind,!b->constant);
    GtkWidget *spin=gtk_spin_button_new_with_range(1,32,1);
-   gtk_spin_button_set_value(GTK_SPIN_BUTTON(spin),b->inputs);
+   gtk_spin_button_set_value(GTK_SPIN_BUTTON(spin),b->constant?1:b->inputs);
+   gtk_widget_set_sensitive(spin,!b->constant);
    gtk_box_pack_start(GTK_BOX(box),gtk_label_new("Logic function"),FALSE,FALSE,4);
    gtk_box_pack_start(GTK_BOX(box),kind,FALSE,FALSE,4);
    gtk_box_pack_start(GTK_BOX(box),gtk_label_new("Number of input pins"),FALSE,FALSE,4);
    gtk_box_pack_start(GTK_BOX(box),spin,FALSE,FALSE,4);
-   GtkWidget *note=gtk_label_new("Wires sharing one input are ORed.\nMissing/stale inputs force output low.\nChanging inputs cannot silently remove wires.");
+   GtkWidget *note=gtk_label_new(b->constant ?
+      "This block provides a permanent boolean level, independent of PTT.\nIts output may feed multiple gates." :
+      "Wires sharing one input are ORed.\nMissing/stale inputs force output low.\nChanging inputs cannot silently remove wires.");
    gtk_label_set_line_wrap(GTK_LABEL(note),TRUE);
    gtk_box_pack_start(GTK_BOX(box),note,FALSE,FALSE,6);
    gtk_widget_show_all(dialog);
@@ -342,7 +357,8 @@ static void properties(gate_view_t *b,GtkWidget *parent) {
    if (result==GTK_RESPONSE_REJECT) {
       char id[RR_CONTROL_NAME_LEN];
       g_strlcpy(id,b->id,sizeof(id));
-      if (rr_control_graph_gate_remove(model,id)) {
+      if ((b->constant ? rr_control_graph_source_remove(model,id) :
+                             rr_control_graph_gate_remove(model,id))) {
          for(unsigned i=0;i<wire_count;)
             if (!strcmp(wires[i].from,id) || !strcmp(wires[i].to,id)) {
                memmove(&wires[i],&wires[i+1],(wire_count-i-1)*sizeof(wires[0]));
@@ -353,7 +369,7 @@ static void properties(gate_view_t *b,GtkWidget *parent) {
          block_count--;
          save_model();
       }
-   } else if (result==GTK_RESPONSE_ACCEPT) {
+   } else if (result==GTK_RESPONSE_ACCEPT && !b->constant) {
       rr_gate_kind_t type=(rr_gate_kind_t)gtk_combo_box_get_active(GTK_COMBO_BOX(kind));
       unsigned n=(unsigned)gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(spin));
       if (rr_control_graph_gate_configure(model,b->id,type,n)) {
@@ -424,7 +440,8 @@ gboolean rr_logic_canvas_press(double x,double y,GdkEventButton *event) {
             return TRUE;
          }
       if (x>=b->x && y>=b->y &&
-          rr_gtk_graph_shape_contains(shape_for(b->kind),x-b->x,y-b->y)) {
+          rr_gtk_graph_shape_contains(b->constant ? RR_GTK_GRAPH_SHAPE_UTILITY :
+                                      shape_for(b->kind),x-b->x,y-b->y)) {
          drag_block=i;drag_dx=x-b->x;drag_dy=y-b->y;
          return TRUE;
       }
@@ -506,4 +523,22 @@ void rr_logic_canvas_add(GtkWidget *parent) {
       }
    }
    gtk_widget_destroy(dialog);
+}
+
+/* Static boolean blocks are ordinary source nodes, no extra input wires or
+ * special PTT privileges. Instances persist independently. */
+void rr_logic_canvas_add_constant(gboolean high) {
+   if (!model || block_count>=MAX_UI_GATES) return;
+   char id[RR_CONTROL_NAME_LEN];
+   do {
+      g_snprintf(id,sizeof(id),"constant.%u",++serial);
+   } while (find_gate(id) && serial<100000);
+   if (!rr_control_graph_source_add(model,id)) return;
+   rr_control_graph_source_set(model,id,true,high);
+   gate_view_t *b=&blocks[block_count++];
+   *b=(gate_view_t){.constant=TRUE,.level=high,
+                    .x=100.+(block_count%3)*240.,
+                    .y=600.+(block_count/3)*165.};
+   g_strlcpy(b->id,id,sizeof(b->id));
+   save_model();
 }
