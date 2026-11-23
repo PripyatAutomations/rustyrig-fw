@@ -521,10 +521,15 @@ The example also declares a floating manager via `ui.utility`. It uses the
 generic `filelist` widget, a read-only `irc-preview` backed by RustyRig's
 existing IRC color renderer, and a `roomlist` of open conversations.
 Send and Stop are implemented through `timer.every`, `string.line`,
-`chat.send` and `chat.cancel`. Playback speed (1–10 lines/sec) is
-stored separately per profile/target using `setting.get/set`. Buttons
-demonstrate `ui.edit`, file rename/move/delete, `file.mkdir`, and
-confirmation dialogs. The client still enforces its bounded chat queue.
+`chat.send` and `chat.cancel`. Playback has separate **sustained** (X lines per Y seconds) and
+**burst** (X lines per Y seconds for at most Z lines) controls, remembered
+per profile/target using `setting.get/set`. Burst maximum 0 disables the
+faster initial phase. The send timer schedules the artwork line by line;
+the client also enforces its shared chat token bucket and bounded queue
+on script-tagged sends, so an aggressive macro configuration cannot bypass
+the client's `chat.send.burst` and `chat.send.interval-ms` limits.
+IRC networks may impose stricter limits. Buttons demonstrate `ui.edit`,
+file rename/move/delete, `file.mkdir`, and confirmation dialogs.
 
 These primitives are reusable for other station automations:
 
