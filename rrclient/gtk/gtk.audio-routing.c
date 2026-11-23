@@ -5438,12 +5438,19 @@ static void routing_compact_create(GtkButton *button, gpointer unused) {
       const char *kind = gtk_combo_box_get_active_id(GTK_COMBO_BOX(widget_kind));
 
       if (kind && !strcmp(kind, "onair")) {
-         onair_add(NULL, NULL);
+         double x,y;routing_creation_point(&x,&y);
+         onair_x=MAX(0.,x-ONAIR_W/2.);
+         onair_y=MAX(0.,y-ONAIR_H/2.);
+         onair_add(NULL,NULL);
+         routing_graph_select("ui.onair",TRUE);
       } else if (kind && !strcmp(kind,"gate")) {
          create_gate_after_close=TRUE;
       } else if (kind && !strcmp(kind,"ptt")) {
+         double x,y;routing_creation_point(&x,&y);
+         ptt_x=MAX(0.,x-75.);ptt_y=MAX(0.,y-35.);
          ptt_visible=TRUE;
          onair_save();
+         routing_graph_select("ui.ptt",TRUE);
          graph_canvas_update_size();
       } else if (kind && (!strcmp(kind,"true") || !strcmp(kind,"false"))) {
          routing_create_position_logic();
@@ -5455,7 +5462,16 @@ static void routing_compact_create(GtkButton *button, gpointer unused) {
          guint before = routing_compact_controls ? routing_compact_controls->len : 0;
          routing_compact_add(!effect && *id ? id + 1 : "", (unsigned)g_ascii_strtoull(channel, NULL, 10), !effect
             && *id == 'P', gtk_entry_get_text(GTK_ENTRY(name)), kind, NULL, 0., 0.);
-
+         if(routing_compact_controls && routing_compact_controls->len>before) {
+            routing_compact_control_t *new_control=
+               g_ptr_array_index(routing_compact_controls,routing_compact_controls->len-1);
+            double x,y;routing_creation_point(&x,&y);
+            new_control->x=MAX(0.,x-ROUTING_CONTROL_WIDTH/2.);
+            new_control->y=MAX(0.,y-ROUTING_CONTROL_HEIGHT/2.);
+            routing_compact_save(new_control);
+            routing_graph_select(new_control->uuid,TRUE);
+            graph_canvas_update_size();
+         }
          if (effect && routing_compact_controls && routing_compact_controls->len > before) {
             routing_effect_port_t *meta = g_hash_table_lookup(effect_ports, id);
 
