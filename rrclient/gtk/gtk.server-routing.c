@@ -5,11 +5,31 @@
 #include "gtk.server-routing.h"
 #include "gtk.admin.command.h"
 #include "gtk.control-graph.h"
+#include <rrclient/connman.h>
 #include <rrclient/control.graph.h>
 #include <glib.h>
 #include <string.h>
 
 static GtkWidget *server_entry,*editor,*status,*revision_label,*save_button;
+/* Both server-facing tabs select a specific cluster node, independent of
+ * the active chat/rig connection. Free-form entry still accepts a profile
+ * that joins the cluster after the tab is opened. */
+GtkWidget *gtk_server_routing_server_selector(void) {
+   GtkWidget *combo=gtk_combo_box_text_new_with_entry();
+   for(unsigned i=0;i<128;i++) {
+      const char *profile=rrclient_connection_iter(i);
+      if(!profile)break;
+      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(combo),profile,profile);
+   }
+   const char *active=gtk_admin_selected_profile();
+   if(!active||!*active)active=rrclient_selected_server();
+   GtkWidget *entry=gtk_bin_get_child(GTK_BIN(combo));
+   if(active&&*active)gtk_entry_set_text(GTK_ENTRY(entry),active);
+   gtk_entry_set_max_length(GTK_ENTRY(entry),127);
+   gtk_widget_set_tooltip_text(combo,"Choose a connected cluster server profile");
+   return combo;
+}
+
 static char requested_profile[128];
 static gint64 current_revision;
 static gboolean may_edit,loaded;
@@ -24,7 +44,8 @@ static void set_status(const char *value) {
    if(status)gtk_label_set_text(GTK_LABEL(status),value);
 }
 static const char *selected(void) {
-   const char *value=gtk_entry_get_text(GTK_ENTRY(server_entry));
+   GtkWidget *entry=gtk_bin_get_child(GTK_BIN(server_entry));
+   const char *value=gtk_entry_get_text(GTK_ENTRY(entry));
    return value?value:"";
 }
 static void fetch(GtkButton *button,gpointer user) {
@@ -107,13 +128,11 @@ GtkWidget *gtk_server_routing_page(void) {
    gtk_container_set_border_width(GTK_CONTAINER(page),8);
    GtkWidget *row=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,6);
    GtkWidget *label=gtk_label_new("Server profile:");
-   server_entry=gtk_entry_new();
-   gtk_entry_set_max_length(GTK_ENTRY(server_entry),127);
-   gtk_entry_set_placeholder_text(GTK_ENTRY(server_entry),
-      "Connected server profile (same name as Admin)");
-   const char *profile=gtk_admin_selected_profile();
-   if(profile&&*profile)gtk_entry_set_text(GTK_ENTRY(server_entry),profile);
+   server_entry=gtk_server_routing_server_selector();
+   gtk_entry_set_placeholder_text(GTK_ENTRY(gtk_bin_get_child(GTK_BIN(server_entry))),
+      "Select cluster server");
    gtk_widget_set_hexpand(server_entry,TRUE);
+
    GtkWidget *refresh=gtk_button_new_with_label("Refresh");
    GtkWidget *stage_button=gtk_button_new_with_label("Stage Client Graph");
    GtkWidget *check=gtk_button_new_with_label("Validate");
