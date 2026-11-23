@@ -114,6 +114,7 @@ gtk_module_objs += gtk/gtk.alertdialog.o # alert/error/warning dialogs
 gtk_module_objs += gtk/gtk.graph.o # Shared graph canvas for routing and pipeline editor
 gtk_module_objs += gtk/gtk.audio-routing.o # RX ear routing window
 gtk_module_objs += gtk/gtk.control-graph.o # Boolean gate block view and wiring
+gtk_module_objs += gtk/gtk.modem-terminal.o # Keyboard-mode terminal, streaming TX and key-down timer
 ifeq (${USE_GSTREAMER},true)
 gtk_module_objs += gtk/gtk.pipeline-editor.o # Embedded GStreamer pipeline editor
 gtk_module_objs += gtk/gtk.pipeline-model.o # Shared pipeline graph/model
