@@ -2083,11 +2083,7 @@ static void routing_lv2_short_name(const char *full,char *out,gsize size) {
    if(last && last[1]) {
       const char *p=last;
       while(p>full && p[-1]!='.')p--;
-      if(p>full) {
-         const char *prev=p-1;
-         while(prev>full && prev[-1]!='.')prev--;
-         name=prev;
-      }
+      name=p;
       if(g_utf8_strlen(name,-1)>30)name=last+1;
    }
    if(g_utf8_strlen(name,-1)<=30) {
