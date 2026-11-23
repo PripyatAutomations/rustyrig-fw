@@ -73,6 +73,8 @@ static void fetch(GtkButton *button,gpointer user) {
    if(revision_label)gtk_label_set_text(GTK_LABEL(revision_label),"Revision: —");
    if(gtk_admin_command_event(status,profile,"routing-get","",NULL,NULL))
       set_status("Requesting server-owned routing graph…");
+   else
+      requested_profile[0]='\0';
 }
 static void stage(GtkButton *button,gpointer user) {
    (void)button;(void)user;
@@ -197,7 +199,7 @@ GtkWidget *gtk_server_routing_page(void) {
 gboolean gtk_server_routing_result(const char *table,const char *action,
                                    dict *row,const char *profile) {
    if(g_strcmp0(table,"server-routing"))return FALSE;
-   if(!row||!editor||!loaded && !*requested_profile||
+   if(!row||!editor||!*requested_profile||
       g_strcmp0(action,"snapshot")||g_strcmp0(profile,requested_profile)||
       g_strcmp0(selected(),requested_profile))return TRUE;
    const char *data=dict_get(row,"data","");
