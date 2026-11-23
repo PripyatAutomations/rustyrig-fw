@@ -1259,7 +1259,7 @@ static gboolean audio_lv2_would_cycle(guint destination, const char *source) {
       gint slot = queue[head++];
       if ((guint)slot + 1 == destination) return TRUE;
       rr_lv2_effect_t *fx = &lv2_effects[slot];
-      for (guint ch = 0 ; ch < fx->channels ; ch++) {
+      for (guint ch = 0 ; ch < 2 ; ch++) {
          gint upstream = audio_lv2_output_owner(fx->source[ch]);
          if (upstream >= 0 && !seen[upstream]) {
             seen[upstream] = TRUE;
@@ -1389,14 +1389,50 @@ static gboolean audio_lv2_feed(const char *source, const void *samples, size_t b
          continue;
       }
       const gboolean left=!strcmp(fx->source[0],source);
-      const gboolean right=fx->channels==2 && !strcmp(fx->source[1],source);
+      const gboolean right=fx->source[1][0] && !strcmp(fx->source[1],source);
       if(!left && !right) continue;
 
-      if (fx->channels == 1) {
+      if (fx->channels == 1 && fx->source[0][0] && fx->source[1][0]) {
+         /* Explicit stereo-to-mono patch: align the two streams by sample
+          * arrival order and average with headroom, never auto-connect.
+          * One selected channel alone goes through the ordinary mono path. */
+         const guint frames=(guint)(bytes/sizeof(int16_t));
+         const int16_t *pcm=samples;
+         for (guint ch=0;ch<2;ch++) {
+            if (!(ch ? right : left)) continue;
+            guint held=fx->pending_frames[ch];
+            if (held+frames>G_N_ELEMENTS(fx->pending[ch])) {
+               guint drop=held+frames-G_N_ELEMENTS(fx->pending[ch]);
+               memmove(fx->pending[ch],fx->pending[ch]+drop,(held-drop)*sizeof(int16_t));
+               held-=drop;
+               fx->dropped+=drop;
+            }
+            memcpy(fx->pending[ch]+held,pcm,bytes);
+            fx->pending_frames[ch]=held+frames;
+         }
+         guint ready=MIN(fx->pending_frames[0],fx->pending_frames[1]);
+         while (ready) {
+            rr_lv2_pcm_packet_t *packet=g_async_queue_try_pop(fx->available);
+            if (!packet) {
+               fx->dropped+=ready;
+               break;
+            }
+            guint n=MIN(ready,(guint)(sizeof(packet->pcm)/sizeof(int16_t)));
+            int16_t *out=(int16_t *)packet->pcm;
+            for(guint j=0;j<n;j++)
+               out[j]=(int16_t)(((int)fx->pending[0][j]+(int)fx->pending[1][j])/2);
+            packet->bytes=(uint16_t)(n*sizeof(int16_t));
+            g_async_queue_push(fx->queue,packet);
+            for(guint ch=0;ch<2;ch++) {
+               fx->pending_frames[ch]-=n;
+               memmove(fx->pending[ch],fx->pending[ch]+n,
+                       fx->pending_frames[ch]*sizeof(int16_t));
+            }
+            ready=MIN(fx->pending_frames[0],fx->pending_frames[1]);
+         }
+      } else if (fx->channels == 1) {
          rr_lv2_pcm_packet_t *packet = g_async_queue_try_pop(fx->available);
-
          if (!packet) {
-            /* A connected effect owns the input; never leak dry PCM directly to the mixer when its async queue is full. */
             fx->dropped++;
             accepted = TRUE;
             continue;
@@ -1585,7 +1621,9 @@ static gboolean audio_lv2_start(const rr_audio_effect_request_t *req) {
    g_strlcpy(fx->source[0], req->source, sizeof(fx->source[0]));
    g_strlcpy(fx->factory, req->factory, sizeof(fx->factory));
 
-   if (fx->channels == 2) {
+   {
+      /* A mono effect may have an explicitly configured second source for
+       * a stereo-to-mono average, without changing its one-channel output. */
       char *key = g_strdup_printf("audio.lv2.%u.source-right", slot);
       char *saved = rrclient_database_setting_get(key);
 
@@ -1734,7 +1772,8 @@ static gint audio_lv2_chain_next(const rr_lv2_chain_config_t *cfg, guint parent)
       if (!matched) continue;
       /* Reject fan-out, channel swaps and mono/stereo conversion. Those
        * topologies retain separately addressable fwdsp processes. */
-      if (consumer >= 0 || cfg[i].channels != channels) return -1;
+      if (consumer >= 0 || cfg[i].channels != channels ||
+          (cfg[i].channels == 1 && cfg[i].source[1][0])) return -1;
       for (guint ch = 0 ; ch < channels ; ch++)
          if (strcmp(cfg[i].source[ch], output[ch])) return -1;
       consumer = (gint)i;
@@ -2009,7 +2048,7 @@ static void audio_lv2_request(const rr_event_message_t *msg, void *unused) {
    } else if (req.action == 'R' && req.slot && req.slot <= RR_AUDIO_EFFECT_MAX) {
       rr_lv2_effect_t *fx = &lv2_effects[req.slot - 1];
 
-      if (g_atomic_int_get(&fx->active) && req.channel < fx->channels &&
+      if (g_atomic_int_get(&fx->active) && req.channel < 2 &&
           (!req.source[0] || audio_lv2_source_present(req.source)) &&
           !audio_lv2_would_cycle(req.slot, req.source)) {
          g_mutex_lock(&lv2_effect_lock);
@@ -2704,13 +2743,14 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
       if (!g_atomic_int_get(&fx->active) || audio_lv2_stage_failed(fx))
          continue;
 
-      for (guint ch = 0 ; ch < fx->channels ; ch++) {
+      for (guint ch = 0 ; ch < 2 ; ch++) {
          if (fx->source[ch][0]) {
             /* All effect nodes must exist before rendering edges (including
              * links from a later-created slot into an earlier slot). */
             rr_audio_graph_add_channel_link(graph, active_rx_id && !strcmp(fx->source[ch], active_rx_id) ?
                "rig.src" : fx->source[ch], fx->name, RR_AG_NORMAL, fx->channels == 2 ? (ch ? RR_AG_CHANNEL_RIGHT : RR_AG_CHANNEL_LEFT) : RR_AG_CHANNEL_LEFT);
          }
+         if (ch >= fx->channels) continue; /* Mono has one output only. */
          unsigned mask = fx->output[ch] == 'L' ? RR_AG_CHANNEL_LEFT :
             fx->output[ch] == 'R' ? RR_AG_CHANNEL_RIGHT : fx->output[ch] == 'S' ? RR_AG_CHANNEL_STEREO : 0;
 
@@ -2719,7 +2759,7 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
             for (guint next = 0 ; next < RR_AUDIO_EFFECT_MAX ; next++) {
                rr_lv2_effect_t *down = &lv2_effects[next];
                if (next == slot - 1 || !g_atomic_int_get(&down->active) || g_atomic_int_get(&down->failed)) continue;
-               for (guint input = 0 ; input < down->channels ; input++) {
+               for (guint input = 0 ; input < 2 ; input++) {
                   if (!strcmp(down->source[input], fx->output_stream[ch])) chained = TRUE;
                }
             }
