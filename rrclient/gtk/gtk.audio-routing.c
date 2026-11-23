@@ -1330,18 +1330,6 @@ static void routing_logic_attach_onair(const char *source,gpointer user) {
    graph_canvas_update_size();
    if (onair_panel_canvas) gtk_widget_queue_draw(onair_panel_canvas);
 }
-static void routing_add_constant_clicked(GtkButton *button,gpointer user) {
-   (void)button;
-   rr_logic_canvas_add_constant(GPOINTER_TO_INT(user)!=0);
-   graph_canvas_update_size();
-}
-static void routing_add_gate_clicked(GtkButton *unused,gpointer user) {
-   (void)unused;(void)user;
-   GtkWidget *parent=graph_canvas ? gtk_widget_get_toplevel(graph_canvas):NULL;
-   rr_logic_canvas_add(parent);
-   graph_canvas_update_size();
-}
-
 static void onair_draw(cairo_t *cr) {
    if (!onair_visible) {
       return;
