@@ -63,6 +63,10 @@ event ui.timer {
         }
     }
     if (event.id == "artwork-play") {
+        if (state.get("artwork.play.tick") == 0) {
+            state.set("artwork.play.tick", 1)
+            ui.set("artwork_status", "Playback timer fired; preparing first line")
+        }
         char body = state.get("artwork.play.body")
         if (body != null && time.now() >= state.get("artwork.play.next")) {
             int cursor = state.get("artwork.play.cursor")
@@ -199,6 +203,7 @@ event ui.click {
             state.set("artwork.play.burst.seconds", ui.val("artwork_burst_seconds"))
             state.set("artwork.play.burst.max", ui.val("artwork_burst_max"))
             state.set("artwork.play.sent", 0)
+            state.set("artwork.play.tick", 0)
             state.set("artwork.play.next", time.now())
             timer.every("artwork-play", 100)
             ui.set("artwork_status", "Sending artwork to " + ui.val("artwork_target"))
