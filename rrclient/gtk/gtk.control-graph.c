@@ -327,7 +327,8 @@ static void remove_wire(GtkMenuItem *item,gpointer unused) {
       }
 }
 static void properties(gate_view_t *b,GtkWidget *parent) {
-   GtkWidget *dialog=gtk_dialog_new_with_buttons("Gate properties",
+   GtkWidget *dialog=gtk_dialog_new_with_buttons(
+      b->constant ? "Boolean constant properties" : "Gate properties",
       GTK_IS_WINDOW(parent)?GTK_WINDOW(parent):NULL,
       GTK_DIALOG_MODAL|GTK_DIALOG_DESTROY_WITH_PARENT,
       "_Cancel",GTK_RESPONSE_CANCEL,"_Remove",GTK_RESPONSE_REJECT,
