@@ -562,9 +562,6 @@ static void script_gui_add(const rr_script_gui_command_t *cmd) {
       g_signal_connect(w,"color-set",G_CALLBACK(script_color_changed),entry);
    if(!strcmp(cmd->kind,"knob")) {
       GtkAdjustment *adj=g_object_get_data(G_OBJECT(w),"rr-script-knob-adjustment");
-      g_signal_connect_swapped(adj,"value-changed",G_CALLBACK(widget_changed),w);
-      /* Notify the script with its owner-scoped entry, not the drawing area. */
-      g_signal_handlers_disconnect_by_func(adj,G_CALLBACK(widget_changed),w);
       g_signal_connect(adj,"value-changed",G_CALLBACK(widget_changed),entry);
    }
    if(GTK_IS_SPIN_BUTTON(w))g_signal_connect(w,"value-changed",G_CALLBACK(widget_changed),entry);
@@ -670,6 +667,8 @@ static void script_gui_command(const rr_event_message_t *message,void *unused) {
          gtk_range_set_value(GTK_RANGE(entry->widget),value);
       else if(GTK_IS_SPIN_BUTTON(entry->widget))
          gtk_spin_button_set_value(GTK_SPIN_BUTTON(entry->widget),value);
+      /* Keep ui.val() current even if binding did not change the dial. */
+      widget_changed(entry->widget,entry);
       return;
    }
    if(!entry||!entry->widget)return;
@@ -717,6 +716,27 @@ static void script_gui_command(const rr_event_message_t *message,void *unused) {
       } else if(GTK_IS_LABEL(w))gtk_label_set_text(GTK_LABEL(w),cmd.value);
       else if(GTK_IS_BUTTON(w))gtk_button_set_label(GTK_BUTTON(w),cmd.value);
    } else if(cmd.action==RR_GUI_SHOW) {
+      /* A closed panel retains its widgets; refresh all bound children
+       * from the authoritative property before revealing it again. */
+      if(entry->panel && script_widgets) {
+         GHashTableIter iter;gpointer key,value;
+         g_hash_table_iter_init(&iter,script_widgets);
+         while(g_hash_table_iter_next(&iter,&key,&value)) {
+            script_widget_t *child=value;
+            if(strcmp(child->owner,entry->owner) ||
+               strcmp(child->bound_property,"ui.patchbay.wire-sag") ||
+               !child->widget)continue;
+            double sag=rr_gtk_routing_wire_sag_get();
+            if(!strcmp(child->kind,"knob")) {
+               GtkAdjustment *adj=g_object_get_data(G_OBJECT(child->widget),
+                                                    "rr-script-knob-adjustment");
+               if(adj)gtk_adjustment_set_value(adj,sag);
+            } else if(GTK_IS_RANGE(child->widget))
+               gtk_range_set_value(GTK_RANGE(child->widget),sag);
+            else if(GTK_IS_SPIN_BUTTON(child->widget))
+               gtk_spin_button_set_value(GTK_SPIN_BUTTON(child->widget),sag);
+         }
+      }
       if(entry->panel)rr_floating_panel_show(entry->panel);
       else gtk_widget_show_all(entry->widget);
    } else if(cmd.action==RR_GUI_HIDE) {
