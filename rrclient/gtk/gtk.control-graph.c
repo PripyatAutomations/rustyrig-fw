@@ -476,6 +476,68 @@ static void properties(gate_view_t *b,GtkWidget *parent) {
    }
    gtk_widget_destroy(dialog);
 }
+static void wire_menu(GtkWidget *menu,const wire_view_t *w,unsigned index);
+static gboolean remove_wire_index(unsigned i) {
+   if(i>=wire_count) return FALSE;
+   wire_view_t w=wires[i];
+   if(!rr_control_graph_disconnect(model,w.from,w.to,w.pin))return FALSE;
+   memmove(&wires[i],&wires[i+1],(wire_count-i-1)*sizeof(wires[0]));
+   wire_count--;
+   save_model();
+   return TRUE;
+}
+static double wire_distance(double x,double y,const wire_view_t *w) {
+   gate_view_t *dst=find_gate(w->to);
+   if(!dst || w->pin>=dst->inputs)return G_MAXDOUBLE;
+   double sx=0,sy=0;
+   if(!rr_logic_canvas_output_position(w->from,&sx,&sy) &&
+      (!source_position || !source_position(w->from,&sx,&sy,callback_user)))
+      return G_MAXDOUBLE;
+   const double dx=input_x(dst),dy=pin_y(dst,w->pin);
+   const double mx=(sx+dx)/2.;
+   double best=G_MAXDOUBLE,last_x=sx,last_y=sy;
+   for(unsigned step=1;step<=32;step++) {
+      double t=step/32.,u=1.-t;
+      double px=u*u*u*sx+3*u*u*t*mx+3*u*t*t*mx+t*t*t*dx;
+      double py=u*u*u*sy+3*u*u*t*sy+3*u*t*t*dy+t*t*t*dy;
+      double vx=px-last_x,vy=py-last_y;
+      double seg=vx*vx+vy*vy;
+      double k=seg>0?CLAMP(((x-last_x)*vx+(y-last_y)*vy)/seg,0.,1.):0.;
+      best=MIN(best,hypot(x-last_x-k*vx,y-last_y-k*vy));
+      last_x=px;last_y=py;
+   }
+   return best;
+}
+/* A double-click on a wire disconnects THAT wire. On a pin, a single
+ * connection disconnects immediately; multiple connections open a chooser.
+ * This is separate from left-button drag and never keys a transmitter. */
+gboolean rr_logic_canvas_disconnect_at(double x,double y,GdkEventButton *event) {
+   if(!model||!event||event->button!=GDK_BUTTON_PRIMARY ||
+      event->type!=GDK_2BUTTON_PRESS)return FALSE;
+   for(unsigned i=0;i<wire_count;i++)
+      if(wire_distance(x,y,&wires[i])<=7.)
+         return remove_wire_index(i);
+   gate_view_t *pin_block=NULL;
+   unsigned pin=0;
+   gboolean input=pin_hit(x,y,&pin_block,&pin);
+   char out[RR_CONTROL_NAME_LEN]={0};
+   gboolean output=!input && output_hit(x,y,out);
+   if(!input&&!output)return FALSE;
+   unsigned indexes[MAX_UI_WIRES],count=0;
+   for(unsigned i=0;i<wire_count;i++)
+      if((input && !strcmp(wires[i].to,pin_block->id) && wires[i].pin==pin) ||
+         (output && !strcmp(wires[i].from,out)))
+         indexes[count++]=i;
+   if(count==1)return remove_wire_index(indexes[0]);
+   if(count>1) {
+      GtkWidget *menu=gtk_menu_new();
+      for(unsigned j=0;j<count;j++)
+         wire_menu(menu,&wires[indexes[j]],indexes[j]);
+      gtk_widget_show_all(menu);
+      gtk_menu_popup_at_pointer(GTK_MENU(menu),(GdkEvent *)event);
+   }
+   return TRUE;
+}
 static void wire_menu(GtkWidget *menu,const wire_view_t *w,unsigned index) {
    gchar *label=g_strdup_printf("Disconnect %s → input %u",w->from,w->pin+1);
    GtkWidget *entry=gtk_menu_item_new_with_label(label);
