@@ -3200,6 +3200,19 @@ void rr_floating_panel_set_compact(RRFloatPanel *p, GtkWidget *drag_handle) {
 
 /* Controls own both dimensions; never restore stale manually sized geometry.
  * Zoom still scales the child hierarchy and its natural request. */
+void rr_floating_panel_set_dimensions(RRFloatPanel *p,gint width,gint height) {
+   if(!p || !p->frame || width<60 || height<60 || width>4096 || height>4096)return;
+   p->content_sized=FALSE;
+   p->resizable=TRUE;
+   p->saved_width=width;
+   p->saved_height=height;
+   p->last_saved_valid=FALSE;
+   gtk_widget_set_size_request(p->frame,width,height);
+   panel_resize_targets_visibility(p);
+   gtk_widget_queue_resize(p->frame);
+   panel_state_save(p);
+}
+
 void rr_floating_panel_set_content_sized(RRFloatPanel *p) {
    if (!p || !p->frame)
       return;
