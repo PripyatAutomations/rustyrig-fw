@@ -5310,7 +5310,8 @@ static void routing_compact_set_effect(routing_compact_control_t *control, const
 static void routing_control_kind_changed(GtkComboBox *selector, gpointer data) {
    GtkWidget **fields = data;
    const char *kind = gtk_combo_box_get_active_id(selector);
-   gboolean indicator = kind && !strcmp(kind, "onair");
+   gboolean indicator=kind && (!strcmp(kind,"onair") || !strcmp(kind,"gate") ||
+      !strcmp(kind,"true") || !strcmp(kind,"false"));
 
    for (unsigned i = 0 ; i < 3 ; i++) {
       gtk_widget_set_sensitive(fields[i], !indicator);
@@ -5344,6 +5345,9 @@ static void routing_compact_create(GtkButton *button, gpointer unused) {
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(widget_kind), "selector", "Numeric dropdown");
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(widget_kind), "enum", "Enum string dropdown");
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(widget_kind), "onair", "ON AIR indicator");
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(widget_kind),"gate","Boolean logic gate");
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(widget_kind),"true","Constant TRUE");
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(widget_kind),"false","Constant FALSE");
    gtk_combo_box_set_active(GTK_COMBO_BOX(widget_kind), 0);
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(target), "", "Unbound — connect green pin");
    routing_effect_choices(GTK_COMBO_BOX_TEXT(target), effect_ports);
@@ -5396,6 +5400,11 @@ static void routing_compact_create(GtkButton *button, gpointer unused) {
 
       if (kind && !strcmp(kind, "onair")) {
          onair_add(NULL, NULL);
+      } else if (kind && !strcmp(kind,"gate")) {
+         rr_logic_canvas_add(parent);
+      } else if (kind && (!strcmp(kind,"true") || !strcmp(kind,"false"))) {
+         rr_logic_canvas_add_constant(!strcmp(kind,"true"));
+         graph_canvas_update_size();
       } else if (id && channel && kind) {
          gboolean effect = g_str_has_prefix(id, "E|");
          guint before = routing_compact_controls ? routing_compact_controls->len : 0;
@@ -7483,29 +7492,13 @@ void gtk_audio_graph_present(void) {
       g_signal_connect(hidden_controls, "clicked", G_CALLBACK(routing_compact_hidden_menu), NULL);
       gtk_flow_box_insert(GTK_FLOW_BOX(tools), hidden_controls, -1);
       GtkWidget *pin_control = gtk_button_new_with_label("+ Control");
-      gtk_widget_set_tooltip_text(pin_control, "Add a slider, knob, or ON AIR indicator to the routing graph");
+      gtk_widget_set_tooltip_text(pin_control, "Add gain controls, ON AIR indicators, logic gates, or TRUE/FALSE sources");
       g_signal_connect(pin_control, "clicked", G_CALLBACK(routing_compact_create), NULL);
       gtk_flow_box_insert(GTK_FLOW_BOX(tools), pin_control, -1);
       GtkWidget *add_effect = gtk_button_new_with_label("+ Effect");
       gtk_widget_set_tooltip_text(add_effect, "Add a standalone LV2 processor to Routing, hosted in its own fwdsp subprocess");
       g_signal_connect(add_effect, "clicked", G_CALLBACK(routing_add_effect), NULL);
       gtk_flow_box_insert(GTK_FLOW_BOX(tools), add_effect, -1);
-      GtkWidget *add_gate = gtk_button_new_with_label("+ Gate");
-      gtk_widget_set_tooltip_text(add_gate,"Create a reusable AND/OR/XOR/NOT/NAND/NOR/XNOR block; multiple wires on one pin are ORed");
-      g_signal_connect(add_gate,"clicked",G_CALLBACK(routing_add_gate_clicked),NULL);
-      gtk_flow_box_insert(GTK_FLOW_BOX(tools),add_gate,-1);
-      GtkWidget *true_block=gtk_button_new_with_label("+ TRUE");
-      gtk_widget_set_tooltip_text(true_block,
-         "Add a reusable permanently TRUE boolean source (red output)");
-      g_signal_connect(true_block,"clicked",
-                       G_CALLBACK(routing_add_constant_clicked),GINT_TO_POINTER(1));
-      gtk_flow_box_insert(GTK_FLOW_BOX(tools),true_block,-1);
-      GtkWidget *false_block=gtk_button_new_with_label("+ FALSE");
-      gtk_widget_set_tooltip_text(false_block,
-         "Add a reusable permanently FALSE boolean source (red output)");
-      g_signal_connect(false_block,"clicked",
-                       G_CALLBACK(routing_add_constant_clicked),GINT_TO_POINTER(0));
-      gtk_flow_box_insert(GTK_FLOW_BOX(tools),false_block,-1);
       GtkWidget *new_modem = gtk_button_new_with_label("+ Modem");
       gtk_widget_set_tooltip_text(new_modem, "Create an FT8, PSK or Olivia decoder in Routing");
       g_signal_connect(new_modem, "clicked", G_CALLBACK(routing_new_modem), NULL);
