@@ -33,6 +33,7 @@ GtkWidget *gtk_server_routing_server_selector(void) {
 static char requested_profile[128];
 static gint64 current_revision;
 static gboolean may_edit,loaded;
+static const char *selected(void);
 
 static gchar *editor_text(void) {
    GtkTextBuffer *buffer=gtk_text_view_get_buffer(GTK_TEXT_VIEW(editor));
@@ -52,7 +53,10 @@ static void server_changed(GtkComboBox *combo,gpointer user) {
    (void)combo;(void)user;
    loaded=FALSE;
    may_edit=FALSE;
+   requested_profile[0]='\0';
+   current_revision=0;
    if(save_button)gtk_widget_set_sensitive(save_button,FALSE);
+   if(revision_label)gtk_label_set_text(GTK_LABEL(revision_label),"Revision: —");
    set_status("Server selection changed; Refresh before editing or saving");
 }
 static void fetch(GtkButton *button,gpointer user) {
@@ -64,7 +68,9 @@ static void fetch(GtkButton *button,gpointer user) {
    }
    g_strlcpy(requested_profile,profile,sizeof(requested_profile));
    loaded=FALSE;
+   may_edit=FALSE;
    gtk_widget_set_sensitive(save_button,FALSE);
+   if(revision_label)gtk_label_set_text(GTK_LABEL(revision_label),"Revision: —");
    if(gtk_admin_command_event(status,profile,"routing-get","",NULL,NULL))
       set_status("Requesting server-owned routing graph…");
 }
@@ -96,8 +102,9 @@ static void validate(GtkButton *button,gpointer user) {
 }
 static void store(GtkButton *button,gpointer user) {
    (void)button;(void)user;
-   if(!loaded||!may_edit) {
-      set_status("Refresh first; owner/superadmin required to save");
+   if(!loaded||!may_edit||!*requested_profile||
+      g_strcmp0(selected(),requested_profile)) {
+      set_status("Refresh the selected server first; owner/superadmin required to save");
       return;
    }
    gchar *value=editor_text();
@@ -190,8 +197,9 @@ GtkWidget *gtk_server_routing_page(void) {
 gboolean gtk_server_routing_result(const char *table,const char *action,
                                    dict *row,const char *profile) {
    if(g_strcmp0(table,"server-routing"))return FALSE;
-   if(!row||!editor||g_strcmp0(action,"snapshot")||
-      g_strcmp0(profile,requested_profile))return TRUE;
+   if(!row||!editor||!loaded && !*requested_profile||
+      g_strcmp0(action,"snapshot")||g_strcmp0(profile,requested_profile)||
+      g_strcmp0(selected(),requested_profile))return TRUE;
    const char *data=dict_get(row,"data","");
    const char *rev=dict_get(row,"revision","0");
    char *end=NULL;
