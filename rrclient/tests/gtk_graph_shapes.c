@@ -35,9 +35,9 @@ static void check_hidden_nodes(void) {
    cairo_surface_flush(surface);
    const unsigned char *pixels=cairo_image_surface_get_data(surface);
    int stride=cairo_image_surface_get_stride(surface);
-   /* Only inspect alpha. Pixel (170,70) lies on the hidden wire path. */
+   /* Only inspect alpha. Pixel (195,78) is on the horizontal hidden wire. */
    assert(pixels[30*stride+30*4+3]==0);
-   assert(pixels[70*stride+175*4+3]==0);
+   assert(pixels[78*stride+195*4+3]==0);
    assert(pixels[30*stride+270*4+3]!=0);
    cairo_destroy(cr);
    cairo_surface_destroy(surface);
