@@ -69,14 +69,15 @@ event ui.timer {
             if (cursor >= string.lines(body)) {
                 timer.cancel("artwork-play")
                 state.set("artwork.play.body", null)
-                ui.set("artwork_status", "Finished sending macro")
+                ui.set("artwork_status", "Queued " + string.str(state.get("artwork.play.sent")) + " lines; IRC queue may still be draining")
             } else {
                 char line = string.line(body, cursor)
                 if (line == "" || string.length(line) > 400) {
-                    // Empty lines are not sent; oversize lines cannot fit an IRC PRIVMSG.
+                    // Keep artwork intact: splitting a color-art row breaks alignment.
                     state.set("artwork.play.cursor", cursor + 1)
                     if (line != "") {
-                        ui.set("artwork_status", "Skipped oversized artwork line")
+                        log.warn("Artwork line " + string.str(cursor + 1) + " exceeds 400 bytes and cannot be sent intact")
+                        ui.set("artwork_status", "Skipped line " + string.str(cursor + 1) + ": exceeds 400-byte limit")
                     }
                 } else {
                     // The first Z lines can use the burst rate. After that,
@@ -94,12 +95,15 @@ event ui.timer {
                         state.set("artwork.play.sent", sent + 1)
                         state.set("artwork.play.next", time.now() + gap)
                         state.set("artwork.play.errors", 0)
+                        ui.set("artwork_status", "Queued " + string.str(sent + 1) + " lines to " + state.get("artwork.play.target"))
                     } else {
                         state.set("artwork.play.errors", state.get("artwork.play.errors") + 1)
+                        ui.set("artwork_status", "Queue rejected line " + string.str(cursor + 1) + " to " + state.get("artwork.play.target"))
                         if (state.get("artwork.play.errors") >= 20) {
                             timer.cancel("artwork-play")
                             chat.cancel("artwork")
                             state.set("artwork.play.body", null)
+                            log.warn("Artwork playback aborted after 20 queue failures for " + state.get("artwork.play.target"))
                             ui.set("artwork_status", "Playback stopped: destination unavailable or queue full")
                         }
                     }
@@ -182,6 +186,10 @@ event ui.click {
             chat.cancel("artwork")
             char dest = env.data_dir() + "/rustyrig/artwork/" + ui.val("artwork_files")
             state.set("artwork.play.body", file.read(dest))
+            if (state.get("artwork.play.body") == null || state.get("artwork.play.body") == "") {
+                ui.set("artwork_status", "No readable artwork in " + dest)
+                log.warn("Artwork send cancelled: file unreadable or empty: " + dest)
+            } else {
             state.set("artwork.play.cursor", 0)
             state.set("artwork.play.errors", 0)
             state.set("artwork.play.target", ui.val("artwork_target"))
@@ -193,7 +201,8 @@ event ui.click {
             state.set("artwork.play.sent", 0)
             state.set("artwork.play.next", time.now())
             timer.every("artwork-play", 100)
-            ui.set("artwork_status", "Sending artwork")
+            ui.set("artwork_status", "Sending artwork to " + ui.val("artwork_target"))
+            }
         }
     }
     if (event.id == "artwork_stop") {
