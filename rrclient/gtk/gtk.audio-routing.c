@@ -335,6 +335,7 @@ static gboolean routing_is_touch_event(const GdkEvent *event) {
 
 #define GRAPH_CONNECTION_LOOSENESS_KEY "audio.graph.connection-looseness"
 #define GRAPH_WIRE_SAG_KEY "ui.patchbay.wire-sag"
+extern void gtk_script_gui_wire_sag_sync(double sag);
 static GtkWidget *routing_wire_sag_spin;
 static void routing_wire_sag_changed(GtkSpinButton *spin,gpointer user);
 double rr_gtk_routing_wire_sag_get(void) {
@@ -356,15 +357,11 @@ void rr_gtk_routing_wire_sag_set(double sag) {
            G_CALLBACK(routing_wire_sag_changed),NULL);
    }
    graph_canvas_update_size();
+   gtk_script_gui_wire_sag_sync(sag);
 }
 static void routing_wire_sag_changed(GtkSpinButton *spin,gpointer user) {
    (void)user;
-   double sag=CLAMP(gtk_spin_button_get_value(spin),0.,240.);
-   rr_gtk_graph_set_wire_sag(sag);
-   char value[G_ASCII_DTOSTR_BUF_SIZE];
-   g_ascii_dtostr(value,sizeof(value),sag);
-   rrclient_database_setting_set(GRAPH_WIRE_SAG_KEY,value);
-   graph_canvas_update_size();
+   rr_gtk_routing_wire_sag_set(gtk_spin_button_get_value(spin));
 }
 
 static double graph_connection_looseness=1.0;
