@@ -14,7 +14,7 @@
 static GtkWidget *decode_notebook;
 /* Decoded messages are not serial bytes. Keep this event-driven view separate from VTE so a noisy worker cannot overwrite or reflow an interactive PTY. */
 typedef struct {
-   GtkWidget *page, *list, *scroll, *compose, *send, *tx_status;
+   GtkWidget *page, *list, *scroll, *compose, *send, *tx_status, *tx_box;
    unsigned rows;
    gboolean follow;
    guint follow_idle;
@@ -120,9 +120,12 @@ static decode_tab_t *decode_tab_for(const rr_local_modem_decode_t *d) {
    gtk_list_box_set_selection_mode(GTK_LIST_BOX(tab->list), GTK_SELECTION_NONE);
    gtk_container_add(GTK_CONTAINER(tab->scroll), tab->list);
    gtk_box_pack_start(GTK_BOX(tab->page), tab->scroll, TRUE, TRUE, 0);
-   if (!g_ascii_strcasecmp(d->engine,"olivia") ||
-       !g_ascii_strcasecmp(d->engine,"psk")) {
+   /* A modem's advertised TX-enabled state controls the composer, not
+    * the decoder engine name. This leaves room for other text-capable TX
+    * workers without adding engine-name conditions to GTK. */
+   {
       GtkWidget *tx_box=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,4);
+      tab->tx_box=tx_box;
       tab->compose=gtk_entry_new();
       gtk_entry_set_max_length(GTK_ENTRY(tab->compose),255);
       gtk_entry_set_placeholder_text(GTK_ENTRY(tab->compose),
@@ -157,6 +160,10 @@ static decode_tab_t *decode_tab_for(const rr_local_modem_decode_t *d) {
    gtk_notebook_append_page(GTK_NOTEBOOK(decode_notebook), tab->page, title);
    gtk_widget_show_all(title);
    gtk_widget_show_all(tab->page);
+   if (tab->tx_box) {
+      gtk_widget_hide(tab->tx_box);
+      gtk_widget_hide(tab->tx_status);
+   }
 
    return tab;
 }
@@ -464,6 +471,10 @@ static void decode_snapshot_received(const rr_event_message_t *message, void *un
       g_strlcpy(sample.source, entry->source, sizeof(sample.source));
       decode_tab_t *tab=decode_tab_for(&sample);
       if (tab && tab->compose) {
+         /* Hide the whole composer when TX is disabled; a later snapshot
+          * can reveal it without recreating the decoder tab or losing RX. */
+         gtk_widget_set_visible(tab->tx_box,entry->tx_enabled);
+         gtk_widget_set_visible(tab->tx_status,entry->tx_enabled);
          gtk_widget_set_sensitive(tab->compose,entry->tx_enabled);
          gtk_widget_set_sensitive(tab->send,entry->tx_enabled);
          if (tab->tx_status) {
