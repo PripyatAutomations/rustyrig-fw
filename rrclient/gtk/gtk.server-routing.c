@@ -1,0 +1,170 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/* Server-owned graph configuration editor. Uses the same validated neutral
+ * graph snapshot as the client and the existing admin request transport.
+ * Deliberately does not expose a GTK-thread path to physical PTT. */
+#include "gtk.server-routing.h"
+#include "gtk.admin.command.h"
+#include "gtk.control-graph.h"
+#include <rrclient/control.graph.h>
+#include <glib.h>
+#include <string.h>
+
+static GtkWidget *server_entry,*editor,*status,*revision_label,*save_button;
+static char requested_profile[128];
+static gint64 current_revision;
+static gboolean may_edit,loaded;
+
+static gchar *editor_text(void) {
+   GtkTextBuffer *buffer=gtk_text_view_get_buffer(GTK_TEXT_VIEW(editor));
+   GtkTextIter start,end;
+   gtk_text_buffer_get_bounds(buffer,&start,&end);
+   return gtk_text_buffer_get_text(buffer,&start,&end,FALSE);
+}
+static void set_status(const char *value) {
+   if(status)gtk_label_set_text(GTK_LABEL(status),value);
+}
+static const char *selected(void) {
+   const char *value=gtk_entry_get_text(GTK_ENTRY(server_entry));
+   return value?value:"";
+}
+static void fetch(GtkButton *button,gpointer user) {
+   (void)button;(void)user;
+   const char *profile=selected();
+   if(!*profile) {
+      set_status("Enter a connected server profile name");
+      return;
+   }
+   g_strlcpy(requested_profile,profile,sizeof(requested_profile));
+   loaded=FALSE;
+   gtk_widget_set_sensitive(save_button,FALSE);
+   if(gtk_admin_command_event(status,profile,"routing-get","",NULL,NULL))
+      set_status("Requesting server-owned routing graph…");
+}
+static void stage(GtkButton *button,gpointer user) {
+   (void)button;(void)user;
+   gchar *source=rr_logic_canvas_export();
+   if(!source||!*source) {
+      set_status("Client Routing graph has no saved configuration");
+   } else {
+      GtkTextBuffer *buffer=gtk_text_view_get_buffer(GTK_TEXT_VIEW(editor));
+      gtk_text_buffer_set_text(buffer,source,-1);
+      set_status("Client graph staged locally; validate and save explicitly");
+   }
+   g_free(source);
+}
+static gboolean validate_text(const char *text) {
+   char *error=NULL;
+   gboolean valid=rr_control_graph_text_validate(text,&error);
+   set_status(valid ? "Graph topology valid; physical outputs stay disconnected" :
+      (error?error:"Invalid graph"));
+   g_free(error);
+   return valid;
+}
+static void validate(GtkButton *button,gpointer user) {
+   (void)button;(void)user;
+   gchar *value=editor_text();
+   validate_text(value);
+   g_free(value);
+}
+static void store(GtkButton *button,gpointer user) {
+   (void)button;(void)user;
+   if(!loaded||!may_edit) {
+      set_status("Refresh first; owner/superadmin required to save");
+      return;
+   }
+   gchar *value=editor_text();
+   if(!validate_text(value)) {g_free(value);return;}
+   char revision[32];
+   g_snprintf(revision,sizeof(revision),"%"G_GINT64_FORMAT,current_revision);
+   if(gtk_admin_command_event(status,requested_profile,"routing-put",
+                              value,revision,NULL))
+      set_status("Submitting version-checked server graph configuration…");
+   g_free(value);
+}
+static void copy_graph(GtkButton *button,gpointer user) {
+   (void)button;(void)user;
+   gchar *value=editor_text();
+   GtkClipboard *clip=gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
+   gtk_clipboard_set_text(clip,value,-1);
+   g_free(value);
+   set_status("Graph snapshot copied; no server state changed");
+}
+GtkWidget *gtk_server_routing_page(void) {
+   GtkWidget *page=gtk_box_new(GTK_ORIENTATION_VERTICAL,6);
+   gtk_container_set_border_width(GTK_CONTAINER(page),8);
+   GtkWidget *row=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,6);
+   GtkWidget *label=gtk_label_new("Server profile:");
+   server_entry=gtk_entry_new();
+   gtk_entry_set_max_length(GTK_ENTRY(server_entry),127);
+   gtk_entry_set_placeholder_text(GTK_ENTRY(server_entry),
+      "Connected server profile (same name as Admin)");
+   const char *profile=gtk_admin_selected_profile();
+   if(profile&&*profile)gtk_entry_set_text(GTK_ENTRY(server_entry),profile);
+   gtk_widget_set_hexpand(server_entry,TRUE);
+   GtkWidget *refresh=gtk_button_new_with_label("Refresh");
+   GtkWidget *stage_button=gtk_button_new_with_label("Stage Client Graph");
+   GtkWidget *check=gtk_button_new_with_label("Validate");
+   save_button=gtk_button_new_with_label("Save to Server");
+   GtkWidget *copy=gtk_button_new_with_label("Copy");
+   gtk_widget_set_sensitive(save_button,FALSE);
+   gtk_box_pack_start(GTK_BOX(row),label,FALSE,FALSE,0);
+   gtk_box_pack_start(GTK_BOX(row),server_entry,TRUE,TRUE,0);
+   gtk_box_pack_start(GTK_BOX(row),refresh,FALSE,FALSE,0);
+   gtk_box_pack_start(GTK_BOX(row),stage_button,FALSE,FALSE,0);
+   gtk_box_pack_start(GTK_BOX(row),check,FALSE,FALSE,0);
+   gtk_box_pack_start(GTK_BOX(row),save_button,FALSE,FALSE,0);
+   gtk_box_pack_start(GTK_BOX(row),copy,FALSE,FALSE,0);
+   gtk_box_pack_start(GTK_BOX(page),row,FALSE,FALSE,0);
+   GtkWidget *notice=gtk_label_new(
+      "Server Routing (configuration stage): graph editing is versioned and "
+      "server-authorized. Saving does NOT connect physical outputs or key PTT.");
+   gtk_label_set_line_wrap(GTK_LABEL(notice),TRUE);
+   gtk_label_set_xalign(GTK_LABEL(notice),0.f);
+   gtk_box_pack_start(GTK_BOX(page),notice,FALSE,FALSE,0);
+   GtkWidget *scroll=gtk_scrolled_window_new(NULL,NULL);
+   editor=gtk_text_view_new();
+   gtk_text_view_set_monospace(GTK_TEXT_VIEW(editor),TRUE);
+   gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(editor),GTK_WRAP_NONE);
+   gtk_container_add(GTK_CONTAINER(scroll),editor);
+   gtk_widget_set_hexpand(scroll,TRUE);
+   gtk_widget_set_vexpand(scroll,TRUE);
+   gtk_box_pack_start(GTK_BOX(page),scroll,TRUE,TRUE,0);
+   GtkWidget *footer=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,8);
+   status=gtk_label_new("Choose a server and Refresh");
+   gtk_label_set_xalign(GTK_LABEL(status),0.f);
+   gtk_widget_set_hexpand(status,TRUE);
+   revision_label=gtk_label_new("Revision: —");
+   gtk_box_pack_start(GTK_BOX(footer),status,TRUE,TRUE,0);
+   gtk_box_pack_end(GTK_BOX(footer),revision_label,FALSE,FALSE,0);
+   gtk_box_pack_start(GTK_BOX(page),footer,FALSE,FALSE,0);
+   g_signal_connect(refresh,"clicked",G_CALLBACK(fetch),NULL);
+   g_signal_connect(stage_button,"clicked",G_CALLBACK(stage),NULL);
+   g_signal_connect(check,"clicked",G_CALLBACK(validate),NULL);
+   g_signal_connect(save_button,"clicked",G_CALLBACK(store),NULL);
+   g_signal_connect(copy,"clicked",G_CALLBACK(copy_graph),NULL);
+   return page;
+}
+gboolean gtk_server_routing_result(const char *table,const char *action,
+                                   dict *row,const char *profile) {
+   if(g_strcmp0(table,"server-routing"))return FALSE;
+   if(!row||!editor||g_strcmp0(action,"snapshot")||
+      g_strcmp0(profile,requested_profile))return TRUE;
+   const char *data=dict_get(row,"data","");
+   const char *rev=dict_get(row,"revision","0");
+   char *end=NULL;
+   gint64 number=g_ascii_strtoll(rev,&end,10);
+   if(!end||*end||number<0)return TRUE;
+   current_revision=number;
+   may_edit=!g_strcmp0(dict_get(row,"writable","false"),"true");
+   loaded=TRUE;
+   gtk_widget_set_sensitive(save_button,may_edit);
+   GtkTextBuffer *buffer=gtk_text_view_get_buffer(GTK_TEXT_VIEW(editor));
+   gtk_text_buffer_set_text(buffer,data,-1);
+   gchar *title=g_strdup_printf("Revision: %"G_GINT64_FORMAT,current_revision);
+   gtk_label_set_text(GTK_LABEL(revision_label),title);
+   g_free(title);
+   set_status(may_edit?
+      "Server graph loaded (owner/superadmin; inactive until runtime integration)":
+      "Server graph loaded read-only; owner/superadmin required to edit");
+   return TRUE;
+}
