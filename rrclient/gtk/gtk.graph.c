@@ -216,6 +216,7 @@ void rr_gtk_graph_draw_vertical(cairo_t *cr, const rr_gtk_graph_node_t *nodes, g
          continue;
       }
       const rr_gtk_graph_node_t *a = &nodes[e->from], *b = &nodes[e->to];
+      if(a->hidden || b->hidden)continue;
       const double sx = a->x + RR_GTK_GRAPH_NODE_W / 2.;
       const double sy = a->y + RR_GTK_GRAPH_NODE_H;
       const double dx = b->x + RR_GTK_GRAPH_NODE_W / 2.;
@@ -249,6 +250,7 @@ void rr_gtk_graph_draw_vertical(cairo_t *cr, const rr_gtk_graph_node_t *nodes, g
    /* Shared block dimensions, palette and type hierarchy with the audio graph; port dots move to the top and bottom on this canvas. */
    for (guint i = 0 ; i < n_nodes ; i++) {
       const rr_gtk_graph_node_t *n = &nodes[i];
+      if(n->hidden)continue;
       cairo_set_source_rgb(cr, n->stale ? .23 : n->failed ? .40 :
          n->selected ? .20 : .15, n->stale ? .24 : n->failed ? .18 : n->selected ? .38 : .25, n->stale ? .26 : n->failed ? .18 : n->selected ? .56 : .34);
       rr_gtk_graph_shape_path(cr, n->shape, n->x, n->y,
