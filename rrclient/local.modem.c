@@ -722,6 +722,11 @@ static void publish_snapshot(void) {
       entry->stream_active = d->stream_active;
       entry->tx_on = d->ptt_owned && d->tx_running && d->tx_started_us>0;
       entry->tx_started_us = entry->tx_on ? d->tx_started_us : 0;
+      /* Keep the pending unkey deadline visible during the final 750 ms.
+       * Values are monotonic timestamps from the same client process. */
+      entry->tx_release_at_us = d->ptt_owned ? d->release_at_us : 0;
+      entry->tx_timeout_at_us = d->ptt_owned && d->tx_running ?
+         d->ptt_deadline_us : 0;
       entry->value = d->value;
       entry->drops = d->drops;
       entry->received = d->received;
