@@ -329,6 +329,16 @@ static gboolean routing_is_touch_event(const GdkEvent *event) {
    return device && gdk_device_get_source(device) == GDK_SOURCE_TOUCHSCREEN;
 }
 
+#define GRAPH_CONNECTION_LOOSENESS_KEY "audio.graph.connection-looseness"
+static double graph_connection_looseness=1.0;
+static void routing_connection_looseness_changed(GtkSpinButton *spin,gpointer user) {
+   (void)user;
+   graph_connection_looseness=CLAMP(gtk_spin_button_get_value(spin),.5,3.);
+   char value[G_ASCII_DTOSTR_BUF_SIZE];
+   g_ascii_dtostr(value,sizeof(value),graph_connection_looseness);
+   rrclient_database_setting_set(GRAPH_CONNECTION_LOOSENESS_KEY,value);
+   rr_logic_canvas_set_snap_distance(16.*graph_connection_looseness);
+}
 static double routing_pin_radius(void) {
    return CLAMP((graph_touch_pointer ? 23. : 10.) / MAX(.01, graph_scale), graph_touch_pointer ? 17. : 8., graph_touch_pointer ? 36. : 20.);
 }
@@ -1815,7 +1825,9 @@ static gboolean routing_drag_target(double x, double y, gint *source_index, doub
    gboolean from_tx_mix = graph_drag_mixer && !strcmp(origin_node->id, "tx.mix");
    gboolean from_rig_sink = graph_drag_mixer && !strcmp(origin_node->id, "rig.sink");
    const char *required_bus = graph_drag_mixer ? origin_node->id : (origin_node->downstream_rate_hz > 16000 ? "hq.mix" : "rx.mix");
-   const double limit = graph_touch_pointer ? CLAMP(30. / MAX(.01, graph_scale), 24., 48.) : CLAMP(18. / MAX(.01, graph_scale), 14., 34.);
+   const double limit = (graph_touch_pointer ?
+      CLAMP(30. / MAX(.01, graph_scale),24.,48.) :
+      CLAMP(18. / MAX(.01, graph_scale),14.,34.)) * graph_connection_looseness;
    double best = limit;
    gboolean found = FALSE;
    graph_drag_modem_target = -1;
@@ -7441,6 +7453,23 @@ void gtk_audio_graph_present(void) {
       gtk_widget_set_tooltip_text(snap_grid, "Align moved blocks to a 20-pixel grid; hold Shift while dragging to move freely");
       g_signal_connect(snap_grid, "toggled", G_CALLBACK(routing_snap_toggled), NULL);
       gtk_flow_box_insert(GTK_FLOW_BOX(tools), snap_grid, -1);
+      GtkWidget *connection_label=gtk_label_new("Connect");
+      gtk_widget_set_tooltip_text(connection_label,
+         "Connection snap tolerance, 0.5× precise to 3× loose");
+      gtk_flow_box_insert(GTK_FLOW_BOX(tools),connection_label,-1);
+      GtkWidget *connection_loose=gtk_spin_button_new_with_range(.5,3.,.25);
+      gtk_spin_button_set_digits(GTK_SPIN_BUTTON(connection_loose),2);
+      char *saved_loose=rrclient_database_setting_get(GRAPH_CONNECTION_LOOSENESS_KEY);
+      graph_connection_looseness=saved_loose ?
+         CLAMP(g_ascii_strtod(saved_loose,NULL),.5,3.) : 1.;
+      g_free(saved_loose);
+      gtk_spin_button_set_value(GTK_SPIN_BUTTON(connection_loose),graph_connection_looseness);
+      rr_logic_canvas_set_snap_distance(16.*graph_connection_looseness);
+      gtk_widget_set_tooltip_text(connection_loose,
+         "How close a dragged wire must be to a compatible pin (× normal snap distance)");
+      g_signal_connect(connection_loose,"value-changed",
+                       G_CALLBACK(routing_connection_looseness_changed),NULL);
+      gtk_flow_box_insert(GTK_FLOW_BOX(tools),connection_loose,-1);
       GtkWidget *show_controls = gtk_check_button_new_with_label("Controls");
       char *show_setting = rrclient_database_setting_get("audio.graph.show-controls");
       routing_controls_visible = !show_setting || strcmp(show_setting, "false");
