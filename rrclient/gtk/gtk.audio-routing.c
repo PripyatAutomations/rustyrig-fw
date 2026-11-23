@@ -6678,29 +6678,20 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
          if(routing_audio_pin_disconnect(hit_source,hit_channel,hit_mixer,event))
             return TRUE;
 
+         /* A pin with no matching graph edge is already disconnected.
+          * In particular, never reset the mic or TX mixer merely because
+          * an empty pin was double-clicked. Those operations must identify
+          * a live edge through routing_audio_pin_disconnect() above. */
          if (hit_source < 0) {
             const rr_ag_view_node_t *n = &graph_snapshot->nodes[-hit_source - 1];
-
-            if (!strcmp(n->id, "tx.mix")) {
-               /* Disconnect only the selected mixer ear's mic patch.
-                * A shared mixer pin may have multiple independent sources;
-                * double-click must not silently delete modem connections. */
-               audio_request_mic_tx_channel((unsigned)hit_channel, false);
-               routing_queue();
-
+            if (!strcmp(n->id, "tx.mix"))
                return TRUE;
-            }
          }
 
          if (hit_source >= 0) {
             const rr_ag_view_node_t *n = &graph_snapshot->nodes[hit_source];
-
-            if (!strcmp(n->id, "src.client.dsp0")) {
-               audio_request_mic_tx_route("none");
-               routing_queue();
-
+            if (!strcmp(n->id, "src.client.dsp0"))
                return TRUE;
-            }
 
             if (n->type == RR_AG_SOURCE && !n->read_only && !g_str_has_prefix(n->id, "modem") && !g_str_has_prefix(n->id, "proc.lv2.")) {
                graph_set_channel((guint) hit_source, hit_channel, FALSE);
