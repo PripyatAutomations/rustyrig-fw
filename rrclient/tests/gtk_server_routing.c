@@ -42,8 +42,7 @@ static void reply(const char *profile,const char *revision,gboolean writable,
 }
 static void choose(const char *name) {
    gtk_entry_set_text(GTK_ENTRY(gtk_bin_get_child(GTK_BIN(server_entry))),name);
-   /* Both editable combo entry and combo selection must invalidate state. */
-   server_changed(GTK_COMBO_BOX(server_entry),NULL);
+   /* Exercise the real editable-combo changed signal; do not call handler. */
 }
 static void check_text(const char *want) {
    gchar *value=editor_text();
