@@ -6257,6 +6257,78 @@ static void routing_touch_long_pressed(GtkGestureLongPress *gesture, gdouble x, 
    graph_pan_dragging = FALSE;
 }
 
+static void routing_canvas_add_action(GtkMenuItem *item,gpointer unused) {
+   (void)unused;
+   const char *kind=g_object_get_data(G_OBJECT(item),"routing-create");
+   if(!kind)return;
+   GtkWidget *toplevel=graph_canvas?gtk_widget_get_toplevel(graph_canvas):NULL;
+   if(!strcmp(kind,"control")) {
+      routing_compact_create((GtkButton *)item,NULL);
+   } else if(!strcmp(kind,"effect")) {
+      routing_add_effect((GtkButton *)item,NULL);
+   } else if(!strcmp(kind,"true") || !strcmp(kind,"false")) {
+      routing_create_position_logic();
+      rr_logic_canvas_add_constant(!strcmp(kind,"true"));
+      routing_create_select_logic();
+   } else if(!strcmp(kind,"onair")) {
+      onair_add(NULL,NULL);
+   } else if(!strcmp(kind,"ptt")) {
+      ptt_visible=TRUE;
+      onair_save();
+   } else if(g_str_has_prefix(kind,"gate:")) {
+      for(unsigned g=0;g<=RR_GATE_XNOR;g++)
+         if(!strcmp(kind+5,rr_gate_kind_name((rr_gate_kind_t)g))) {
+            routing_create_position_logic();
+            rr_logic_canvas_add_kind(g);
+            routing_create_select_logic();
+            break;
+         }
+   }
+   (void)toplevel;
+   routing_create_at_cursor=FALSE;
+   graph_canvas_update_size();
+}
+static GtkWidget *routing_add_subitem(GtkWidget *menu,const char *label,const char *action) {
+   GtkWidget *item=gtk_menu_item_new_with_label(label);
+   g_object_set_data_full(G_OBJECT(item),"routing-create",g_strdup(action),g_free);
+   g_signal_connect(item,"activate",G_CALLBACK(routing_canvas_add_action),NULL);
+   gtk_menu_shell_append(GTK_MENU_SHELL(menu),item);
+   return item;
+}
+static gboolean routing_canvas_add_menu(GdkEventButton *event,double x,double y) {
+   if(!event)return FALSE;
+   routing_create_x=x;routing_create_y=y;
+   GtkWidget *menu=gtk_menu_new();
+   GtkWidget *add=gtk_menu_item_new_with_label("Add");
+   GtkWidget *submenu=gtk_menu_new();
+   GtkWidget *controls=gtk_menu_item_new_with_label("Control");
+   GtkWidget *control_menu=gtk_menu_new();
+   routing_add_subitem(control_menu,"Control…","control");
+   routing_add_subitem(control_menu,"TRUE","true");
+   routing_add_subitem(control_menu,"FALSE","false");
+   routing_add_subitem(control_menu,"ON AIR","onair");
+   routing_add_subitem(control_menu,"PTT display","ptt");
+   gtk_menu_item_set_submenu(GTK_MENU_ITEM(controls),control_menu);
+   gtk_menu_shell_append(GTK_MENU_SHELL(submenu),controls);
+   routing_add_subitem(submenu,"Effect…","effect");
+   GtkWidget *gate_item=gtk_menu_item_new_with_label("Gate");
+   GtkWidget *gate_menu=gtk_menu_new();
+   for(unsigned g=0;g<=RR_GATE_XNOR;g++) {
+      const char *name=rr_gate_kind_name((rr_gate_kind_t)g);
+      gchar *action=g_strconcat("gate:",name,NULL);
+      routing_add_subitem(gate_menu,name,action);
+      g_free(action);
+   }
+   gtk_menu_item_set_submenu(GTK_MENU_ITEM(gate_item),gate_menu);
+   gtk_menu_shell_append(GTK_MENU_SHELL(submenu),gate_item);
+   gtk_menu_item_set_submenu(GTK_MENU_ITEM(add),submenu);
+   gtk_menu_shell_append(GTK_MENU_SHELL(menu),add);
+   g_signal_connect_swapped(menu,"selection-done",G_CALLBACK(gtk_widget_destroy),menu);
+   gtk_widget_show_all(menu);
+   routing_create_at_cursor=TRUE;
+   gtk_menu_popup_at_pointer(GTK_MENU(menu),(GdkEvent *)event);
+   return TRUE;
+}
 static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, gpointer unused) {
    (void)unused;
 
@@ -6271,16 +6343,19 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
       graph_touch_long_pressed = FALSE;
    }
 
-   if (event->type == GDK_BUTTON_PRESS && event->button == GDK_BUTTON_SECONDARY && graph_snapshot) {
-      double gx, gy;
-
-      return graph_pointer(event->x, event->y, &gx, &gy) &&
-             (rr_logic_canvas_press(gx,gy,event) ||
-              onair_context_menu(event, gx, gy) ||
-                routing_serial_context_menu(event, gx, gy) ||
-                routing_lv2_context_menu(event, gx, gy) ||
-                routing_modem_context_menu(event, gx, gy) ||
-                routing_common_block_menu(event, gx, gy) || routing_wire_context_menu(event, gx, gy) || routing_serial_wire_menu(event, gx, gy));
+   if (event->type == GDK_BUTTON_PRESS && event->button == GDK_BUTTON_SECONDARY) {
+      double gx,gy;
+      if(!graph_pointer(event->x,event->y,&gx,&gy))return FALSE;
+      if(rr_logic_canvas_press(gx,gy,event) ||
+         onair_context_menu(event,gx,gy) ||
+         routing_serial_context_menu(event,gx,gy) ||
+         routing_lv2_context_menu(event,gx,gy) ||
+         routing_modem_context_menu(event,gx,gy) ||
+         routing_common_block_menu(event,gx,gy) ||
+         routing_wire_context_menu(event,gx,gy) ||
+         routing_serial_wire_menu(event,gx,gy))
+         return TRUE;
+      return routing_canvas_add_menu(event,gx,gy);
    }
 
    if (event->type == GDK_BUTTON_PRESS && (event->button == GDK_BUTTON_MIDDLE || (event->button == GDK_BUTTON_PRIMARY && (event->state & GDK_MOD1_MASK)))) {
