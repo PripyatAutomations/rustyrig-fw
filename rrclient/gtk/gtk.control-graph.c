@@ -646,6 +646,23 @@ gboolean rr_logic_canvas_release(double x,double y,gboolean at_onair) {
    }
    return FALSE;
 }
+void rr_logic_canvas_add_kind(unsigned kind) {
+   if(!model || block_count>=MAX_UI_GATES || kind>(unsigned)RR_GATE_XNOR)return;
+   rr_gate_kind_t type=(rr_gate_kind_t)kind;
+   unsigned inputs=type==RR_GATE_NOT?1:2;
+   char id[RR_CONTROL_NAME_LEN];
+   do { g_snprintf(id,sizeof(id),"gate.%u",++serial); }
+   while(find_gate(id)&&serial<100000);
+   if(!rr_control_graph_gate_add(model,id,type,inputs))return;
+   gate_view_t *b=&blocks[block_count++];
+   *b=(gate_view_t){.kind=type,.inputs=inputs,
+                     .x=100.+(block_count%3)*240.,
+                     .y=600.+(block_count/3)*165.};
+   g_strlcpy(b->id,id,sizeof(b->id));
+   placement(b);
+   g_strlcpy(last_created,id,sizeof(last_created));
+   save_model();
+}
 void rr_logic_canvas_add(GtkWidget *parent) {
    if (!model || block_count>=MAX_UI_GATES) return;
    GtkWidget *dialog=gtk_dialog_new_with_buttons("Add logic gate",
@@ -662,21 +679,7 @@ void rr_logic_canvas_add(GtkWidget *parent) {
    gtk_box_pack_start(GTK_BOX(box),combo,FALSE,FALSE,5);
    gtk_widget_show_all(dialog);
    if (gtk_dialog_run(GTK_DIALOG(dialog))==GTK_RESPONSE_ACCEPT) {
-      rr_gate_kind_t type=(rr_gate_kind_t)gtk_combo_box_get_active(GTK_COMBO_BOX(combo));
-      unsigned inputs=type==RR_GATE_NOT?1:2;
-      char id[RR_CONTROL_NAME_LEN];
-      do { g_snprintf(id,sizeof(id),"gate.%u",++serial); }
-      while (find_gate(id) && serial<100000);
-      if (rr_control_graph_gate_add(model,id,type,inputs)) {
-         gate_view_t *b=&blocks[block_count++];
-         *b=(gate_view_t){.kind=type,.inputs=inputs,
-                        .x=100.+(block_count%3)*240.,
-                        .y=600.+(block_count/3)*165.};
-         g_strlcpy(b->id,id,sizeof(b->id));
-         placement(b);
-         g_strlcpy(last_created,id,sizeof(last_created));
-         save_model();
-      }
+      rr_logic_canvas_add_kind((unsigned)gtk_combo_box_get_active(GTK_COMBO_BOX(combo)));
    }
    gtk_widget_destroy(dialog);
 }
