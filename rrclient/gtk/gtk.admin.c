@@ -18,6 +18,7 @@
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/gtk/gtk.core.h>
 #include <rrclient/gtk/gtk.admin.command.h>
+#include "gtk.server-routing.h"
 #include <rrclient/gtk/gtk.privileges.h>
 #include <rrclient/gtk/gtk.admin.controls.h>
 #include <rrclient/gtk/gtk.admin.access.h>
@@ -1388,6 +1389,11 @@ void gtk_admin_result_profile(const char *data, const char *profile) {
    const char *name = dict_get(reply, "talk.target", "");
    const char *action = dict_get(reply, "talk.action", "");
    dict *row = json2dict(dict_get(reply, "talk.data", "{}"));
+   if (gtk_server_routing_result(name,action,row,profile)) {
+      dict_free(row);
+      dict_free(reply);
+      return;
+   }
 
    if (row && !strcmp(name, "subjects") && copy_user_store && !g_strcmp0(copy_user_profile, profile)) {
       if (!strcmp(action, "begin")) {
