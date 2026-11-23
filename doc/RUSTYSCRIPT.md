@@ -67,9 +67,38 @@ abort client startup or prevent other scripts from loading. Runtime invocation
 failures and manual script load/reload errors are also logged at `LOG_CRIT`.
 Without a graphical frontend, the errors remain available in the client log.
 
-After startup, handlers run when their registered slash command, hotkey,
-or event fires. They do not execute at load time. In particular, an event
-handler for `irc.privmsg` runs only when a matching event arrives.
+After startup, normal command, hotkey and external-event handlers wait
+for their trigger. Two **per-script lifecycle events** are exceptions:
+
+```c
+event script.init {
+    log.info("My script loaded")
+    ui.panel("my-controls", "My Controls")
+    ui.add("my-controls", "slider", "level", "Level", "0:100:5:50")
+}
+
+event script.fini {
+    log.info("My script is unloading")
+    // Optional explicit cleanup; all script-owned UI and timers are
+    // released automatically immediately afterward.
+}
+```
+
+`script.init` runs exactly once when that script is successfully activated,
+whether via autoload, manual load or reload. `script.fini` runs exactly once
+before its VM is torn down on unload, successful reload or host shutdown.
+On reload the outgoing script's `fini` runs **before** the new script's
+`init`. If a replacement fails to parse or register, the old script remains
+loaded and neither lifecycle transition occurs. A script that never
+successfully activates receives neither lifecycle callback.
+
+These are **not published on the global event bus**; another script cannot
+subscribe to them to observe someone else's lifecycle. Lifecycle handlers
+execute synchronously and cannot be used as background jobs. Script-owned
+widgets and timers are automatically reclaimed after `fini`, even if the
+script does not explicitly call `ui.destroy` or `timer.cancel`.
+
+
 
 The client provides these local commands, even when disconnected:
 
