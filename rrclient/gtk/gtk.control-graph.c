@@ -13,7 +13,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define LOGIC_STORE "audio.graph.control.v1"
+#define LOGIC_STORE "audio.graph.control.v2"
 #define MAX_UI_GATES RR_CONTROL_MAX_GATES
 #define MAX_UI_WIRES RR_CONTROL_MAX_WIRES
 typedef struct {
