@@ -4,7 +4,6 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
-static int first_init,first_fini,second_init,second_fini;
 static rrs_value_t *record(rrs_vm_t *vm,int argc,const rrs_value_t *const args[],void *user) {
    (void)vm;
    assert(argc==1 && rrs_value_type(args[0])==RRS_STRING);
