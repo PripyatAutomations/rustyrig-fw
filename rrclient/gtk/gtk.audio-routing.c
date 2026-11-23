@@ -58,6 +58,9 @@ static void routing_compact_restore(void);
 static void routing_compact_save(const struct routing_compact_control *control);
 static gboolean graph_gain_at(double x, double y, gint *source, gint *channel, gboolean *port);
 static gboolean routing_controls_visible = TRUE;
+static gboolean routing_effects_visible = TRUE;
+static gboolean routing_modems_visible = TRUE;
+static gboolean routing_logic_visible = TRUE;
 static gint routing_control_drag_index = -1;
 static void routing_compact_bounds(double *width, double *height);
 static void routing_effect_refresh(void);
@@ -66,7 +69,7 @@ static void routing_effect_bounds(double *width, double *height);
 static gboolean routing_effect_press(double x, double y, gboolean dbl);
 static gboolean routing_effect_motion(double x, double y);
 static gboolean routing_effect_release(void);
-static void routing_show_controls_toggled(GtkToggleButton *toggle, gpointer unused);
+static void routing_visibility_toggled(GtkCheckMenuItem *item, gpointer kind);
 /* Preserve display order through transient disconnects. Only GTK owns this history: the core graph and audio routing never contain retired nodes. */
 #define GRAPH_GHOST_US (15 * G_USEC_PER_SEC)
 static gint64 graph_missing_since[RR_AUDIO_GRAPH_MAX_NODES];
@@ -467,9 +470,9 @@ static void routing_graph_clear_selection(void) {
 #define GRAPH_SNAP_STEP 20.0
 #define GRAPH_SNAP_KEY "audio.graph.snap-grid"
 static gboolean graph_snap_enabled;
-static void routing_snap_toggled(GtkToggleButton *button, gpointer unused) {
+static void routing_snap_toggled(GtkCheckMenuItem *button, gpointer unused) {
    (void)unused;
-   graph_snap_enabled = gtk_toggle_button_get_active(button);
+   graph_snap_enabled = gtk_check_menu_item_get_active(button);
    rrclient_database_setting_set(GRAPH_SNAP_KEY, graph_snap_enabled ? "true" : "false");
 }
 
@@ -4463,12 +4466,43 @@ static void routing_compact_restore(void) {
    routing_compact_sync();
 }
 
-static void routing_show_controls_toggled(GtkToggleButton *toggle, gpointer unused) {
-   (void)unused;
-   routing_controls_visible = gtk_toggle_button_get_active(toggle);
-   rrclient_database_setting_set("audio.graph.show-controls", routing_controls_visible ? "true" : "false");
-   /* Presentation-only: no control bindings, gain, routes, or floating panels are touched by this toggle. */
+/* Display filters affect only what is painted and hit-tested, never routes. */
+enum {
+   ROUTING_VISIBLE_CONTROLS=1,
+   ROUTING_VISIBLE_EFFECTS,
+   ROUTING_VISIBLE_MODEMS,
+   ROUTING_VISIBLE_LOGIC
+};
+static void routing_visibility_toggled(GtkCheckMenuItem *item,gpointer kind) {
+   gboolean visible=gtk_check_menu_item_get_active(item);
+   const char *key=NULL;
+   switch(GPOINTER_TO_INT(kind)) {
+      case ROUTING_VISIBLE_CONTROLS:
+         routing_controls_visible=visible;key="audio.graph.show-controls";break;
+      case ROUTING_VISIBLE_EFFECTS:
+         routing_effects_visible=visible;key="audio.graph.show-effects";break;
+      case ROUTING_VISIBLE_MODEMS:
+         routing_modems_visible=visible;key="audio.graph.show-modems";break;
+      case ROUTING_VISIBLE_LOGIC:
+         routing_logic_visible=visible;key="audio.graph.show-logic";break;
+      default:return;
+   }
+   rrclient_database_setting_set(key,visible?"true":"false");
    graph_canvas_update_size();
+}
+static gboolean routing_saved_visible(const char *key) {
+   char *saved=rrclient_database_setting_get(key);
+   gboolean visible=!saved || strcmp(saved,"false");
+   g_free(saved);
+   return visible;
+}
+static GtkWidget *routing_visibility_menu_item(const char *label,
+                                                gboolean active,gint kind) {
+   GtkWidget *item=gtk_check_menu_item_new_with_label(label);
+   gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(item),active);
+   g_signal_connect(item,"toggled",G_CALLBACK(routing_visibility_toggled),
+                    GINT_TO_POINTER(kind));
+   return item;
 }
 
 /* Controls are neutral diamonds, not PCM nodes. Green sockets and dashed green wires identify parameter signals exclusively. */
@@ -5203,7 +5237,7 @@ static gboolean routing_effect_parameter_location(const char *worker, const char
 }
 
 static gboolean routing_effect_pin_at(double x, double y, routing_effect_port_t *out) {
-   if (!routing_controls_visible || !routing_effect_blocks) {
+   if (!routing_effects_visible || !routing_effect_blocks) {
       return FALSE;
    }
 
