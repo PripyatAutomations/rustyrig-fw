@@ -379,9 +379,9 @@ skip_preview:;
       cairo_set_font_size(cr,9.);
       cairo_move_to(cr,output_x(b)-41.,b->y+43.);
       cairo_show_text(cr,"OUT");
-      cairo_set_source_rgb(cr,valid?(high?.38:.84):.48,
-                                valid?(high?.94:.84):.48,
-                                valid?(high?.38:.84):.48);
+      cairo_set_source_rgb(cr,valid?(high?.27:.75):.46,
+                                valid?(high?.96:.20):.46,
+                                valid?(high?.32:.20):.46);
       cairo_new_path(cr);
       cairo_arc(cr,output_x(b)-13.,b->y+56.,4.,0,2*G_PI);
       cairo_fill(cr);
@@ -527,6 +527,10 @@ static double wire_distance(double x,double y,const wire_view_t *w) {
 gboolean rr_logic_canvas_disconnect_at(double x,double y,GdkEventButton *event) {
    if(!model||!event||event->button!=GDK_BUTTON_PRIMARY ||
       event->type!=GDK_2BUTTON_PRESS)return FALSE;
+   /* A preceding BUTTON_PRESS may have armed a drag; a double-click
+    * disconnect must never be followed by a stale wire release. */
+   drag_wire=drag_block=-1;
+   reverse_drag=FALSE;
    gate_view_t *pin_block=NULL;
    unsigned pin=0;
    gboolean input=pin_hit(x,y,&pin_block,&pin);
@@ -554,7 +558,7 @@ gboolean rr_logic_canvas_disconnect_at(double x,double y,GdkEventButton *event) 
    return TRUE;
 }
 static void wire_menu(GtkWidget *menu,const wire_view_t *w,unsigned index) {
-   gchar *label=g_strdup_printf("Disconnect %s → input %u",w->from,w->pin+1);
+   gchar *label=g_strdup_printf("Disconnect %s → %s input %u",w->from,w->to,w->pin+1);
    GtkWidget *entry=gtk_menu_item_new_with_label(label);
    g_free(label);
    g_object_set_data_full(G_OBJECT(entry),"from",g_strdup(w->from),g_free);
