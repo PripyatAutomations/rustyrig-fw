@@ -6151,6 +6151,14 @@ static void routing_marquee_update(void) {
       }
    }
 
+   if(routing_controls_visible && routing_compact_controls) {
+      for(guint i=0;i<routing_compact_controls->len;i++) {
+         const routing_compact_control_t *c=g_ptr_array_index(routing_compact_controls,i);
+         if(routing_marquee_contains(c->x,c->y,
+                                      ROUTING_CONTROL_WIDTH,ROUTING_CONTROL_HEIGHT))
+            routing_graph_select(c->uuid,TRUE);
+      }
+   }
    if (onair_visible || ptt_visible) {
       if (onair_visible && routing_marquee_contains(onair_x, onair_y, ONAIR_W, ONAIR_H)) {
          routing_graph_select("ui.onair", TRUE);
