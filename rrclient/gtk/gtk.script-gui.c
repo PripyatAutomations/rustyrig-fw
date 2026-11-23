@@ -20,11 +20,13 @@ typedef struct {
    char owner[32], id[64], kind[24];
    GtkWidget *widget;
    RRFloatPanel *panel;
+   gboolean root_patchbay, requested_visible;
    char bound_property[128];
    guint32 last_time, interval_ms, state, button, clicks;
 } script_widget_t;
 static GHashTable *script_widgets;
 static rr_event_token_t script_gui_token;
+static gulong script_main_switch_handler;
 
 static char *widget_key(const char *owner,const char *id) {
    return g_strdup_printf("%s:%s",owner,id);
@@ -57,6 +59,7 @@ static script_widget_t *widget_track(const char *owner,const char *id,
    g_strlcpy(entry->kind,kind,sizeof(entry->kind));
    entry->widget=widget;
    entry->panel=panel;
+   entry->requested_visible=TRUE;
    g_object_add_weak_pointer(G_OBJECT(widget),(gpointer *)&entry->widget);
    g_hash_table_insert(script_widgets,widget_key(owner,id),entry);
    return entry;
@@ -243,6 +246,7 @@ static void script_panel_closed(gpointer data) {
       event_emit_dict("ui.close",NULL,d);
       dict_free(d);
    }
+   entry->requested_visible=FALSE;
    if(entry->panel)rr_floating_panel_hide(entry->panel);
 }
 
@@ -599,6 +603,32 @@ static void script_tighten(GtkWidget *widget) {
       g_list_free(children);
    }
 }
+/* A rooted panel is a child of the Routing page's overlay, never of the
+ * global main window. The page may be created after script.init autoload. */
+void gtk_script_gui_patchbay_update(void) {
+   if(!script_widgets)return;
+   GtkOverlay *overlay=gtk_audio_graph_patchbay_overlay();
+   gboolean active=gtk_audio_graph_patchbay_active();
+   GHashTableIter iter;gpointer key,value;
+   g_hash_table_iter_init(&iter,script_widgets);
+   while(g_hash_table_iter_next(&iter,&key,&value)) {
+      script_widget_t *entry=value;
+      if(!entry->root_patchbay || !entry->panel || !entry->widget)continue;
+      if(overlay)
+         rr_floating_panel_root_overlay(entry->panel,overlay);
+      if(!overlay || !active || !entry->requested_visible) {
+         gtk_widget_set_no_show_all(entry->widget,TRUE);
+         gtk_widget_hide(entry->widget);
+      } else {
+         rr_floating_panel_show(entry->panel);
+      }
+   }
+}
+static void script_main_page_changed(GtkNotebook *book,GtkWidget *page,
+                                      guint index,gpointer user) {
+   (void)book;(void)page;(void)index;(void)user;
+   gtk_script_gui_patchbay_update();
+}
 static void script_gui_command(const rr_event_message_t *message,void *unused) {
    (void)unused;
    if(!message||!message->payload||message->length!=sizeof(rr_script_gui_command_t))return;
@@ -669,12 +699,17 @@ static void script_gui_command(const rr_event_message_t *message,void *unused) {
       return;
    }
    if(cmd.action==RR_GUI_ADD){script_gui_add(&cmd);return;}
-   if(cmd.action==RR_GUI_SHRINKWRAP || cmd.action==RR_GUI_SIZE ||
+   if(cmd.action==RR_GUI_ROOT || cmd.action==RR_GUI_SHRINKWRAP || cmd.action==RR_GUI_SIZE ||
       cmd.action==RR_GUI_PLACE || cmd.action==RR_GUI_ZOOM ||
       cmd.action==RR_GUI_OPACITY) {
       if(!entry || !entry->panel)return;
       char *panel_id=widget_key(cmd.owner,cmd.id);
-      if(cmd.action==RR_GUI_SHRINKWRAP) {
+      if(cmd.action==RR_GUI_ROOT) {
+         if(!strcmp(cmd.value,"patchbay")) {
+            entry->root_patchbay=TRUE;
+            gtk_script_gui_patchbay_update();
+         }
+      } else if(cmd.action==RR_GUI_SHRINKWRAP) {
          GtkWidget *body=rr_floating_panel_body(entry->panel);
          script_tighten(body);
          rr_floating_panel_set_content_sized(entry->panel);
@@ -763,6 +798,8 @@ static void script_gui_command(const rr_event_message_t *message,void *unused) {
       } else if(GTK_IS_LABEL(w))gtk_label_set_text(GTK_LABEL(w),cmd.value);
       else if(GTK_IS_BUTTON(w))gtk_button_set_label(GTK_BUTTON(w),cmd.value);
    } else if(cmd.action==RR_GUI_SHOW) {
+      entry->requested_visible=TRUE;
+      if(entry->root_patchbay)gtk_audio_graph_present_patchbay();
       /* A closed panel retains its widgets; refresh all bound children
        * from the authoritative property before revealing it again. */
       if(entry->panel && script_widgets) {
@@ -786,7 +823,9 @@ static void script_gui_command(const rr_event_message_t *message,void *unused) {
       }
       if(entry->panel)rr_floating_panel_show(entry->panel);
       else gtk_widget_show_all(entry->widget);
+      if(entry->root_patchbay)gtk_script_gui_patchbay_update();
    } else if(cmd.action==RR_GUI_HIDE) {
+      entry->requested_visible=FALSE;
       if(entry->panel)rr_floating_panel_hide(entry->panel);
       else gtk_widget_hide(entry->widget);
    } else if(cmd.action==RR_GUI_DESTROY) {
@@ -832,8 +871,15 @@ void gtk_script_gui_init(void) {
    if(script_gui_token)return;
    script_gui_token=event_on_message_domain_token(RR_SCRIPT_GUI_COMMAND,
       script_gui_command,NULL,"gtk");
+   if(GTK_IS_NOTEBOOK(main_notebook) && !script_main_switch_handler)
+      script_main_switch_handler=g_signal_connect(main_notebook,"switch-page",
+         G_CALLBACK(script_main_page_changed),NULL);
 }
 void gtk_script_gui_shutdown(void) {
+   if(script_main_switch_handler && GTK_IS_NOTEBOOK(main_notebook)) {
+      g_signal_handler_disconnect(main_notebook,script_main_switch_handler);
+      script_main_switch_handler=0;
+   }
    if(script_gui_token){event_off_token(script_gui_token);script_gui_token=0;}
    if(script_widgets) {
       GHashTableIter iter;
