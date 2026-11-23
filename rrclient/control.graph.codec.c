@@ -46,7 +46,10 @@ bool rr_control_graph_text_validate(const char *snapshot,char **error) {
    rr_control_graph_t *g=rr_control_graph_new();
    gboolean valid=FALSE;
    int ng=0,nw=0,serial=0;
+   int version=1;
    if(!g || !g_key_file_load_from_data(kf,snapshot,-1,G_KEY_FILE_NONE,NULL) ||
+      (g_key_file_has_key(kf,"control","version",NULL) &&
+       !graph_int(kf,"control","version",1,1,&version)) ||
       !graph_int(kf,"control","gates",0,RR_CONTROL_MAX_GATES,&ng) ||
       !graph_int(kf,"control","wires",0,RR_CONTROL_MAX_WIRES,&nw) ||
       !graph_int(kf,"control","serial",0,1000000,&serial)) goto done;
