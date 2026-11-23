@@ -368,7 +368,10 @@ skip_preview:;
       rr_gtk_graph_port_t ports[33];
       char names[32][8];
       for(unsigned j=0;j<b->inputs;j++) {
-         g_snprintf(names[j],sizeof(names[j]),"%c",j<26?'A'+j:'a'+(j-26));
+         char port[16];
+         rr_control_graph_port_name(false,j,port,sizeof(port));
+         g_strlcpy(names[j],port+3,sizeof(names[j]));
+         for(char *p=names[j];*p;p++) *p=g_ascii_toupper(*p);
          ports[j]=(rr_gtk_graph_port_t){names[j],RR_GTK_GRAPH_SIGNAL_BOOLEAN,FALSE,input_x(b,j)-b->x,
                      pin_y(b,j)-b->y};
       }
@@ -590,7 +593,9 @@ gboolean rr_logic_canvas_disconnect_at(double x,double y,GdkEventButton *event) 
    return TRUE;
 }
 static void wire_menu(GtkWidget *menu,const wire_view_t *w,unsigned index) {
-   gchar *label=g_strdup_printf("Disconnect %s → %s input %u",w->from,w->to,w->pin+1);
+   char port[16];
+   rr_control_graph_port_name(false,w->pin,port,sizeof(port));
+   gchar *label=g_strdup_printf("Disconnect %s.out_a → %s.%s",w->from,w->to,port);
    GtkWidget *entry=gtk_menu_item_new_with_label(label);
    g_free(label);
    g_object_set_data_full(G_OBJECT(entry),"from",g_strdup(w->from),g_free);
