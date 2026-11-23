@@ -5,7 +5,7 @@
 #include <math.h>
 static const char *const names[] = {"AND","OR","XOR","NOT","NAND","NOR","XNOR"};
 const char *rr_gate_kind_name(rr_gate_kind_t kind) {
-   return kind <= RR_GATE_XNOR ? names[kind] : NULL;
+   return (unsigned)kind <= RR_GATE_XNOR ? names[kind] : NULL;
 }
 bool rr_gate_kind_parse(const char *name, rr_gate_kind_t *out) {
    if (!name || !out) return false;
@@ -16,7 +16,7 @@ bool rr_gate_kind_parse(const char *name, rr_gate_kind_t *out) {
 bool rr_gate_evaluate(const rr_gate_state_t *gate, bool *output) {
    if (!output) return false;
    *output=false;
-   if (!gate || gate->kind > RR_GATE_XNOR ||
+   if (!gate || (unsigned)gate->(unsigned)kind > RR_GATE_XNOR ||
        (gate->kind == RR_GATE_NOT ? gate->inputs != 1 :
           gate->inputs < 2 || gate->inputs > 32))
       return false;
