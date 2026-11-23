@@ -306,6 +306,59 @@ static void script_gui_changed(const rr_event_message_t *message,void *unused) {
       !memchr(change.value,0,sizeof(change.value)))return;
    script_gui_save(change.owner,change.id,change.kind,change.value);
 }
+/* Script-owned geometry commands stay on the GTK event domain.
+ * This avoids assuming GTK ownership from RustyScript's core thread. */
+static rrs_value_t *script_gui_geometry(rrs_vm_t *vm,int argc,
+                                        const rrs_value_t *const argv[],void *user) {
+   int action=GPOINTER_TO_INT(user);
+   int wanted=action==RR_GUI_SHRINKWRAP?1:
+              action==RR_GUI_PLACE?4:
+              action==RR_GUI_SIZE?3:2;
+   if(argc!=wanted || rrs_value_type(argv[0])!=RRS_STRING ||
+      !script_gui_identifier(rrs_value_string(argv[0]))) {
+      rrs_vm_raise(vm,"Panel geometry expects a valid script-local panel ID and arguments");
+      return NULL;
+   }
+   rr_script_gui_command_t command={.version=RR_SCRIPT_GUI_PROTOCOL_VERSION,
+                                    .action=(uint32_t)action};
+   if(!script_gui_owner(command.owner,vm)) {
+      rrs_vm_raise(vm,"Script has no active UI owner");return NULL;
+   }
+   g_strlcpy(command.id,rrs_value_string(argv[0]),sizeof(command.id));
+   if(action==RR_GUI_PLACE) {
+      if(rrs_value_type(argv[1])!=RRS_STRING ||
+         rrs_value_type(argv[2])!=RRS_INT ||
+         rrs_value_type(argv[3])!=RRS_INT ||
+         rrs_value_int(argv[2])<0 || rrs_value_int(argv[2])>8192 ||
+         rrs_value_int(argv[3])<0 || rrs_value_int(argv[3])>8192) {
+         rrs_vm_raise(vm,"ui.place(id,location,x,y): location M/N/E/S/W, coordinates 0..8192");
+         return NULL;
+      }
+      g_strlcpy(command.parent,rrs_value_string(argv[1]),sizeof(command.parent));
+      g_snprintf(command.value,sizeof(command.value),"%" G_GINT64_FORMAT ":%" G_GINT64_FORMAT,
+                 (gint64)rrs_value_int(argv[2]),(gint64)rrs_value_int(argv[3]));
+   } else if(action!=RR_GUI_SHRINKWRAP) {
+      for(int i=1;i<argc;i++)if(rrs_value_type(argv[i])!=RRS_INT) {
+         rrs_vm_raise(vm,"Panel geometry dimensions and percentages must be integers");
+         return NULL;
+      }
+      int64_t a=rrs_value_int(argv[1]);
+      int64_t b=action==RR_GUI_SIZE?rrs_value_int(argv[2]):0;
+      if((action==RR_GUI_SIZE && (a<60||a>4096||b<60||b>4096)) ||
+         (action==RR_GUI_ZOOM && (a<10||a>200)) ||
+         (action==RR_GUI_OPACITY && (a<30||a>100))) {
+         rrs_vm_raise(vm,"Panel size or percentage outside supported range");
+         return NULL;
+      }
+      g_snprintf(command.value,sizeof(command.value),"%" G_GINT64_FORMAT ":%" G_GINT64_FORMAT,
+                 (gint64)a,(gint64)b);
+   }
+   rr_event_message_t message={
+      .name=RR_SCRIPT_GUI_COMMAND,.payload=&command,.length=sizeof(command)
+   };
+   event_emit_message(&message);
+   return rrs_boolean(true);
+}
 static rrs_value_t *script_gui_native(rrs_vm_t *vm,int argc,
                                      const rrs_value_t *const argv[],void *user) {
    int action=GPOINTER_TO_INT(user);
@@ -447,6 +500,11 @@ static bool register_gui_api(rrs_vm_t *vm) {
       rrs_vm_register_native(vm,"ui.destroy",script_gui_native,GINT_TO_POINTER(RR_GUI_DESTROY)) &&
       rrs_vm_register_native(vm,"ui.set",script_gui_native,GINT_TO_POINTER(RR_GUI_SET)) &&
       rrs_vm_register_native(vm,"ui.bind",script_gui_native,GINT_TO_POINTER(RR_GUI_BIND)) &&
+      rrs_vm_register_native(vm,"ui.shrinkwrap",script_gui_geometry,GINT_TO_POINTER(RR_GUI_SHRINKWRAP)) &&
+      rrs_vm_register_native(vm,"ui.size",script_gui_geometry,GINT_TO_POINTER(RR_GUI_SIZE)) &&
+      rrs_vm_register_native(vm,"ui.place",script_gui_geometry,GINT_TO_POINTER(RR_GUI_PLACE)) &&
+      rrs_vm_register_native(vm,"ui.zoom",script_gui_geometry,GINT_TO_POINTER(RR_GUI_ZOOM)) &&
+      rrs_vm_register_native(vm,"ui.opacity",script_gui_geometry,GINT_TO_POINTER(RR_GUI_OPACITY)) &&
       rrs_vm_register_native(vm,"ui.val",script_gui_value,NULL) &&
       rrs_vm_register_native(vm,"gui.panel",script_gui_native,GINT_TO_POINTER(RR_GUI_PANEL)) &&
       rrs_vm_register_native(vm,"gui.dialog",script_gui_native,GINT_TO_POINTER(RR_GUI_DIALOG)) &&
