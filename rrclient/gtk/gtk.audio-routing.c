@@ -1875,16 +1875,23 @@ static gboolean routing_drag_target(double x, double y, gint *source_index, doub
          double ny0 = routing_node_y(n);
          dest_channel = fabs(y - ny0 - 79.) < fabs(y - ny0 - 60.) ? 1 : 0;
       }
-      if (lv2_output) {
+      if (lv2_output || (to_lv2 && n->channels == 2)) {
+         /* Independently patch L/R stereo destinations, including a mono
+          * source dragged to only the right input. */
          double ny0 = routing_node_y(n);
          dest_channel = fabs(y - ny0 - 79.) < fabs(y - ny0 - 60.) ? 1 : 0;
       } else if (to_lv2 && n->channels == 1) {
-         dest_channel = 0;
+         /* A mono processor can explicitly accept L, R or BOTH outputs
+          * of a stereo effect; the core averages two attached sources. */
+         dest_channel = from_lv2 && origin_node->channels==2 ?
+            graph_drag_channel : 0;
       }
       gint source_channel = 0;
       if (lv2_reverse_input && reverse_from_effect && n->channels == 2) {
          double ny0 = routing_node_y(n);
          source_channel = fabs(y - ny0 - 79.) < fabs(y - ny0 - 60.) ? 1 : 0;
+         if (origin_node->channels == 1)
+            dest_channel=source_channel;
       }
       double nx = routing_node_x(n) + (graph_drag_mixer ? RR_GTK_GRAPH_NODE_W : 0.);
       double ny = routing_node_y(n) + (tx_input ?
