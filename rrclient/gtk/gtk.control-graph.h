@@ -20,6 +20,7 @@ gboolean rr_logic_canvas_output(const char *name,bool *valid,bool *high);
 void rr_logic_canvas_signal(const char *name,bool valid,bool high);
 void rr_logic_canvas_reset_sources(void);
 void rr_logic_canvas_bounds(double *width,double *height);
+void rr_logic_canvas_set_snap_distance(double radius);
 /* Shared Routing selection and profile infrastructure use stable block IDs. */
 typedef void (*rr_logic_canvas_block_cb)(const char *id,double x,double y,
                                          double width,double height,gpointer user);
