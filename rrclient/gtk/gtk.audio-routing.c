@@ -5393,6 +5393,7 @@ static void routing_compact_create(GtkButton *button, gpointer unused) {
    }
 
    gtk_widget_show_all(dialog);
+   gboolean create_gate_after_close=FALSE;
 
    if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
       const char *id = gtk_combo_box_get_active_id(GTK_COMBO_BOX(target));
@@ -5402,7 +5403,7 @@ static void routing_compact_create(GtkButton *button, gpointer unused) {
       if (kind && !strcmp(kind, "onair")) {
          onair_add(NULL, NULL);
       } else if (kind && !strcmp(kind,"gate")) {
-         rr_logic_canvas_add(parent);
+         create_gate_after_close=TRUE;
       } else if (kind && (!strcmp(kind,"true") || !strcmp(kind,"false"))) {
          rr_logic_canvas_add_constant(!strcmp(kind,"true"));
          graph_canvas_update_size();
@@ -5427,6 +5428,10 @@ static void routing_compact_create(GtkButton *button, gpointer unused) {
    }
    g_hash_table_unref(effect_ports);
    gtk_widget_destroy(dialog);
+   if(create_gate_after_close) {
+      rr_logic_canvas_add(parent);
+      graph_canvas_update_size();
+   }
 }
 
 static gboolean routing_graph_tooltip(GtkWidget *widget, gint px, gint py, gboolean keyboard, GtkTooltip *tooltip, gpointer unused) {
