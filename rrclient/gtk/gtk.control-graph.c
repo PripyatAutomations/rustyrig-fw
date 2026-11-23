@@ -657,7 +657,11 @@ gboolean rr_logic_canvas_release(double x,double y,gboolean at_onair) {
    return FALSE;
 }
 void rr_logic_canvas_add_kind(unsigned kind) {
-   if(!model || block_count>=MAX_UI_GATES || kind>(unsigned)RR_GATE_XNOR)return;
+   last_created[0]=0;
+   if(!model || block_count>=MAX_UI_GATES || kind>(unsigned)RR_GATE_XNOR) {
+      place_pending=FALSE;
+      return;
+   }
    rr_gate_kind_t type=(rr_gate_kind_t)kind;
    unsigned inputs=type==RR_GATE_NOT?1:2;
    char id[RR_CONTROL_NAME_LEN];
@@ -674,7 +678,8 @@ void rr_logic_canvas_add_kind(unsigned kind) {
    save_model();
 }
 void rr_logic_canvas_add(GtkWidget *parent) {
-   if (!model || block_count>=MAX_UI_GATES) return;
+   last_created[0]=0;
+   if (!model || block_count>=MAX_UI_GATES) {place_pending=FALSE;return;}
    GtkWidget *dialog=gtk_dialog_new_with_buttons("Add logic gate",
       GTK_IS_WINDOW(parent)?GTK_WINDOW(parent):NULL,
       GTK_DIALOG_MODAL|GTK_DIALOG_DESTROY_WITH_PARENT,
@@ -692,12 +697,14 @@ void rr_logic_canvas_add(GtkWidget *parent) {
       rr_logic_canvas_add_kind((unsigned)gtk_combo_box_get_active(GTK_COMBO_BOX(combo)));
    }
    gtk_widget_destroy(dialog);
+   place_pending=FALSE;
 }
 
 /* Static boolean blocks are ordinary source nodes, no extra input wires or
  * special PTT privileges. Instances persist independently. */
 void rr_logic_canvas_add_constant(gboolean high) {
-   if (!model || block_count>=MAX_UI_GATES) return;
+   last_created[0]=0;
+   if (!model || block_count>=MAX_UI_GATES) {place_pending=FALSE;return;}
    char id[RR_CONTROL_NAME_LEN];
    do {
       g_snprintf(id,sizeof(id),"constant.%u",++serial);
