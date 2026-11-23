@@ -1582,7 +1582,7 @@ static void routing_graph_bounds(double *width, double *height) {
       routing_compact_bounds(&max_x, &max_y);
    }
 
-   if (routing_controls_visible) {
+   if (routing_effects_visible) {
       routing_effect_bounds(&max_x, &max_y);
    }
 
@@ -2117,7 +2117,9 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
       nodes[i] = (rr_gtk_graph_node_t) {
          .x = routing_node_x(n), .y = routing_node_y(n),
          /* The stable routing path is the bold headline. Receiver/device description occupies the regular-weight line beneath it. */
-         .title = n->id, .subtitle =
+         .title = n->id, .hidden = (!routing_modems_visible &&
+            g_str_has_prefix(n->id,"modem")) || (!routing_effects_visible &&
+            g_str_has_prefix(n->id,"proc.lv2.")), .subtitle =
             lv2_subtitles[i][0] ? lv2_subtitles[i] :
             n->rig[0] ? n->rig :
             g_str_has_prefix(n->id, "modem") ?
@@ -2191,7 +2193,9 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
    for (guint i = 0 ; i < g->node_count ; i++) {
       const rr_ag_view_node_t *node = &g->nodes[i];
 
-      if (!routing_gain_input(node) || !routing_gain_supported(node)) {
+      if ((!routing_modems_visible && g_str_has_prefix(node->id,"modem")) ||
+          (!routing_effects_visible && g_str_has_prefix(node->id,"proc.lv2.")) ||
+          !routing_gain_input(node) || !routing_gain_supported(node)) {
          continue;
       }
       double y0 = routing_node_y(node);
@@ -2280,7 +2284,7 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
    routing_compact_draw(cr);
    routing_effect_draw(cr);
    routing_serial_draw(cr);
-   rr_logic_canvas_draw(cr);
+   if(routing_logic_visible)rr_logic_canvas_draw(cr);
    onair_draw(cr);
    routing_marquee_draw(cr);
 
@@ -5258,7 +5262,7 @@ static gboolean routing_effect_pin_at(double x, double y, routing_effect_port_t 
 }
 
 static void routing_effect_draw(cairo_t *cr) {
-   if (!routing_controls_visible || !routing_effect_blocks) {
+   if (!routing_effects_visible || !routing_effect_blocks) {
       return;
    }
 
@@ -5345,7 +5349,7 @@ static void routing_effect_draw(cairo_t *cr) {
 }
 
 static gboolean routing_effect_press(double x, double y, gboolean dbl) {
-   if (!routing_controls_visible || !routing_effect_blocks) {
+   if (!routing_effects_visible || !routing_effect_blocks) {
       return FALSE;
    }
    routing_effect_port_t port;
@@ -6193,7 +6197,8 @@ static void routing_marquee_update(void) {
       }
    }
 
-   rr_logic_canvas_foreach_block(routing_select_logic_marquee,NULL);
+   if(routing_logic_visible)
+      rr_logic_canvas_foreach_block(routing_select_logic_marquee,NULL);
 
    for (guint i = 0 ; i < routing_serial_count ; i++) {
       const routing_serial_node_t *n = &routing_serial_nodes[i];
@@ -6203,7 +6208,7 @@ static void routing_marquee_update(void) {
       }
    }
 
-   if (routing_controls_visible && routing_effect_blocks) {
+   if (routing_effects_visible && routing_effect_blocks) {
       for (guint i = 0 ; i < routing_effect_blocks->len ; i++) {
          const routing_effect_block_t *b = g_ptr_array_index(routing_effect_blocks, i);
 
@@ -6358,7 +6363,7 @@ static void routing_marquee_draw(cairo_t *cr) {
       }
    }
 
-   if (routing_controls_visible && routing_effect_blocks) {
+   if (routing_effects_visible && routing_effect_blocks) {
       for (guint i = 0 ; i < routing_effect_blocks->len ; i++) {
          const routing_effect_block_t *b = g_ptr_array_index(routing_effect_blocks, i);
 
@@ -6373,7 +6378,8 @@ static void routing_marquee_draw(cairo_t *cr) {
       }
    }
 
-   rr_logic_canvas_foreach_block(routing_draw_logic_selection,cr);
+   if(routing_logic_visible)
+      rr_logic_canvas_foreach_block(routing_draw_logic_selection,cr);
    if (routing_controls_visible && routing_compact_controls) {
       for (guint i=0;i<routing_compact_controls->len;i++) {
          const routing_compact_control_t *c=g_ptr_array_index(routing_compact_controls,i);
@@ -6528,7 +6534,7 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
    if (event->type == GDK_BUTTON_PRESS && event->button == GDK_BUTTON_SECONDARY) {
       double gx,gy;
       if(!graph_pointer(event->x,event->y,&gx,&gy))return FALSE;
-      if(rr_logic_canvas_press(gx,gy,event) ||
+      if((routing_logic_visible && rr_logic_canvas_press(gx,gy,event)) ||
          onair_context_menu(event,gx,gy) ||
          routing_serial_context_menu(event,gx,gy) ||
          routing_lv2_context_menu(event,gx,gy) ||
@@ -6683,7 +6689,7 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
       return TRUE;
    }
    /* The logic canvas owns its own typed ports and block movement. */
-   if (rr_logic_canvas_press(gx,gy,event)) return TRUE;
+   if (routing_logic_visible && rr_logic_canvas_press(gx,gy,event)) return TRUE;
 
    /* Compact controls have their own persistent graph state; a missing live audio snapshot must not prevent moving or editing them. */
    if (!graph_snapshot) {
@@ -6915,7 +6921,7 @@ static gboolean routing_graph_motion(GtkWidget *widget, GdkEventMotion *event, g
 
    {
       double gx, gy;
-      if (graph_pointer(event->x,event->y,&gx,&gy) &&
+      if (routing_logic_visible && graph_pointer(event->x,event->y,&gx,&gy) &&
           rr_logic_canvas_motion(gx,gy,event->state)) {
          graph_canvas_update_size();
          return TRUE;
@@ -7127,7 +7133,7 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
 
    if (event->button == GDK_BUTTON_PRIMARY) {
       double gx,gy;
-      if (graph_pointer(event->x,event->y,&gx,&gy) &&
+      if (routing_logic_visible && graph_pointer(event->x,event->y,&gx,&gy) &&
           rr_logic_canvas_release(gx,gy,
               onair_visible && hypot(gx-onair_x,gy-onair_y-ONAIR_H/2.)<=routing_pin_radius()*2.)) {
          graph_canvas_update_size();
