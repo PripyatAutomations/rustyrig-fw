@@ -1291,6 +1291,13 @@ static gboolean onair_source_position(const char *source, double *x, double *y) 
 
 /* Logic gate outputs are generic boolean sources. ON AIR is only a
  * visual sink; it never keys hardware. */
+/* Preserve the existing ON AIR position helper's 3-argument interface;
+ * the generic logic canvas callback accepts an opaque user pointer. */
+static gboolean routing_logic_source_position(const char *source,
+                                              double *x,double *y,gpointer user) {
+   (void)user;
+   return onair_source_position(source,x,y);
+}
 static void routing_logic_attach_onair(const char *source,gpointer user) {
    (void)user;
    if (!source || !*source) return;
@@ -7360,7 +7367,7 @@ void gtk_audio_graph_present(void) {
       g_object_set_data(G_OBJECT(scroller), "rr-scale-exempt", GINT_TO_POINTER(1));
       gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroller), GTK_POLICY_NEVER, GTK_POLICY_NEVER);
       graph_canvas = gtk_drawing_area_new();
-      rr_logic_canvas_init(onair_source_position,routing_logic_attach_onair,graph_canvas);
+      rr_logic_canvas_init(routing_logic_source_position,routing_logic_attach_onair,graph_canvas);
       gtk_widget_set_can_focus(graph_canvas, TRUE);
       g_signal_connect(graph_canvas, "key-press-event", G_CALLBACK(routing_marks_key), NULL);
       gtk_widget_set_size_request(graph_canvas, 1, 1);
