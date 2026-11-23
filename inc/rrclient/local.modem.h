@@ -49,9 +49,10 @@ typedef struct {
 } rr_local_modem_request_t;
 typedef struct {
    unsigned slot, value;
-   bool running, tx_enabled, stream_active;
+   bool running, tx_enabled, stream_active, tx_on;
    char source[64], engine[16], option[24];
    guint64 drops, received;
+   gint64 tx_started_us; /* Monotonic clock of confirmed key-down; zero in RX */
    char text[RR_LOCAL_MODEM_TEXT];
 } rr_local_modem_entry_t;
 typedef struct {
