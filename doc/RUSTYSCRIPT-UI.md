@@ -90,7 +90,7 @@ widget to a container. Supported GTK3 types:
 - Display: `label`, `readonly` (scrollable multiline text),
   `progress` (0–100 percentage), `irc-preview` (colorized .mac artwork).
 - Input: `button`, `entry`, `password`, `multiline`, `check`
-  (checkbox), `switch`, `slider`, `spin`, `combo`, `color`,
+  (checkbox), `switch`, `slider`, `spin`, `knob`, `combo`, `color`,
   `file` (file chooser), `folder` (directory chooser).
 - File/room selectors: `filelist` uses RustyRig's reusable local file browser;
   its initial value is the root directory, optionally followed by `|suffix`
@@ -99,12 +99,30 @@ widget to a container. Supported GTK3 types:
   `roomlist` enumerates open conversation tabs, including private queries,
   and returns the `profile|room` identity rather than a display caption.
 
-Combo options are comma-separated. Slider and spin default to the historical
+Combo options are comma-separated. Slider, spin and knob default to the historical
 0–100 range; optionally pass `"min:max:step:value"` to give them explicit
 bounds (for example `"1:10:1:1"` for lines/sec). `ui.set(id, value)`
 sets numeric, boolean and text controls. For `filelist`, setting a value
 refreshes the list; for `irc-preview`, set a local file path (the content is rendered with IRC indexed and RGB colors);
 for `roomlist`, set `"refresh"` to rescan open tabs.
+
+**Live property bindings.** `ui.bind(id, property)` binds a script-created
+numeric knob, slider or spin control to a whitelisted client property.
+Currently the supported property is `"ui.patchbay.wire-sag"` (0–240).
+Moving the knob persists the new value and immediately redraws the
+Routing and logic patchbay wires; opening the panel reads the current
+value, including edits made in Routing. Unapproved property names fail
+with an explicit runtime error. Example: `doc/examples/scripts/wire-sag.rrs`.
+The script can create this panel in `event script.init` and expose a
+`script("/wires", { ui.show("wires") })` command to reopen it.
+
+**Identifying widget events.** Each `ui.change`, `ui.click`,
+`ui.response` and `ui.close` contains `event.id` (the script-local
+widget or dialog identifier) and `event.kind`. A script should check
+`event.id` before responding, e.g. `if (event.id == "confirm")`.
+The `owner` token scopes delivery to the script VM: another script's
+widget events are not delivered to your handlers even if IDs collide.
+`ui.response` also carries `event.answer` and `event.accepted`.
 
 `ui.show(id)`, `ui.hide(id)`, and `ui.destroy(id)` change visibility or
 ownership. Closing a script-created floating panel hides it and emits
