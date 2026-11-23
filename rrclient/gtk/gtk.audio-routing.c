@@ -19,6 +19,7 @@
 #include "gtk.floating-panel.h"
 #include "gtk.serial.h"
 #include "gtk.control-graph.h"
+#include "gtk.server-routing.h"
 #include "gtk.pipeline-editor.h"
 #ifdef RR_HAVE_GSTREAMER
 #include <gst/gst.h>
@@ -7408,6 +7409,7 @@ void gtk_audio_graph_present(void) {
          g_object_unref(css);
       }
       gtk_notebook_append_page(GTK_NOTEBOOK(audio_tabs), routing_page, gtk_label_new("Routing"));
+      gtk_notebook_append_page(GTK_NOTEBOOK(audio_tabs), gtk_server_routing_page(), gtk_label_new("Server Routing"));
       gtk_notebook_append_page(GTK_NOTEBOOK(audio_tabs), pipeline_page_new(), gtk_label_new("Pipelines"));
       GtkWidget *profiles = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
       graph_profiles = gtk_combo_box_text_new_with_entry();
