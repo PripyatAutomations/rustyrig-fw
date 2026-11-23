@@ -62,17 +62,35 @@ static void placement(gate_view_t *b) {
    b->y=CLAMP(place_y-RR_GTK_GRAPH_NODE_H/2.,0.,100000.);
    place_pending=FALSE;
 }
-static double input_x(const gate_view_t *b) {
-   if (b->constant) return b->x;
-   return b->x+RR_GTK_GRAPH_NODE_W*
-      (b->kind==RR_GATE_OR || b->kind==RR_GATE_XOR ||
-       b->kind==RR_GATE_NOR || b->kind==RR_GATE_XNOR ? .31 : .22);
+/* These positions follow the actual Cairo gate silhouettes rather than
+ * the containing layout cell. For OR-family gates the recessed input
+ * boundary curves as Y changes. Inverter outputs follow their bubble. */
+static double input_x(const gate_view_t *b,unsigned pin) {
+   if(b->constant)return b->x;
+   const gboolean curved=b->kind==RR_GATE_OR || b->kind==RR_GATE_XOR ||
+      b->kind==RR_GATE_NOR || b->kind==RR_GATE_XNOR;
+   double fraction=.22;
+   if(curved) {
+      double py=b->inputs==1?56.:20.+72.*pin/(b->inputs-1);
+      double t=CLAMP((py-RR_GTK_GRAPH_NODE_H*.10)/
+                       (RR_GTK_GRAPH_NODE_H*.80),0.,1.);
+      fraction=.23+.12*sin(G_PI*t);
+   } else if(b->kind==RR_GATE_NOT)fraction=.24;
+   return b->x+RR_GTK_GRAPH_NODE_W*fraction;
 }
 static double output_x(const gate_view_t *b) {
-   return b->x+RR_GTK_GRAPH_NODE_W*
-      (b->constant ? .91 :
-       b->kind==RR_GATE_OR || b->kind==RR_GATE_XOR ||
-       b->kind==RR_GATE_NOR || b->kind==RR_GATE_XNOR ? .86 : .88);
+   double fraction=.76;
+   if(b->constant)fraction=.91;
+   else switch(b->kind) {
+      case RR_GATE_AND: fraction=.48+
+         (RR_GTK_GRAPH_NODE_H*.40)/RR_GTK_GRAPH_NODE_W;break;
+      case RR_GATE_NAND:fraction=.78+5.8/RR_GTK_GRAPH_NODE_W;break;
+      case RR_GATE_OR:case RR_GATE_XOR:fraction=.86;break;
+      case RR_GATE_NOR:case RR_GATE_XNOR:fraction=.90+5.8/RR_GTK_GRAPH_NODE_W;break;
+      case RR_GATE_NOT:fraction=.84+5.8/RR_GTK_GRAPH_NODE_W;break;
+      default:break;
+   }
+   return b->x+RR_GTK_GRAPH_NODE_W*fraction;
 }
 
 static void changed(void) {
@@ -106,7 +124,7 @@ static gboolean pin_hit(double x,double y,gate_view_t **target,unsigned *pin) {
    for (unsigned i=0;i<block_count;i++) {
       gate_view_t *b=&blocks[i];
       for (unsigned p=0;p<b->inputs;p++) {
-         double d=hypot(x-input_x(b),y-pin_y(b,p));
+         double d=hypot(x-input_x(b,p),y-pin_y(b,p));
          if (d<best) { best=d; *target=b; *pin=p; found=TRUE; }
       }
    }
@@ -300,7 +318,7 @@ void rr_logic_canvas_draw(cairo_t *cr) {
       if (!rr_logic_canvas_output_position(w->from,&sx,&sy) &&
           (!source_position ||
            !source_position(w->from,&sx,&sy,callback_user))) continue;
-      double dx=input_x(dest),dy=pin_y(dest,w->pin),mx=(sx+dx)/2.;
+      double dx=input_x(dest,w->pin),dy=pin_y(dest,w->pin),mx=(sx+dx)/2.;
       cairo_new_path(cr);
       cairo_set_source_rgb(cr,.96,.20,.20);
       cairo_set_line_width(cr,2.3);
@@ -313,7 +331,7 @@ void rr_logic_canvas_draw(cairo_t *cr) {
       if (reverse_drag) {
          gate_view_t *dest=find_gate(reverse_to);
          if (!dest) goto skip_preview;
-         dx=input_x(dest);dy=pin_y(dest,reverse_pin);
+         dx=input_x(dest,reverse_pin);dy=pin_y(dest,reverse_pin);
       } else if (!rr_logic_canvas_output_position(drag_from,&sx,&sy) &&
                  (!source_position || !source_position(drag_from,&sx,&sy,callback_user)))
          goto skip_preview;
@@ -336,7 +354,7 @@ skip_preview:;
       char names[32][8];
       for(unsigned j=0;j<b->inputs;j++) {
          g_snprintf(names[j],sizeof(names[j]),"%c",j<26?'A'+j:'a'+(j-26));
-         ports[j]=(rr_gtk_graph_port_t){names[j],RR_GTK_GRAPH_SIGNAL_BOOLEAN,FALSE,input_x(b)-b->x,
+         ports[j]=(rr_gtk_graph_port_t){names[j],RR_GTK_GRAPH_SIGNAL_BOOLEAN,FALSE,input_x(b,j)-b->x,
                      pin_y(b,j)-b->y};
       }
       ports[b->inputs]=(rr_gtk_graph_port_t){"OUT",RR_GTK_GRAPH_SIGNAL_BOOLEAN,TRUE,
@@ -350,7 +368,7 @@ skip_preview:;
       cairo_set_source_rgb(cr,.96,.20,.20);
       cairo_set_font_size(cr,10.);
       for(unsigned j=0;j<b->inputs;j++) {
-         double px=input_x(b),py=pin_y(b,j);
+         double px=input_x(b,j),py=pin_y(b,j);
          cairo_text_extents_t ext;
          cairo_text_extents(cr,names[j],&ext);
          cairo_move_to(cr,px-12.-ext.width,py+3.);
@@ -506,7 +524,7 @@ static double wire_distance(double x,double y,const wire_view_t *w) {
    if(!rr_logic_canvas_output_position(w->from,&sx,&sy) &&
       (!source_position || !source_position(w->from,&sx,&sy,callback_user)))
       return G_MAXDOUBLE;
-   const double dx=input_x(dst),dy=pin_y(dst,w->pin);
+   const double dx=input_x(dst,w->pin),dy=pin_y(dst,w->pin);
    const double mx=(sx+dx)/2.;
    double best=G_MAXDOUBLE,last_x=sx,last_y=sy;
    for(unsigned step=1;step<=32;step++) {
@@ -604,7 +622,7 @@ gboolean rr_logic_canvas_press(double x,double y,GdkEventButton *event) {
          return TRUE;
       }
       for (unsigned pin=0;pin<b->inputs;pin++)
-         if (hypot(x-input_x(b),y-pin_y(b,pin))<connection_snap_radius) {
+         if (hypot(x-input_x(b,pin),y-pin_y(b,pin))<connection_snap_radius) {
             drag_wire=i;
             reverse_drag=TRUE;
             reverse_pin=pin;
