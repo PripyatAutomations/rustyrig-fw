@@ -43,6 +43,14 @@ before releasing PTT, and **Abort** cancels the waveform and releases it
 immediately. The worker accepts `START`, bounded hex-encoded `DATAHEX`
 and `END` messages in addition to the existing `TX <message>` protocol.
 
+The top-right TX elapsed timer turns **red** as soon as the core has
+scheduled the final PTT unkey delay after worker `TX_DONE` (currently
+750 ms). It also warns in red during the last 15 seconds of the core's
+finite TX safety timeout. Both deadlines are published in the regular
+modem snapshot; the UI does not infer them from whether the text entry
+looks empty. The tooltip shows the remaining release/watchdog time.
+After PTT release, the timer resets to normal RX appearance.
+
 The terminal's top-right **TX MM:SS** indicator is computed from the core
 monotonic timestamp set after confirmed PTT authorization; it continues
 through drain and clears on release. Snapshot updates are requested once
