@@ -1902,6 +1902,7 @@ static gboolean routing_drag_target(double x, double y, gint *source_index, doub
       return FALSE;
    }
    const rr_ag_view_node_t *origin_node = &graph_snapshot->nodes[origin];
+   if(!routing_pcm_node_visible(origin_node))return FALSE;
    unsigned modem_slot = 0;
    gboolean from_modem = graph_drag_mixer && routing_modem_slot(origin_node, &modem_slot);
    gboolean from_lv2 = !graph_drag_mixer && g_str_has_prefix(origin_node->id, "proc.lv2.");
@@ -1928,7 +1929,7 @@ static gboolean routing_drag_target(double x, double y, gint *source_index, doub
    for (guint i = 0 ; i < graph_snapshot->node_count ; i++) {
       const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
 
-      if (graph_missing_since[i]) {
+      if (graph_missing_since[i] || !routing_pcm_node_visible(n)) {
          continue;
       }
       unsigned target_slot = 0;
@@ -2756,7 +2757,7 @@ static gboolean routing_common_block_menu(GdkEventButton *event, double x, doubl
    for (gint i = (gint) graph_snapshot->node_count - 1 ; i >= 0 ; i--) {
       const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
 
-      if (graph_missing_since[i]) {
+      if (graph_missing_since[i] || !routing_pcm_node_visible(n)) {
          continue;
       }
       double nx = routing_node_x(n), ny = routing_node_y(n);
@@ -5830,6 +5831,7 @@ static gboolean graph_gain_at(double x, double y, gint *source, gint *channel, g
 
    for (guint i = 0 ; i < graph_snapshot->node_count ; i++) {
       const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
+      if(!routing_pcm_node_visible(n))continue;
       double left = 0., y0 = routing_node_y(n);
 
       if (routing_gain_input(n)) {
