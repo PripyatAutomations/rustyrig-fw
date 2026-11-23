@@ -314,7 +314,7 @@ static rrs_value_t *script_gui_native(rrs_vm_t *vm,int argc,
    if(action==RR_GUI_DIALOG && argc>=3)action=RR_GUI_MESSAGE;
    int wanted=(action==RR_GUI_PANEL||action==RR_GUI_DIALOG||action==RR_GUI_UTILITY)?2:
               action==RR_GUI_MESSAGE?3:
-              action==RR_GUI_ADD?4:action==RR_GUI_SET?2:1;
+              action==RR_GUI_ADD?4:(action==RR_GUI_SET||action==RR_GUI_BIND)?2:1;
    if(argc!=wanted && !(action==RR_GUI_ADD && argc==5) &&
       !(action==RR_GUI_MESSAGE && argc==4)) {
       rrs_vm_raise(vm,"GUI arguments: panel/dialog(id,title), message(id,title,text[,ok|yesno]), add(parent,type,id,label[,value]), set(id,value), show/hide/destroy(id)");
@@ -325,6 +325,11 @@ static rrs_value_t *script_gui_native(rrs_vm_t *vm,int argc,
          rrs_vm_raise(vm,"GUI arguments must be strings (set also accepts numbers and booleans)");
          return NULL;
       }
+   }
+   if(action==RR_GUI_BIND &&
+      strcmp(rrs_value_string(argv[1]),"ui.patchbay.wire-sag")) {
+      rrs_vm_raise(vm,"ui.bind currently supports ui.patchbay.wire-sag only");
+      return NULL;
    }
    const rr_frontend_ops_t *frontend=frontend_ops();
    if(!frontend || !frontend->script_gui_available || !frontend->script_gui_available()) {
@@ -373,7 +378,7 @@ static rrs_value_t *script_gui_native(rrs_vm_t *vm,int argc,
          !g_strcmp0(command.kind,"entry")||!g_strcmp0(command.kind,"password")||
          !g_strcmp0(command.kind,"multiline")||!g_strcmp0(command.kind,"readonly")||
          !g_strcmp0(command.kind,"color")||!g_strcmp0(command.kind,"slider")||
-         !g_strcmp0(command.kind,"spin")||!g_strcmp0(command.kind,"combo")) {
+         !g_strcmp0(command.kind,"spin")||!g_strcmp0(command.kind,"knob")||!g_strcmp0(command.kind,"combo")) {
          if(!strcmp(command.kind,"combo")) {
             char *comma=strchr(command.value,',');
             char *choice=comma?g_strndup(command.value,comma-command.value):g_strdup(command.value);
@@ -381,6 +386,8 @@ static rrs_value_t *script_gui_native(rrs_vm_t *vm,int argc,
             g_free(choice);
          } else script_gui_save(command.owner,command.id,command.kind,command.value);
       }
+   } else if(action==RR_GUI_BIND) {
+      g_strlcpy(command.value,rrs_value_string(argv[1]),sizeof(command.value));
    } else if(action==RR_GUI_SET) {
       switch(rrs_value_type(argv[1])) {
          case RRS_STRING:
@@ -439,6 +446,7 @@ static bool register_gui_api(rrs_vm_t *vm) {
       rrs_vm_register_native(vm,"ui.hide",script_gui_native,GINT_TO_POINTER(RR_GUI_HIDE)) &&
       rrs_vm_register_native(vm,"ui.destroy",script_gui_native,GINT_TO_POINTER(RR_GUI_DESTROY)) &&
       rrs_vm_register_native(vm,"ui.set",script_gui_native,GINT_TO_POINTER(RR_GUI_SET)) &&
+      rrs_vm_register_native(vm,"ui.bind",script_gui_native,GINT_TO_POINTER(RR_GUI_BIND)) &&
       rrs_vm_register_native(vm,"ui.val",script_gui_value,NULL) &&
       rrs_vm_register_native(vm,"gui.panel",script_gui_native,GINT_TO_POINTER(RR_GUI_PANEL)) &&
       rrs_vm_register_native(vm,"gui.dialog",script_gui_native,GINT_TO_POINTER(RR_GUI_DIALOG)) &&
