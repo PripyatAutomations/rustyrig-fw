@@ -1439,6 +1439,8 @@ static void onair_menu_action(GtkMenuItem *item, gpointer unused) {
       onair_scale = CLAMP(onair_scale * 1.25, .5, 4.);
    } else if (action == 3) {
       onair_scale = CLAMP(onair_scale / 1.25, .5, 4.);
+   } else if (action == 5) {
+      ptt_visible = FALSE; /* GUI source only; never toggles transmitter PTT */
    } else if (action == 4) {
       onair_visible = FALSE;
       onair_connected = FALSE;
@@ -1458,12 +1460,21 @@ static void onair_menu_action(GtkMenuItem *item, gpointer unused) {
 }
 
 static gboolean onair_context_menu(GdkEventButton *event, double x, double y) {
-   if (!onair_hit(x, y)) {
-      return FALSE;
-   }
+   gint which=onair_hit(x,y);
+   if (!which) return FALSE;
    GtkWidget *menu = gtk_menu_new();
+   if (which==2) {
+      GtkWidget *remove=gtk_menu_item_new_with_label("Remove local PTT display");
+      g_object_set_data(G_OBJECT(remove),"onair-action",GUINT_TO_POINTER(5));
+      g_signal_connect(remove,"activate",G_CALLBACK(onair_menu_action),NULL);
+      gtk_menu_shell_append(GTK_MENU_SHELL(menu),remove);
+      g_signal_connect_swapped(menu,"selection-done",G_CALLBACK(gtk_widget_destroy),menu);
+      gtk_widget_show_all(menu);
+      gtk_menu_popup_at_pointer(GTK_MENU(menu),(GdkEvent *)event);
+      return TRUE;
+   }
    const char *labels[] = {
-      "Disconnect PTT wire", "Make larger", "Make smaller", "Remove ON AIR"
+      "Disconnect boolean wire", "Make larger", "Make smaller", "Remove ON AIR"
    };
 
    for (unsigned i = 0 ; i < G_N_ELEMENTS(labels) ; i++) {
