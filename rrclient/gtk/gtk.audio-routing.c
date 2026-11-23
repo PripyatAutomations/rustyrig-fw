@@ -7655,6 +7655,32 @@ void gtk_audio_graph_toggle(void) {
    gtk_audio_graph_present();
 }
 
+extern void gtk_script_gui_patchbay_update(void);
+GtkOverlay *gtk_audio_graph_patchbay_overlay(void) {
+   return GTK_IS_OVERLAY(graph_page) ? GTK_OVERLAY(graph_page) : NULL;
+}
+gboolean gtk_audio_graph_patchbay_active(void) {
+   if(!GTK_IS_NOTEBOOK(main_notebook) || !GTK_IS_NOTEBOOK(audio_tabs) || !graph_page)
+      return FALSE;
+   GtkNotebook *main=GTK_NOTEBOOK(main_notebook);
+   if(gtk_notebook_get_nth_page(main,gtk_notebook_get_current_page(main))!=graph_page)
+      return FALSE;
+   gint subpage=gtk_notebook_get_current_page(GTK_NOTEBOOK(audio_tabs));
+   return subpage==0 || subpage==1;
+}
+static void patchbay_subpage_changed(GtkNotebook *book,GtkWidget *page,guint index,gpointer user) {
+   (void)book;(void)page;(void)index;(void)user;
+   gtk_script_gui_patchbay_update();
+}
+void gtk_audio_graph_present_patchbay(void) {
+   gtk_audio_graph_present();
+   if(GTK_IS_NOTEBOOK(audio_tabs)) {
+      gint index=gtk_notebook_get_current_page(GTK_NOTEBOOK(audio_tabs));
+      if(index!=0 && index!=1)
+         gtk_notebook_set_current_page(GTK_NOTEBOOK(audio_tabs),0);
+   }
+   gtk_script_gui_patchbay_update();
+}
 void gtk_audio_graph_present(void) {
    if (!GTK_IS_NOTEBOOK(main_notebook)) {
       return;
@@ -7662,16 +7688,20 @@ void gtk_audio_graph_present(void) {
    GtkNotebook *book = GTK_NOTEBOOK(main_notebook);
 
    if (!graph_page) {
-      graph_page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+      /* Graph page is the actual root for patchbay-scoped script panels. */
+      graph_page = gtk_overlay_new();
       gtk_widget_set_hexpand(graph_page, TRUE);
       gtk_widget_set_vexpand(graph_page, TRUE);
+      GtkWidget *graph_content=gtk_box_new(GTK_ORIENTATION_VERTICAL,0);
+      gtk_container_add(GTK_CONTAINER(graph_page),graph_content);
       g_object_set_data(G_OBJECT(graph_page), "rr-tab-hidden", GINT_TO_POINTER(1));
       GtkWidget *label = gtk_label_new("Routing");
       gtk_notebook_append_page(book, graph_page, label);
       gtk_widget_set_no_show_all(label, TRUE);
       gtk_widget_hide(label);
       audio_tabs = gtk_notebook_new();
-      gtk_box_pack_start(GTK_BOX(graph_page), audio_tabs, TRUE, TRUE, 0);
+      gtk_box_pack_start(GTK_BOX(graph_content), audio_tabs, TRUE, TRUE, 0);
+      g_signal_connect(audio_tabs,"switch-page",G_CALLBACK(patchbay_subpage_changed),NULL);
       GtkWidget *routing_page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 1);
       gtk_style_context_add_class(gtk_widget_get_style_context(routing_page), "rr-routing-page");
       static gboolean routing_css_installed = FALSE;
@@ -7898,6 +7928,7 @@ void gtk_audio_graph_present(void) {
    }
    gtk_widget_show_all(graph_page);
    gtk_notebook_set_current_page(book, gtk_notebook_page_num(book, graph_page));
+   gtk_script_gui_patchbay_update();
 
    if (!onair_restored) {
       onair_restore();
