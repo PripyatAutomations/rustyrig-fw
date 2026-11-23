@@ -53,7 +53,7 @@ typedef struct {
 typedef struct {
    double x, y;
    const char *title, *subtitle, *detail;
-   gboolean selected, failed, stale, bypass_pins;
+   gboolean selected, failed, stale, bypass_pins, hidden; /* View-only filtering. */
    gboolean stereo_pins, fwdsp, gain_pins;
    gboolean ptt_pin, ptt_input; /* Digital control pins, distinct from PCM. */
    gboolean cos_pin, cos_input; /* Yellow COS outputs and compatible control inputs. */
