@@ -6337,6 +6337,11 @@ static GtkWidget *routing_add_subitem(GtkWidget *menu,const char *label,const ch
    gtk_menu_shell_append(GTK_MENU_SHELL(menu),item);
    return item;
 }
+static void routing_canvas_add_menu_done(GtkWidget *menu,gpointer unused) {
+   (void)unused;
+   routing_create_at_cursor=FALSE;
+   gtk_widget_destroy(menu);
+}
 static gboolean routing_canvas_add_menu(GdkEventButton *event,double x,double y) {
    if(!event)return FALSE;
    routing_create_x=x;routing_create_y=y;
@@ -6365,7 +6370,8 @@ static gboolean routing_canvas_add_menu(GdkEventButton *event,double x,double y)
    gtk_menu_shell_append(GTK_MENU_SHELL(submenu),gate_item);
    gtk_menu_item_set_submenu(GTK_MENU_ITEM(add),submenu);
    gtk_menu_shell_append(GTK_MENU_SHELL(menu),add);
-   g_signal_connect_swapped(menu,"selection-done",G_CALLBACK(gtk_widget_destroy),menu);
+   g_signal_connect(menu,"selection-done",
+                    G_CALLBACK(routing_canvas_add_menu_done),NULL);
    gtk_widget_show_all(menu);
    routing_create_at_cursor=TRUE;
    gtk_menu_popup_at_pointer(GTK_MENU(menu),(GdkEvent *)event);
