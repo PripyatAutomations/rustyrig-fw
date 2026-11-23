@@ -28,6 +28,8 @@ void rr_floating_panel_set_closable(RRFloatPanel *panel, gboolean closable);
 void rr_floating_panel_set_minimizable(RRFloatPanel *panel, gboolean minimizable);
 /* Utility windows remain in the floating overlay above the workspace. */
 void rr_floating_panel_set_floating_only(RRFloatPanel *panel);
+/* Rehome script panels inside a workspace overlay (not the global overlay). */
+gboolean rr_floating_panel_root_overlay(RRFloatPanel *panel, GtkOverlay *overlay);
 void rr_floating_panel_set_resizable(RRFloatPanel *panel, gboolean resizable);
 /* Follow the controls' natural size; zoom only, never manual border resizing. */
 void rr_floating_panel_set_content_sized(RRFloatPanel *panel);
