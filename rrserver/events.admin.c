@@ -1241,6 +1241,7 @@ static void handle_script_admin(rrconn_t *client,dict *request,const char *actio
 }
 #endif
 
+#ifdef USE_SQLITE
 /* Server Routing v1 stores a revisioned, validated graph configuration.
  * The configuration is intentionally INERT: no script, audio patch or PTT
  * output is applied by receiving, editing or saving a workspace snapshot. */
@@ -1333,6 +1334,8 @@ static void admin_routing_config(rrconn_t *client,dict *request,const char *acti
    }
    g_free(existing);
 }
+
+#endif /* USE_SQLITE */
 
 static void rrserver_handle_admin_cmd(const char *event, const char *data, rrconn_t *client, void *user) {
    (void)event;
