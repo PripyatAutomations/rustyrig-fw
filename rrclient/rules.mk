@@ -38,6 +38,7 @@ rrclient_objs += audio.engine.o
 rrclient_objs += audio.graph.o # GTK-free logical routing and bypass policies
 rrclient_objs += audio.logic.o # Boolean control signal gates (PTT/COS/etc are ordinary bool signals)
 rrclient_objs += control.graph.o # Typed, bounded boolean routing topology
+rrclient_objs += control.graph.codec.o # Shared profile/import validation
 rrclient_objs += cat.o
 rrclient_objs += cat.kpa500.o
 rrclient_objs += cat.pty.o		# PTY CAT interface (./dev/ttyCAT0)
