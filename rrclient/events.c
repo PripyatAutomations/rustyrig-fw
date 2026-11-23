@@ -1295,7 +1295,8 @@ static void rrclient_handle_admin_command_request(const char *event, const char 
 
          if (!strncmp(command, "group-", 6) || !strncmp(command, "privset-", 8) || !strncmp(command, "resource-", 9) ||
             !strcmp(command, "rig-access") || !strcmp(command, "room-access") || !strcmp(command, "user-edit") ||
-            !strcmp(command, "room-remove") || !strcmp(command, "session-kick") || !strcmp(command, "session-kick-all") || access_action) {
+            !strcmp(command, "room-remove") || !strcmp(command, "session-kick") || !strcmp(command, "session-kick-all") ||
+            !strcmp(command,"routing-get") || !strcmp(command,"routing-put") || access_action) {
             dict_add(message, "talk.action", command);
             dict_add(message, "talk.cmd", "admin");
          } else {
