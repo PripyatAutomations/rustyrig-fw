@@ -69,7 +69,7 @@ static void routing_effect_bounds(double *width, double *height);
 static gboolean routing_effect_press(double x, double y, gboolean dbl);
 static gboolean routing_effect_motion(double x, double y);
 static gboolean routing_effect_release(void);
-static void routing_visibility_toggled(GtkCheckMenuItem *item, gpointer kind);
+
 /* Preserve display order through transient disconnects. Only GTK owns this history: the core graph and audio routing never contain retired nodes. */
 #define GRAPH_GHOST_US (15 * G_USEC_PER_SEC)
 static gint64 graph_missing_since[RR_AUDIO_GRAPH_MAX_NODES];
@@ -81,6 +81,8 @@ static double graph_scale = 1.0, graph_offset_x, graph_offset_y;
 static double graph_pan_x, graph_pan_y;
 
 static void graph_canvas_update_size(void);
+static void routing_snap_checkbox_toggled(GtkToggleButton *button,gpointer unused);
+static void routing_visibility_checkbox_toggled(GtkToggleButton *toggle,gpointer kind);
 /* Reusable annotation layer: viewport transformations stay with the host. */
 static RRMarks *routing_marks;
 static void routing_marks_save(void) {
@@ -470,11 +472,7 @@ static void routing_graph_clear_selection(void) {
 #define GRAPH_SNAP_STEP 20.0
 #define GRAPH_SNAP_KEY "audio.graph.snap-grid"
 static gboolean graph_snap_enabled;
-static void routing_snap_toggled(GtkCheckMenuItem *button, gpointer unused) {
-   (void)unused;
-   graph_snap_enabled = gtk_check_menu_item_get_active(button);
-   rrclient_database_setting_set(GRAPH_SNAP_KEY, graph_snap_enabled ? "true" : "false");
-}
+
 
 static double routing_snap_coordinate(double value) {
    return CLAMP(GRAPH_LAYOUT_MARGIN + round((value - GRAPH_LAYOUT_MARGIN) / GRAPH_SNAP_STEP) * GRAPH_SNAP_STEP, 0., 100000.);
@@ -4473,8 +4471,15 @@ enum {
    ROUTING_VISIBLE_MODEMS,
    ROUTING_VISIBLE_LOGIC
 };
-static void routing_visibility_toggled(GtkCheckMenuItem *item,gpointer kind) {
-   gboolean visible=gtk_check_menu_item_get_active(item);
+
+static gboolean routing_saved_visible(const char *key) {
+   char *saved=rrclient_database_setting_get(key);
+   gboolean visible=!saved || strcmp(saved,"false");
+   g_free(saved);
+   return visible;
+}
+static void routing_visibility_checkbox_toggled(GtkToggleButton *toggle,gpointer kind) {
+   gboolean visible=gtk_toggle_button_get_active(toggle);
    const char *key=NULL;
    switch(GPOINTER_TO_INT(kind)) {
       case ROUTING_VISIBLE_CONTROLS:
@@ -4490,19 +4495,10 @@ static void routing_visibility_toggled(GtkCheckMenuItem *item,gpointer kind) {
    rrclient_database_setting_set(key,visible?"true":"false");
    graph_canvas_update_size();
 }
-static gboolean routing_saved_visible(const char *key) {
-   char *saved=rrclient_database_setting_get(key);
-   gboolean visible=!saved || strcmp(saved,"false");
-   g_free(saved);
-   return visible;
-}
-static GtkWidget *routing_visibility_menu_item(const char *label,
-                                                gboolean active,gint kind) {
-   GtkWidget *item=gtk_check_menu_item_new_with_label(label);
-   gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(item),active);
-   g_signal_connect(item,"toggled",G_CALLBACK(routing_visibility_toggled),
-                    GINT_TO_POINTER(kind));
-   return item;
+static void routing_snap_checkbox_toggled(GtkToggleButton *button,gpointer unused) {
+   (void)unused;
+   graph_snap_enabled=gtk_toggle_button_get_active(button);
+   rrclient_database_setting_set(GRAPH_SNAP_KEY,graph_snap_enabled?"true":"false");
 }
 
 /* Controls are neutral diamonds, not PCM nodes. Green sockets and dashed green wires identify parameter signals exclusively. */
@@ -7803,18 +7799,32 @@ void gtk_audio_graph_present(void) {
       gtk_widget_set_tooltip_text(auto_layout, "Auto-arrange by wire topology in non-overlapping, wrapped columns; reset saved positions");
       g_signal_connect(auto_layout, "clicked", G_CALLBACK(routing_auto_layout_clicked), NULL);
       gtk_flow_box_insert(GTK_FLOW_BOX(tools), auto_layout, -1);
-      GtkWidget *snap_grid = gtk_check_button_new_with_label("Snap");
-      char *saved_snap = rrclient_database_setting_get(GRAPH_SNAP_KEY);
-      graph_snap_enabled = saved_snap && (!g_ascii_strcasecmp(saved_snap, "true") || !strcmp(saved_snap, "1"));
+      /* Advanced graph appearance controls belong in one compact gear.
+       * The popup retains native keyboard/touch controls and the old keys. */
+      char *saved_snap=rrclient_database_setting_get(GRAPH_SNAP_KEY);
+      graph_snap_enabled=saved_snap &&
+         (!g_ascii_strcasecmp(saved_snap,"true") || !strcmp(saved_snap,"1"));
       g_free(saved_snap);
-      gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(snap_grid), graph_snap_enabled);
-      gtk_widget_set_tooltip_text(snap_grid, "Align moved blocks to a 20-pixel grid; hold Shift while dragging to move freely");
-      g_signal_connect(snap_grid, "toggled", G_CALLBACK(routing_snap_toggled), NULL);
-      gtk_flow_box_insert(GTK_FLOW_BOX(tools), snap_grid, -1);
+      routing_controls_visible=routing_saved_visible("audio.graph.show-controls");
+      routing_effects_visible=routing_saved_visible("audio.graph.show-effects");
+      routing_modems_visible=routing_saved_visible("audio.graph.show-modems");
+      routing_logic_visible=routing_saved_visible("audio.graph.show-logic");
+
+      GtkWidget *gear=gtk_menu_button_new();
+      GtkWidget *gear_icon=gtk_image_new_from_icon_name("emblem-system-symbolic",
+                                                        GTK_ICON_SIZE_BUTTON);
+      gtk_button_set_image(GTK_BUTTON(gear),gear_icon);
+      gtk_widget_set_tooltip_text(gear,"Patchbay settings, snapping and block visibility");
+      GtkWidget *settings=gtk_popover_new(gear);
+      GtkWidget *settings_box=gtk_box_new(GTK_ORIENTATION_VERTICAL,4);
+      gtk_container_set_border_width(GTK_CONTAINER(settings_box),6);
+      GtkWidget *settings_grid=gtk_grid_new();
+      gtk_grid_set_row_spacing(GTK_GRID(settings_grid),3);
+      gtk_grid_set_column_spacing(GTK_GRID(settings_grid),6);
       GtkWidget *connection_label=gtk_label_new("Connect");
       gtk_widget_set_tooltip_text(connection_label,
          "Connection snap tolerance, 0.5× precise to 3× loose");
-      gtk_flow_box_insert(GTK_FLOW_BOX(tools),connection_label,-1);
+      gtk_grid_attach(GTK_GRID(settings_grid),connection_label,0,0,1,1);
       GtkWidget *connection_loose=gtk_spin_button_new_with_range(.5,3.,.25);
       gtk_spin_button_set_digits(GTK_SPIN_BUTTON(connection_loose),2);
       char *saved_loose=rrclient_database_setting_get(GRAPH_CONNECTION_LOOSENESS_KEY);
@@ -7827,10 +7837,11 @@ void gtk_audio_graph_present(void) {
          "How close a dragged wire must be to a compatible pin (× normal snap distance)");
       g_signal_connect(connection_loose,"value-changed",
                        G_CALLBACK(routing_connection_looseness_changed),NULL);
-      gtk_flow_box_insert(GTK_FLOW_BOX(tools),connection_loose,-1);
+      gtk_grid_attach(GTK_GRID(settings_grid),connection_loose,1,0,1,1);
+
       GtkWidget *sag_label=gtk_label_new("Wire sag");
       gtk_widget_set_tooltip_text(sag_label,"Downward cable droop in logical canvas pixels");
-      gtk_flow_box_insert(GTK_FLOW_BOX(tools),sag_label,-1);
+      gtk_grid_attach(GTK_GRID(settings_grid),sag_label,0,1,1,1);
       GtkWidget *wire_sag=gtk_spin_button_new_with_range(0.,240.,10.);
       routing_wire_sag_spin=wire_sag;
       g_object_add_weak_pointer(G_OBJECT(wire_sag),(gpointer *)&routing_wire_sag_spin);
@@ -7844,22 +7855,53 @@ void gtk_audio_graph_present(void) {
       sag=CLAMP(sag,0.,240.);
       rr_gtk_graph_set_wire_sag(sag);
       gtk_spin_button_set_value(GTK_SPIN_BUTTON(wire_sag),sag);
-      gtk_widget_set_tooltip_text(wire_sag,"0 = traditional patch cords; increase for Carla-style drooping cables");
+      gtk_widget_set_tooltip_text(wire_sag,
+         "0 = traditional patch cords; increase for Carla-style drooping cables");
       routing_wire_sag_handler=g_signal_connect(wire_sag,"value-changed",
          G_CALLBACK(routing_wire_sag_changed),NULL);
-      gtk_flow_box_insert(GTK_FLOW_BOX(tools),wire_sag,-1);
-      GtkWidget *show_controls = gtk_check_button_new_with_label("Controls");
-      char *show_setting = rrclient_database_setting_get("audio.graph.show-controls");
-      routing_controls_visible = !show_setting || strcmp(show_setting, "false");
-      g_free(show_setting);
-      gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(show_controls), routing_controls_visible);
-      gtk_widget_set_tooltip_text(show_controls, "Show or hide floating controls in Routing");
-      g_signal_connect(show_controls, "toggled", G_CALLBACK(routing_show_controls_toggled), NULL);
-      gtk_flow_box_insert(GTK_FLOW_BOX(tools), show_controls, -1);
-      GtkWidget *hidden_controls = gtk_button_new_with_label("Hidden");
-      gtk_widget_set_tooltip_text(hidden_controls, "Restore hidden floating controls without changing their parameter wiring");
-      g_signal_connect(hidden_controls, "clicked", G_CALLBACK(routing_compact_hidden_menu), NULL);
-      gtk_flow_box_insert(GTK_FLOW_BOX(tools), hidden_controls, -1);
+      gtk_grid_attach(GTK_GRID(settings_grid),wire_sag,1,1,1,1);
+      gtk_box_pack_start(GTK_BOX(settings_box),settings_grid,FALSE,FALSE,0);
+
+      GtkWidget *snap_item=gtk_check_button_new_with_label("Snap to grid");
+      gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(snap_item),graph_snap_enabled);
+      gtk_widget_set_tooltip_text(snap_item,
+         "Align blocks to 20px grid; hold Shift to move freely");
+      g_signal_connect(snap_item,"toggled",G_CALLBACK(routing_snap_checkbox_toggled),NULL);
+      gtk_box_pack_start(GTK_BOX(settings_box),snap_item,FALSE,FALSE,0);
+
+      GtkWidget *visibility_button=gtk_menu_button_new();
+      gtk_button_set_label(GTK_BUTTON(visibility_button),"Hide / Show ▸");
+      GtkWidget *visibility_popover=gtk_popover_new(visibility_button);
+      GtkWidget *visibility_box=gtk_box_new(GTK_ORIENTATION_VERTICAL,2);
+      gtk_container_set_border_width(GTK_CONTAINER(visibility_box),5);
+      GtkWidget *visibility_checks[4];
+      const char *visibility_labels[4]={"Controls","LV2 effects","Modems","Logic gates"};
+      const gboolean visibility_active[4]={
+         routing_controls_visible,routing_effects_visible,
+         routing_modems_visible,routing_logic_visible
+      };
+      for(int idx=0;idx<4;idx++) {
+         GtkWidget *check=gtk_check_button_new_with_label(visibility_labels[idx]);
+         gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check),visibility_active[idx]);
+         g_signal_connect(check,"toggled",G_CALLBACK(routing_visibility_checkbox_toggled),
+                          GINT_TO_POINTER(idx+1));
+         gtk_box_pack_start(GTK_BOX(visibility_box),check,FALSE,FALSE,0);
+         visibility_checks[idx]=check;
+      }
+      (void)visibility_checks;
+      GtkWidget *restore_hidden=gtk_button_new_with_label("Restore hidden controls…");
+      g_signal_connect(restore_hidden,"clicked",
+                       G_CALLBACK(routing_compact_hidden_menu),NULL);
+      gtk_box_pack_start(GTK_BOX(visibility_box),restore_hidden,FALSE,FALSE,0);
+      gtk_container_add(GTK_CONTAINER(visibility_popover),visibility_box);
+      gtk_widget_show_all(visibility_box);
+      gtk_menu_button_set_popover(GTK_MENU_BUTTON(visibility_button),visibility_popover);
+      gtk_box_pack_start(GTK_BOX(settings_box),visibility_button,FALSE,FALSE,0);
+
+      gtk_container_add(GTK_CONTAINER(settings),settings_box);
+      gtk_widget_show_all(settings_box);
+      gtk_menu_button_set_popover(GTK_MENU_BUTTON(gear),settings);
+      gtk_flow_box_insert(GTK_FLOW_BOX(tools),gear,-1);
       GtkWidget *pin_control = gtk_button_new_with_label("+ Control");
       gtk_widget_set_tooltip_text(pin_control, "Add gain controls, ON AIR indicators, logic gates, or TRUE/FALSE sources");
       g_signal_connect(pin_control, "clicked", G_CALLBACK(routing_compact_create), NULL);
