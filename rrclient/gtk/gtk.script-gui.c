@@ -515,7 +515,7 @@ static void script_gui_add(const rr_script_gui_command_t *cmd) {
       double lo,hi,step,value;
       script_control_range(cmd->value,&lo,&hi,&step,&value);
       w=gtk_drawing_area_new();
-      gtk_widget_set_size_request(w,92,108);
+      gtk_widget_set_size_request(w,72,86);
       script_knob_t *knob=g_new0(script_knob_t,1);
       knob->adjustment=GTK_ADJUSTMENT(g_object_ref_sink(
          gtk_adjustment_new(value,lo,hi,step,step*10.,0.)));
@@ -575,7 +575,7 @@ static void script_gui_add(const rr_script_gui_command_t *cmd) {
    else if(GTK_IS_COMBO_BOX(w))g_signal_connect(w,"changed",G_CALLBACK(widget_changed),entry);
    gboolean grow=!strcmp(cmd->kind,"filelist") ||
       !strcmp(cmd->kind,"irc-preview");
-   gtk_box_pack_start(GTK_BOX(box),packing?packing:w,grow,grow,3);
+   gtk_box_pack_start(GTK_BOX(box),packing?packing:w,grow,grow,1);
    /* A file browser/preview must be allowed to grow through its containing
     * row and column. Ordinary toolbar rows remain compact. */
    if(grow) {
@@ -595,11 +595,21 @@ static void script_tighten(GtkWidget *widget) {
    gtk_widget_set_margin_end(widget,0);
    gtk_widget_set_margin_top(widget,0);
    gtk_widget_set_margin_bottom(widget,0);
-   if(GTK_IS_BOX(widget))gtk_box_set_spacing(GTK_BOX(widget),2);
+   if(GTK_IS_BOX(widget))gtk_box_set_spacing(GTK_BOX(widget),1);
    if(GTK_IS_CONTAINER(widget)) {
+      gtk_container_set_border_width(GTK_CONTAINER(widget),0);
       GList *children=gtk_container_get_children(GTK_CONTAINER(widget));
-      for(GList *it=children;it;it=it->next)
+      for(GList *it=children;it;it=it->next) {
+         if(GTK_IS_BOX(widget)) {
+            gboolean expand=FALSE,fill=FALSE;guint padding=0;
+            GtkPackType type=GTK_PACK_START;
+            gtk_box_query_child_packing(GTK_BOX(widget),GTK_WIDGET(it->data),
+                                         &expand,&fill,&padding,&type);
+            gtk_box_set_child_packing(GTK_BOX(widget),GTK_WIDGET(it->data),
+                                       expand,fill,0,type);
+         }
          script_tighten(GTK_WIDGET(it->data));
+      }
       g_list_free(children);
    }
 }
