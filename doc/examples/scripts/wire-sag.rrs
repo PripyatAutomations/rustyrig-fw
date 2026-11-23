@@ -1,0 +1,15 @@
+// Autoload this file, then use /wires to reopen the knob at any time.
+// A script-local panel closes by hiding; fini handles final cleanup.
+event script.init {
+    ui.panel("wires", "Patchbay Wires")
+    ui.add("wires", "knob", "sag", "Wire Sag", "0:240:5:60")
+    ui.bind("sag", "ui.patchbay.wire-sag")
+}
+
+script("/wires", {
+    ui.show("wires")
+}
+
+event script.fini {
+    ui.destroy("wires")
+}
