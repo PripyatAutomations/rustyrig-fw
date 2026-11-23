@@ -1264,7 +1264,7 @@ static void admin_routing_config(rrconn_t *client,dict *request,const char *acti
       ws_send_error(client,"Server Routing database unavailable");
       return;
    }
-   const char *initial="[control]\ngates=0\nwires=0\nserial=0\n";
+   const char *initial="[control]\nversion=1\ngates=0\nwires=0\nserial=0\n";
    sqlite3_stmt *stmt=NULL;
    gint64 revision=0;
    gchar *existing=NULL;
