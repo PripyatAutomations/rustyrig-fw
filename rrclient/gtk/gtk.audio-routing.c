@@ -1031,6 +1031,7 @@ static double onair_drag_dx, onair_drag_dy;
 static rr_event_token_t onair_token, onair_disconnect_token;
 static RRFloatPanel *onair_panel;
 static GtkWidget *onair_panel_canvas;
+static gboolean onair_logic_state(void);
 #define ONAIR_W (175. * onair_scale)
 #define ONAIR_H (76. * onair_scale)
 static void onair_save(void) {
@@ -1067,6 +1068,7 @@ static void onair_restore(void) {
 
    if (source && (!strcmp(source, RRCLIENT_ROUTING_PTT_LOCAL) ||
       g_str_has_prefix(source,"gate.") ||
+      g_str_has_prefix(source,"constant.") ||
       (sscanf(source, "modem%u.ptt%c", &slot, &extra) == 1 && slot >= 1 && slot <= RR_LOCAL_MODEM_MAX))) {
       g_strlcpy(onair_source, source, sizeof(onair_source));
       onair_connected = TRUE;
@@ -1100,6 +1102,20 @@ static void onair_ptt_event(const rr_event_message_t *msg, void *unused) {
    if (onair_panel_canvas) {
       gtk_widget_queue_draw(onair_panel_canvas);
    }
+}
+
+/* The ON AIR block is a BOOLEAN listener, never an audio endpoint.
+ * Constant and gate outputs are evaluated directly, including after
+ * profile reload and before a new physical PTT event has arrived. */
+static gboolean onair_logic_state(void) {
+   if (!onair_visible || !onair_connected) return FALSE;
+   if (g_str_has_prefix(onair_source,"gate.") ||
+       g_str_has_prefix(onair_source,"constant.")) {
+      bool valid=false,high=false;
+      return rr_logic_canvas_output(onair_source,&valid,&high) &&
+             valid && high;
+   }
+   return onair_active;
 }
 
 /* A lost connection cannot leave an old asserted PTT line on the lamp. */
@@ -1181,7 +1197,7 @@ static gboolean onair_panel_draw(GtkWidget *widget, cairo_t *cr, gpointer unused
    (void)unused;
    double w = MAX(1., gtk_widget_get_allocated_width(widget));
    double h = MAX(1., gtk_widget_get_allocated_height(widget));
-   gboolean lit = onair_visible && onair_connected && onair_active;
+   gboolean lit = onair_logic_state();
    cairo_save(cr);
    cairo_scale(cr, w / 175., h / 76.);
    cairo_set_source_rgb(cr, lit ? .55 : .14, lit ? .06 : .17, lit ? .04 : .20);
