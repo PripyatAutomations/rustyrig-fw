@@ -161,7 +161,7 @@ static void restore_model(void) {
       gchar *kind=g_key_file_get_string(k,group,"kind",NULL);
       gchar *xs=g_key_file_get_string(k,group,"x",NULL);
       gchar *ys=g_key_file_get_string(k,group,"y",NULL);
-      rr_gate_kind_t type;
+      rr_gate_kind_t type=RR_GATE_AND;
       int inputs=g_key_file_get_integer(k,group,"inputs",NULL);
       double x=xs?g_ascii_strtod(xs,NULL):-1.,y=ys?g_ascii_strtod(ys,NULL):-1.;
       gboolean constant = kind && (!strcmp(kind,"TRUE") || !strcmp(kind,"FALSE"));
