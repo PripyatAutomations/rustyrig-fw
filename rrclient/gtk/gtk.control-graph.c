@@ -35,6 +35,11 @@ static rr_logic_sink_attach_cb sink_attach;
 static gpointer callback_user;
 static gboolean initialized;
 static gint drag_block=-1,drag_wire=-1;
+static double connection_snap_radius=16.;
+void rr_logic_canvas_set_snap_distance(double radius) {
+   connection_snap_radius=CLAMP(radius,6.,80.);
+}
+
 static rr_logic_canvas_selected_cb selected_cb;
 static gpointer selected_user;
 static gboolean reverse_drag;
@@ -68,7 +73,7 @@ static double pin_y(const gate_view_t *b,unsigned pin) {
       20.+(72.*pin/(b->inputs-1)));
 }
 static gboolean pin_hit(double x,double y,gate_view_t **target,unsigned *pin) {
-   double best=13.;
+   double best=connection_snap_radius;
    gboolean found=FALSE;
    for (unsigned i=0;i<block_count;i++) {
       gate_view_t *b=&blocks[i];
@@ -82,7 +87,7 @@ static gboolean pin_hit(double x,double y,gate_view_t **target,unsigned *pin) {
 static gboolean output_hit(double x,double y,char out[RR_CONTROL_NAME_LEN]) {
    for (unsigned i=0;i<block_count;i++) {
       gate_view_t *b=&blocks[i];
-      if (hypot(x-b->x-RR_GTK_GRAPH_NODE_W,y-b->y-56.)<13.) {
+      if (hypot(x-b->x-RR_GTK_GRAPH_NODE_W,y-b->y-56.)<connection_snap_radius) {
          g_strlcpy(out,b->id,RR_CONTROL_NAME_LEN);
          return TRUE;
       }
@@ -90,7 +95,7 @@ static gboolean output_hit(double x,double y,char out[RR_CONTROL_NAME_LEN]) {
    if (source_position) {
       const char *local=RRCLIENT_ROUTING_PTT_LOCAL;
       double sx,sy;
-      if (source_position(local,&sx,&sy,callback_user) && hypot(x-sx,y-sy)<15.) {
+      if (source_position(local,&sx,&sy,callback_user) && hypot(x-sx,y-sy)<connection_snap_radius) {
          g_strlcpy(out,local,RR_CONTROL_NAME_LEN);
          return TRUE;
       }
@@ -452,7 +457,7 @@ gboolean rr_logic_canvas_press(double x,double y,GdkEventButton *event) {
       }
       if (event->button!=GDK_BUTTON_PRIMARY || event->type!=GDK_BUTTON_PRESS)
          continue;
-      if (hypot(x-b->x-RR_GTK_GRAPH_NODE_W,y-b->y-56.)<16.) {
+      if (hypot(x-b->x-RR_GTK_GRAPH_NODE_W,y-b->y-56.)<connection_snap_radius) {
          drag_wire=i;
          reverse_drag=FALSE;
          g_strlcpy(drag_from,b->id,sizeof(drag_from));
@@ -460,7 +465,7 @@ gboolean rr_logic_canvas_press(double x,double y,GdkEventButton *event) {
          return TRUE;
       }
       for (unsigned pin=0;pin<b->inputs;pin++)
-         if (hypot(x-b->x,y-pin_y(b,pin))<16.) {
+         if (hypot(x-b->x,y-pin_y(b,pin))<connection_snap_radius) {
             drag_wire=i;
             reverse_drag=TRUE;
             reverse_pin=pin;
