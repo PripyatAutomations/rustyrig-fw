@@ -29,6 +29,9 @@ bool rr_control_graph_gate_configure(rr_control_graph_t *g,const char *name,rr_g
 bool rr_control_graph_gate_remove(rr_control_graph_t *g,const char *name);
 bool rr_control_graph_connect(rr_control_graph_t *g,const char *from,const char *to,unsigned pin);
 bool rr_control_graph_disconnect(rr_control_graph_t *g,const char *from,const char *to,unsigned pin);
+/* Named-port APIs for scripts and dialogs; fail on invalid direction/name. */
+bool rr_control_graph_connect_ports(rr_control_graph_t *g,const char *from,const char *out_port,const char *to,const char *in_port);
+bool rr_control_graph_disconnect_ports(rr_control_graph_t *g,const char *from,const char *out_port,const char *to,const char *in_port);
 bool rr_control_graph_output(rr_control_graph_t *g,const char *name,bool *valid,bool *high);
 size_t rr_control_graph_wire_count(const rr_control_graph_t *g);
 #endif
