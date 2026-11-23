@@ -112,6 +112,7 @@ static gboolean output_hit(double x,double y,char out[RR_CONTROL_NAME_LEN]) {
 }
 static void save_model(void) {
    GKeyFile *k=g_key_file_new();
+   g_key_file_set_integer(k,"control","version",1);
    g_key_file_set_integer(k,"control","gates",(int)block_count);
    g_key_file_set_integer(k,"control","wires",(int)wire_count);
    g_key_file_set_integer(k,"control","serial",(int)serial);
