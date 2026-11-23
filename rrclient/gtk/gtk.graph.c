@@ -2,8 +2,15 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // See doc/LICENSE for the full GNU General Public License version 2 text.
 #include "gtk.graph.h"
+#include "gtk.wire-sag.h"
 #include <math.h>
 #include <string.h>
+
+static double graph_wire_sag;
+void rr_gtk_graph_set_wire_sag(double sag) {
+   graph_wire_sag = isfinite(sag) ? CLAMP(sag,0.,240.) : 0.;
+}
+double rr_gtk_graph_wire_sag(void) { return graph_wire_sag; }
 
 /* Forward declaration: the shared filled/hollow pin primitive is below. */
 static void pin(cairo_t *cr, double x, double y, gboolean bypass, gboolean input);
@@ -352,9 +359,11 @@ void rr_gtk_graph_draw(cairo_t *cr, const rr_gtk_graph_node_t *nodes, guint n_no
       const double sx = a->x + RR_GTK_GRAPH_NODE_W;
       /* PCM and PTT receiving sockets are on the block edge. */
       const double ex = b->x - 9.;
-      const double cx = (sx + ex) / 2.;
+      double cx,cy0,cy1;
+      rr_patchbay_wire_controls(sx,from_y,ex,to_y,graph_wire_sag,
+                                &cx,&cy0,&cy1);
       cairo_move_to(cr, sx, from_y);
-      cairo_curve_to(cr, cx, from_y, cx, to_y, ex, to_y);
+      cairo_curve_to(cr, cx, cy0, cx, cy1, ex, to_y);
       cairo_stroke(cr);
 
       /* Point into the receiving ring, stopping short of its hollow core. */
