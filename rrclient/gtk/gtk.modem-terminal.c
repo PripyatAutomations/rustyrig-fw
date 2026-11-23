@@ -8,7 +8,7 @@ typedef struct {
    unsigned slot;
    GtkWidget *page,*view,*entry,*tx,*abort,*status,*timer;
    gboolean requested, ending, enabled;
-   gint64 tx_started_us;
+   gint64 tx_started_us, tx_release_at_us, tx_timeout_at_us;
 } keyboard_t;
 static GtkWidget *pages;
 static keyboard_t *slots[RR_LOCAL_MODEM_MAX];
@@ -21,13 +21,39 @@ static void request(unsigned slot,rr_local_modem_action_t action,const char *tex
 }
 static void update_timer(keyboard_t *k) {
    if(!k||!k->timer)return;
-   if(k->tx_started_us>0) {
-      gint64 sec=MAX((gint64)0,(g_get_monotonic_time()-k->tx_started_us)/G_USEC_PER_SEC);
-      gchar buf[40];
-      g_snprintf(buf,sizeof(buf),"TX %02"G_GINT64_FORMAT":%02"G_GINT64_FORMAT,
-                 sec/60,sec%60);
+   if(k->tx_started_us<=0) {
+      gtk_label_set_text(GTK_LABEL(k->timer),"RX 00:00");
+      gtk_widget_set_tooltip_text(k->timer,"Receive; PTT not asserted");
+      return;
+   }
+   gint64 now=g_get_monotonic_time();
+   gint64 sec=MAX((gint64)0,(now-k->tx_started_us)/G_USEC_PER_SEC);
+   gchar buf[40];
+   g_snprintf(buf,sizeof(buf),"TX %02"G_GINT64_FORMAT":%02"G_GINT64_FORMAT,
+              sec/60,sec%60);
+   /* The worker announces TX_DONE only once its text queue and final
+    * waveform have drained. The core then schedules a 750 ms PTT hold.
+    * Highlight that actual countdown, or the final 15s of the finite
+    * TX watchdog, not merely an empty GTK text field. */
+   gboolean unkey=k->tx_release_at_us>0;
+   gboolean watchdog=k->tx_timeout_at_us>0 &&
+                      k->tx_timeout_at_us-now<=15*G_USEC_PER_SEC;
+   if(unkey||watchdog) {
+      gchar *markup=g_markup_printf_escaped(
+         "<span foreground='#ff4848' weight='bold'>%s</span>",buf);
+      gtk_label_set_markup(GTK_LABEL(k->timer),markup);
+      g_free(markup);
+      gint64 remaining=unkey?k->tx_release_at_us-now:k->tx_timeout_at_us-now;
+      gchar *tip=g_strdup_printf(unkey ?
+         "TX queue drained; PTT unkeys in %.1f s" :
+         "PTT safety timeout in %.1f s",
+         MAX(0.,remaining/(double)G_USEC_PER_SEC));
+      gtk_widget_set_tooltip_text(k->timer,tip);
+      g_free(tip);
+   } else {
       gtk_label_set_text(GTK_LABEL(k->timer),buf);
-   } else gtk_label_set_text(GTK_LABEL(k->timer),"RX 00:00");
+      gtk_widget_set_tooltip_text(k->timer,"PTT keyed; elapsed transmission time");
+   }
 }
 static gboolean tick(gpointer unused) {
    (void)unused;
@@ -95,7 +121,7 @@ static void abort_clicked(GtkButton *button,gpointer user) {
    keyboard_t *k=user;
    request(k->slot,RR_LOCAL_MODEM_STREAM_ABORT,NULL);
    k->requested=k->ending=FALSE;
-   k->tx_started_us=0;
+   k->tx_started_us=k->tx_release_at_us=k->tx_timeout_at_us=0;
    gtk_widget_set_sensitive(k->entry,FALSE);
    gtk_widget_set_sensitive(k->tx,k->enabled);
    gtk_button_set_label(GTK_BUTTON(k->tx),"TX");
@@ -189,6 +215,8 @@ void rr_gtk_modem_terminal_sync(const rr_local_modem_entry_t *entry) {
    if(!k)k=create(entry->slot);
    k->enabled=entry->tx_enabled;
    k->tx_started_us=entry->tx_started_us;
+   k->tx_release_at_us=entry->tx_release_at_us;
+   k->tx_timeout_at_us=entry->tx_timeout_at_us;
    if(!entry->stream_active&&!entry->tx_on) {
       k->requested=k->ending=FALSE;
       gtk_button_set_label(GTK_BUTTON(k->tx),"TX");
