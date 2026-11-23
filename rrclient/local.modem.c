@@ -28,7 +28,7 @@ typedef struct {
    bool stream_active, stream_worker_started, stream_ending;
    size_t stream_len;
    char stream_queue[2048];
-   gint64 ptt_deadline_us, release_at_us;
+   gint64 ptt_deadline_us, release_at_us, tx_started_us;
    char pending_text[256];
    char source[64], engine[16], option[24];
    char tx_target[64], ptt_target[64];
@@ -108,7 +108,7 @@ static void modem_release_ptt(unsigned index) {
    d->pending_text[0] = 0;
    d->stream_active = d->stream_worker_started = d->stream_ending = false;
    d->stream_len = 0;
-   d->ptt_deadline_us = d->release_at_us = 0;
+   d->ptt_deadline_us = d->release_at_us = d->tx_started_us = 0;
 }
 
 static void modem_cancel_waveform(decoder_t *d) {
@@ -466,6 +466,7 @@ static gboolean poll_decoders(gpointer unused) {
             } else {
                d->stream_worker_started=true;
                d->tx_running=true;
+               d->tx_started_us=now_us;
                modem_refresh_tx_active();
                d->ptt_deadline_us=now_us+180000000; /* finite continuous TX */
             }
@@ -688,7 +689,7 @@ static bool start_one(const rr_local_modem_request_t *req) {
    d->stream_len = 0;
    modem_refresh_tx_active();
    d->pending_text[0] = 0;
-   d->ptt_deadline_us = d->release_at_us = 0;
+   d->ptt_deadline_us = d->release_at_us = d->tx_started_us = 0;
    d->drops = d->received = 0;
    g_mutex_unlock(&decoder_lock);
    g_snprintf(last_status, sizeof(last_status), "Decoder %u started: %s / %s (%s)", index + 1, engine, req->source, req->tx_enabled ?
@@ -719,6 +720,8 @@ static void publish_snapshot(void) {
       entry->running = d->active;
       entry->tx_enabled = d->tx_enabled;
       entry->stream_active = d->stream_active;
+      entry->tx_on = d->ptt_owned && d->tx_running && d->tx_started_us>0;
+      entry->tx_started_us = entry->tx_on ? d->tx_started_us : 0;
       entry->value = d->value;
       entry->drops = d->drops;
       entry->received = d->received;
