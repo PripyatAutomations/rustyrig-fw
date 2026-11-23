@@ -61,6 +61,15 @@ static gboolean routing_controls_visible = TRUE;
 static gboolean routing_effects_visible = TRUE;
 static gboolean routing_modems_visible = TRUE;
 static gboolean routing_logic_visible = TRUE;
+/* Hide only the view representation. Underlying DSP/modem graph stays intact. */
+static gboolean routing_pcm_node_visible(const rr_ag_view_node_t *node) {
+   if(!node)return FALSE;
+   if(!routing_modems_visible && g_str_has_prefix(node->id,"modem"))
+      return FALSE;
+   if(!routing_effects_visible && g_str_has_prefix(node->id,"proc.lv2."))
+      return FALSE;
+   return TRUE;
+}
 static gint routing_control_drag_index = -1;
 static void routing_compact_bounds(double *width, double *height);
 static void routing_effect_refresh(void);
@@ -1572,6 +1581,7 @@ static void routing_graph_bounds(double *width, double *height) {
    if (graph_snapshot) {
       for (guint i = 0 ; i < graph_snapshot->node_count ; i++) {
          const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
+         if(!routing_pcm_node_visible(n))continue;
          max_x = MAX(max_x, routing_node_x(n) + RR_GTK_GRAPH_NODE_W + GRAPH_LAYOUT_MARGIN);
          max_y = MAX(max_y, routing_node_y(n) + RR_GTK_GRAPH_NODE_H + GRAPH_LAYOUT_MARGIN);
       }
@@ -1598,7 +1608,7 @@ static void routing_graph_bounds(double *width, double *height) {
       max_y = MAX(max_y, MAX(onair_visible ? onair_y + ONAIR_H : 0.,
                              ptt_visible ? ptt_y + 70. : 0.) + GRAPH_LAYOUT_MARGIN);
    }
-   rr_logic_canvas_bounds(&max_x, &max_y);
+   if(routing_logic_visible)rr_logic_canvas_bounds(&max_x, &max_y);
    rr_marks_bounds(routing_marks, &max_x, &max_y);
    *width = max_x;
    *height = max_y;
@@ -2117,9 +2127,7 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
       nodes[i] = (rr_gtk_graph_node_t) {
          .x = routing_node_x(n), .y = routing_node_y(n),
          /* The stable routing path is the bold headline. Receiver/device description occupies the regular-weight line beneath it. */
-         .title = n->id, .hidden = (!routing_modems_visible &&
-            g_str_has_prefix(n->id,"modem")) || (!routing_effects_visible &&
-            g_str_has_prefix(n->id,"proc.lv2.")), .subtitle =
+         .title = n->id, .hidden = !routing_pcm_node_visible(n), .subtitle =
             lv2_subtitles[i][0] ? lv2_subtitles[i] :
             n->rig[0] ? n->rig :
             g_str_has_prefix(n->id, "modem") ?
@@ -2857,7 +2865,7 @@ static gboolean routing_serial_context_menu(GdkEventButton *event, double x, dou
 }
 
 static gboolean routing_modem_context_menu(GdkEventButton *event, double x, double y) {
-   if (!graph_snapshot) {
+   if (!graph_snapshot || !routing_modems_visible) {
       return FALSE;
    }
 
@@ -3203,7 +3211,7 @@ static void routing_lv2_disconnect(GtkMenuItem *item, gpointer unused) {
 }
 
 static gboolean routing_lv2_context_menu(GdkEventButton *event, double gx, double gy) {
-   if (!graph_snapshot) {
+   if (!graph_snapshot || !routing_effects_visible) {
       return FALSE;
    }
 
@@ -5681,6 +5689,7 @@ static gboolean graph_port_at(double x, double y, gint *source, gint *channel, g
 
    for (guint i = 0 ; i < graph_snapshot->node_count ; i++) {
       const rr_ag_view_node_t *modem = &graph_snapshot->nodes[i];
+      if(!routing_pcm_node_visible(modem))continue;
 
       if (!graph_missing_since[i] && g_str_has_prefix(modem->id, "modem") && g_str_has_suffix(modem->id, ".tx")) {
          double px = routing_node_x(modem) + RR_GTK_GRAPH_NODE_W;
@@ -5962,6 +5971,7 @@ static gboolean graph_link_at(double x, double y, guint *link_index, gint *chann
       const rr_ag_view_node_t *src = &graph_snapshot->nodes[link->src];
       const rr_ag_view_node_t *dst = &graph_snapshot->nodes[link->dst];
 
+      if(!routing_pcm_node_visible(src) || !routing_pcm_node_visible(dst))continue;
       if (graph_missing_since[link->src] || graph_missing_since[link->dst]) {
          continue;
       }
@@ -6565,7 +6575,7 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
       return FALSE;
    }
 
-   if (event->type == GDK_2BUTTON_PRESS &&
+   if (routing_logic_visible && event->type == GDK_2BUTTON_PRESS &&
        rr_logic_canvas_disconnect_at(gx,gy,event)) {
       graph_canvas_update_size();
       return TRUE;
@@ -6590,7 +6600,7 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
    /* Shared selection must take precedence over red/green port drags. */
    if (event->type == GDK_BUTTON_PRESS &&
        (event->state & (GDK_SHIFT_MASK | GDK_CONTROL_MASK))) {
-      const char *gate_id=rr_logic_canvas_hit_block(gx,gy);
+      const char *gate_id=routing_logic_visible?rr_logic_canvas_hit_block(gx,gy):NULL;
       if (gate_id) {
          routing_graph_select(gate_id,!routing_graph_is_selected(gate_id));
          graph_canvas_update_size();
@@ -6620,7 +6630,7 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
       }
    }
    if (event->type == GDK_BUTTON_PRESS && !(event->state & (GDK_SHIFT_MASK|GDK_CONTROL_MASK))) {
-      const char *id=rr_logic_canvas_hit_block(gx,gy);
+      const char *id=routing_logic_visible?rr_logic_canvas_hit_block(gx,gy):NULL;
       if (id) routing_graph_select(id,TRUE); /* add to current selection */
    }
 
@@ -6702,7 +6712,7 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
       for (gint i = (gint) graph_snapshot->node_count - 1 ; i >= 0 ; i--) {
          const rr_ag_view_node_t *node = &graph_snapshot->nodes[i];
 
-         if (graph_missing_since[i]) {
+         if (graph_missing_since[i] || !routing_pcm_node_visible(node)) {
             continue;
          }
          const double nx = routing_node_x(node), ny = routing_node_y(node);
