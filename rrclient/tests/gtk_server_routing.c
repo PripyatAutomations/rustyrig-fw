@@ -27,7 +27,7 @@ bool gtk_admin_command_event(GtkWidget *label,const char *profile,
 }
 gchar *rr_logic_canvas_export(void) { return g_strdup("graph"); }
 gboolean rr_logic_canvas_import(const char *text) { (void)text;return TRUE; }
-gboolean rr_control_graph_text_validate(const char *text,char **error) {
+bool rr_control_graph_text_validate(const char *text,char **error) {
    (void)error;
    return text && *text;
 }
