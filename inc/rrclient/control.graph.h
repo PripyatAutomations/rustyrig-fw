@@ -12,6 +12,9 @@ typedef struct rr_control_graph rr_control_graph_t;
 /* A source can stand for PTT, COS or any other boolean value; type is
  * intentionally not encoded in its name. No sink can key the transmitter
  * without the independent, existing TX authorization/interlock checks. */
+/* Validate a versioned, untrusted graph snapshot against the same bounded
+ * topology evaluator on client and server. No physical outputs are applied. */
+bool rr_control_graph_text_validate(const char *snapshot,char **error);
 rr_control_graph_t *rr_control_graph_new(void);
 void rr_control_graph_free(rr_control_graph_t *g);
 bool rr_control_graph_source_add(rr_control_graph_t *g,const char *name);
