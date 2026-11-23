@@ -6917,13 +6917,23 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
                }
             }
 
+            if(!candidate && onair_drag_reverse) {
+               char selected[RR_CONTROL_NAME_LEN]={0};
+               if(rr_logic_canvas_output_at(gx,gy,selected,sizeof(selected))) {
+                  g_strlcpy(onair_drag_source,selected,sizeof(onair_drag_source));
+                  candidate=onair_drag_source;
+               }
+            }
+
             if (!candidate && !onair_drag_reverse &&
                 rr_logic_canvas_connect_source(onair_drag_source,gx,gy))
                graph_canvas_update_size();
             if (candidate && *candidate) {
                g_strlcpy(onair_source, candidate, sizeof(onair_source));
                onair_connected = TRUE;
-               onair_active = FALSE;
+               bool valid=FALSE,high=FALSE;
+               onair_active=rr_logic_canvas_output(candidate,&valid,&high) &&
+                            valid && high;
             }
          }
       }
