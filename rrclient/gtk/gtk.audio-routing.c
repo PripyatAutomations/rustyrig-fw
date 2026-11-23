@@ -7767,7 +7767,7 @@ void gtk_audio_graph_present(void) {
       gtk_widget_hide(label);
       audio_tabs = gtk_notebook_new();
       gtk_box_pack_start(GTK_BOX(graph_content), audio_tabs, TRUE, TRUE, 0);
-      g_signal_connect(audio_tabs,"switch-page",G_CALLBACK(patchbay_subpage_changed),NULL);
+      g_signal_connect_after(audio_tabs,"switch-page",G_CALLBACK(patchbay_subpage_changed),NULL);
       GtkWidget *routing_page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 1);
       gtk_style_context_add_class(gtk_widget_get_style_context(routing_page), "rr-routing-page");
       static gboolean routing_css_installed = FALSE;
