@@ -20,6 +20,8 @@
 #include "gtk.floating-panel.h"
 #include "gtk.serial.h"
 #include "gtk.control-graph.h"
+#include "gtk.routing-pins.h"
+#include "gtk.wire-sag.h"
 #include "gtk.server-routing.h"
 #include "gtk.pipeline-editor.h"
 #ifdef RR_HAVE_GSTREAMER
@@ -332,6 +334,17 @@ static gboolean routing_is_touch_event(const GdkEvent *event) {
 }
 
 #define GRAPH_CONNECTION_LOOSENESS_KEY "audio.graph.connection-looseness"
+#define GRAPH_WIRE_SAG_KEY "ui.patchbay.wire-sag"
+static void routing_wire_sag_changed(GtkSpinButton *spin,gpointer user) {
+   (void)user;
+   double sag=CLAMP(gtk_spin_button_get_value(spin),0.,240.);
+   rr_gtk_graph_set_wire_sag(sag);
+   char value[G_ASCII_DTOSTR_BUF_SIZE];
+   g_ascii_dtostr(value,sizeof(value),sag);
+   rrclient_database_setting_set(GRAPH_WIRE_SAG_KEY,value);
+   graph_canvas_update_size();
+}
+
 static double graph_connection_looseness=1.0;
 static void routing_connection_looseness_changed(GtkSpinButton *spin,gpointer user) {
    (void)user;
@@ -5909,12 +5922,10 @@ static gboolean graph_link_at(double x, double y, guint *link_index, gint *chann
          double x1 = routing_node_x(dst) - 9.;
          double y0 = routing_node_y(src) + (link->kind == RR_AG_CONTROL ? RR_GTK_GRAPH_NODE_H - 16. : mono_src ? 68. : ch ? 79. : 60.);
          double y1 = routing_node_y(dst) + (link->kind == RR_AG_CONTROL ? RR_GTK_GRAPH_NODE_H - 16. : mono_dst ? 68. : ch ? 79. : 60.);
-         double cx = (x0 + x1) / 2.;
-
          for (int k = 0 ; k <= 64 ; k++) {
-            double t = k / 64., u = 1. - t;
-            double px = u * u * u * x0 + 3 * u * u * t * cx + 3 * u * t * t * cx + t * t * t * x1;
-            double py = u * u * u * y0 + 3 * u * u * t * y0 + 3 * u * t * t * y1 + t * t * t * y1;
+            double t = k / 64., px,py;
+            rr_patchbay_wire_point(x0,y0,x1,y1,rr_gtk_graph_wire_sag(),
+                                   t,&px,&py);
             double d = hypot(x - px, y - py);
 
             if (d < best) {
@@ -5936,7 +5947,9 @@ static gboolean routing_disconnect_link(guint index, gint channel) {
    }
    const rr_ag_view_link_t *link = &graph_snapshot->links[index];
 
-   if (!routing_link_disconnectable(link)) {
+   if (!routing_link_disconnectable(link) || channel < 0 || channel > 1 ||
+       (link->kind == RR_AG_CONTROL ? channel != 0 :
+        !(link->channels & (channel ? RR_AG_CHANNEL_RIGHT : RR_AG_CHANNEL_LEFT)))) {
       return FALSE;
    }
    const char *src = graph_snapshot->nodes[link->src].id;
@@ -6027,9 +6040,7 @@ static gboolean routing_audio_pin_disconnect(gint hit_source,gint channel,
       if(link->src>=graph_snapshot->node_count ||
          link->dst>=graph_snapshot->node_count ||
          !routing_link_disconnectable(link) ||
-         (incoming?link->dst:link->src)!=node ||
-         (link->kind==RR_AG_CONTROL ? channel!=0 :
-          !(link->channels&(channel?RR_AG_CHANNEL_RIGHT:RR_AG_CHANNEL_LEFT))))
+         !rr_routing_pin_matches_link(graph_snapshot,link,node,incoming,channel))
          continue;
       first=i;count++;
    }
@@ -6041,9 +6052,7 @@ static gboolean routing_audio_pin_disconnect(gint hit_source,gint channel,
       if(link->src>=graph_snapshot->node_count ||
          link->dst>=graph_snapshot->node_count ||
          !routing_link_disconnectable(link) ||
-         (incoming?link->dst:link->src)!=node ||
-         (link->kind==RR_AG_CONTROL ? channel!=0 :
-          !(link->channels&(channel?RR_AG_CHANNEL_RIGHT:RR_AG_CHANNEL_LEFT))))
+         !rr_routing_pin_matches_link(graph_snapshot,link,node,incoming,channel))
          continue;
       const char *from=graph_snapshot->nodes[link->src].id;
       const char *to=graph_snapshot->nodes[link->dst].id;
@@ -7727,6 +7736,22 @@ void gtk_audio_graph_present(void) {
       g_signal_connect(connection_loose,"value-changed",
                        G_CALLBACK(routing_connection_looseness_changed),NULL);
       gtk_flow_box_insert(GTK_FLOW_BOX(tools),connection_loose,-1);
+      GtkWidget *sag_label=gtk_label_new("Wire sag");
+      gtk_widget_set_tooltip_text(sag_label,"Downward cable droop in logical canvas pixels");
+      gtk_flow_box_insert(GTK_FLOW_BOX(tools),sag_label,-1);
+      GtkWidget *wire_sag=gtk_spin_button_new_with_range(0.,240.,10.);
+      gtk_spin_button_set_digits(GTK_SPIN_BUTTON(wire_sag),0);
+      char *saved_sag=rrclient_database_setting_get(GRAPH_WIRE_SAG_KEY);
+      char *end=NULL;
+      double sag=saved_sag?g_ascii_strtod(saved_sag,&end):0.;
+      if(!saved_sag || end==saved_sag || (end && *end) || !isfinite(sag))sag=0.;
+      g_free(saved_sag);
+      sag=CLAMP(sag,0.,240.);
+      rr_gtk_graph_set_wire_sag(sag);
+      gtk_spin_button_set_value(GTK_SPIN_BUTTON(wire_sag),sag);
+      gtk_widget_set_tooltip_text(wire_sag,"0 = traditional patch cords; increase for Carla-style drooping cables");
+      g_signal_connect(wire_sag,"value-changed",G_CALLBACK(routing_wire_sag_changed),NULL);
+      gtk_flow_box_insert(GTK_FLOW_BOX(tools),wire_sag,-1);
       GtkWidget *show_controls = gtk_check_button_new_with_label("Controls");
       char *show_setting = rrclient_database_setting_get("audio.graph.show-controls");
       routing_controls_visible = !show_setting || strcmp(show_setting, "false");
