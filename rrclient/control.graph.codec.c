@@ -46,10 +46,9 @@ bool rr_control_graph_text_validate(const char *snapshot,char **error) {
    rr_control_graph_t *g=rr_control_graph_new();
    gboolean valid=FALSE;
    int ng=0,nw=0,serial=0;
-   int version=1;
+   int version=0;
    if(!g || !g_key_file_load_from_data(kf,snapshot,-1,G_KEY_FILE_NONE,NULL) ||
-      (g_key_file_has_key(kf,"control","version",NULL) &&
-       !graph_int(kf,"control","version",1,1,&version)) ||
+      !graph_int(kf,"control","version",2,2,&version) ||
       !graph_int(kf,"control","gates",0,RR_CONTROL_MAX_GATES,&ng) ||
       !graph_int(kf,"control","wires",0,RR_CONTROL_MAX_WIRES,&nw) ||
       !graph_int(kf,"control","serial",0,1000000,&serial)) goto done;
@@ -81,23 +80,31 @@ bool rr_control_graph_text_validate(const char *snapshot,char **error) {
       char group[40];g_snprintf(group,sizeof(group),"wire.%d",i);
       gchar *src=g_key_file_get_string(kf,group,"from",NULL);
       gchar *dst=g_key_file_get_string(kf,group,"to",NULL);
-      int pin=0;
+      gchar *src_port=g_key_file_get_string(kf,group,"from_port",NULL);
+      gchar *dst_port=g_key_file_get_string(kf,group,"to_port",NULL);
+      bool source_is_output=false,destination_is_output=true;
+      unsigned source_index=0,destination_index=0;
       gboolean ok=graph_id_ok(src) && graph_id_ok(dst) &&
-                   graph_int(kf,group,"pin",0,31,&pin);
+         rr_control_graph_port_index(src_port,&source_is_output,&source_index) &&
+         source_is_output && source_index==0 &&
+         rr_control_graph_port_index(dst_port,&destination_is_output,&destination_index) &&
+         !destination_is_output;
       if(ok && !g_str_has_prefix(src,"gate.") &&
          !g_str_has_prefix(src,"constant.")) {
          /* Reused hardware/remote inputs are inert placeholders during
           * validation. Runtime binding requires separate authorization. */
          rr_control_graph_source_add(g,src);
       }
-      if(ok)ok=rr_control_graph_connect(g,src,dst,(unsigned)pin);
+      if(ok)ok=rr_control_graph_connect_ports(g,src,src_port,dst,dst_port);
+      g_free(src_port);g_free(dst_port);
       g_free(src);g_free(dst);
       if(!ok)goto done;
    }
    valid=TRUE;
 done:
    if(!valid && error)*error=g_strdup(
-      "Invalid graph nodes, ports, wires, coordinates, or combinational cycle");
+      version!=2 ? "Unsupported control graph version; expected version 2 named-port wiring" :
+      "Invalid graph nodes, named ports, wires, coordinates, or combinational cycle");
    rr_control_graph_free(g);
    g_key_file_unref(kf);
    return valid;
