@@ -9,6 +9,7 @@ void rr_logic_canvas_init(rr_logic_source_position_cb position,
                           rr_logic_sink_attach_cb attach,
                           gpointer user);
 void rr_logic_canvas_add(GtkWidget *parent);
+void rr_logic_canvas_add_constant(gboolean high);
 void rr_logic_canvas_draw(cairo_t *cr);
 gboolean rr_logic_canvas_press(double x,double y,GdkEventButton *event);
 gboolean rr_logic_canvas_motion(double x,double y,guint modifiers);
