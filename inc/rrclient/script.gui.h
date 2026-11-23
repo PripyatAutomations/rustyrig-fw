@@ -25,7 +25,8 @@ enum {
    RR_GUI_SHOW, RR_GUI_HIDE, RR_GUI_DESTROY, RR_GUI_RELEASE,
    RR_GUI_MESSAGE, /* prebuilt info/confirmation dialog */
    RR_GUI_UTILITY, /* script-owned overlay-only floating panel */
-   RR_GUI_EDIT /* open local path using the reusable file editor */
+   RR_GUI_EDIT, /* open local path using the reusable file editor */
+   RR_GUI_BIND /* bind a numeric widget to an approved live property */
 };
 typedef struct rr_script_gui_command {
    uint32_t version;
