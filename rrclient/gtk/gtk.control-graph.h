@@ -20,4 +20,16 @@ gboolean rr_logic_canvas_output(const char *name,bool *valid,bool *high);
 void rr_logic_canvas_signal(const char *name,bool valid,bool high);
 void rr_logic_canvas_reset_sources(void);
 void rr_logic_canvas_bounds(double *width,double *height);
+/* Shared Routing selection and profile infrastructure use stable block IDs. */
+typedef void (*rr_logic_canvas_block_cb)(const char *id,double x,double y,
+                                         double width,double height,gpointer user);
+void rr_logic_canvas_foreach_block(rr_logic_canvas_block_cb cb,gpointer user);
+const char *rr_logic_canvas_hit_block(double x,double y);
+gboolean rr_logic_canvas_remove_block(const char *id);
+typedef gboolean (*rr_logic_canvas_selected_cb)(const char *id,gpointer user);
+void rr_logic_canvas_set_selected_cb(rr_logic_canvas_selected_cb cb,gpointer user);
+/* Versioned editable graph data, independent of GTK drawing state. */
+gchar *rr_logic_canvas_export(void);
+gboolean rr_logic_canvas_import(const char *serialized);
+
 #endif
