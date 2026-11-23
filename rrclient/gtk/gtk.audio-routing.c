@@ -367,6 +367,10 @@ static gboolean graph_group_member[RR_AUDIO_GRAPH_MAX_NODES];
 static gboolean routing_graph_is_selected(const char *id) {
    return graph_selection && g_hash_table_contains(graph_selection, id);
 }
+static gboolean routing_logic_selected(const char *id,gpointer user) {
+   (void)user;
+   return routing_graph_is_selected(id);
+}
 
 static void routing_graph_select(const char *id, gboolean selected) {
    if (!graph_selection) {
@@ -5899,6 +5903,8 @@ static void routing_marquee_update(void) {
       }
    }
 
+   rr_logic_canvas_foreach_block(routing_select_logic_marquee,NULL);
+
    for (guint i = 0 ; i < routing_serial_count ; i++) {
       const routing_serial_node_t *n = &routing_serial_nodes[i];
 
@@ -5962,6 +5968,18 @@ static void routing_marquee_update(void) {
    graph_canvas_update_size();
 }
 
+static void routing_select_logic_marquee(const char *id,double x,double y,
+                                         double w,double h,gpointer user) {
+   (void)user;
+   if (routing_marquee_contains(x,y,w,h))
+      routing_graph_select(id,TRUE);
+}
+static void routing_draw_logic_selection(const char *id,double x,double y,
+                                         double w,double h,gpointer user) {
+   cairo_t *cr=user;
+   if (routing_graph_is_selected(id))
+      cairo_rectangle(cr,x-3.,y-3.,w+6.,h+6.);
+}
 static gboolean routing_marquee_begin(double x, double y, guint modifiers) {
    graph_marquee_active = TRUE;
    graph_marquee_x0 = graph_marquee_x1 = x;
@@ -6057,6 +6075,14 @@ static void routing_marquee_draw(cairo_t *cr) {
       }
    }
 
+   rr_logic_canvas_foreach_block(routing_draw_logic_selection,cr);
+   if (routing_controls_visible && routing_compact_controls) {
+      for (guint i=0;i<routing_compact_controls->len;i++) {
+         const routing_compact_control_t *c=g_ptr_array_index(routing_compact_controls,i);
+         if (routing_graph_is_selected(c->uuid))
+            cairo_rectangle(cr,c->x-3.,c->y-3.,ROUTING_CONTROL_WIDTH+6.,ROUTING_CONTROL_HEIGHT+6.);
+      }
+   }
    if (onair_visible) {
       if (routing_graph_is_selected("ui.onair")) {
          cairo_rectangle(cr, onair_x - 3., onair_y - 3., ONAIR_W + 6., ONAIR_H + 6.);
@@ -6162,6 +6188,46 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
       onair_disconnect();
 
       return TRUE;
+   }
+
+   /* Shared selection must take precedence over red/green port drags. */
+   if (event->type == GDK_BUTTON_PRESS &&
+       (event->state & (GDK_SHIFT_MASK | GDK_CONTROL_MASK))) {
+      const char *gate_id=rr_logic_canvas_hit_block(gx,gy);
+      if (gate_id) {
+         routing_graph_select(gate_id,!routing_graph_is_selected(gate_id));
+         graph_canvas_update_size();
+         return TRUE;
+      }
+      if (onair_visible) {
+         const char *id = gx>=onair_x && gx<=onair_x+ONAIR_W &&
+                         gy>=onair_y && gy<=onair_y+ONAIR_H ? "ui.onair" :
+                          gx>=ptt_x && gx<=ptt_x+150. &&
+                          gy>=ptt_y && gy<=ptt_y+70. ? "ui.ptt" : NULL;
+         if (id) {
+            routing_graph_select(id,!routing_graph_is_selected(id));
+            graph_canvas_update_size();
+            return TRUE;
+         }
+      }
+      if (routing_controls_visible && routing_compact_controls) {
+         for (guint i=0;i<routing_compact_controls->len;i++) {
+            const routing_compact_control_t *c=g_ptr_array_index(routing_compact_controls,i);
+            if (gx>=c->x && gx<=c->x+ROUTING_CONTROL_WIDTH &&
+                gy>=c->y && gy<=c->y+ROUTING_CONTROL_HEIGHT) {
+               routing_graph_select(c->uuid,!routing_graph_is_selected(c->uuid));
+               graph_canvas_update_size();
+               return TRUE;
+            }
+         }
+      }
+   }
+   if (event->type == GDK_BUTTON_PRESS && !(event->state & (GDK_SHIFT_MASK|GDK_CONTROL_MASK))) {
+      const char *id=rr_logic_canvas_hit_block(gx,gy);
+      if (id && !routing_graph_is_selected(id)) {
+         routing_graph_clear_selection();
+         routing_graph_select(id,TRUE);
+      }
    }
 
    if (event->type == GDK_BUTTON_PRESS && onair_visible) {
@@ -7368,6 +7434,7 @@ void gtk_audio_graph_present(void) {
       gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroller), GTK_POLICY_NEVER, GTK_POLICY_NEVER);
       graph_canvas = gtk_drawing_area_new();
       rr_logic_canvas_init(routing_logic_source_position,routing_logic_attach_onair,graph_canvas);
+      rr_logic_canvas_set_selected_cb(routing_logic_selected,NULL);
       gtk_widget_set_can_focus(graph_canvas, TRUE);
       g_signal_connect(graph_canvas, "key-press-event", G_CALLBACK(routing_marks_key), NULL);
       gtk_widget_set_size_request(graph_canvas, 1, 1);
