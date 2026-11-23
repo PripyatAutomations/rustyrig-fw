@@ -44,6 +44,7 @@
 #include <rrserver/platform.controls.h>
 #include <rrserver/objects.h>
 #include <rrserver/usage.h>
+#include <rrclient/control.graph.h>
 #include <libfwdspmgr/fwdsp-mgr.h>
 #include <libfwdspmgr/fwdsp-ctl.h>
 
@@ -887,6 +888,11 @@ static void handle_script_admin(rrconn_t *client, dict *request, const char *act
 /* Bound SQL parameters only: free-form request messages never become SQL. */
 static void admin_access_requests(rrconn_t *client, dict *request) {
    const char *action = dict_get(request, "talk.action", "");
+   if(!strcmp(action,"routing-get") || !strcmp(action,"routing-put")) {
+      admin_routing_config(client,request,action);
+      dict_free(request);
+      return;
+   }
 
    if (!masterdb) {
       ws_send_error(client, "Access request database unavailable");
@@ -1234,6 +1240,99 @@ static void handle_script_admin(rrconn_t *client,dict *request,const char *actio
    g_free(error);
 }
 #endif
+
+/* Server Routing v1 stores a revisioned, validated graph configuration.
+ * The configuration is intentionally INERT: no script, audio patch or PTT
+ * output is applied by receiving, editing or saving a workspace snapshot. */
+static void admin_routing_config(rrconn_t *client,dict *request,const char *action) {
+   if(!admin_actor_has_priv(client,"admin|owner|superadmin")) {
+      ws_send_error(client,"Server Routing requires administration privilege");
+      return;
+   }
+   const gboolean write=!strcmp(action,"routing-put");
+   const gboolean editable=admin_actor_has_priv(client,"owner|superadmin");
+   if(write && !editable) {
+      ws_send_error(client,"Only owner or superadmin may edit Server Routing");
+      return;
+   }
+   if(!masterdb || sqlite3_exec(masterdb,
+      "CREATE TABLE IF NOT EXISTS server_routing_graphs("
+      "name TEXT PRIMARY KEY, revision INTEGER NOT NULL,"
+      "snapshot TEXT NOT NULL, updated_by TEXT NOT NULL,"
+      "updated_at INTEGER NOT NULL)",NULL,NULL,NULL)!=SQLITE_OK) {
+      ws_send_error(client,"Server Routing database unavailable");
+      return;
+   }
+   const char *initial="[control]\\ngates=0\\nwires=0\\nserial=0\\n";
+   sqlite3_stmt *stmt=NULL;
+   gint64 revision=0;
+   gchar *existing=NULL;
+   if(sqlite3_prepare_v2(masterdb,
+      "SELECT revision,snapshot FROM server_routing_graphs WHERE name='default'",
+      -1,&stmt,NULL)==SQLITE_OK && sqlite3_step(stmt)==SQLITE_ROW) {
+      revision=sqlite3_column_int64(stmt,0);
+      const char *value=(const char *)sqlite3_column_text(stmt,1);
+      existing=g_strdup(value?value:"");
+   }
+   sqlite3_finalize(stmt);
+   if(!existing)existing=g_strdup(initial);
+   if(write) {
+      const char *data=dict_get(request,"talk.data","");
+      const char *expect=dict_get(request,"talk.target","");
+      char *end=NULL;
+      errno=0;
+      gint64 requested=g_ascii_strtoll(expect,&end,10);
+      char *validation_error=NULL;
+      if(!*expect || !end || *end || errno==ERANGE || requested!=revision) {
+         ws_send_error(client,"Server Routing revision changed; refresh before saving");
+      } else if(!rr_control_graph_text_validate(data,&validation_error)) {
+         ws_send_error(client,"Server Routing validation failed: %s",
+                       validation_error?validation_error:"invalid graph");
+      } else {
+         gboolean ok=sqlite3_exec(masterdb,"BEGIN IMMEDIATE",NULL,NULL,NULL)==SQLITE_OK;
+         sqlite3_stmt *put=NULL;
+         if(ok && sqlite3_prepare_v2(masterdb,
+            "INSERT INTO server_routing_graphs(name,revision,snapshot,updated_by,updated_at)"
+            " VALUES('default',?1,?2,?3,strftime('%s','now'))"
+            " ON CONFLICT(name) DO UPDATE SET revision=excluded.revision,"
+            "snapshot=excluded.snapshot,updated_by=excluded.updated_by,"
+            "updated_at=excluded.updated_at WHERE revision=?4",
+            -1,&put,NULL)==SQLITE_OK) {
+            sqlite3_bind_int64(put,1,revision+1);
+            sqlite3_bind_text(put,2,data,-1,SQLITE_TRANSIENT);
+            sqlite3_bind_text(put,3,client->chatname,-1,SQLITE_TRANSIENT);
+            sqlite3_bind_int64(put,4,revision);
+            ok=sqlite3_step(put)==SQLITE_DONE && sqlite3_changes(masterdb)==1;
+         } else ok=FALSE;
+         sqlite3_finalize(put);
+         if(ok)ok=sqlite3_exec(masterdb,"COMMIT",NULL,NULL,NULL)==SQLITE_OK;
+         if(!ok) {
+            sqlite3_exec(masterdb,"ROLLBACK",NULL,NULL,NULL);
+            ws_send_error(client,"Server Routing save failed or revision conflict");
+         } else {
+            revision++;
+            g_free(existing);
+            existing=g_strdup(data);
+            db_add_audit_event(masterdb,client->chatname,"routing.graph.saved",
+                               "default graph configuration; no TX activation");
+            Log(LOG_AUDIT,"routing","Server Routing revision %"G_GINT64_FORMAT" saved by %s (inert configuration)",
+                revision,client->chatname);
+         }
+      }
+      g_free(validation_error);
+   }
+   dict *row=dict_new();
+   if(row) {
+      char num[32];g_snprintf(num,sizeof(num),"%"G_GINT64_FORMAT,revision);
+      dict_add(row,"revision",num);
+      dict_add(row,"data",existing?existing:initial);
+      dict_add(row,"writable",editable?"true":"false");
+      dict_add(row,"live","false");
+      rrserver_admin_send(client,"server-routing","snapshot",row);
+      dict_free(row);
+   }
+   g_free(existing);
+}
 
 static void rrserver_handle_admin_cmd(const char *event, const char *data, rrconn_t *client, void *user) {
    (void)event;
