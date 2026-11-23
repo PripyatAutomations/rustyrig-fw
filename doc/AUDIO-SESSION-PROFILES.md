@@ -127,6 +127,42 @@ Inputs have separate `present` and `high` masks; disconnected/stale inputs
 force the output **low** and report no valid result. This avoids accidentally
 treating an unknown input as false and asserting NAND/NOR/NOT into a transmitter.
 
+### Routing interaction refinements (2026-11-22)
+
+The Routing notebook is ordered **Routing / Srv Routing / Pipelines /
+Srv Pipelines**. Both server tabs have an independent cluster-server
+profile selector built from the existing client connection profiles.
+**Srv Routing** can exchange versioned inert graph snapshots with its
+selected server; **Srv Pipelines** currently only provides its selector and
+an explicit not-yet-available state, because rrserver does not yet publish
+a remote GStreamer pipeline inventory or transaction API. It must never
+misrepresent client-local pipelines as a server's live topology.
+
+The Routing canvas right-click menu now offers **Add → Control / Effect /
+Gate**, including TRUE, FALSE, ON AIR, local PTT display and each boolean
+gate family. New items created through the menu are centered at the
+pointer click; toolbar creation centers at the visible graph viewport.
+Selection is **additive**. New effect-block positioning waits for the
+core to report the new processor node, rather than guessing its slot.
+This is a presentation operation only: an added effect has no implicit
+input/audio/PTT wire.
+
+Gate input connectors now sit on the shape boundary rather than the
+enclosing 160×112 rectangle. Input pins are labeled A, B, ...; each
+input has an **inside-shape** boolean validity/level LED, and each gate/
+constant output has its own OUT label and inside-shape LED. Live levels
+are evaluated through the same bounded logic model used by the graph.
+Double-clicking a gate wire removes that specific connection.
+Double-clicking a gate input/output pin removes its sole connection or
+opens a menu when several wires terminate or originate there.
+The operation does not bypass or modify actual hardware PTT.
+
+ON AIR is an ordinary boolean sink. Reverse wiring from ON AIR can
+choose TRUE/FALSE or a gate output, as well as the existing physical
+PTT source adapters. A successful connection immediately evaluates the
+source; the ON AIR block displays an internal indicator and title color
+corresponding to the actual boolean input.
+
 ### Server Routing groundwork and shared graph snapshots (2026-11-22)
 
 The Routing tool has **Routing**, **Server Routing** and **Pipelines** subtabs.
