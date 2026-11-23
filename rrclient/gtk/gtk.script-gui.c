@@ -217,8 +217,9 @@ static void widget_close(script_widget_t *entry) {
       gtk_widget_destroy(entry->widget);
    }
 }
-/* Closing a script panel is a logical UI event, so user scripts may stop
- * timed work and release resources before the frame disappears. */
+/* Closing a script panel hides it rather than destroying its owner-scoped
+ * widgets, allowing ui.show(id) to reopen it without losing control state.
+ * ui.destroy(id), unload and reload still perform complete cleanup. */
 static void script_panel_closed(gpointer data) {
    script_widget_t *entry=data;
    if(!entry)return;
@@ -228,7 +229,7 @@ static void script_panel_closed(gpointer data) {
       event_emit_dict("ui.close",NULL,d);
       dict_free(d);
    }
-   widget_close(entry);
+   if(entry->panel)rr_floating_panel_hide(entry->panel);
 }
 
 static void script_gui_remove_owner(const char *owner) {
