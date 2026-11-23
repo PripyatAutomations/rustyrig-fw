@@ -154,8 +154,7 @@ static gboolean connect_one(const char *src,const char *dst,unsigned pin,gboolea
    if (save) save_model();
    return TRUE;
 }
-static void restore_model(void) {
-   gchar *saved=rrclient_database_setting_get(LOGIC_STORE);
+static void restore_model(const gchar *saved) {
    if (!saved) return;
    GKeyFile *k=g_key_file_new();
    if (!g_key_file_load_from_data(k,saved,-1,G_KEY_FILE_NONE,NULL)) goto done;
@@ -194,12 +193,23 @@ static void restore_model(void) {
       gchar *from=g_key_file_get_string(k,group,"from",NULL);
       gchar *to=g_key_file_get_string(k,group,"to",NULL);
       int pin=g_key_file_get_integer(k,group,"pin",NULL);
-      if (from && to && pin>=0)
+      if (from && to && pin>=0) {
+         if (!g_str_has_prefix(from,"gate.") &&
+             !g_str_has_prefix(from,"constant."))
+            rr_control_graph_source_add(model,from);
          connect_one(from,to,(unsigned)pin,FALSE);
+      }
       g_free(from);g_free(to);
    }
 done:
-   g_key_file_unref(k);g_free(saved);
+   g_key_file_unref(k);
+}
+static void register_baseline_sources(rr_control_graph_t *graph) {
+   rr_control_graph_source_add(graph,RRCLIENT_ROUTING_PTT_LOCAL);
+   for(unsigned i=1;i<=RR_LOCAL_MODEM_MAX;i++) {
+      char id[64];g_snprintf(id,sizeof(id),"modem%u.ptt",i);
+      rr_control_graph_source_add(graph,id);
+   }
 }
 void rr_logic_canvas_init(rr_logic_source_position_cb position,
                           rr_logic_sink_attach_cb attach,gpointer user) {
@@ -210,12 +220,10 @@ void rr_logic_canvas_init(rr_logic_source_position_cb position,
    source_position=position;sink_attach=attach;callback_user=user;
    initialized=TRUE;
    model=rr_control_graph_new();
-   rr_control_graph_source_add(model,RRCLIENT_ROUTING_PTT_LOCAL);
-   for(unsigned i=1;i<=RR_LOCAL_MODEM_MAX;i++) {
-      char id[64];g_snprintf(id,sizeof(id),"modem%u.ptt",i);
-      rr_control_graph_source_add(model,id);
-   }
-   restore_model();
+   register_baseline_sources(model);
+   gchar *saved=rrclient_database_setting_get(LOGIC_STORE);
+   restore_model(saved);
+   g_free(saved);
 }
 gboolean rr_logic_canvas_output_position(const char *name,double *x,double *y) {
    gate_view_t *b=find_gate(name);
@@ -583,8 +591,47 @@ gchar *rr_logic_canvas_export(void) {
    return rrclient_database_setting_get(LOGIC_STORE);
 }
 gboolean rr_logic_canvas_import(const char *serialized) {
-   /* Stage parsing in a separate GTK-independent graph in the next profile
-    * phase; reject direct in-place imports until validation is atomic. */
-   (void)serialized;
-   return FALSE;
+   /* Import validates the complete topology first, then stages a separate
+    * evaluator. Failed restoration returns to the old graph and positions. */
+   if (!model || !rr_control_graph_text_validate(serialized,NULL))
+      return FALSE;
+   GKeyFile *meta=g_key_file_new();
+   if (!g_key_file_load_from_data(meta,serialized,-1,G_KEY_FILE_NONE,NULL)) {
+      g_key_file_unref(meta);
+      return FALSE;
+   }
+   unsigned expected_blocks=(unsigned)g_key_file_get_integer(meta,"control","gates",NULL);
+   unsigned expected_wires=(unsigned)g_key_file_get_integer(meta,"control","wires",NULL);
+   g_key_file_unref(meta);
+   rr_control_graph_t *fresh=rr_control_graph_new();
+   gate_view_t *old_blocks=g_memdup2(blocks,sizeof(blocks));
+   wire_view_t *old_wires=g_memdup2(wires,sizeof(wires));
+   if (!fresh || !old_blocks || !old_wires) {
+      rr_control_graph_free(fresh);
+      g_free(old_blocks);g_free(old_wires);
+      return FALSE;
+   }
+   rr_control_graph_t *old=model;
+   unsigned previous_blocks=block_count,previous_wires=wire_count,previous_serial=serial;
+   model=fresh;
+   memset(blocks,0,sizeof(blocks));
+   memset(wires,0,sizeof(wires));
+   block_count=wire_count=serial=0;
+   register_baseline_sources(model);
+   restore_model(serialized);
+   gboolean ok=block_count==expected_blocks && wire_count==expected_wires;
+   if(ok) {
+      rr_control_graph_free(old);
+      rrclient_database_setting_set(LOGIC_STORE,serialized);
+   } else {
+      rr_control_graph_free(model);
+      model=old;
+      memcpy(blocks,old_blocks,sizeof(blocks));
+      memcpy(wires,old_wires,sizeof(wires));
+      block_count=previous_blocks;wire_count=previous_wires;serial=previous_serial;
+   }
+   drag_block=drag_wire=-1;
+   g_free(old_blocks);g_free(old_wires);
+   changed();
+   return ok;
 }
