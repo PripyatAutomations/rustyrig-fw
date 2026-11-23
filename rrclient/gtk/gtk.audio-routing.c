@@ -6453,6 +6453,8 @@ static void routing_canvas_add_action(GtkMenuItem *item,gpointer unused) {
       routing_compact_create((GtkButton *)item,NULL);
    } else if(!strcmp(kind,"effect")) {
       routing_add_effect((GtkButton *)item,NULL);
+   } else if(!strcmp(kind,"modem")) {
+      routing_new_modem((GtkButton *)item,NULL);
    } else if(!strcmp(kind,"true") || !strcmp(kind,"false")) {
       routing_create_position_logic();
       rr_logic_canvas_add_constant(!strcmp(kind,"true"));
@@ -6494,12 +6496,10 @@ static void routing_canvas_add_menu_done(GtkWidget *menu,gpointer unused) {
    routing_create_at_cursor=FALSE;
    gtk_widget_destroy(menu);
 }
-static gboolean routing_canvas_add_menu(GdkEventButton *event,double x,double y) {
-   if(!event)return FALSE;
-   routing_create_x=x;routing_create_y=y;
+/* One Add menu model for pointer context and toolbar. Context-click places
+ * graph items at the pointer; toolbar insertion uses the canvas center. */
+static GtkWidget *routing_add_menu_items(void) {
    GtkWidget *menu=gtk_menu_new();
-   GtkWidget *add=gtk_menu_item_new_with_label("Add");
-   GtkWidget *submenu=gtk_menu_new();
    GtkWidget *controls=gtk_menu_item_new_with_label("Control");
    GtkWidget *control_menu=gtk_menu_new();
    routing_add_subitem(control_menu,"Control…","control");
@@ -6508,8 +6508,9 @@ static gboolean routing_canvas_add_menu(GdkEventButton *event,double x,double y)
    routing_add_subitem(control_menu,"ON AIR","onair");
    routing_add_subitem(control_menu,"PTT display","ptt");
    gtk_menu_item_set_submenu(GTK_MENU_ITEM(controls),control_menu);
-   gtk_menu_shell_append(GTK_MENU_SHELL(submenu),controls);
-   routing_add_subitem(submenu,"Effect…","effect");
+   gtk_menu_shell_append(GTK_MENU_SHELL(menu),controls);
+   routing_add_subitem(menu,"Effect…","effect");
+   routing_add_subitem(menu,"Modem…","modem");
    GtkWidget *gate_item=gtk_menu_item_new_with_label("Gate");
    GtkWidget *gate_menu=gtk_menu_new();
    for(unsigned g=0;g<=RR_GATE_XNOR;g++) {
@@ -6519,8 +6520,15 @@ static gboolean routing_canvas_add_menu(GdkEventButton *event,double x,double y)
       g_free(action);
    }
    gtk_menu_item_set_submenu(GTK_MENU_ITEM(gate_item),gate_menu);
-   gtk_menu_shell_append(GTK_MENU_SHELL(submenu),gate_item);
-   gtk_menu_item_set_submenu(GTK_MENU_ITEM(add),submenu);
+   gtk_menu_shell_append(GTK_MENU_SHELL(menu),gate_item);
+   return menu;
+}
+static gboolean routing_canvas_add_menu(GdkEventButton *event,double x,double y) {
+   if(!event)return FALSE;
+   routing_create_x=x;routing_create_y=y;
+   GtkWidget *menu=gtk_menu_new();
+   GtkWidget *add=gtk_menu_item_new_with_label("Add");
+   gtk_menu_item_set_submenu(GTK_MENU_ITEM(add),routing_add_menu_items());
    gtk_menu_shell_append(GTK_MENU_SHELL(menu),add);
    g_signal_connect(menu,"selection-done",
                     G_CALLBACK(routing_canvas_add_menu_done),NULL);
@@ -6528,6 +6536,16 @@ static gboolean routing_canvas_add_menu(GdkEventButton *event,double x,double y)
    routing_create_at_cursor=TRUE;
    gtk_menu_popup_at_pointer(GTK_MENU(menu),(GdkEvent *)event);
    return TRUE;
+}
+static void routing_toolbar_add_clicked(GtkButton *button,gpointer unused) {
+   (void)unused;
+   routing_create_at_cursor=FALSE;
+   GtkWidget *menu=routing_add_menu_items();
+   g_signal_connect(menu,"selection-done",
+                    G_CALLBACK(routing_canvas_add_menu_done),NULL);
+   gtk_widget_show_all(menu);
+   gtk_menu_popup_at_widget(GTK_MENU(menu),GTK_WIDGET(button),
+                            GDK_GRAVITY_SOUTH_WEST,GDK_GRAVITY_NORTH_WEST,NULL);
 }
 static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, gpointer unused) {
    (void)unused;
@@ -7917,18 +7935,12 @@ void gtk_audio_graph_present(void) {
       gtk_widget_show_all(settings_box);
       gtk_menu_button_set_popover(GTK_MENU_BUTTON(gear),settings);
       gtk_flow_box_insert(GTK_FLOW_BOX(tools),gear,-1);
-      GtkWidget *pin_control = gtk_button_new_with_label("+ Control");
-      gtk_widget_set_tooltip_text(pin_control, "Add gain controls, ON AIR indicators, logic gates, or TRUE/FALSE sources");
-      g_signal_connect(pin_control, "clicked", G_CALLBACK(routing_compact_create), NULL);
-      gtk_flow_box_insert(GTK_FLOW_BOX(tools), pin_control, -1);
-      GtkWidget *add_effect = gtk_button_new_with_label("+ Effect");
-      gtk_widget_set_tooltip_text(add_effect, "Add a standalone LV2 processor to Routing, hosted in its own fwdsp subprocess");
-      g_signal_connect(add_effect, "clicked", G_CALLBACK(routing_add_effect), NULL);
-      gtk_flow_box_insert(GTK_FLOW_BOX(tools), add_effect, -1);
-      GtkWidget *new_modem = gtk_button_new_with_label("+ Modem");
-      gtk_widget_set_tooltip_text(new_modem, "Create an FT8, PSK or Olivia decoder in Routing");
-      g_signal_connect(new_modem, "clicked", G_CALLBACK(routing_new_modem), NULL);
-      gtk_flow_box_insert(GTK_FLOW_BOX(tools), new_modem, -1);
+      GtkWidget *add_button=gtk_button_new_with_label("Add");
+      gtk_widget_set_tooltip_text(add_button,
+         "Add controls, effects, modems and gates (same menu as right-click on empty patchbay space)");
+      g_signal_connect(add_button,"clicked",
+                       G_CALLBACK(routing_toolbar_add_clicked),NULL);
+      gtk_flow_box_insert(GTK_FLOW_BOX(tools),add_button,-1);
       gtk_box_pack_start(GTK_BOX(routing_page), profiles, FALSE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(routing_page), tools, FALSE, FALSE, 0);
       graph_profile_refresh(NULL);
