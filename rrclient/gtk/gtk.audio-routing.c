@@ -6013,6 +6013,57 @@ static void routing_wire_remove(GtkMenuItem *item, gpointer unused) {
    }
 }
 
+/* Reuse stable-ID disconnect operations for audio/boolean port fan-out. */
+static gboolean routing_audio_pin_disconnect(gint hit_source,gint channel,
+                                             gboolean mixer,GdkEventButton *event) {
+   if(!graph_snapshot || channel<0)return FALSE;
+   guint node=hit_source<0?(guint)(-hit_source-1):(guint)hit_source;
+   if(node>=graph_snapshot->node_count)return FALSE;
+   gboolean incoming=hit_source<0 || mixer;
+   unsigned count=0;
+   guint first=0;
+   for(guint i=0;i<graph_snapshot->link_count;i++) {
+      const rr_ag_view_link_t *link=&graph_snapshot->links[i];
+      if(link->src>=graph_snapshot->node_count ||
+         link->dst>=graph_snapshot->node_count ||
+         !routing_link_disconnectable(link) ||
+         (incoming?link->dst:link->src)!=node ||
+         (link->kind==RR_AG_CONTROL ? channel!=0 :
+          !(link->channels&(channel?RR_AG_CHANNEL_RIGHT:RR_AG_CHANNEL_LEFT))))
+         continue;
+      first=i;count++;
+   }
+   if(!count)return FALSE;
+   if(count==1)return routing_disconnect_link(first,channel);
+   GtkWidget *menu=gtk_menu_new();
+   for(guint i=0;i<graph_snapshot->link_count;i++) {
+      const rr_ag_view_link_t *link=&graph_snapshot->links[i];
+      if(link->src>=graph_snapshot->node_count ||
+         link->dst>=graph_snapshot->node_count ||
+         !routing_link_disconnectable(link) ||
+         (incoming?link->dst:link->src)!=node ||
+         (link->kind==RR_AG_CONTROL ? channel!=0 :
+          !(link->channels&(channel?RR_AG_CHANNEL_RIGHT:RR_AG_CHANNEL_LEFT))))
+         continue;
+      const char *from=graph_snapshot->nodes[link->src].id;
+      const char *to=graph_snapshot->nodes[link->dst].id;
+      gchar *name=g_strdup_printf("%s → %s (%s)",from,to,
+         link->kind==RR_AG_CONTROL?"Boolean":channel?"R":"L");
+      GtkWidget *item=gtk_menu_item_new_with_label(name);
+      g_free(name);
+      g_object_set_data_full(G_OBJECT(item),"rr-wire-from",g_strdup(from),g_free);
+      g_object_set_data_full(G_OBJECT(item),"rr-wire-to",g_strdup(to),g_free);
+      g_object_set_data(G_OBJECT(item),"rr-wire-channel",GINT_TO_POINTER(channel));
+      g_object_set_data(G_OBJECT(item),"rr-wire-kind",GINT_TO_POINTER(link->kind));
+      g_signal_connect(item,"activate",G_CALLBACK(routing_wire_remove),NULL);
+      gtk_menu_shell_append(GTK_MENU_SHELL(menu),item);
+   }
+   g_signal_connect_swapped(menu,"selection-done",G_CALLBACK(gtk_widget_destroy),menu);
+   gtk_widget_show_all(menu);
+   gtk_menu_popup_at_pointer(GTK_MENU(menu),(GdkEvent *)event);
+   return TRUE;
+}
+
 static gboolean routing_wire_context_menu(GdkEventButton *event, double x, double y) {
    guint index = 0;
    gint channel = 0;
@@ -6616,6 +6667,8 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
       if (graph_port_at(gx, gy, &hit_source, &hit_channel, &hit_mixer)) {
          graph_drag_source = graph_drag_channel = -1;
          graph_drag_mixer = graph_drag_moved = FALSE;
+         if(routing_audio_pin_disconnect(hit_source,hit_channel,hit_mixer,event))
+            return TRUE;
 
          if (hit_source < 0) {
             const rr_ag_view_node_t *n = &graph_snapshot->nodes[-hit_source - 1];
