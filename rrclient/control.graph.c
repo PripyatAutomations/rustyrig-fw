@@ -126,6 +126,22 @@ bool rr_control_graph_disconnect(rr_control_graph_t *g,const char *from,const ch
       }
    return false;
 }
+bool rr_control_graph_connect_ports(rr_control_graph_t *g,const char *from,
+      const char *out_port,const char *to,const char *in_port) {
+   bool out=false,in=false;
+   unsigned src=0,dst=0;
+   return rr_control_graph_port_index(out_port,&out,&src) && out && src==0 &&
+      rr_control_graph_port_index(in_port,&in,&dst) && !in &&
+      rr_control_graph_connect(g,from,to,dst);
+}
+bool rr_control_graph_disconnect_ports(rr_control_graph_t *g,const char *from,
+      const char *out_port,const char *to,const char *in_port) {
+   bool out=false,in=false;
+   unsigned src=0,dst=0;
+   return rr_control_graph_port_index(out_port,&out,&src) && out && src==0 &&
+      rr_control_graph_port_index(in_port,&in,&dst) && !in &&
+      rr_control_graph_disconnect(g,from,to,dst);
+}
 static bool remove_node(rr_control_graph_t *g,unsigned at) {
    unsigned keep=0;
    for (unsigned i=0;i<g->n_wires;i++) {
