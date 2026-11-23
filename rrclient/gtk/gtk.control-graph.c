@@ -176,7 +176,7 @@ gboolean rr_logic_canvas_output_at(double x,double y,char *id,size_t capacity) {
 }
 static void save_model(void) {
    GKeyFile *k=g_key_file_new();
-   g_key_file_set_integer(k,"control","version",1);
+   g_key_file_set_integer(k,"control","version",2);
    g_key_file_set_integer(k,"control","gates",(int)block_count);
    g_key_file_set_integer(k,"control","wires",(int)wire_count);
    g_key_file_set_integer(k,"control","serial",(int)serial);
@@ -198,7 +198,10 @@ static void save_model(void) {
       g_snprintf(group,sizeof(group),"wire.%u",i);
       g_key_file_set_string(k,group,"from",wires[i].from);
       g_key_file_set_string(k,group,"to",wires[i].to);
-      g_key_file_set_integer(k,group,"pin",(int)wires[i].pin);
+      char in_port[16];
+      rr_control_graph_port_name(false,wires[i].pin,in_port,sizeof(in_port));
+      g_key_file_set_string(k,group,"from_port","out_a");
+      g_key_file_set_string(k,group,"to_port",in_port);
    }
    gchar *value=g_key_file_to_data(k,NULL,NULL);
    if (value) {
@@ -223,6 +226,9 @@ static void restore_model(const gchar *saved) {
    if (!saved) return;
    GKeyFile *k=g_key_file_new();
    if (!g_key_file_load_from_data(k,saved,-1,G_KEY_FILE_NONE,NULL)) goto done;
+   /* No implicit migration of old index-only wires: a stale PTT layout
+    * must never be silently reconnected to a new named port. */
+   if(g_key_file_get_integer(k,"control","version",NULL)!=2) goto done;
    int ng=CLAMP(g_key_file_get_integer(k,"control","gates",NULL),0,MAX_UI_GATES);
    int nw=CLAMP(g_key_file_get_integer(k,"control","wires",NULL),0,MAX_UI_WIRES);
    serial=MAX(0,g_key_file_get_integer(k,"control","serial",NULL));
@@ -257,13 +263,19 @@ static void restore_model(const gchar *saved) {
       char group[40];g_snprintf(group,sizeof(group),"wire.%d",i);
       gchar *from=g_key_file_get_string(k,group,"from",NULL);
       gchar *to=g_key_file_get_string(k,group,"to",NULL);
-      int pin=g_key_file_get_integer(k,group,"pin",NULL);
-      if (from && to && pin>=0) {
+      gchar *from_port=g_key_file_get_string(k,group,"from_port",NULL);
+      gchar *to_port=g_key_file_get_string(k,group,"to_port",NULL);
+      bool out=false,in=false;
+      unsigned src_index=0,dst_index=0;
+      if (from && to && rr_control_graph_port_index(from_port,&out,&src_index) &&
+          out && src_index==0 &&
+          rr_control_graph_port_index(to_port,&in,&dst_index) && !in) {
          if (!g_str_has_prefix(from,"gate.") &&
              !g_str_has_prefix(from,"constant."))
             rr_control_graph_source_add(model,from);
-         connect_one(from,to,(unsigned)pin,FALSE);
+         connect_one(from,to,dst_index,FALSE);
       }
+      g_free(from_port);g_free(to_port);
       g_free(from);g_free(to);
    }
 done:
