@@ -440,13 +440,14 @@ static gboolean chat_flush(gpointer unused) {
    chat_tokens = MIN(chat_tokens, (double)chat_burst());
    while(chat_queue && !g_queue_is_empty(chat_queue)) {
       chat_pending_t *head=g_queue_peek_head(chat_queue);
+      /* All messages consume the same outgoing budget. Previously a script
+       * tag skipped this check, allowing artwork to outrun the client limit. */
+      if(chat_tokens<1.0)break;
       if(head->script_tag) {
          if(stamp<script_next_send_at)break;
          script_next_send_at=stamp+(gint64)CLAMP(head->script_interval_ms,100u,10000u)*1000;
-      } else {
-         if(chat_tokens<1.0)break;
-         chat_tokens-=1.0;
       }
+      chat_tokens-=1.0;
       chat_pending_t *next=g_queue_pop_head(chat_queue);
       if (next->connection && next->profile && rrclient_connection_find(next->profile) == next->connection && next->connection->authenticated) {
          if (next->irc) {
