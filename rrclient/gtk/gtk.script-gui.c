@@ -881,7 +881,7 @@ void gtk_script_gui_init(void) {
    script_gui_token=event_on_message_domain_token(RR_SCRIPT_GUI_COMMAND,
       script_gui_command,NULL,"gtk");
    if(GTK_IS_NOTEBOOK(main_notebook) && !script_main_switch_handler)
-      script_main_switch_handler=g_signal_connect(main_notebook,"switch-page",
+      script_main_switch_handler=g_signal_connect_after(main_notebook,"switch-page",
          G_CALLBACK(script_main_page_changed),NULL);
 }
 void gtk_script_gui_shutdown(void) {
