@@ -93,9 +93,12 @@ the local PTY can transmit RF.
 
 An Olivia/PSK **client-local** decoder is not automatically the same resource
 as a server-owned `ttyMODEM<N>` worker. Client-local transmit text currently
-uses `RR_LOCAL_MODEM_SEND_TEXT` and its core-owned PTT/PCM checks. A text
-composer now lives in each Olivia/PSK decoder tab; its Send action submits
-that request without sending PTT commands from GTK. The server-owned
+uses `RR_LOCAL_MODEM_SEND_TEXT` and its core-owned PTT/PCM checks. The decoder tab now shows a text composer for **any TX-enabled modem**,
+regardless of engine name; enabling/disabling TX updates its visibility from
+the core modem snapshot. The Send action submits the existing text request
+without sending PTT commands from GTK. Modem workers that do not implement
+text TX still reject the request at the core; displaying the composer does
+not imply that every packet or timed modem supports arbitrary text sends. The server-owned
 modem export remains attachable independently of a terminal window.
 
 For a first packet implementation, prefer a generic `ttyMODEM#` name with
