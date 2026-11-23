@@ -6313,10 +6313,17 @@ static void routing_canvas_add_action(GtkMenuItem *item,gpointer unused) {
       rr_logic_canvas_add_constant(!strcmp(kind,"true"));
       routing_create_select_logic();
    } else if(!strcmp(kind,"onair")) {
+      double x,y;routing_creation_point(&x,&y);
+      onair_x=MAX(0.,x-ONAIR_W/2.);
+      onair_y=MAX(0.,y-ONAIR_H/2.);
       onair_add(NULL,NULL);
+      routing_graph_select("ui.onair",TRUE);
    } else if(!strcmp(kind,"ptt")) {
+      double x,y;routing_creation_point(&x,&y);
+      ptt_x=MAX(0.,x-75.);ptt_y=MAX(0.,y-35.);
       ptt_visible=TRUE;
       onair_save();
+      routing_graph_select("ui.ptt",TRUE);
    } else if(g_str_has_prefix(kind,"gate:")) {
       for(unsigned g=0;g<=RR_GATE_XNOR;g++)
          if(!strcmp(kind+5,rr_gate_kind_name((rr_gate_kind_t)g))) {
