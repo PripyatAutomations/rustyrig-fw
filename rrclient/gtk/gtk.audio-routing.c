@@ -915,12 +915,10 @@ static gboolean routing_serial_link_at(double x, double y, guint *slot) {
          for (guint k = 0 ; k < 2 ; k++) {
             double x0 = n->x + ROUTING_SERIAL_W, x1 = dst->x;
             double y0 = n->y + 62. + k * 26., y1 = dst->y + 62. + k * 26.;
-            double cx = (x0 + x1) / 2.;
-
             for (guint tstep = 0 ; tstep <= 48 ; tstep++) {
-               double t = tstep / 48., u = 1. - t;
-               double px = u * u * u * x0 + 3 * u * u * t * cx + 3 * u * t * t * cx + t * t * t * x1;
-               double py = u * u * u * y0 + 3 * u * u * t * y0 + 3 * u * t * t * y1 + t * t * t * y1;
+               double t = tstep / 48.,px,py;
+               rr_patchbay_wire_point(x0,y0,x1,y1,rr_gtk_graph_wire_sag(),
+                                      t,&px,&py);
 
                if (hypot(px - x, py - y) < limit) {
                   *slot = n->slot;
@@ -1204,13 +1202,12 @@ static gboolean onair_wire_hit(double x, double y) {
       return FALSE;
    }
    double ex = onair_x, ey = onair_y + ONAIR_H / 2.;
-   double cx = (sx + ex) / 2.;
    double radius = CLAMP(12. / MAX(.01, graph_scale), 9., 26.);
 
    for (unsigned i = 0 ; i <= 64 ; i++) {
-      double t = i / 64., u = 1. - t;
-      double px = u * u * u * sx + 3 * u * u * t * cx + 3 * u * t * t * cx + t * t * t * ex;
-      double py = u * u * u * sy + 3 * u * u * t * sy + 3 * u * t * t * ey + t * t * t * ey;
+      double t = i / 64.,px,py;
+      rr_patchbay_wire_point(sx,sy,ex,ey,rr_gtk_graph_wire_sag(),
+                             t,&px,&py);
 
       if (hypot(x - px, y - py) <= radius) {
          return TRUE;
@@ -2289,7 +2286,6 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
          if (snap) {
             ex -= 9.;
          }
-         double cx = (sx + ex) / 2.;
          gboolean ptt_preview = !graph_drag_mixer && g_str_has_prefix(n->id, "modem") && g_str_has_suffix(n->id, ".tx") && graph_drag_channel;
          cairo_set_source_rgba(cr, ptt_preview ? .96 : snap ? .45 : (graph_drag_channel ? .73 : .34), ptt_preview ? .20 : snap ? .95 : (graph_drag_channel ? .48
                : .78), ptt_preview ? .20 : snap ? .65 : (graph_drag_channel ? 1. : .93), .95);
