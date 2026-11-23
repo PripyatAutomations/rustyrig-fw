@@ -11,4 +11,7 @@ void gtk_audio_graph_hide(void);
 void gtk_audio_graph_toggle(void);
 void gtk_audio_graph_present_pipeline(const char *pipeline_id);
 void gtk_volume_toggle(void);
+/* Whitelisted script UI binding: persistent, redraws all wire canvases. */
+double rr_gtk_routing_wire_sag_get(void);
+void rr_gtk_routing_wire_sag_set(double sag);
 #endif
