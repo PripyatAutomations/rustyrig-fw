@@ -958,14 +958,16 @@ static void routing_serial_line(cairo_t *cr, double ax, double ay, double bx, do
    cairo_set_dash(cr, dash, 2, 0);
    cairo_set_source_rgba(cr, .85, .89, .91, .72);
    cairo_set_line_width(cr, 4.);
-   double cx = (ax + bx) / 2.;
+   double cx,cy0,cy1;
+   rr_patchbay_wire_controls(ax,ay,bx,by,rr_gtk_graph_wire_sag(),
+                             &cx,&cy0,&cy1);
    cairo_move_to(cr, ax, ay);
-   cairo_curve_to(cr, cx, ay, cx, by, bx, by);
+   cairo_curve_to(cr, cx, cy0, cx, cy1, bx, by);
    cairo_stroke(cr);
    cairo_set_source_rgb(cr, .06, .07, .08);
    cairo_set_line_width(cr, 2.1);
    cairo_move_to(cr, ax, ay);
-   cairo_curve_to(cr, cx, ay, cx, by, bx, by);
+   cairo_curve_to(cr, cx, cy0, cx, cy1, bx, by);
    cairo_stroke(cr);
    cairo_set_dash(cr, NULL, 0, 0);
 }
@@ -1396,7 +1398,10 @@ static void onair_draw(cairo_t *cr) {
       cairo_set_line_width(cr, 2.);
       cairo_set_source_rgb(cr, .96, .20, .20);
       cairo_move_to(cr, sx, sy);
-      cairo_curve_to(cr, (sx + dx) / 2., sy, (sx + dx) / 2., dy, dx, dy);
+      double cx,cy0,cy1;
+      rr_patchbay_wire_controls(sx,sy,dx,dy,rr_gtk_graph_wire_sag(),
+                                &cx,&cy0,&cy1);
+      cairo_curve_to(cr, cx, cy0, cx, cy1, dx, dy);
       cairo_stroke(cr);
       cairo_restore(cr);
    }
@@ -2294,7 +2299,10 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
          cairo_set_dash(cr, dash, 2, 0);
          cairo_set_line_width(cr, 2.5);
          cairo_move_to(cr, sx, sy);
-         cairo_curve_to(cr, cx, sy, cx, ey, ex, ey);
+         double sag_cx,sag_y0,sag_y1;
+         rr_patchbay_wire_controls(sx,sy,ex,ey,rr_gtk_graph_wire_sag(),
+                                   &sag_cx,&sag_y0,&sag_y1);
+         cairo_curve_to(cr, sag_cx, sag_y0, sag_cx, sag_y1, ex, ey);
          cairo_stroke(cr);
          cairo_set_dash(cr, NULL, 0, 0);
          /* Free-moving tip follows the cable; snapped tip enters the destination socket horizontally, left-to-right. */
@@ -6045,7 +6053,8 @@ static gboolean routing_audio_pin_disconnect(gint hit_source,gint channel,
       first=i;count++;
    }
    if(!count)return FALSE;
-   if(count==1)return routing_disconnect_link(first,channel);
+   if(count==1)return routing_disconnect_link(first,
+      graph_snapshot->links[first].kind==RR_AG_CONTROL ? 0 : channel);
    GtkWidget *menu=gtk_menu_new();
    for(guint i=0;i<graph_snapshot->link_count;i++) {
       const rr_ag_view_link_t *link=&graph_snapshot->links[i];
@@ -6062,7 +6071,8 @@ static gboolean routing_audio_pin_disconnect(gint hit_source,gint channel,
       g_free(name);
       g_object_set_data_full(G_OBJECT(item),"rr-wire-from",g_strdup(from),g_free);
       g_object_set_data_full(G_OBJECT(item),"rr-wire-to",g_strdup(to),g_free);
-      g_object_set_data(G_OBJECT(item),"rr-wire-channel",GINT_TO_POINTER(channel));
+      g_object_set_data(G_OBJECT(item),"rr-wire-channel",
+         GINT_TO_POINTER(link->kind==RR_AG_CONTROL ? 0 : channel));
       g_object_set_data(G_OBJECT(item),"rr-wire-kind",GINT_TO_POINTER(link->kind));
       g_signal_connect(item,"activate",G_CALLBACK(routing_wire_remove),NULL);
       gtk_menu_shell_append(GTK_MENU_SHELL(menu),item);
