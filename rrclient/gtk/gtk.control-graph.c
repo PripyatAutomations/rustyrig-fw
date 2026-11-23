@@ -374,6 +374,11 @@ skip_preview:;
          cairo_fill(cr);
          cairo_set_source_rgb(cr,.95,.95,.95);
       }
+      cairo_set_source_rgb(cr,.94,.94,.94);
+      cairo_select_font_face(cr,"Sans",CAIRO_FONT_SLANT_NORMAL,CAIRO_FONT_WEIGHT_BOLD);
+      cairo_set_font_size(cr,9.);
+      cairo_move_to(cr,output_x(b)-41.,b->y+43.);
+      cairo_show_text(cr,"OUT");
       cairo_set_source_rgb(cr,valid?(high?.38:.84):.48,
                                 valid?(high?.94:.84):.48,
                                 valid?(high?.38:.84):.48);
