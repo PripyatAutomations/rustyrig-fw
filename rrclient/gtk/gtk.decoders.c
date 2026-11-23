@@ -466,9 +466,21 @@ static void decode_snapshot_received(const rr_event_message_t *message, void *un
       if (tab && tab->compose) {
          gtk_widget_set_sensitive(tab->compose,entry->tx_enabled);
          gtk_widget_set_sensitive(tab->send,entry->tx_enabled);
-         if (!entry->tx_enabled && tab->tx_status)
-            gtk_label_set_text(GTK_LABEL(tab->tx_status),
-               "TX disabled; enable in Routing and connect TX audio + PTT");
+         if (tab->tx_status) {
+            if (!entry->tx_enabled) {
+               gtk_label_set_text(GTK_LABEL(tab->tx_status),
+                  "TX disabled; enable in Routing and connect TX audio + PTT");
+            } else {
+               char prefix[32];
+               g_snprintf(prefix,sizeof(prefix),"Modem %u ",entry->slot);
+               if (g_str_has_prefix(snapshot->status,prefix))
+                  gtk_label_set_text(GTK_LABEL(tab->tx_status),snapshot->status);
+               else if (g_str_has_prefix(gtk_label_get_text(GTK_LABEL(tab->tx_status)),
+                                         "TX disabled"))
+                  gtk_label_set_text(GTK_LABEL(tab->tx_status),
+                     "Ready to request TX (requires audio/PTT routes and authorization)");
+            }
+         }
       }
    }
 }
