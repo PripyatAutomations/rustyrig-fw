@@ -47,6 +47,7 @@ struct routing_compact_control;
 static void routing_compact_sync(void);
 static void routing_compact_draw(cairo_t *cr);
 static gboolean routing_compact_hit(double x, double y, gboolean double_click);
+static gboolean routing_delete_selected(void);
 static gboolean routing_compact_drag_motion(double x, double y);
 static gboolean routing_compact_drag_release(double x, double y);
 static void routing_compact_restore(void);
@@ -189,7 +190,8 @@ static gboolean routing_marks_key(GtkWidget *w, GdkEventKey *e, gpointer unused)
    } else if (ctrl && e->keyval == GDK_KEY_y) {
       handled = rr_marks_history(routing_marks, TRUE);
    } else if ((e->keyval == GDK_KEY_Delete || e->keyval == GDK_KEY_BackSpace) && routing_marks->tool == RR_MARK_SELECT) {
-      handled = rr_marks_delete_selected(routing_marks);
+      handled = routing_delete_selected();
+      handled = rr_marks_delete_selected(routing_marks) || handled;
    }
 
    if (handled) {
@@ -1026,6 +1028,7 @@ static void routing_serial_draw(cairo_t *cr) {
 
 /* Scalable logical PTT monitor. It follows only the output control pin selected by the stored wire; radio TX status is deliberately ignored. */
 static gboolean onair_visible, onair_connected, onair_active, onair_restored;
+static gboolean ptt_visible=TRUE;
 static char onair_source[64];   /* Exact connected PTT control pin ID */
 static char onair_drag_source[64];
 static gboolean onair_drag_reverse;
@@ -1039,7 +1042,7 @@ static gboolean onair_logic_state(void);
 #define ONAIR_W (175. * onair_scale)
 #define ONAIR_H (76. * onair_scale)
 static void onair_save(void) {
-   char *v = g_strdup_printf("%.2f,%.2f,%.2f,%.2f,%.2f,%d,%d", onair_x, onair_y, ptt_x, ptt_y, onair_scale, onair_visible, onair_connected);
+   char *v = g_strdup_printf("%.2f,%.2f,%.2f,%.2f,%.2f,%d,%d,%d", onair_x, onair_y, ptt_x, ptt_y, onair_scale, onair_visible, onair_connected, ptt_visible);
    rrclient_database_setting_set("audio.graph.onair", v);
    rrclient_database_setting_set("audio.graph.onair.source", onair_connected ? onair_source : "");
    g_free(v);
@@ -3869,6 +3872,48 @@ static gboolean routing_compact_delete_idle(gpointer data) {
    g_free(uuid);
 
    return G_SOURCE_REMOVE;
+}
+
+/* The same selection table spans audio, serial, logic and UI overlays.
+ * Delete only user-created UI objects; hardware and engine-owned audio
+ * blocks cannot be removed from the canvas by pressing Delete. */
+static gboolean routing_delete_selected(void) {
+   if (!graph_selection || g_hash_table_size(graph_selection)==0)
+      return FALSE;
+   gboolean removed=FALSE;
+   GList *ids=g_hash_table_get_keys(graph_selection);
+   for(GList *it=ids;it;it=it->next) {
+      const char *id=it->data;
+      if(rr_logic_canvas_remove_block(id)) {
+         removed=TRUE;
+      } else if(!strcmp(id,"ui.onair")) {
+         onair_disconnect();
+         onair_visible=FALSE;
+         if(onair_panel)rr_floating_panel_hide(onair_panel);
+         onair_save();
+         removed=TRUE;
+      } else if(!strcmp(id,"ui.ptt")) {
+         /* This is a graphical source block, not a hardware PTT device. */
+         ptt_visible=FALSE;
+         onair_save();
+         removed=TRUE;
+      } else if(routing_compact_controls) {
+         for(guint i=0;i<routing_compact_controls->len;i++) {
+            routing_compact_control_t *c=g_ptr_array_index(routing_compact_controls,i);
+            if(!strcmp(c->uuid,id)) {
+               g_idle_add(routing_compact_delete_idle,g_strdup(c->uuid));
+               removed=TRUE;
+               break;
+            }
+         }
+      }
+   }
+   g_list_free(ids);
+   if(removed) {
+      routing_graph_clear_selection();
+      graph_canvas_update_size();
+   }
+   return removed;
 }
 
 static void routing_compact_menu_action(GtkMenuItem *item, gpointer data) {
