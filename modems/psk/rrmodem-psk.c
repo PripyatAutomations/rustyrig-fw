@@ -90,6 +90,7 @@ int main(int argc, char **argv) {
    size_t pending = 0, sent = 0;
    float previous = 0.f;
    int transmitting = 0;
+   int keyboard_stream = 0;
 
    for ( ;; ) {
       struct pollfd pfd = {
@@ -128,10 +129,42 @@ int main(int argc, char **argv) {
                   tx = psk_tx_create(8000, carrier, mode);
                   pending = sent = 0;
                   transmitting = 0;
+                  keyboard_stream = 0;
                   previous = 0.f;
 
                   if (!tx) {
                      break;
+                  }
+               } else if (!strcmp(command, "START")) {
+                  /* Keep the PSK carrier/idle symbols running while the
+                   * operator types; only END drains and reports TX_DONE. */
+                  if (!keyboard_stream && !transmitting) {
+                     keyboard_stream = 1;
+                     transmitting = 1;
+                     psk_tx_write(tx, " ", 1);
+                  }
+               } else if (!strcmp(command, "END")) {
+                  keyboard_stream = 0;
+               } else if (used > 8 && !strncmp(command, "DATAHEX ", 8) &&
+                          keyboard_stream) {
+                  const size_t n = used - 8;
+                  if (!(n & 1) && n <= 480) {
+                     char decoded[240];
+                     size_t count = n / 2;
+                     int valid = 1;
+                     for (size_t j = 0; j < count; j++) {
+                        unsigned char hi = (unsigned char)command[8 + 2*j];
+                        unsigned char lo = (unsigned char)command[9 + 2*j];
+                        int a = hi >= '0' && hi <= '9' ? hi-'0' :
+                                hi >= 'a' && hi <= 'f' ? hi-'a'+10 :
+                                hi >= 'A' && hi <= 'F' ? hi-'A'+10 : -1;
+                        int b = lo >= '0' && lo <= '9' ? lo-'0' :
+                                lo >= 'a' && lo <= 'f' ? lo-'a'+10 :
+                                lo >= 'A' && lo <= 'F' ? lo-'A'+10 : -1;
+                        if (a < 0 || b < 0) { valid = 0; break; }
+                        decoded[j] = (char)((a<<4)|b);
+                     }
+                     if (valid && count) psk_tx_write(tx, decoded, count);
                   }
                } else if (used > 3 && !strncmp(command, "TX ", 3)) {
                   if (psk_tx_write(tx, command + 3, used - 3) > 0) {
@@ -163,6 +196,12 @@ int main(int argc, char **argv) {
          }
       }
 
+      /* Insert exactly one idle symbol whenever the TX queue drains.
+       * This provides normal continuous PSK31 keyboard operation without
+       * unboundedly queueing spaces during pauses between keystrokes. */
+      if (keyboard_stream && !pending && psk_tx_idle(tx))
+         psk_tx_write(tx, " ", 1);
+
       if (!pending && !psk_tx_idle(tx)) {
          if (psk_tx_read(tx, samples, 160) != 160) {
             break;
@@ -178,7 +217,7 @@ int main(int argc, char **argv) {
          sent = 0;
       }
 
-      if (transmitting && !pending && psk_tx_idle(tx)) {
+      if (transmitting && !keyboard_stream && !pending && psk_tx_idle(tx)) {
          /* A SEQPACKET control completion cannot interleave with RX text. */
          static const char done[] = "TX_DONE";
          send(3, done, sizeof(done) - 1, MSG_DONTWAIT | MSG_NOSIGNAL);
