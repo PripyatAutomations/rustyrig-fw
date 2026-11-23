@@ -3330,6 +3330,10 @@ static void lv2_activate(GtkTreeView *v, GtkTreePath *path, GtkTreeViewColumn *c
 
 #endif
 
+/* Async processor creation: position the first new node after core ack. */
+static gboolean routing_effect_place_pending;
+static double routing_effect_place_x,routing_effect_place_y;
+static gint64 routing_effect_place_until_us;
 static void routing_add_effect(GtkButton *button, gpointer unused) {
    (void)unused;
 #ifdef RR_HAVE_GSTREAMER
@@ -3443,6 +3447,9 @@ static void routing_add_effect(GtkButton *button, gpointer unused) {
          req.channels = routing_lv2_audio_channels(factory);
          g_strlcpy(req.factory, factory, sizeof(req.factory));
          g_strlcpy(req.source, source, sizeof(req.source));
+         routing_creation_point(&routing_effect_place_x,&routing_effect_place_y);
+         routing_effect_place_pending=TRUE;
+         routing_effect_place_until_us=g_get_monotonic_time()+10*G_USEC_PER_SEC;
          audio_request_effect_block(&req);
       }
       g_free(factory);
@@ -5031,6 +5038,12 @@ static gint routing_effect_port_cmp(gconstpointer a, gconstpointer b) {
 }
 
 static void routing_effect_refresh(void) {
+   GHashTable *prior=g_hash_table_new_full(g_str_hash,g_str_equal,g_free,NULL);
+   if(routing_effect_blocks)
+      for(guint j=0;j<routing_effect_blocks->len;j++) {
+         const routing_effect_block_t *old=g_ptr_array_index(routing_effect_blocks,j);
+         g_hash_table_add(prior,g_strdup(old->id));
+      }
    if (routing_effect_blocks) {
       g_ptr_array_unref(routing_effect_blocks);
       routing_effect_blocks = NULL;
@@ -5078,6 +5091,16 @@ static void routing_effect_refresh(void) {
       routing_effect_block_t *block = g_ptr_array_index(routing_effect_blocks, i);
       g_ptr_array_sort(block->ports, routing_effect_port_cmp);
       routing_position_t *pos = routing_position(block->id);
+      if(routing_effect_place_pending && block->standalone &&
+         !g_hash_table_contains(prior,block->id) &&
+         g_get_monotonic_time()<routing_effect_place_until_us) {
+         pos->x=MAX(0.,routing_effect_place_x-80.);
+         pos->y=MAX(0.,routing_effect_place_y-56.);
+         pos->pinned=TRUE;
+         routing_position_save(block->id,pos);
+         routing_graph_select(block->id,TRUE);
+         routing_effect_place_pending=FALSE;
+      }
 
       if (!block->standalone && !pos->pinned && !pos->x && !pos->y) {
          pos->x = GRAPH_LAYOUT_MARGIN + GRAPH_LAYOUT_GAP_X * 5.;
@@ -5086,6 +5109,9 @@ static void routing_effect_refresh(void) {
       y += routing_effect_height(block) + 24.;
    }
 
+   if(g_get_monotonic_time()>=routing_effect_place_until_us)
+      routing_effect_place_pending=FALSE;
+   g_hash_table_unref(prior);
    routing_compact_sync();
    graph_canvas_update_size();
 }
