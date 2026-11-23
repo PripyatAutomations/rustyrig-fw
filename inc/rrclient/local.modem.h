@@ -53,6 +53,8 @@ typedef struct {
    char source[64], engine[16], option[24];
    guint64 drops, received;
    gint64 tx_started_us; /* Monotonic clock of confirmed key-down; zero in RX */
+   gint64 tx_release_at_us; /* Confirmed waveform drain + unkey delay; 0 until scheduled */
+   gint64 tx_timeout_at_us; /* Absolute safety timeout for this keyed session */
    char text[RR_LOCAL_MODEM_TEXT];
 } rr_local_modem_entry_t;
 typedef struct {
