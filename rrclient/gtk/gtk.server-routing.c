@@ -48,6 +48,13 @@ static const char *selected(void) {
    const char *value=gtk_entry_get_text(GTK_ENTRY(entry));
    return value?value:"";
 }
+static void server_changed(GtkComboBox *combo,gpointer user) {
+   (void)combo;(void)user;
+   loaded=FALSE;
+   may_edit=FALSE;
+   if(save_button)gtk_widget_set_sensitive(save_button,FALSE);
+   set_status("Server selection changed; Refresh before editing or saving");
+}
 static void fetch(GtkButton *button,gpointer user) {
    (void)button;(void)user;
    const char *profile=selected();
@@ -171,6 +178,7 @@ GtkWidget *gtk_server_routing_page(void) {
    gtk_box_pack_start(GTK_BOX(footer),status,TRUE,TRUE,0);
    gtk_box_pack_end(GTK_BOX(footer),revision_label,FALSE,FALSE,0);
    gtk_box_pack_start(GTK_BOX(page),footer,FALSE,FALSE,0);
+   g_signal_connect(server_entry,"changed",G_CALLBACK(server_changed),NULL);
    g_signal_connect(refresh,"clicked",G_CALLBACK(fetch),NULL);
    g_signal_connect(stage_button,"clicked",G_CALLBACK(stage),NULL);
    g_signal_connect(check,"clicked",G_CALLBACK(validate),NULL);
