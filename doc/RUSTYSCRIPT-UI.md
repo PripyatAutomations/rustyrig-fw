@@ -107,7 +107,10 @@ refreshes the list; for `irc-preview`, set a local file path (the content is ren
 for `roomlist`, set `"refresh"` to rescan open tabs.
 
 `ui.show(id)`, `ui.hide(id)`, and `ui.destroy(id)` change visibility or
-ownership. Script-created widgets are removed automatically on unload/reload.
+ownership. Closing a script-created floating panel hides it and emits
+`ui.close`; the script may reopen the same panel with `ui.show(id)` from a
+slash command or other handler. `ui.destroy(id)` and unload/reload still
+remove the widgets completely. Script-created widgets are removed automatically on unload/reload.
 The client example `doc/examples/scripts/ascii-art.rrs` creates a working
 script-owned .mac browser, previewer and paced sender. `ui.edit(path)` opens
 any local regular file in RustyRig’s reusable editor.
