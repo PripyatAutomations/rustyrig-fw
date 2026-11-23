@@ -8,6 +8,7 @@
 #include <rrclient/local.modem.h>
 #include <rrclient/database.h>
 #include <rrclient/gtk/gtk.graph.h>
+#include "gtk.wire-sag.h"
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -327,12 +328,14 @@ void rr_logic_canvas_draw(cairo_t *cr) {
       if (!rr_logic_canvas_output_position(w->from,&sx,&sy) &&
           (!source_position ||
            !source_position(w->from,&sx,&sy,callback_user))) continue;
-      double dx=input_x(dest,w->pin),dy=pin_y(dest,w->pin),mx=(sx+dx)/2.;
+      double dx=input_x(dest,w->pin),dy=pin_y(dest,w->pin),mx,cy0,cy1;
+      rr_patchbay_wire_controls(sx,sy,dx,dy,rr_gtk_graph_wire_sag(),
+                                &mx,&cy0,&cy1);
       cairo_new_path(cr);
       cairo_set_source_rgb(cr,.96,.20,.20);
       cairo_set_line_width(cr,2.3);
       cairo_move_to(cr,sx,sy);
-      cairo_curve_to(cr,mx,sy,mx,dy,dx,dy);
+      cairo_curve_to(cr,mx,cy0,mx,cy1,dx,dy);
       cairo_stroke(cr);
    }
    if (drag_wire>=0) {
@@ -350,7 +353,10 @@ void rr_logic_canvas_draw(cairo_t *cr) {
       const double dash[]={5.,4.};
       cairo_set_dash(cr,dash,2,0.);
       cairo_move_to(cr,sx,sy);
-      cairo_curve_to(cr,(sx+dx)/2.,sy,(sx+dx)/2.,dy,dx,dy);
+      double mx,cy0,cy1;
+      rr_patchbay_wire_controls(sx,sy,dx,dy,rr_gtk_graph_wire_sag(),
+                                &mx,&cy0,&cy1);
+      cairo_curve_to(cr,mx,cy0,mx,cy1,dx,dy);
       cairo_stroke(cr);
       cairo_set_dash(cr,NULL,0,0);
    }
@@ -534,12 +540,11 @@ static double wire_distance(double x,double y,const wire_view_t *w) {
       (!source_position || !source_position(w->from,&sx,&sy,callback_user)))
       return G_MAXDOUBLE;
    const double dx=input_x(dst,w->pin),dy=pin_y(dst,w->pin);
-   const double mx=(sx+dx)/2.;
    double best=G_MAXDOUBLE,last_x=sx,last_y=sy;
    for(unsigned step=1;step<=32;step++) {
-      double t=step/32.,u=1.-t;
-      double px=u*u*u*sx+3*u*u*t*mx+3*u*t*t*mx+t*t*t*dx;
-      double py=u*u*u*sy+3*u*u*t*sy+3*u*t*t*dy+t*t*t*dy;
+      double t=step/32.,px,py;
+      rr_patchbay_wire_point(sx,sy,dx,dy,rr_gtk_graph_wire_sag(),
+                             t,&px,&py);
       double vx=px-last_x,vy=py-last_y;
       double seg=vx*vx+vy*vy;
       double k=seg>0?CLAMP(((x-last_x)*vx+(y-last_y)*vy)/seg,0.,1.):0.;
