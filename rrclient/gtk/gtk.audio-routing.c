@@ -10,6 +10,7 @@
 #include <librustyaxe/json.h>
 #include <librustyaxe/config.h>
 #include <rrclient/audio.h>
+#include <rrclient/audio.logic.h>
 #include <rrclient/audio.graph.h>
 #include <rrclient/gtk/gtk.graph.h>
 #include <rrclient/gtk/gtk.core.h>
