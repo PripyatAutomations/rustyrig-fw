@@ -45,6 +45,7 @@ struct rr_floating_panel {
    guint32 title_press_time;
    gboolean title_moved;
    gboolean snap_disabled, dock_disabled, initial_positioned, initial_centered, initial_center_pending;
+   gboolean rooted_workspace; /* Lives in its own tab overlay, not chat/global. */
    gboolean initial_position_requested;
    gint initial_x, initial_y;
    gint grab_x, grab_y; /* Pointer position relative to panel during a drag. */
@@ -880,7 +881,7 @@ static void panel_temporary_visibility(RRFloatPanel *p) {
       return;
    }
 
-   if (panel_hide_reasons && !p->temporary_override) {
+   if (panel_hide_reasons && !p->temporary_override && !p->rooted_workspace) {
       if (!p->minimized && gtk_widget_get_visible(p->frame)) {
          p->temporarily_hidden = TRUE;
       }
@@ -3225,6 +3226,53 @@ void rr_floating_panel_set_content_sized(RRFloatPanel *p) {
 }
 
 /* Utility windows stay in the main overlay, even if an old layout docked them. */
+/* Attach an existing panel to a tab-specific overlay without recreating
+ * its controls or exposing GTK pointers to the script runtime. */
+gboolean rr_floating_panel_root_overlay(RRFloatPanel *p,GtkOverlay *target) {
+   if(!p || !p->frame || !GTK_IS_OVERLAY(target) || p->modal)return FALSE;
+   if(p->overlay==target) {
+      p->rooted_workspace=TRUE;
+      return TRUE;
+   }
+   if(p->dock_edge>=0)panel_dock_detach(p,-1,-1);
+   p->dock_edge=-1;
+   p->floating_only=TRUE;
+   p->rooted_workspace=TRUE;
+   p->temporarily_hidden=FALSE;
+   if(p->restore_tab) {
+      gtk_tabs_panel_restore_remove(p->restore_tab);
+      p->restore_tab=NULL;
+   }
+   p->minimized=FALSE;
+   if(p->overlay_allocate_handler) {
+      g_signal_handler_disconnect(p->overlay,p->overlay_allocate_handler);
+      p->overlay_allocate_handler=0;
+   }
+   GtkWidget *frame=p->frame;
+   GtkWidget *scrim=p->scrim;
+   g_object_ref(frame);
+   g_object_ref(scrim);
+   GtkWidget *parent=gtk_widget_get_parent(frame);
+   if(GTK_IS_CONTAINER(parent))
+      gtk_container_remove(GTK_CONTAINER(parent),frame);
+   parent=gtk_widget_get_parent(scrim);
+   if(GTK_IS_CONTAINER(parent))
+      gtk_container_remove(GTK_CONTAINER(parent),scrim);
+   p->overlay=target;
+   gtk_overlay_add_overlay(target,scrim);
+   gtk_overlay_add_overlay(target,frame);
+   g_object_unref(scrim);
+   g_object_unref(frame);
+   p->overlay_allocate_handler=g_signal_connect(target,"size-allocate",
+      G_CALLBACK(panel_overlay_allocation),p);
+   gtk_widget_set_halign(frame,GTK_ALIGN_START);
+   gtk_widget_set_valign(frame,GTK_ALIGN_START);
+   gtk_widget_set_margin_start(frame,MAX(0,p->float_x));
+   gtk_widget_set_margin_top(frame,MAX(0,p->float_y));
+   panel_position_save(p,p->float_x,p->float_y);
+   return TRUE;
+}
+
 void rr_floating_panel_set_floating_only(RRFloatPanel *p) {
    if (!p || !p->frame)
       return;
