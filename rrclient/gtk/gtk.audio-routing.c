@@ -1286,6 +1286,11 @@ static void routing_logic_attach_onair(const char *source,gpointer user) {
    graph_canvas_update_size();
    if (onair_panel_canvas) gtk_widget_queue_draw(onair_panel_canvas);
 }
+static void routing_add_constant_clicked(GtkButton *button,gpointer user) {
+   (void)button;
+   rr_logic_canvas_add_constant(GPOINTER_TO_INT(user)!=0);
+   graph_canvas_update_size();
+}
 static void routing_add_gate_clicked(GtkButton *unused,gpointer user) {
    (void)unused;(void)user;
    GtkWidget *parent=graph_canvas ? gtk_widget_get_toplevel(graph_canvas):NULL;
@@ -7314,6 +7319,18 @@ void gtk_audio_graph_present(void) {
       gtk_widget_set_tooltip_text(add_gate,"Create a reusable AND/OR/XOR/NOT/NAND/NOR/XNOR block; multiple wires on one pin are ORed");
       g_signal_connect(add_gate,"clicked",G_CALLBACK(routing_add_gate_clicked),NULL);
       gtk_flow_box_insert(GTK_FLOW_BOX(tools),add_gate,-1);
+      GtkWidget *true_block=gtk_button_new_with_label("+ TRUE");
+      gtk_widget_set_tooltip_text(true_block,
+         "Add a reusable permanently TRUE boolean source (red output)");
+      g_signal_connect(true_block,"clicked",
+                       G_CALLBACK(routing_add_constant_clicked),GINT_TO_POINTER(1));
+      gtk_flow_box_insert(GTK_FLOW_BOX(tools),true_block,-1);
+      GtkWidget *false_block=gtk_button_new_with_label("+ FALSE");
+      gtk_widget_set_tooltip_text(false_block,
+         "Add a reusable permanently FALSE boolean source (red output)");
+      g_signal_connect(false_block,"clicked",
+                       G_CALLBACK(routing_add_constant_clicked),GINT_TO_POINTER(0));
+      gtk_flow_box_insert(GTK_FLOW_BOX(tools),false_block,-1);
       GtkWidget *new_modem = gtk_button_new_with_label("+ Modem");
       gtk_widget_set_tooltip_text(new_modem, "Create an FT8, PSK or Olivia decoder in Routing");
       g_signal_connect(new_modem, "clicked", G_CALLBACK(routing_new_modem), NULL);
