@@ -10,6 +10,7 @@
 #include <librustyaxe/json.h>
 #include "gtk.decoders.h"
 #include "gtk.audio-routing.h"
+#include "gtk.modem-terminal.h"
 
 static GtkWidget *decode_notebook;
 /* Decoded messages are not serial bytes. Keep this event-driven view separate from VTE so a noisy worker cannot overwrite or reflow an interactive PTY. */
@@ -374,6 +375,7 @@ static void decode_received(const rr_event_message_t *message, void *unused) {
       return;
    }
    const rr_local_modem_decode_t *d = message->payload;
+   if (!g_ascii_strcasecmp(d->engine,"psk")) return;
    decode_tab_t *tab = decode_tab_for(d);
 
    if (!tab) {
@@ -459,9 +461,15 @@ static void decode_snapshot_received(const rr_event_message_t *message, void *un
       const rr_local_modem_entry_t *entry = &snapshot->entries[i];
 
       if (!entry->running || !entry->engine[0]) {
+         rr_gtk_modem_terminal_sync(entry);
          if (decode_tabs[i].page) {
             gtk_widget_destroy(decode_tabs[i].page);
          }
+         continue;
+      }
+      rr_gtk_modem_terminal_sync(entry);
+      if (!g_ascii_strcasecmp(entry->engine,"psk")) {
+         if (decode_tabs[i].page) gtk_widget_destroy(decode_tabs[i].page);
          continue;
       }
       rr_local_modem_decode_t sample = {
