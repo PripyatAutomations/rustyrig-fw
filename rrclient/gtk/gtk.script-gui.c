@@ -728,8 +728,7 @@ static void script_gui_command(const rr_event_message_t *message,void *unused) {
          int width=0,height=0;
          if(sscanf(cmd.value,"%d:%d",&width,&height)==2 &&
             width>=60 && height>=60 && width<=4096 && height<=4096) {
-            rr_floating_panel_set_resizable(entry->panel,TRUE);
-            gtk_widget_set_size_request(entry->widget,width,height);
+            rr_floating_panel_set_dimensions(entry->panel,width,height);
          }
       } else if(cmd.action==RR_GUI_PLACE) {
          int x=0,y=0;
