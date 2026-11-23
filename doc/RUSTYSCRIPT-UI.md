@@ -124,6 +124,31 @@ The `owner` token scopes delivery to the script VM: another script's
 widget events are not delivered to your handlers even if IDs collide.
 `ui.response` also carries `event.answer` and `event.accepted`.
 
+### Script-owned panel layout and workspace rooting
+
+Script-owned panels accept these GTK-neutral commands (queued to the frontend,
+so they do not return synchronous geometry measurements):
+
+- `ui.shrinkwrap(id)`: remove spare child margins, border widths and packing
+  gaps, and resize the floating panel to its natural contents. The panel then
+  follows its controls' size and is zoom-only rather than border-resizable.
+- `ui.size(id, width, height)`: request an explicit outer-panel size
+  (60–4096 px per dimension), re-enabling resizing after shrinkwrap.
+- `ui.place(id, location, x, y)`: move a panel to main overlay (`"M"`) or
+  dock edges (`"N"`, `"E"`, `"S"`, `"W"`), where applicable;
+  coordinates are nonnegative pixels.
+- `ui.zoom(id, percent)`: set panel-local zoom, 10–200 percent.
+- `ui.opacity(id, percent)`: set panel opacity, 30–100 percent.
+- `ui.root(id, "patchbay")`: attach the panel to the actual Routing
+  workspace overlay. It is visible only on **Routing** and **Srv Routing**
+  subpages, never the global chat/status workspace. The command
+  `/wires` reopens it and switches to Routing if necessary.
+
+The scripts API is asynchronous, and scoped IDs do not grant control over
+other scripts' panels. The example in `doc/examples/scripts/wire-sag.rrs`
+uses `ui.root("wires", "patchbay")` followed by
+`ui.shrinkwrap("wires")`.
+
 `ui.show(id)`, `ui.hide(id)`, and `ui.destroy(id)` change visibility or
 ownership. Closing a script-created floating panel hides it and emits
 `ui.close`; the script may reopen the same panel with `ui.show(id)` from a
