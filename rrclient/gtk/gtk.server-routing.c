@@ -81,6 +81,19 @@ static void store(GtkButton *button,gpointer user) {
       set_status("Submitting version-checked server graph configuration…");
    g_free(value);
 }
+static void apply_client(GtkButton *button,gpointer user) {
+   (void)button;(void)user;
+   gchar *value=editor_text();
+   if(!validate_text(value)) {
+      g_free(value);
+      return;
+   }
+   if(rr_logic_canvas_import(value))
+      set_status("Graph applied to client canvas; no server or PTT state changed");
+   else
+      set_status("Client import failed; prior graph retained");
+   g_free(value);
+}
 static void copy_graph(GtkButton *button,gpointer user) {
    (void)button;(void)user;
    gchar *value=editor_text();
@@ -106,6 +119,7 @@ GtkWidget *gtk_server_routing_page(void) {
    GtkWidget *check=gtk_button_new_with_label("Validate");
    save_button=gtk_button_new_with_label("Save to Server");
    GtkWidget *copy=gtk_button_new_with_label("Copy");
+   GtkWidget *apply=gtk_button_new_with_label("Apply to Client");
    gtk_widget_set_sensitive(save_button,FALSE);
    gtk_box_pack_start(GTK_BOX(row),label,FALSE,FALSE,0);
    gtk_box_pack_start(GTK_BOX(row),server_entry,TRUE,TRUE,0);
@@ -114,6 +128,7 @@ GtkWidget *gtk_server_routing_page(void) {
    gtk_box_pack_start(GTK_BOX(row),check,FALSE,FALSE,0);
    gtk_box_pack_start(GTK_BOX(row),save_button,FALSE,FALSE,0);
    gtk_box_pack_start(GTK_BOX(row),copy,FALSE,FALSE,0);
+   gtk_box_pack_start(GTK_BOX(row),apply,FALSE,FALSE,0);
    gtk_box_pack_start(GTK_BOX(page),row,FALSE,FALSE,0);
    GtkWidget *notice=gtk_label_new(
       "Server Routing (configuration stage): graph editing is versioned and "
@@ -142,6 +157,7 @@ GtkWidget *gtk_server_routing_page(void) {
    g_signal_connect(check,"clicked",G_CALLBACK(validate),NULL);
    g_signal_connect(save_button,"clicked",G_CALLBACK(store),NULL);
    g_signal_connect(copy,"clicked",G_CALLBACK(copy_graph),NULL);
+   g_signal_connect(apply,"clicked",G_CALLBACK(apply_client),NULL);
    return page;
 }
 gboolean gtk_server_routing_result(const char *table,const char *action,
