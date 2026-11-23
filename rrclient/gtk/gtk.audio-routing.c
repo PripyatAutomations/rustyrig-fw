@@ -1402,8 +1402,13 @@ static void onair_draw(cairo_t *cr) {
    cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
    cairo_set_font_size(cr, 19.);
    cairo_move_to(cr, 31., 39.);
-   cairo_set_source_rgb(cr, .84, .87, .91);
-   cairo_show_text(cr, "ON AIR");
+   gboolean lit=onair_logic_state();
+   cairo_set_source_rgb(cr,lit?.98:.84,lit?.17:.87,lit?.10:.91);
+   cairo_show_text(cr,"ON AIR");
+   cairo_set_source_rgb(cr,lit?.30:.35,lit?.95:.35,lit?.30:.35);
+   cairo_new_path(cr);
+   cairo_arc(cr,147.,37.,6.,0,2*G_PI);
+   cairo_fill(cr);
    cairo_set_font_size(cr, 10.);
    cairo_move_to(cr, 31., 58.);
    cairo_show_text(cr, "PTT INPUT");
@@ -1416,6 +1421,10 @@ static void onair_draw(cairo_t *cr) {
    cairo_set_line_width(cr, 3.);
    cairo_arc(cr, onair_x, onair_y + ONAIR_H / 2., 7., 0, 2. * G_PI);
    cairo_stroke(cr);
+   cairo_set_source_rgb(cr,onair_logic_state()?.24:.48,onair_logic_state()?.96:.48,onair_logic_state()?.24:.48);
+   cairo_new_path(cr);
+   cairo_arc(cr,onair_x+16.,onair_y+ONAIR_H/2.,4.5,0,2*G_PI);
+   cairo_fill(cr);
    cairo_restore(cr);
    }
 }
@@ -6266,6 +6275,11 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
       return FALSE;
    }
 
+   if (event->type == GDK_2BUTTON_PRESS &&
+       rr_logic_canvas_disconnect_at(gx,gy,event)) {
+      graph_canvas_update_size();
+      return TRUE;
+   }
    if (event->type == GDK_2BUTTON_PRESS) {
       guint serial_slot = 0;
 
@@ -6317,10 +6331,7 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
    }
    if (event->type == GDK_BUTTON_PRESS && !(event->state & (GDK_SHIFT_MASK|GDK_CONTROL_MASK))) {
       const char *id=rr_logic_canvas_hit_block(gx,gy);
-      if (id && !routing_graph_is_selected(id)) {
-         routing_graph_clear_selection();
-         routing_graph_select(id,TRUE);
-      }
+      if (id) routing_graph_select(id,TRUE); /* add to current selection */
    }
 
    if (event->type == GDK_BUTTON_PRESS && (onair_visible || ptt_visible)) {
