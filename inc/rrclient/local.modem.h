@@ -11,6 +11,12 @@
 #define RR_LOCAL_MODEM_REQUEST "client.modem.decoder.request"
 #define RR_LOCAL_MODEM_RESULT "client.modem.decoder.snapshot"
 #define RR_LOCAL_MODEM_DECODE "client.modem.decoder.decode"
+#define RR_LOCAL_MODEM_STREAM_RX "client.modem.stream.rx"
+typedef struct {
+   unsigned slot;
+   unsigned length;
+   char bytes[256];
+} rr_local_modem_stream_rx_t;
 typedef struct {
    unsigned slot;
    char source[64], engine[16], mode[24];
