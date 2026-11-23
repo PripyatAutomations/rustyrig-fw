@@ -335,6 +335,28 @@ static gboolean routing_is_touch_event(const GdkEvent *event) {
 
 #define GRAPH_CONNECTION_LOOSENESS_KEY "audio.graph.connection-looseness"
 #define GRAPH_WIRE_SAG_KEY "ui.patchbay.wire-sag"
+static GtkWidget *routing_wire_sag_spin;
+static void routing_wire_sag_changed(GtkSpinButton *spin,gpointer user);
+double rr_gtk_routing_wire_sag_get(void) {
+   return rr_gtk_graph_wire_sag();
+}
+void rr_gtk_routing_wire_sag_set(double sag) {
+   if(!isfinite(sag))return;
+   sag=CLAMP(sag,0.,240.);
+   rr_gtk_graph_set_wire_sag(sag);
+   char value[G_ASCII_DTOSTR_BUF_SIZE];
+   g_ascii_dtostr(value,sizeof(value),sag);
+   rrclient_database_setting_set(GRAPH_WIRE_SAG_KEY,value);
+   if(routing_wire_sag_spin && GTK_IS_SPIN_BUTTON(routing_wire_sag_spin) &&
+      fabs(gtk_spin_button_get_value(GTK_SPIN_BUTTON(routing_wire_sag_spin))-sag)>0.0001) {
+      g_signal_handlers_block_by_func(routing_wire_sag_spin,
+           G_CALLBACK(routing_wire_sag_changed),NULL);
+      gtk_spin_button_set_value(GTK_SPIN_BUTTON(routing_wire_sag_spin),sag);
+      g_signal_handlers_unblock_by_func(routing_wire_sag_spin,
+           G_CALLBACK(routing_wire_sag_changed),NULL);
+   }
+   graph_canvas_update_size();
+}
 static void routing_wire_sag_changed(GtkSpinButton *spin,gpointer user) {
    (void)user;
    double sag=CLAMP(gtk_spin_button_get_value(spin),0.,240.);
@@ -7746,6 +7768,8 @@ void gtk_audio_graph_present(void) {
       gtk_widget_set_tooltip_text(sag_label,"Downward cable droop in logical canvas pixels");
       gtk_flow_box_insert(GTK_FLOW_BOX(tools),sag_label,-1);
       GtkWidget *wire_sag=gtk_spin_button_new_with_range(0.,240.,10.);
+      routing_wire_sag_spin=wire_sag;
+      g_object_add_weak_pointer(G_OBJECT(wire_sag),(gpointer *)&routing_wire_sag_spin);
       gtk_spin_button_set_digits(GTK_SPIN_BUTTON(wire_sag),0);
       char *saved_sag=rrclient_database_setting_get(GRAPH_WIRE_SAG_KEY);
       char *end=NULL;
