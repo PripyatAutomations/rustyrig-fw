@@ -25,6 +25,9 @@
 typedef struct {
    rr_dsp_worker_t worker;
    bool active, tx_enabled, tx_was_allowed, ptt_owned, tx_running;
+   bool stream_active, stream_worker_started, stream_ending;
+   size_t stream_len;
+   char stream_queue[2048];
    gint64 ptt_deadline_us, release_at_us;
    char pending_text[256];
    char source[64], engine[16], option[24];
@@ -103,6 +106,8 @@ static void modem_release_ptt(unsigned index) {
    d->tx_running = false;
    modem_refresh_tx_active();
    d->pending_text[0] = 0;
+   d->stream_active = d->stream_worker_started = d->stream_ending = false;
+   d->stream_len = 0;
    d->ptt_deadline_us = d->release_at_us = 0;
 }
 
@@ -354,6 +359,30 @@ static void decode_bytes(decoder_t *d, unsigned slot, const char *bytes, size_t 
    }
 }
 
+/* Worker stdin is SOCK_SEQPACKET. DATAHEX stays below the worker's
+ * 512-byte command buffer and preserves typed control characters. */
+static bool modem_stream_send(decoder_t *d,const char *cmd,size_t bytes) {
+   if (d->worker.serial_fd < 0) return false;
+   return send(d->worker.serial_fd,cmd,bytes,MSG_DONTWAIT|MSG_NOSIGNAL)==(ssize_t)bytes;
+}
+static bool modem_stream_flush(decoder_t *d) {
+   if (!d->stream_len) return true;
+   size_t n=MIN(d->stream_len,200u);
+   char cmd[410];
+   static const char hex[]="0123456789ABCDEF";
+   memcpy(cmd,"DATAHEX ",8);
+   for(size_t i=0;i<n;i++) {
+      unsigned char c=(unsigned char)d->stream_queue[i];
+      cmd[8+2*i]=hex[c>>4];
+      cmd[9+2*i]=hex[c&15];
+   }
+   cmd[8+2*n]='\n';
+   if (!modem_stream_send(d,cmd,9+2*n)) return false;
+   memmove(d->stream_queue,d->stream_queue+n,d->stream_len-n);
+   d->stream_len-=n;
+   return true;
+}
+
 static gboolean poll_decoders(gpointer unused) {
    (void)unused;
 
@@ -407,7 +436,8 @@ static gboolean poll_decoders(gpointer unused) {
                break;
             }
 
-            if (n == 7 && !memcmp(status, "TX_DONE", 7) && d->ptt_owned && d->tx_running) {
+            if (n == 7 && !memcmp(status, "TX_DONE", 7) && d->ptt_owned && d->tx_running &&
+                (!d->stream_active || d->stream_ending)) {
                d->release_at_us = g_get_monotonic_time() + 750000;
             }
          }
@@ -419,6 +449,30 @@ static gboolean poll_decoders(gpointer unused) {
       if (d->ptt_owned && (!d->tx_enabled || !d->ptt_target[0] || !modem_tx_wired(d) || (d->tx_running && !allowed))) {
          modem_cancel_waveform(d);
          modem_release_ptt(i);
+      } else if (d->ptt_owned && d->stream_active && allowed) {
+         if (!d->stream_worker_started) {
+            static const char cmd[]="START\n";
+            if (!modem_stream_send(d,cmd,sizeof(cmd)-1)) {
+               modem_cancel_waveform(d);
+               modem_release_ptt(i);
+            } else {
+               d->stream_worker_started=true;
+               d->tx_running=true;
+               modem_refresh_tx_active();
+               d->ptt_deadline_us=now_us+180000000; /* finite continuous TX */
+            }
+         } else if (!modem_stream_flush(d)) {
+            modem_cancel_waveform(d);
+            modem_release_ptt(i);
+         } else if (d->stream_ending && !d->stream_len) {
+            static const char cmd[]="END\n";
+            if (!modem_stream_send(d,cmd,sizeof(cmd)-1)) {
+               modem_cancel_waveform(d);
+               modem_release_ptt(i);
+            } else {
+               d->stream_active=false;
+            }
+         }
       } else if (d->ptt_owned && d->pending_text[0] && allowed) {
          gchar *command = g_strdup_printf("TX %s\n", d->pending_text);
          ssize_t nw = send(d->worker.serial_fd, command, strlen(command), MSG_DONTWAIT | MSG_NOSIGNAL);
@@ -622,6 +676,8 @@ static bool start_one(const rr_local_modem_request_t *req) {
    d->tx_target[0] = d->ptt_target[0] = 0;
    d->tx_enabled = req->tx_enabled && strcmp(engine, "ft8") != 0;
    d->ptt_owned = d->tx_running = d->tx_was_allowed = false;
+   d->stream_active = d->stream_worker_started = d->stream_ending = false;
+   d->stream_len = 0;
    modem_refresh_tx_active();
    d->pending_text[0] = 0;
    d->ptt_deadline_us = d->release_at_us = 0;
@@ -654,6 +710,7 @@ static void publish_snapshot(void) {
       entry->slot = i + 1;
       entry->running = d->active;
       entry->tx_enabled = d->tx_enabled;
+      entry->stream_active = d->stream_active;
       entry->value = d->value;
       entry->drops = d->drops;
       entry->received = d->received;
@@ -707,6 +764,60 @@ static void request_received(const rr_event_message_t *message, void *unused) {
                g_snprintf(last_status, sizeof(last_status), "Modem %u PTT requested; awaiting radio confirmation", req->slot);
             } else {
                g_strlcpy(last_status, "Modem PTT request rejected: check TX access and active rig", sizeof(last_status));
+            }
+         }
+      }
+   } else if (req->action == RR_LOCAL_MODEM_STREAM_BEGIN ||
+              req->action == RR_LOCAL_MODEM_STREAM_DATA ||
+              req->action == RR_LOCAL_MODEM_STREAM_END ||
+              req->action == RR_LOCAL_MODEM_STREAM_ABORT) {
+      if (req->slot < 1 || req->slot > RR_LOCAL_MODEM_MAX) {
+         g_strlcpy(last_status,"Invalid keyboard modem slot",sizeof(last_status));
+      } else {
+         decoder_t *d=&decoders[req->slot-1];
+         if (req->action == RR_LOCAL_MODEM_STREAM_ABORT) {
+            modem_cancel_waveform(d);
+            modem_release_ptt(req->slot-1);
+            g_snprintf(last_status,sizeof(last_status),"Modem %u TX aborted",req->slot);
+         } else if (!d->active || strcmp(d->engine,"psk") || !d->tx_enabled) {
+            g_strlcpy(last_status,"Modem does not support enabled keyboard TX",sizeof(last_status));
+         } else if (req->action == RR_LOCAL_MODEM_STREAM_BEGIN) {
+            if (d->ptt_owned || d->tx_running || d->pending_text[0] ||
+                !modem_tx_wired(d) || !d->ptt_target[0]) {
+               g_strlcpy(last_status,"Keyboard TX needs both audio and PTT routes",sizeof(last_status));
+            } else {
+               char pin[64];
+               modem_ptt_source(req->slot-1,pin);
+               if (rrclient_modem_ptt_send(pin,d->ptt_target,true)) {
+                  d->ptt_owned=true;
+                  d->stream_active=true;
+                  d->stream_worker_started=false;
+                  d->stream_ending=false;
+                  d->stream_len=0;
+                  d->ptt_deadline_us=g_get_monotonic_time()+5000000;
+                  d->release_at_us=0;
+                  modem_refresh_tx_active();
+                  g_snprintf(last_status,sizeof(last_status),
+                             "Modem %u keyboard TX awaiting PTT confirmation",req->slot);
+               } else g_strlcpy(last_status,"Keyboard TX rejected: PTT access or rig busy",sizeof(last_status));
+            }
+         } else if (!d->stream_active || !d->ptt_owned) {
+            g_strlcpy(last_status,"Keyboard TX is not active",sizeof(last_status));
+         } else if (req->action == RR_LOCAL_MODEM_STREAM_END) {
+            d->stream_ending=true;
+            g_snprintf(last_status,sizeof(last_status),"Modem %u draining keyboard TX",req->slot);
+         } else if (d->stream_ending) {
+            g_strlcpy(last_status,"Keyboard TX is draining",sizeof(last_status));
+         } else if (!memchr(req->text,0,sizeof(req->text))) {
+            g_strlcpy(last_status,"Invalid keyboard TX payload",sizeof(last_status));
+         } else {
+            size_t n=strlen(req->text);
+            if (n > sizeof(d->stream_queue)-d->stream_len) {
+               g_strlcpy(last_status,"Keyboard TX queue full",sizeof(last_status));
+            } else {
+               memcpy(d->stream_queue+d->stream_len,req->text,n);
+               d->stream_len+=n;
+               g_snprintf(last_status,sizeof(last_status),"Modem %u keyboard TX queued %zu bytes",req->slot,n);
             }
          }
       }
