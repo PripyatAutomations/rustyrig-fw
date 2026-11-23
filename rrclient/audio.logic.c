@@ -16,7 +16,7 @@ bool rr_gate_kind_parse(const char *name, rr_gate_kind_t *out) {
 bool rr_gate_evaluate(const rr_gate_state_t *gate, bool *output) {
    if (!output) return false;
    *output=false;
-   if (!gate || (unsigned)gate->(unsigned)kind > RR_GATE_XNOR ||
+   if (!gate || (unsigned)gate->kind > RR_GATE_XNOR ||
        (gate->kind == RR_GATE_NOT ? gate->inputs != 1 :
           gate->inputs < 2 || gate->inputs > 32))
       return false;
@@ -44,7 +44,7 @@ bool rr_gate_evaluate_wires(rr_gate_kind_t kind, unsigned inputs,
                             bool *output) {
    if (!output) return false;
    *output=false;
-   if (kind > RR_GATE_XNOR || (kind == RR_GATE_NOT ? inputs != 1 :
+   if ((unsigned)kind > RR_GATE_XNOR || (kind == RR_GATE_NOT ? inputs != 1 :
        inputs < 2 || inputs > 32) || (wire_count && !wires))
       return false;
    rr_gate_state_t gate = {.kind=kind, .inputs=inputs};
