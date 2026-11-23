@@ -344,6 +344,22 @@ static double routing_pin_radius(void) {
    return CLAMP((graph_touch_pointer ? 23. : 10.) / MAX(.01, graph_scale), graph_touch_pointer ? 17. : 8., graph_touch_pointer ? 36. : 20.);
 }
 
+static gboolean routing_create_at_cursor;
+static double routing_create_x,routing_create_y;
+static void routing_creation_point(double *x,double *y) {
+   if(routing_create_at_cursor) {
+      *x=routing_create_x;*y=routing_create_y;
+   } else {
+      double w=graph_canvas?gtk_widget_get_allocated_width(graph_canvas):640.;
+      double h=graph_canvas?gtk_widget_get_allocated_height(graph_canvas):480.;
+      *x=CLAMP((w/2.-graph_offset_x)/MAX(graph_scale,.01),0.,100000.);
+      *y=CLAMP((h/2.-graph_offset_y)/MAX(graph_scale,.01),0.,100000.);
+   }
+}
+static void routing_create_position_logic(void) {
+   double x,y;routing_creation_point(&x,&y);
+   rr_logic_canvas_place_next(x,y);
+}
 static gboolean graph_pan_dragging;
 /* Gtk-style Shift-drag marquee; geometry is expressed in graph/world units. */
 static gboolean graph_marquee_active;
@@ -397,6 +413,13 @@ static void routing_graph_select(const char *id, gboolean selected) {
    }
 }
 
+static void routing_create_select_logic(void) {
+   const char *id=rr_logic_canvas_last_created();
+   if(id&&*id) {
+      routing_graph_select(id,TRUE);
+      graph_canvas_update_size();
+   }
+}
 static void routing_graph_clear_selection(void) {
    if (graph_selection) {
       g_hash_table_remove_all(graph_selection);
@@ -5423,7 +5446,9 @@ static void routing_compact_create(GtkButton *button, gpointer unused) {
          onair_save();
          graph_canvas_update_size();
       } else if (kind && (!strcmp(kind,"true") || !strcmp(kind,"false"))) {
+         routing_create_position_logic();
          rr_logic_canvas_add_constant(!strcmp(kind,"true"));
+         routing_create_select_logic();
          graph_canvas_update_size();
       } else if (id && channel && kind) {
          gboolean effect = g_str_has_prefix(id, "E|");
@@ -5447,7 +5472,9 @@ static void routing_compact_create(GtkButton *button, gpointer unused) {
    g_hash_table_unref(effect_ports);
    gtk_widget_destroy(dialog);
    if(create_gate_after_close) {
+      routing_create_position_logic();
       rr_logic_canvas_add(parent);
+      routing_create_select_logic();
       graph_canvas_update_size();
    }
 }
