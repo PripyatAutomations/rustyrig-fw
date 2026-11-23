@@ -14,7 +14,7 @@
 static GtkWidget *decode_notebook;
 /* Decoded messages are not serial bytes. Keep this event-driven view separate from VTE so a noisy worker cannot overwrite or reflow an interactive PTY. */
 typedef struct {
-   GtkWidget *page, *list, *scroll;
+   GtkWidget *page, *list, *scroll, *compose, *send, *tx_status;
    unsigned rows;
    gboolean follow;
    guint follow_idle;
@@ -55,6 +55,31 @@ static void decode_tab_closed(GtkWidget *page, gpointer user) {
    memset(tab, 0, sizeof(*tab));
 }
 
+/* Compose and send over the same core-owned request path as Routing's
+ * Send Modem Text dialog. No direct worker write or GTK-side PTT request. */
+static void decode_send_clicked(GtkWidget *widget, gpointer user) {
+   (void)widget;
+   decode_tab_t *tab=user;
+   if (!tab || !tab->compose || !tab->send ||
+       !gtk_widget_get_sensitive(tab->send)) return;
+   const char *value=gtk_entry_get_text(GTK_ENTRY(tab->compose));
+   if (!value || !*value || strchr(value,'\n') || strchr(value,'\r') ||
+       strlen(value)>=sizeof(((rr_local_modem_request_t *)0)->text)) {
+      if (tab->tx_status)
+         gtk_label_set_text(GTK_LABEL(tab->tx_status),"Enter 1–255 bytes of text (no newline)");
+      return;
+   }
+   unsigned slot=(unsigned)(tab-decode_tabs)+1u;
+   if (slot<1 || slot>RR_LOCAL_MODEM_MAX) return;
+   rr_local_modem_request_t req={.action=RR_LOCAL_MODEM_SEND_TEXT,.slot=slot};
+   g_strlcpy(req.text,value,sizeof(req.text));
+   rr_local_modem_request(&req);
+   /* Sending is asynchronous. Do not say it transmitted: the core may
+    * reject missing TX audio/PTT wires or unavailable TX authorization. */
+   if (tab->tx_status)
+      gtk_label_set_text(GTK_LABEL(tab->tx_status),"TX request queued; awaiting modem/PTT result");
+   gtk_entry_set_text(GTK_ENTRY(tab->compose),"");
+}
 static void decode_close_clicked(GtkButton *button, gpointer user) {
    (void)button;
    decode_tab_t *tab = user;
@@ -95,6 +120,29 @@ static decode_tab_t *decode_tab_for(const rr_local_modem_decode_t *d) {
    gtk_list_box_set_selection_mode(GTK_LIST_BOX(tab->list), GTK_SELECTION_NONE);
    gtk_container_add(GTK_CONTAINER(tab->scroll), tab->list);
    gtk_box_pack_start(GTK_BOX(tab->page), tab->scroll, TRUE, TRUE, 0);
+   if (!g_ascii_strcasecmp(d->engine,"olivia") ||
+       !g_ascii_strcasecmp(d->engine,"psk")) {
+      GtkWidget *tx_box=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,4);
+      tab->compose=gtk_entry_new();
+      gtk_entry_set_max_length(GTK_ENTRY(tab->compose),255);
+      gtk_entry_set_placeholder_text(GTK_ENTRY(tab->compose),
+         "Type text to send via this modem…");
+      gtk_widget_set_tooltip_text(tab->compose,
+         "Send one text message. TX requires enabled modem, TX audio and PTT routes, and radio permission.");
+      gtk_widget_set_hexpand(tab->compose,TRUE);
+      tab->send=gtk_button_new_with_label("Send");
+      gtk_widget_set_sensitive(tab->send,FALSE);
+      gtk_widget_set_sensitive(tab->compose,FALSE);
+      g_signal_connect(tab->send,"clicked",G_CALLBACK(decode_send_clicked),tab);
+      g_signal_connect(tab->compose,"activate",G_CALLBACK(decode_send_clicked),tab);
+      gtk_box_pack_start(GTK_BOX(tx_box),tab->compose,TRUE,TRUE,0);
+      gtk_box_pack_start(GTK_BOX(tx_box),tab->send,FALSE,FALSE,0);
+      gtk_box_pack_start(GTK_BOX(tab->page),tx_box,FALSE,FALSE,2);
+      tab->tx_status=gtk_label_new("Enable TX for this modem in Routing before composing");
+      gtk_label_set_xalign(GTK_LABEL(tab->tx_status),0.f);
+      gtk_label_set_ellipsize(GTK_LABEL(tab->tx_status),PANGO_ELLIPSIZE_END);
+      gtk_box_pack_start(GTK_BOX(tab->page),tab->tx_status,FALSE,FALSE,2);
+   }
    GtkAdjustment *adj = gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(tab->scroll));
    g_signal_connect(adj, "value-changed", G_CALLBACK(decode_scroll_changed), tab);
    GtkWidget *title = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
@@ -414,7 +462,14 @@ static void decode_snapshot_received(const rr_event_message_t *message, void *un
       };
       g_strlcpy(sample.engine, entry->engine, sizeof(sample.engine));
       g_strlcpy(sample.source, entry->source, sizeof(sample.source));
-      decode_tab_for(&sample);
+      decode_tab_t *tab=decode_tab_for(&sample);
+      if (tab && tab->compose) {
+         gtk_widget_set_sensitive(tab->compose,entry->tx_enabled);
+         gtk_widget_set_sensitive(tab->send,entry->tx_enabled);
+         if (!entry->tx_enabled && tab->tx_status)
+            gtk_label_set_text(GTK_LABEL(tab->tx_status),
+               "TX disabled; enable in Routing and connect TX audio + PTT");
+      }
    }
 }
 
