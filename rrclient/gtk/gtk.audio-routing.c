@@ -7749,7 +7749,8 @@ void gtk_audio_graph_present(void) {
       gtk_spin_button_set_digits(GTK_SPIN_BUTTON(wire_sag),0);
       char *saved_sag=rrclient_database_setting_get(GRAPH_WIRE_SAG_KEY);
       char *end=NULL;
-      double sag=saved_sag?g_ascii_strtod(saved_sag,&end):0.;
+      double sag=saved_sag?g_ascii_strtod(saved_sag,&end):
+         cfg_get_int(GRAPH_WIRE_SAG_KEY,0);
       if(!saved_sag || end==saved_sag || (end && *end) || !isfinite(sag))sag=0.;
       g_free(saved_sag);
       sag=CLAMP(sag,0.,240.);
