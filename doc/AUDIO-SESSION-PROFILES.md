@@ -127,6 +127,55 @@ Inputs have separate `present` and `high` masks; disconnected/stale inputs
 force the output **low** and report no valid result. This avoids accidentally
 treating an unknown input as false and asserting NAND/NOR/NOT into a transmitter.
 
+### Interactive logic gates and boolean constants (2026-11-22)
+
+The Routing canvas has a **+ Gate** toolbar action and dedicated **+ TRUE**
+and **+ FALSE** block actions. Generic gate blocks support AND, OR, XOR,
+NOT, NAND, NOR and **XNOR**. Conventional symbols distinguish each gate,
+including the XNOR output inversion bubble. A gate's Properties context menu
+sets its operation and its input pin count (NOT=1; others=2..32), and its
+individual incoming wires can be removed without affecting other inputs.
+
+Input pins accept multiple red wires, reduced by OR on each pin. Core graph
+`rrclient/control.graph.c` owns bounded gate/source/wire topology, recursive
+evaluation with per-snapshot memoization and cycle rejection. An unavailable
+required input makes the output invalid/LOW; this includes NOT/NAND/NOR/XNOR.
+Gates and static constants may fan out to multiple other inputs.
+
+The GTK control graph in `gtk.control-graph.c` draws its own typed pins
+and red wires, supports input-to-output and output-to-input dragging,
+gate dragging and properties, and serializes its editable state in
+`audio.graph.control.v1` (GKeyFile format in the client settings DB).
+Static constants have no inputs and always produce a valid TRUE or FALSE
+level, independently of connection state. They can feed other gate inputs
+or the ON AIR input. ON AIR is a **boolean indicator only**: it ignores
+audio, does not infer radio TX from a sound stream and can monitor
+a raw source, a gate output or a constant source. The visual monitor
+never keys the radio.
+
+Source adapters currently ingest the local PTT command and modemN.ptt
+events. **These are view/model signals, not an alternate TX actuator.**
+The existing physical TX sink is still exclusively owned by the
+authorized core control path. Do not connect gate outputs directly to
+the radio's PTT request endpoint until the signal scheduler, explicit
+sink bindings, session ownership, safe-low disconnect semantics and
+TX interlocks are integrated and tested on hardware.
+
+- [x] Add XNOR core truth table and conventional Cairo glyph.
+- [x] Add core fan-in/fanout graph with cycle rejection, stale-input fail-low,
+      multiple-wires-per-input support, and constant sources.
+- [x] Add + Gate, + TRUE, + FALSE actions, gate properties, typed pin
+      interactions, individual wire disconnects and persisted layout/wires.
+- [x] Allow ON AIR to monitor the resulting boolean (including TRUE/FALSE).
+- [ ] Integrate a transmitter PTT sink as a core-owned boolean consumer,
+      enforcing authorization, interlocks, release-on-disconnect and owner
+      identity. Do not perform GTK-thread PTT send operations.
+- [ ] Add THRESHOLD block to the interactive canvas and numeric signal
+      adapters; existing threshold evaluator is implemented but not wired.
+- [ ] Move editable signal-topology ownership out of GTK to the core thread
+      and publish immutable snapshots when enabling physical outputs.
+- [ ] Run/validate `make test` and physical TX interlock regression tests.
+
 ### Multiple boolean wires on one input pin
 
 A red boolean input pin accepts **multiple wires**, with a wired-OR
