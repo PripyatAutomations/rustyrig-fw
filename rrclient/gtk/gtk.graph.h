@@ -6,6 +6,9 @@
 #ifndef RRCLIENT_GTK_GRAPH_H
 #define RRCLIENT_GTK_GRAPH_H
 #include <gtk/gtk.h>
+/* Aesthetic cable droop in logical canvas units, not part of DSP routing. */
+void rr_gtk_graph_set_wire_sag(double sag);
+double rr_gtk_graph_wire_sag(void);
 typedef enum {
    RR_GTK_GRAPH_NORMAL,
    RR_GTK_GRAPH_BYPASS,
