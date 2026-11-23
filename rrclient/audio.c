@@ -2057,7 +2057,9 @@ static void audio_lv2_request(const rr_event_message_t *msg, void *unused) {
             }
          }
          Log(LOG_INFO, "audio.lv2", "Connected %s -> %s input %u", req.source[0] ? req.source : "(disconnected)", fx->name, req.channel);
-
+      } else {
+         Log(LOG_WARN, "audio.lv2", "Cannot patch input channel %u on LV2 slot %u", req.channel, req.slot);
+      }
    }
    lv2_chain_rebuild_blocked = FALSE;
    audio_lv2_reconcile_chains();
