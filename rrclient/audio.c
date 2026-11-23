@@ -1752,7 +1752,8 @@ typedef struct {
 
 static gint audio_lv2_chain_next(const rr_lv2_chain_config_t *cfg, guint parent) {
    const guint channels = cfg[parent].channels;
-   if (!cfg[parent].present || (channels != 1 && channels != 2))
+   if (!cfg[parent].present || (channels != 1 && channels != 2) ||
+       (channels==1 && cfg[parent].source[1][0]))
       return -1;
    char output[2][48] = {{0}};
    for (guint ch = 0 ; ch < channels ; ch++) {
@@ -2745,10 +2746,23 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
 
       for (guint ch = 0 ; ch < 2 ; ch++) {
          if (fx->source[ch][0]) {
-            /* All effect nodes must exist before rendering edges (including
-             * links from a later-created slot into an earlier slot). */
-            rr_audio_graph_add_channel_link(graph, active_rx_id && !strcmp(fx->source[ch], active_rx_id) ?
-               "rig.src" : fx->source[ch], fx->name, RR_AG_NORMAL, fx->channels == 2 ? (ch ? RR_AG_CHANNEL_RIGHT : RR_AG_CHANNEL_LEFT) : RR_AG_CHANNEL_LEFT);
+            /* Processor output streams have .L/.R names in PCM, but the
+             * graph node is their common proc.lv2.N block. Resolve the
+             * endpoint without discarding the selected output channel. */
+            const char *from=fx->source[ch];
+            char parent[64];
+            unsigned upstream=0;
+            char side=0,extra=0;
+            if (sscanf(from,"proc.lv2.%u.%c%c",&upstream,&side,&extra)==2 &&
+                upstream>=1 && upstream<=RR_AUDIO_EFFECT_MAX &&
+                (side=='L' || side=='R')) {
+               g_snprintf(parent,sizeof(parent),"proc.lv2.%u",upstream);
+               from=parent;
+            }
+            rr_audio_graph_add_channel_link(graph,
+               active_rx_id && !strcmp(from,active_rx_id) ? "rig.src" : from,
+               fx->name, RR_AG_NORMAL,
+               ch ? RR_AG_CHANNEL_RIGHT : RR_AG_CHANNEL_LEFT);
          }
          if (ch >= fx->channels) continue; /* Mono has one output only. */
          unsigned mask = fx->output[ch] == 'L' ? RR_AG_CHANNEL_LEFT :
