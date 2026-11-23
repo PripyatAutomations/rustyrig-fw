@@ -1055,9 +1055,11 @@ static void onair_restore(void) {
       return;
    }
    double x, y, px, py, z;
-   int visible, bound;
+   int visible, bound, ptt_shown=1;
+   int parsed=sscanf(v, "%lf,%lf,%lf,%lf,%lf,%d,%d,%d",
+                     &x,&y,&px,&py,&z,&visible,&bound,&ptt_shown);
 
-   if (sscanf(v, "%lf,%lf,%lf,%lf,%lf,%d,%d", &x, &y, &px, &py, &z, &visible, &bound) == 7 &&
+   if (parsed >= 7 &&
       isfinite(x) && isfinite(y) && isfinite(px) && isfinite(py) && isfinite(z) &&
       x >= 0 && y >= 0 && px >= 0 && py >= 0 && x <= 100000 && y <= 100000 && px <= 100000 && py <= 100000 && z >= .5 && z <= 4.) {
       onair_x = x;
@@ -1066,6 +1068,7 @@ static void onair_restore(void) {
       ptt_y = py;
       onair_scale = z;
       onair_visible = !!visible;
+      ptt_visible = !!ptt_shown;
       onair_connected = FALSE;  /* Old bindings watched rig TX, not the pin */
    }
    g_free(v);
@@ -1360,6 +1363,7 @@ static void onair_draw(cairo_t *cr) {
       cairo_stroke(cr);
       cairo_restore(cr);
    }
+   if (ptt_visible) {
    cairo_set_source_rgb(cr, .15, .20, .25);
    cairo_rectangle(cr, ptt_x, ptt_y, 150., 70.);
    cairo_fill(cr);
@@ -1382,6 +1386,7 @@ static void onair_draw(cairo_t *cr) {
    cairo_arc(cr, ptt_x + 150., ptt_y + 35., 6., 0, 2. * G_PI);
    cairo_fill(cr);
    cairo_restore(cr);
+   }
    /* This is the *input* endpoint. The real illuminated display lives in a floating panel; there is no second output PTT pin on the sign. */
    cairo_save(cr);
    cairo_translate(cr, onair_x, onair_y);
@@ -1504,8 +1509,8 @@ static void routing_graph_bounds(double *width, double *height) {
    }
 
    if (onair_visible) {
-      max_x = MAX(max_x, MAX(onair_x + ONAIR_W, ptt_x + 150.) + GRAPH_LAYOUT_MARGIN);
-      max_y = MAX(max_y, MAX(onair_y + ONAIR_H, ptt_y + 70.) + GRAPH_LAYOUT_MARGIN);
+      max_x = MAX(max_x, MAX(onair_x + ONAIR_W, ptt_visible ? ptt_x + 150. : 0.) + GRAPH_LAYOUT_MARGIN);
+      max_y = MAX(max_y, MAX(onair_y + ONAIR_H, ptt_visible ? ptt_y + 70. : 0.) + GRAPH_LAYOUT_MARGIN);
    }
    rr_logic_canvas_bounds(&max_x, &max_y);
    rr_marks_bounds(routing_marks, &max_x, &max_y);
@@ -5978,7 +5983,7 @@ static void routing_marquee_update(void) {
          routing_graph_select("ui.onair", TRUE);
       }
 
-      if (routing_marquee_contains(ptt_x, ptt_y, 150., 70.)) {
+      if (ptt_visible && routing_marquee_contains(ptt_x, ptt_y, 150., 70.)) {
          routing_graph_select("ui.ptt", TRUE);
       }
    }
@@ -6133,7 +6138,7 @@ static void routing_marquee_draw(cairo_t *cr) {
          cairo_rectangle(cr, onair_x - 3., onair_y - 3., ONAIR_W + 6., ONAIR_H + 6.);
       }
 
-      if (routing_graph_is_selected("ui.ptt")) {
+      if (ptt_visible && routing_graph_is_selected("ui.ptt")) {
          cairo_rectangle(cr, ptt_x - 3., ptt_y - 3., 156., 76.);
       }
    }
@@ -6247,7 +6252,7 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
       if (onair_visible) {
          const char *id = gx>=onair_x && gx<=onair_x+ONAIR_W &&
                          gy>=onair_y && gy<=onair_y+ONAIR_H ? "ui.onair" :
-                          gx>=ptt_x && gx<=ptt_x+150. &&
+                          ptt_visible && gx>=ptt_x && gx<=ptt_x+150. &&
                           gy>=ptt_y && gy<=ptt_y+70. ? "ui.ptt" : NULL;
          if (id) {
             routing_graph_select(id,!routing_graph_is_selected(id));
@@ -6286,7 +6291,7 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
          return TRUE;
       }
 
-      if (hypot(gx - ptt_x - 150., gy - ptt_y - 35.) <= routing_pin_radius()) {
+      if (ptt_visible && hypot(gx - ptt_x - 150., gy - ptt_y - 35.) <= routing_pin_radius()) {
          onair_drag = 3;
          onair_drag_reverse = FALSE;
          g_strlcpy(onair_drag_source, RRCLIENT_ROUTING_PTT_LOCAL, sizeof(onair_drag_source));
