@@ -584,6 +584,21 @@ static void script_gui_add(const rr_script_gui_command_t *cmd) {
    gtk_widget_show_all(packing?packing:w);
    if(!strcmp(cmd->kind,"roomlist"))widget_changed(w,entry);
 }
+/* Tighten only script-owned children; keep GTK shell spacing intact. */
+static void script_tighten(GtkWidget *widget) {
+   if(!widget)return;
+   gtk_widget_set_margin_start(widget,0);
+   gtk_widget_set_margin_end(widget,0);
+   gtk_widget_set_margin_top(widget,0);
+   gtk_widget_set_margin_bottom(widget,0);
+   if(GTK_IS_BOX(widget))gtk_box_set_spacing(GTK_BOX(widget),2);
+   if(GTK_IS_CONTAINER(widget)) {
+      GList *children=gtk_container_get_children(GTK_CONTAINER(widget));
+      for(GList *it=children;it;it=it->next)
+         script_tighten(GTK_WIDGET(it->data));
+      g_list_free(children);
+   }
+}
 static void script_gui_command(const rr_event_message_t *message,void *unused) {
    (void)unused;
    if(!message||!message->payload||message->length!=sizeof(rr_script_gui_command_t))return;
@@ -654,6 +669,38 @@ static void script_gui_command(const rr_event_message_t *message,void *unused) {
       return;
    }
    if(cmd.action==RR_GUI_ADD){script_gui_add(&cmd);return;}
+   if(cmd.action==RR_GUI_SHRINKWRAP || cmd.action==RR_GUI_SIZE ||
+      cmd.action==RR_GUI_PLACE || cmd.action==RR_GUI_ZOOM ||
+      cmd.action==RR_GUI_OPACITY) {
+      if(!entry || !entry->panel)return;
+      char *panel_id=widget_key(cmd.owner,cmd.id);
+      if(cmd.action==RR_GUI_SHRINKWRAP) {
+         GtkWidget *body=rr_floating_panel_body(entry->panel);
+         script_tighten(body);
+         rr_floating_panel_set_content_sized(entry->panel);
+         rr_floating_panel_fit_content(entry->panel);
+      } else if(cmd.action==RR_GUI_SIZE) {
+         int width=0,height=0;
+         if(sscanf(cmd.value,"%d:%d",&width,&height)==2 &&
+            width>=60 && height>=60 && width<=4096 && height<=4096) {
+            rr_floating_panel_set_resizable(entry->panel,TRUE);
+            gtk_widget_set_size_request(entry->widget,width,height);
+         }
+      } else if(cmd.action==RR_GUI_PLACE) {
+         int x=0,y=0;
+         if(sscanf(cmd.value,"%d:%d",&x,&y)==2)
+            rr_floating_panel_move_named(panel_id,cmd.parent,x,y);
+      } else {
+         int percent=0;
+         if(sscanf(cmd.value,"%d",&percent)==1) {
+            if(cmd.action==RR_GUI_ZOOM)
+               rr_floating_panel_zoom_named(panel_id,percent);
+            else rr_floating_panel_opacity_named(panel_id,percent);
+         }
+      }
+      g_free(panel_id);
+      return;
+   }
    if(cmd.action==RR_GUI_BIND) {
       if(!entry || !entry->widget || strcmp(cmd.value,"ui.patchbay.wire-sag") ||
          (strcmp(entry->kind,"knob") && strcmp(entry->kind,"slider") &&
