@@ -398,6 +398,8 @@ static gboolean graph_pan_dragging;
 static gboolean graph_marquee_active;
 static double graph_marquee_x0, graph_marquee_y0, graph_marquee_x1, graph_marquee_y1;
 static GHashTable *graph_marquee_base, *graph_marquee_marks_base;
+static void routing_select_logic_marquee(const char *id,double x,double y,
+                                         double w,double h,gpointer user);
 static void routing_marquee_update(void);
 static void routing_marquee_draw(cairo_t *cr);
 static gboolean routing_marquee_begin(double x, double y, guint modifiers);
