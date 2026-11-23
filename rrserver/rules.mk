@@ -38,9 +38,12 @@ extra_clean += ${BUILD_DIR}/rrserver/gpio.config
 bins += ${rrserver}
 
 rrserver_headers += $(wildcard rrserver/*.h)
-rrserver_src = $(addprefix rrserver/,$(patsubst %.o,%.c,$(filter-out rrscript/host.o,$(rrserver_objs))))
+rrserver_src = $(addprefix rrserver/,$(patsubst %.o,%.c,$(filter-out rrscript/host.o graph.logic.o graph.control.o graph.codec.o,$(rrserver_objs))))
 
 rrserver_objs += acl.o
+# Compile the very same graph evaluator/codec sources for the server;
+# the server never depends on GTK or the rrclient executable.
+rrserver_objs += graph.logic.o graph.control.o graph.codec.o
 rrserver_objs += amp.o			# Support for amplifiers and their control
 rrserver_objs += atu.o			# Support for auto-tuners and their control
 #rrserver_objs += au.o			 # core abstractions
@@ -179,6 +182,17 @@ ${BUILD_DIR}/rrserver/rrscript/host.o: rrscript/host.c inc/rrscript/host.h ${BUI
 	@mkdir -p $(dir $@)
 	@$(CC) $(CFLAGS_RRSERVER) $(CFLAGS) $(CFLAGS_WARN) -o $@ -c $< || exit 2
 endif
+
+# Build shared, GTK-free routing sources into rrserver with its own flags.
+${BUILD_DIR}/rrserver/graph.logic.o: rrclient/audio.logic.c inc/rrclient/audio.logic.h
+	@mkdir -p $(dir $@)
+	@${CC} ${CFLAGS_RRSERVER} ${CFLAGS} ${CFLAGS_WARN} -o $@ -c $<
+${BUILD_DIR}/rrserver/graph.control.o: rrclient/control.graph.c inc/rrclient/control.graph.h
+	@mkdir -p $(dir $@)
+	@${CC} ${CFLAGS_RRSERVER} ${CFLAGS} ${CFLAGS_WARN} -o $@ -c $<
+${BUILD_DIR}/rrserver/graph.codec.o: rrclient/control.graph.codec.c inc/rrclient/control.graph.h
+	@mkdir -p $(dir $@)
+	@${CC} ${CFLAGS_RRSERVER} ${CFLAGS} ${CFLAGS_WARN} -o $@ -c $<
 
 rrserver_real_objs := $(foreach x, ${rrserver_objs}, ${BUILD_DIR}/rrserver/${x})
 extra_clean += ${rrserver_real_objs}
