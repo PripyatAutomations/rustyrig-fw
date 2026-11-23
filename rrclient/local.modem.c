@@ -404,6 +404,14 @@ static gboolean poll_decoders(gpointer unused) {
             d->received += (unsigned)n;
             g_mutex_unlock(&decoder_lock);
             decode_bytes(d, i + 1, bytes, (size_t)n);
+            if (!strcmp(d->engine,"psk")) {
+               rr_local_modem_stream_rx_t rx={.slot=i+1,.length=(unsigned)n};
+               memcpy(rx.bytes,bytes,(size_t)n);
+               rr_event_message_t msg={
+                  .name=RR_LOCAL_MODEM_STREAM_RX,.payload=&rx,.length=sizeof(rx)
+               };
+               event_emit_message(&msg);
+            }
          } else if (n == 0) {
             ended = true;
             break;
