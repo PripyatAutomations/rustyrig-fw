@@ -33,6 +33,8 @@ gboolean rr_floating_panel_root_overlay(RRFloatPanel *panel, GtkOverlay *overlay
 void rr_floating_panel_set_resizable(RRFloatPanel *panel, gboolean resizable);
 /* Follow the controls' natural size; zoom only, never manual border resizing. */
 void rr_floating_panel_set_content_sized(RRFloatPanel *panel);
+/* Explicit outer-panel size after shrinkwrap, in pixels. */
+void rr_floating_panel_set_dimensions(RRFloatPanel *panel, gint width, gint height);
 /* Hide the floating chrome and optionally make a widget the drag handle. */
 void rr_floating_panel_set_compact(RRFloatPanel *panel, GtkWidget *drag_handle);
 /* Optional content-driven sizing; the minimum tracks this widget at panel zoom. */
