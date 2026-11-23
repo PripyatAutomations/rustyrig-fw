@@ -325,7 +325,14 @@ static rrs_value_t *script_gui_geometry(rrs_vm_t *vm,int argc,
       rrs_vm_raise(vm,"Script has no active UI owner");return NULL;
    }
    g_strlcpy(command.id,rrs_value_string(argv[0]),sizeof(command.id));
-   if(action==RR_GUI_PLACE) {
+   if(action==RR_GUI_ROOT) {
+      if(rrs_value_type(argv[1])!=RRS_STRING ||
+         strcmp(rrs_value_string(argv[1]),"patchbay")) {
+         rrs_vm_raise(vm,"ui.root(id, \"patchbay\"): unsupported workspace");
+         return NULL;
+      }
+      g_strlcpy(command.value,"patchbay",sizeof(command.value));
+   } else if(action==RR_GUI_PLACE) {
       if(rrs_value_type(argv[1])!=RRS_STRING ||
          rrs_value_type(argv[2])!=RRS_INT ||
          rrs_value_type(argv[3])!=RRS_INT ||
@@ -500,6 +507,7 @@ static bool register_gui_api(rrs_vm_t *vm) {
       rrs_vm_register_native(vm,"ui.destroy",script_gui_native,GINT_TO_POINTER(RR_GUI_DESTROY)) &&
       rrs_vm_register_native(vm,"ui.set",script_gui_native,GINT_TO_POINTER(RR_GUI_SET)) &&
       rrs_vm_register_native(vm,"ui.bind",script_gui_native,GINT_TO_POINTER(RR_GUI_BIND)) &&
+      rrs_vm_register_native(vm,"ui.root",script_gui_geometry,GINT_TO_POINTER(RR_GUI_ROOT)) &&
       rrs_vm_register_native(vm,"ui.shrinkwrap",script_gui_geometry,GINT_TO_POINTER(RR_GUI_SHRINKWRAP)) &&
       rrs_vm_register_native(vm,"ui.size",script_gui_geometry,GINT_TO_POINTER(RR_GUI_SIZE)) &&
       rrs_vm_register_native(vm,"ui.place",script_gui_geometry,GINT_TO_POINTER(RR_GUI_PLACE)) &&
