@@ -21,6 +21,7 @@ gboolean rr_logic_canvas_motion(double x,double y,guint modifiers);
 gboolean rr_logic_canvas_release(double x,double y,gboolean at_onair);
 gboolean rr_logic_canvas_connect_source(const char *source,double x,double y);
 gboolean rr_logic_canvas_output_position(const char *name,double *x,double *y);
+gboolean rr_logic_canvas_output_at(double x,double y,char *id,size_t capacity);
 gboolean rr_logic_canvas_output(const char *name,bool *valid,bool *high);
 void rr_logic_canvas_signal(const char *name,bool valid,bool high);
 void rr_logic_canvas_reset_sources(void);
