@@ -25,7 +25,7 @@ static bool valid_name(const char *name) {
           !strchr(name,'\n') && !strchr(name,'\t');
 }
 static bool kind_inputs(rr_gate_kind_t kind,unsigned inputs) {
-   return kind<=RR_GATE_XNOR &&
+   return (unsigned)kind<=RR_GATE_XNOR &&
           (kind==RR_GATE_NOT ? inputs==1 : inputs>=2 && inputs<=32);
 }
 rr_control_graph_t *rr_control_graph_new(void) { return calloc(1,sizeof(rr_control_graph_t)); }
