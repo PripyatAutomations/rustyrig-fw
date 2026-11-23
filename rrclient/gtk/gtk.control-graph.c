@@ -522,15 +522,17 @@ static double wire_distance(double x,double y,const wire_view_t *w) {
 gboolean rr_logic_canvas_disconnect_at(double x,double y,GdkEventButton *event) {
    if(!model||!event||event->button!=GDK_BUTTON_PRIMARY ||
       event->type!=GDK_2BUTTON_PRESS)return FALSE;
-   for(unsigned i=0;i<wire_count;i++)
-      if(wire_distance(x,y,&wires[i])<=7.)
-         return remove_wire_index(i);
    gate_view_t *pin_block=NULL;
    unsigned pin=0;
    gboolean input=pin_hit(x,y,&pin_block,&pin);
    char out[RR_CONTROL_NAME_LEN]={0};
    gboolean output=!input && output_hit(x,y,out);
-   if(!input&&!output)return FALSE;
+   if(!input&&!output) {
+      for(unsigned i=0;i<wire_count;i++)
+         if(wire_distance(x,y,&wires[i])<=7.)
+            return remove_wire_index(i);
+      return FALSE;
+   }
    unsigned indexes[MAX_UI_WIRES],count=0;
    for(unsigned i=0;i<wire_count;i++)
       if((input && !strcmp(wires[i].to,pin_block->id) && wires[i].pin==pin) ||
