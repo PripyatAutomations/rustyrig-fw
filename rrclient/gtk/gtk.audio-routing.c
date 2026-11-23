@@ -7829,7 +7829,7 @@ void gtk_audio_graph_present(void) {
       routing_logic_visible=routing_saved_visible("audio.graph.show-logic");
 
       GtkWidget *gear=gtk_menu_button_new();
-      GtkWidget *gear_icon=gtk_image_new_from_icon_name("emblem-system-symbolic",
+      GtkWidget *gear_icon=gtk_image_new_from_icon_name("preferences-system-symbolic",
                                                         GTK_ICON_SIZE_BUTTON);
       gtk_button_set_image(GTK_BUTTON(gear),gear_icon);
       gtk_widget_set_tooltip_text(gear,"Patchbay settings, snapping and block visibility");
@@ -7892,7 +7892,6 @@ void gtk_audio_graph_present(void) {
       GtkWidget *visibility_popover=gtk_popover_new(visibility_button);
       GtkWidget *visibility_box=gtk_box_new(GTK_ORIENTATION_VERTICAL,2);
       gtk_container_set_border_width(GTK_CONTAINER(visibility_box),5);
-      GtkWidget *visibility_checks[4];
       const char *visibility_labels[4]={"Controls","LV2 effects","Modems","Logic gates"};
       const gboolean visibility_active[4]={
          routing_controls_visible,routing_effects_visible,
@@ -7904,9 +7903,7 @@ void gtk_audio_graph_present(void) {
          g_signal_connect(check,"toggled",G_CALLBACK(routing_visibility_checkbox_toggled),
                           GINT_TO_POINTER(idx+1));
          gtk_box_pack_start(GTK_BOX(visibility_box),check,FALSE,FALSE,0);
-         visibility_checks[idx]=check;
       }
-      (void)visibility_checks;
       GtkWidget *restore_hidden=gtk_button_new_with_label("Restore hidden controls…");
       g_signal_connect(restore_hidden,"clicked",
                        G_CALLBACK(routing_compact_hidden_menu),NULL);
