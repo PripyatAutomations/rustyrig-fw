@@ -35,6 +35,8 @@ static rr_logic_sink_attach_cb sink_attach;
 static gpointer callback_user;
 static gboolean initialized;
 static gint drag_block=-1,drag_wire=-1;
+static rr_logic_canvas_selected_cb selected_cb;
+static gpointer selected_user;
 static gboolean reverse_drag;
 static char reverse_to[RR_CONTROL_NAME_LEN];
 static unsigned reverse_pin;
@@ -293,7 +295,7 @@ skip_preview:;
          .title=b->constant ? (b->level?"TRUE":"FALSE") : rr_gate_kind_name(b->kind),
          .shape=b->constant ? RR_GTK_GRAPH_SHAPE_UTILITY : shape_for(b->kind),
          .ports=ports,.port_count=b->inputs+1,
-         .io=RR_GTK_GRAPH_IO_BOTH,.selected=valid && high};
+         .io=RR_GTK_GRAPH_IO_BOTH,.selected=selected_cb && selected_cb(b->id,selected_user)};
       rr_gtk_graph_draw(cr,&view,1,NULL,0);
       cairo_set_source_rgb(cr,.96,.20,.20);
       cairo_set_font_size(cr,10.);
@@ -325,6 +327,43 @@ static void remove_wire(GtkMenuItem *item,gpointer unused) {
          }
          break;
       }
+}
+void rr_logic_canvas_set_selected_cb(rr_logic_canvas_selected_cb cb,gpointer user) {
+   selected_cb=cb;
+   selected_user=user;
+}
+void rr_logic_canvas_foreach_block(rr_logic_canvas_block_cb cb,gpointer user) {
+   if (!cb) return;
+   for (unsigned i=0;i<block_count;i++)
+      cb(blocks[i].id,blocks[i].x,blocks[i].y,
+         RR_GTK_GRAPH_NODE_W,RR_GTK_GRAPH_NODE_H,user);
+}
+const char *rr_logic_canvas_hit_block(double x,double y) {
+   for (int i=(int)block_count-1;i>=0;i--) {
+      const gate_view_t *b=&blocks[i];
+      if (x>=b->x && x<=b->x+RR_GTK_GRAPH_NODE_W &&
+          y>=b->y && y<=b->y+RR_GTK_GRAPH_NODE_H)
+         return b->id;
+   }
+   return NULL;
+}
+gboolean rr_logic_canvas_remove_block(const char *id) {
+   gate_view_t *b=find_gate(id);
+   if (!b) return FALSE;
+   if (!(b->constant ? rr_control_graph_source_remove(model,id) :
+                       rr_control_graph_gate_remove(model,id)))
+      return FALSE;
+   for (unsigned i=0;i<wire_count;)
+      if (!strcmp(wires[i].from,id) || !strcmp(wires[i].to,id)) {
+         memmove(&wires[i],&wires[i+1],(wire_count-i-1)*sizeof(wires[0]));
+         wire_count--;
+      } else i++;
+   unsigned i=(unsigned)(b-blocks);
+   memmove(&blocks[i],&blocks[i+1],(block_count-i-1)*sizeof(blocks[0]));
+   block_count--;
+   drag_block=drag_wire=-1;
+   save_model();
+   return TRUE;
 }
 static void properties(gate_view_t *b,GtkWidget *parent) {
    GtkWidget *dialog=gtk_dialog_new_with_buttons(
@@ -358,18 +397,7 @@ static void properties(gate_view_t *b,GtkWidget *parent) {
    if (result==GTK_RESPONSE_REJECT) {
       char id[RR_CONTROL_NAME_LEN];
       g_strlcpy(id,b->id,sizeof(id));
-      if ((b->constant ? rr_control_graph_source_remove(model,id) :
-                             rr_control_graph_gate_remove(model,id))) {
-         for(unsigned i=0;i<wire_count;)
-            if (!strcmp(wires[i].from,id) || !strcmp(wires[i].to,id)) {
-               memmove(&wires[i],&wires[i+1],(wire_count-i-1)*sizeof(wires[0]));
-               wire_count--;
-            } else i++;
-         unsigned i=(unsigned)(b-blocks);
-         memmove(&blocks[i],&blocks[i+1],(block_count-i-1)*sizeof(blocks[0]));
-         block_count--;
-         save_model();
-      }
+      rr_logic_canvas_remove_block(id);
    } else if (result==GTK_RESPONSE_ACCEPT && !b->constant) {
       rr_gate_kind_t type=(rr_gate_kind_t)gtk_combo_box_get_active(GTK_COMBO_BOX(kind));
       unsigned n=(unsigned)gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(spin));
@@ -542,4 +570,16 @@ void rr_logic_canvas_add_constant(gboolean high) {
                     .y=600.+(block_count/3)*165.};
    g_strlcpy(b->id,id,sizeof(b->id));
    save_model();
+}
+
+gchar *rr_logic_canvas_export(void) {
+   /* Stable versioned keyfile syntax; no GTK pointer or PTT state. */
+   if (!model) return NULL;
+   return rrclient_database_setting_get(LOGIC_STORE);
+}
+gboolean rr_logic_canvas_import(const char *serialized) {
+   /* Stage parsing in a separate GTK-independent graph in the next profile
+    * phase; reject direct in-place imports until validation is atomic. */
+   (void)serialized;
+   return FALSE;
 }
