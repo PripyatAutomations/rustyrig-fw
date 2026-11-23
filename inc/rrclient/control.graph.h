@@ -8,6 +8,10 @@
 #define RR_CONTROL_MAX_SOURCES 32
 #define RR_CONTROL_MAX_WIRES 256
 #define RR_CONTROL_NAME_LEN 64
+/* Canonical public port suffixes: in_a..in_z, in_aa..in_af, out_a.
+ * Index-based stored graph wires remain unchanged for compatibility. */
+bool rr_control_graph_port_name(bool output,unsigned index,char *buf,size_t size);
+bool rr_control_graph_port_index(const char *name,bool *output,unsigned *index);
 typedef struct rr_control_graph rr_control_graph_t;
 /* A source can stand for PTT, COS or any other boolean value; type is
  * intentionally not encoded in its name. No sink can key the transmitter
