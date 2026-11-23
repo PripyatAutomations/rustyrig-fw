@@ -1194,15 +1194,15 @@ static void onair_disconnect(void) {
 }
 
 static gint onair_hit(double x, double y) {
-   if (!onair_visible) {
+   if (!onair_visible && !ptt_visible) {
       return 0;
    }
 
-   if (x >= onair_x && x <= onair_x + ONAIR_W && y >= onair_y && y <= onair_y + ONAIR_H) {
+   if (onair_visible && x >= onair_x && x <= onair_x + ONAIR_W && y >= onair_y && y <= onair_y + ONAIR_H) {
       return 1;
    }
 
-   if (x >= ptt_x && x <= ptt_x + 150. && y >= ptt_y && y <= ptt_y + 70.) {
+   if (ptt_visible && x >= ptt_x && x <= ptt_x + 150. && y >= ptt_y && y <= ptt_y + 70.) {
       return 2;
    }
 
@@ -1281,6 +1281,7 @@ static gboolean onair_source_position(const char *source, double *x, double *y) 
    if (rr_logic_canvas_output_position(source,x,y))
       return TRUE;
    if (!strcmp(source, RRCLIENT_ROUTING_PTT_LOCAL)) {
+      if (!ptt_visible) return FALSE;
       *x = ptt_x + 150.;
       *y = ptt_y + 35.;
 
@@ -1331,7 +1332,7 @@ static void routing_logic_attach_onair(const char *source,gpointer user) {
    if (onair_panel_canvas) gtk_widget_queue_draw(onair_panel_canvas);
 }
 static void onair_draw(cairo_t *cr) {
-   if (!onair_visible) {
+   if (!onair_visible && !ptt_visible) {
       return;
    }
    double sx = 0., sy = 0., dx = onair_x, dy = onair_y + ONAIR_H / 2.;
@@ -1349,7 +1350,7 @@ static void onair_draw(cairo_t *cr) {
       dy = onair_drag_dy;
    }
 
-   if (source_found && (onair_connected || onair_drag == 3)) {
+   if (onair_visible && source_found && (onair_connected || onair_drag == 3)) {
       cairo_save(cr);
       double dash[] = {
          6., 5.
@@ -1386,6 +1387,7 @@ static void onair_draw(cairo_t *cr) {
    cairo_fill(cr);
    cairo_restore(cr);
    }
+   if (onair_visible) {
    /* This is the *input* endpoint. The real illuminated display lives in a floating panel; there is no second output PTT pin on the sign. */
    cairo_save(cr);
    cairo_translate(cr, onair_x, onair_y);
@@ -1415,6 +1417,7 @@ static void onair_draw(cairo_t *cr) {
    cairo_arc(cr, onair_x, onair_y + ONAIR_H / 2., 7., 0, 2. * G_PI);
    cairo_stroke(cr);
    cairo_restore(cr);
+   }
 }
 
 static void onair_add(GtkButton *button, gpointer unused) {
@@ -5300,7 +5303,7 @@ static void routing_control_kind_changed(GtkComboBox *selector, gpointer data) {
    GtkWidget **fields = data;
    const char *kind = gtk_combo_box_get_active_id(selector);
    gboolean indicator=kind && (!strcmp(kind,"onair") || !strcmp(kind,"gate") ||
-      !strcmp(kind,"true") || !strcmp(kind,"false"));
+      !strcmp(kind,"true") || !strcmp(kind,"false") || !strcmp(kind,"ptt"));
 
    for (unsigned i = 0 ; i < 3 ; i++) {
       gtk_widget_set_sensitive(fields[i], !indicator);
@@ -5337,6 +5340,7 @@ static void routing_compact_create(GtkButton *button, gpointer unused) {
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(widget_kind),"gate","Boolean logic gate");
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(widget_kind),"true","Constant TRUE");
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(widget_kind),"false","Constant FALSE");
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(widget_kind),"ptt","Local PTT boolean output");
    gtk_combo_box_set_active(GTK_COMBO_BOX(widget_kind), 0);
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(target), "", "Unbound — connect green pin");
    routing_effect_choices(GTK_COMBO_BOX_TEXT(target), effect_ports);
@@ -5392,6 +5396,10 @@ static void routing_compact_create(GtkButton *button, gpointer unused) {
          onair_add(NULL, NULL);
       } else if (kind && !strcmp(kind,"gate")) {
          create_gate_after_close=TRUE;
+      } else if (kind && !strcmp(kind,"ptt")) {
+         ptt_visible=TRUE;
+         onair_save();
+         graph_canvas_update_size();
       } else if (kind && (!strcmp(kind,"true") || !strcmp(kind,"false"))) {
          rr_logic_canvas_add_constant(!strcmp(kind,"true"));
          graph_canvas_update_size();
@@ -6302,9 +6310,9 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
       }
    }
 
-   if (event->type == GDK_BUTTON_PRESS && onair_visible) {
+   if (event->type == GDK_BUTTON_PRESS && (onair_visible || ptt_visible)) {
       /* Drag from the hollow ON AIR input to a red PTT source, or from either local/modem PTT output into that input. */
-      if (hypot(gx - onair_x, gy - onair_y - ONAIR_H / 2.) <= routing_pin_radius()) {
+      if (onair_visible && hypot(gx - onair_x, gy - onair_y - ONAIR_H / 2.) <= routing_pin_radius()) {
          onair_drag = 3;
          onair_drag_reverse = TRUE;
          onair_drag_dx = gx;
