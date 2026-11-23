@@ -26,6 +26,7 @@ struct script_file {
    char *filename;
    char *name;
    bool client;
+   bool activated; /* Lifecycle events run only for an installed script. */
    char gui_owner[32];
    GRecMutex mutex; /* Nested synchronous event emissions must not deadlock. */
    event_subscription_t *subscriptions;
@@ -576,6 +577,32 @@ static void run(script_file_t *script,rrscript_binding_kind_t kind,
    }
    g_rec_mutex_unlock(&script->mutex);
 }
+/* Lifecycle hooks are VM-local, not event-bus broadcasts. Even scripts
+ * subscribing to the same event names cannot observe another script's
+ * load or teardown. Direct dispatch also works before the event loop runs. */
+static void script_lifecycle(script_file_t *script,const char *name) {
+   if(!script || !script->vm) return;
+   bool present=false;
+   for(size_t i=0;i<rrs_vm_binding_count(script->vm);i++) {
+      const rrscript_binding_t *b=rrs_vm_binding(script->vm,i);
+      if(b && b->kind==RRSCRIPT_EVENT &&
+         strlen(name)==b->name_length &&
+         !strncmp(name,b->name,b->name_length)) {
+         present=true;
+         break;
+      }
+   }
+   if(!present)return;
+   rrs_value_t *context=rrs_dictionary();
+   if(!context)return;
+   rrs_value_t *filename=rrs_string(script->name);
+   if(filename) {
+      rrs_dict_put(context,"script",filename);
+      rrs_value_free(filename);
+   }
+   run(script,RRSCRIPT_EVENT,name,context);
+   rrs_value_free(context);
+}
 static void event_received(const char *name,const char *payload,
                            rrconn_t *connection,void *user) {
    (void)connection;
@@ -612,6 +639,11 @@ static void event_received(const char *name,const char *payload,
 }
 static void release_script(gpointer data) {
    script_file_t *script=data;
+   /* Still valid here: resources, owner mapping and native APIs are alive. */
+   if(script->activated) {
+      script->activated=false;
+      script_lifecycle(script,"script.fini");
+   }
    /* On unload/reload, retire all widgets this VM created. Opaque lifetime
     * token is used only for routing, never exposed as a script-side pointer. */
    if(script->gui_owner[0]) {
@@ -652,6 +684,10 @@ static void release_script(gpointer data) {
    g_free(script);
 }
 static bool install_event(script_file_t *script,const rrscript_binding_t *b) {
+   /* Lifecycle events never join the global bus. */
+   if((b->name_length==11 && !strncmp(b->name,"script.init",11)) ||
+      (b->name_length==11 && !strncmp(b->name,"script.fini",11)))
+      return true;
    /* One event-bus token per (script,event), even with several handlers. */
    for(event_subscription_t *existing=script->subscriptions;existing;existing=existing->next) {
       if(strlen(existing->name)==b->name_length &&
@@ -846,6 +882,8 @@ static bool activate_script(rrscript_host_t *host,const char *name,bool replacin
              path,(int)b->name_length,b->name);
    }
    g_ptr_array_add(host->scripts,script);
+   script->activated=true;
+   script_lifecycle(script,"script.init");
    Log(LOG_INFO,"scripting","%s %s (%zu bindings)",replacing?"Reloaded":"Loaded",
        relative,rrs_vm_binding_count(script->vm));
    return true;
