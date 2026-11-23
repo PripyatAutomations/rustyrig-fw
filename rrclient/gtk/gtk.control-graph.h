@@ -10,6 +10,10 @@ void rr_logic_canvas_init(rr_logic_source_position_cb position,
                           gpointer user);
 void rr_logic_canvas_add(GtkWidget *parent);
 void rr_logic_canvas_add_constant(gboolean high);
+/* One-shot placement consumed by the next Add operation. */
+void rr_logic_canvas_place_next(double x,double y);
+const char *rr_logic_canvas_last_created(void);
+gboolean rr_logic_canvas_disconnect_at(double x,double y,GdkEventButton *event);
 void rr_logic_canvas_draw(cairo_t *cr);
 gboolean rr_logic_canvas_press(double x,double y,GdkEventButton *event);
 gboolean rr_logic_canvas_motion(double x,double y,guint modifiers);
