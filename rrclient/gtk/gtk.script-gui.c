@@ -722,6 +722,24 @@ static void script_gui_command(const rr_event_message_t *message,void *unused) {
       } else if(cmd.action==RR_GUI_SHRINKWRAP) {
          GtkWidget *body=rr_floating_panel_body(entry->panel);
          script_tighten(body);
+         /* The normal title/menu/resize chrome sets a wider minimum than a
+          * script's single control. Use a tiny drag handle inside the body
+          * so the complete floating panel follows the contents' requisition. */
+         if(GTK_IS_BOX(body)) {
+            GtkWidget *handle=g_object_get_data(G_OBJECT(body),
+                                                "rr-script-shrink-handle");
+            if(!handle) {
+               handle=gtk_event_box_new();
+               GtkWidget *grip=gtk_label_new("⠿");
+               gtk_container_add(GTK_CONTAINER(handle),grip);
+               gtk_widget_set_halign(handle,GTK_ALIGN_START);
+               gtk_box_pack_start(GTK_BOX(body),handle,FALSE,FALSE,0);
+               gtk_box_reorder_child(GTK_BOX(body),handle,0);
+               g_object_set_data(G_OBJECT(body),"rr-script-shrink-handle",handle);
+               gtk_widget_show_all(handle);
+            }
+            rr_floating_panel_set_compact(entry->panel,handle);
+         }
          rr_floating_panel_set_content_sized(entry->panel);
          rr_floating_panel_fit_content(entry->panel);
       } else if(cmd.action==RR_GUI_SIZE) {
