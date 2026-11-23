@@ -323,6 +323,9 @@ static void script_preview_file(GtkWidget *scroller,const char *filename) {
    if(!path || g_file_test(path,G_FILE_TEST_IS_SYMLINK) || g_stat(path,&file_stat)!=0 || file_stat.st_size<0 ||
       file_stat.st_size>128*1024 || !g_file_get_contents(path,&contents,&length,NULL) ||
       !g_utf8_validate(contents,length,NULL)) {
+      g_object_set_data_full(G_OBJECT(scroller),"rr-preview-markup",NULL,NULL);
+      g_object_set_data_full(G_OBJECT(scroller),"rr-preview-plain",NULL,NULL);
+      g_object_set_data(G_OBJECT(scroller),"rr-preview-size",NULL);
       gtk_label_set_text(GTK_LABEL(label),"Select a .mac file to preview");
       g_free(contents);g_free(path);return;
    }
