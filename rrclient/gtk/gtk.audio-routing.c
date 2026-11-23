@@ -7545,9 +7545,10 @@ void gtk_audio_graph_present(void) {
          }
          g_object_unref(css);
       }
-      gtk_notebook_append_page(GTK_NOTEBOOK(audio_tabs), routing_page, gtk_label_new("Routing"));
-      gtk_notebook_append_page(GTK_NOTEBOOK(audio_tabs), gtk_server_routing_page(), gtk_label_new("Server Routing"));
-      gtk_notebook_append_page(GTK_NOTEBOOK(audio_tabs), pipeline_page_new(), gtk_label_new("Pipelines"));
+      gtk_notebook_append_page(GTK_NOTEBOOK(audio_tabs),routing_page,gtk_label_new("Routing"));
+      gtk_notebook_append_page(GTK_NOTEBOOK(audio_tabs),gtk_server_routing_page(),gtk_label_new("Srv Routing"));
+      gtk_notebook_append_page(GTK_NOTEBOOK(audio_tabs),pipeline_page_new(),gtk_label_new("Pipelines"));
+      gtk_notebook_append_page(GTK_NOTEBOOK(audio_tabs),gtk_server_pipelines_page(),gtk_label_new("Srv Pipelines"));
       GtkWidget *profiles = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
       graph_profiles = gtk_combo_box_text_new_with_entry();
       g_signal_connect(graph_profile_entry(), "changed", G_CALLBACK(graph_profile_entry_changed), NULL);
