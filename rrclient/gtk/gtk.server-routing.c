@@ -203,3 +203,28 @@ gboolean gtk_server_routing_result(const char *table,const char *action,
       "Server graph loaded read-only; owner/superadmin required to edit");
    return TRUE;
 }
+
+/* Server pipeline topology is not exposed by rrserver yet. Keep the
+ * second server tab and its cluster selector separate from the client
+ * GStreamer pipeline model: displaying client elements here would imply
+ * they belong to the selected server. */
+GtkWidget *gtk_server_pipelines_page(void) {
+   GtkWidget *page=gtk_box_new(GTK_ORIENTATION_VERTICAL,8);
+   gtk_container_set_border_width(GTK_CONTAINER(page),8);
+   GtkWidget *row=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,6);
+   GtkWidget *label=gtk_label_new("Server:");
+   GtkWidget *server=gtk_server_routing_server_selector();
+   gtk_widget_set_hexpand(server,TRUE);
+   gtk_box_pack_start(GTK_BOX(row),label,FALSE,FALSE,0);
+   gtk_box_pack_start(GTK_BOX(row),server,TRUE,TRUE,0);
+   gtk_box_pack_start(GTK_BOX(page),row,FALSE,FALSE,0);
+   GtkWidget *notice=gtk_label_new(
+      "Srv Pipelines — server pipeline topology is not available yet. "
+      "This view will use the shared Pipeline editor when rrserver exposes "
+      "its pipeline inventory and authenticated revisioned edit/apply API. "
+      "The local Pipelines tab continues to edit client-owned GStreamer pipelines.");
+   gtk_label_set_xalign(GTK_LABEL(notice),0.);
+   gtk_label_set_line_wrap(GTK_LABEL(notice),TRUE);
+   gtk_box_pack_start(GTK_BOX(page),notice,FALSE,FALSE,8);
+   return page;
+}
