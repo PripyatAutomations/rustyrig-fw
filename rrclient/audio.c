@@ -1388,14 +1388,9 @@ static gboolean audio_lv2_feed(const char *source, const void *samples, size_t b
       if (!g_atomic_int_get(&fx->active) || g_atomic_int_get(&fx->failed) || !fx->queue || !fx->available) {
          continue;
       }
-      guint channel = 0;
-
-      if (strcmp(fx->source[0], source)) {
-         if (fx->channels != 2 || strcmp(fx->source[1], source)) {
-            continue;
-         }
-         channel = 1;
-      }
+      const gboolean left=!strcmp(fx->source[0],source);
+      const gboolean right=fx->channels==2 && !strcmp(fx->source[1],source);
+      if(!left && !right) continue;
 
       if (fx->channels == 1) {
          rr_lv2_pcm_packet_t *packet = g_async_queue_try_pop(fx->available);
@@ -1404,24 +1399,28 @@ static gboolean audio_lv2_feed(const char *source, const void *samples, size_t b
             /* A connected effect owns the input; never leak dry PCM directly to the mixer when its async queue is full. */
             fx->dropped++;
             accepted = TRUE;
-            break;
+            continue;
          }
          packet->bytes = (uint16_t) bytes;
          memcpy(packet->pcm, samples, bytes);
          g_async_queue_push(fx->queue, packet);
       } else {
          guint frames = (guint) (bytes / sizeof(int16_t));
-         /* Do not let a stalled/unconnected channel accumulate unbounded audio. */
-         guint held = fx->pending_frames[channel];
-
-         if (held + frames > G_N_ELEMENTS(fx->pending[channel])) {
-            guint discard = held + frames - G_N_ELEMENTS(fx->pending[channel]);
-            memmove(fx->pending[channel], fx->pending[channel] + discard, (held - discard) * sizeof(int16_t));
-            held -= discard;
-            fx->dropped += discard;
+         /* One mono source can feed both explicitly wired stereo sockets.
+          * Separate sources remain independently queued per channel. */
+         for (guint channel=0;channel<2;channel++) {
+            if (!(channel ? right : left)) continue;
+            guint held=fx->pending_frames[channel];
+            if (held + frames > G_N_ELEMENTS(fx->pending[channel])) {
+               guint discard=held+frames-G_N_ELEMENTS(fx->pending[channel]);
+               memmove(fx->pending[channel],fx->pending[channel]+discard,
+                       (held-discard)*sizeof(int16_t));
+               held-=discard;
+               fx->dropped+=discard;
+            }
+            memcpy(fx->pending[channel]+held,samples,bytes);
+            fx->pending_frames[channel]=held+frames;
          }
-         memcpy(fx->pending[channel] + held, samples, bytes);
-         fx->pending_frames[channel] = held + frames;
          guint ready = MIN(fx->pending_frames[0], fx->pending_frames[1]);
          while (ready) {
             rr_lv2_pcm_packet_t *packet = g_async_queue_try_pop(fx->available);
@@ -1450,7 +1449,6 @@ static gboolean audio_lv2_feed(const char *source, const void *samples, size_t b
          }
       }
       accepted = TRUE;
-      break;
    }
 
    g_mutex_unlock(&lv2_effect_lock);
@@ -1571,13 +1569,8 @@ static gboolean audio_lv2_start(const rr_audio_effect_request_t *req) {
       Log(LOG_WARN, "audio.lv2", "Rejected cyclic LV2 input on slot %u", slot);
       return FALSE;
    }
-   for (guint i = 0 ; i < RR_AUDIO_EFFECT_MAX ; i++) {
-      if (req->source[0] && i + 1 != slot &&
-         g_atomic_int_get(&lv2_effects[i].active) && (!strcmp(lv2_effects[i].source[0], req->source) || !strcmp(lv2_effects[i].source[1], req->source))) {
-         return FALSE;
-      }
-   }
-
+   /* A source may explicitly fan out to multiple effect inputs. Each
+    * consumer has its own bounded async queue; only cycles are prohibited. */
    audio_lv2_stop(slot, FALSE);
    rr_lv2_effect_t *fx = &lv2_effects[slot - 1];
    fx->input_fd = -1;
@@ -2019,70 +2012,52 @@ static void audio_lv2_request(const rr_event_message_t *msg, void *unused) {
       if (g_atomic_int_get(&fx->active) && req.channel < fx->channels &&
           (!req.source[0] || audio_lv2_source_present(req.source)) &&
           !audio_lv2_would_cycle(req.slot, req.source)) {
-         gboolean unique = TRUE;
+         g_mutex_lock(&lv2_effect_lock);
+         g_strlcpy(fx->source[req.channel], req.source, sizeof(fx->source[req.channel]));
+         fx->pending_frames[0] = fx->pending_frames[1] = 0;
+         g_mutex_unlock(&lv2_effect_lock);
+         char *key = g_strdup_printf(req.channel ? "audio.lv2.%u.source-right" : "audio.lv2.%u.source", req.slot);
+         rrclient_database_setting_set(key, req.source);
+         g_free(key);
 
-         for (guint i = 0 ; i < RR_AUDIO_EFFECT_MAX ; i++) {
-            if (g_atomic_int_get(&lv2_effects[i].active)) {
-               for (guint ch = 0 ; ch < lv2_effects[i].channels ; ch++) {
-                  if ((i != req.slot - 1 || ch != req.channel) && req.source[0] && !strcmp(lv2_effects[i].source[ch], req.source)) {
-                     unique = FALSE;
-                  }
+         if (!req.channel) {
+            struct rrclient_rx_stream streams[128];
+            size_t n = MIN(audio_rx_streams(streams, G_N_ELEMENTS(streams)), G_N_ELEMENTS(streams));
+
+            for (size_t i = 0 ; i < n ; i++) {
+               if (!strcmp(streams[i].id, req.source)) {
+                  key = g_strdup_printf("audio.lv2.%u.server", req.slot);
+                  rrclient_database_setting_set(key, streams[i].server);
+                  g_free(key);
+                  key = g_strdup_printf("audio.lv2.%u.uuid", req.slot);
+                  rrclient_database_setting_set(key, streams[i].uuid);
+                  g_free(key);
+                  break;
                }
             }
          }
-
-         if (unique) {
-            g_mutex_lock(&lv2_effect_lock);
-            g_strlcpy(fx->source[req.channel], req.source, sizeof(fx->source[req.channel]));
-            fx->pending_frames[0] = fx->pending_frames[1] = 0;
-            g_mutex_unlock(&lv2_effect_lock);
-            char *key = g_strdup_printf(req.channel ? "audio.lv2.%u.source-right" : "audio.lv2.%u.source", req.slot);
-            rrclient_database_setting_set(key, req.source);
-            g_free(key);
-
-            if (!req.channel) {
-               struct rrclient_rx_stream streams[128];
-               size_t n = MIN(audio_rx_streams(streams, G_N_ELEMENTS(streams)), G_N_ELEMENTS(streams));
-
-               for (size_t i = 0 ; i < n ; i++) {
-                  if (!strcmp(streams[i].id, req.source)) {
-                     key = g_strdup_printf("audio.lv2.%u.server", req.slot);
-                     rrclient_database_setting_set(key, streams[i].server);
-                     g_free(key);
-                     key = g_strdup_printf("audio.lv2.%u.uuid", req.slot);
-                     rrclient_database_setting_set(key, streams[i].uuid);
-                     g_free(key);
-                     break;
-                  }
+         /* A processor connected directly to another processor should
+          * not also leak the same audio to the RX mixer. Muting the
+          * intermediate output is what enables single-process chaining.
+          * It does not alter the downstream plugin's own mixer route. */
+         gint upstream = audio_lv2_output_owner(req.source);
+         if (upstream >= 0 && (guint)upstream != req.slot - 1) {
+            rr_lv2_effect_t *parent = &lv2_effects[upstream];
+            for (guint out = 0; out < parent->channels; out++) {
+               if (strcmp(parent->output_stream[out], req.source))
+                  continue;
+               if (parent->output[out] != 'M') {
+                  parent->output[out] = 'M';
+                  rr_audio_engine_route(rx_engine, parent->output_stream[out], 'M');
+                  char *outkey = g_strdup_printf(out ?
+                     "audio.lv2.%u.output-right" : "audio.lv2.%u.output", upstream + 1);
+                  rrclient_database_setting_set(outkey, "M");
+                  g_free(outkey);
                }
             }
-            /* A processor connected directly to another processor should
-             * not also leak the same audio to the RX mixer. Muting the
-             * intermediate output is what enables single-process chaining.
-             * It does not alter the downstream plugin's own mixer route. */
-            gint upstream = audio_lv2_output_owner(req.source);
-            if (upstream >= 0 && (guint)upstream != req.slot - 1) {
-               rr_lv2_effect_t *parent = &lv2_effects[upstream];
-               for (guint out = 0; out < parent->channels; out++) {
-                  if (strcmp(parent->output_stream[out], req.source))
-                     continue;
-                  if (parent->output[out] != 'M') {
-                     parent->output[out] = 'M';
-                     rr_audio_engine_route(rx_engine, parent->output_stream[out], 'M');
-                     char *outkey = g_strdup_printf(out ?
-                        "audio.lv2.%u.output-right" : "audio.lv2.%u.output", upstream + 1);
-                     rrclient_database_setting_set(outkey, "M");
-                     g_free(outkey);
-                  }
-               }
-            }
-            Log(LOG_INFO, "audio.lv2", "Connected %s -> %s input %u", req.source[0] ? req.source : "(disconnected)", fx->name, req.channel);
-         } else {
-            Log(LOG_WARN, "audio.lv2", "Source %s already used on another LV2 input", req.source);
          }
-      } else {
-         Log(LOG_WARN, "audio.lv2", "Cannot patch input channel %u on LV2 slot %u", req.channel, req.slot);
-      }
+         Log(LOG_INFO, "audio.lv2", "Connected %s -> %s input %u", req.source[0] ? req.source : "(disconnected)", fx->name, req.channel);
+
    }
    lv2_chain_rebuild_blocked = FALSE;
    audio_lv2_reconcile_chains();
