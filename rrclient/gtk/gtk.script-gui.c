@@ -758,6 +758,29 @@ static void script_gui_command(const rr_event_message_t *message,void *unused) {
       }
    }
 }
+/* Keep every script-bound dial synchronized with the native Routing spin.
+ * Same GTK main thread; no cross-domain GTK pointer exposure. */
+void gtk_script_gui_wire_sag_sync(double sag) {
+   if(!script_widgets)return;
+   GHashTableIter iter;gpointer key,value;
+   g_hash_table_iter_init(&iter,script_widgets);
+   while(g_hash_table_iter_next(&iter,&key,&value)) {
+      script_widget_t *entry=value;
+      if(!entry->widget ||
+         strcmp(entry->bound_property,"ui.patchbay.wire-sag"))continue;
+      GtkWidget *w=entry->widget;
+      if(!strcmp(entry->kind,"knob")) {
+         GtkAdjustment *adj=g_object_get_data(G_OBJECT(w),"rr-script-knob-adjustment");
+         if(adj && fabs(gtk_adjustment_get_value(adj)-sag)>0.0001)
+            gtk_adjustment_set_value(adj,sag);
+      } else if(GTK_IS_RANGE(w)) {
+         if(fabs(gtk_range_get_value(GTK_RANGE(w))-sag)>0.0001)
+            gtk_range_set_value(GTK_RANGE(w),sag);
+      } else if(GTK_IS_SPIN_BUTTON(w) &&
+                fabs(gtk_spin_button_get_value(GTK_SPIN_BUTTON(w))-sag)>0.0001)
+         gtk_spin_button_set_value(GTK_SPIN_BUTTON(w),sag);
+   }
+}
 void gtk_script_gui_init(void) {
    if(script_gui_token)return;
    script_gui_token=event_on_message_domain_token(RR_SCRIPT_GUI_COMMAND,
