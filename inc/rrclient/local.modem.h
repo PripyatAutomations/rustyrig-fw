@@ -25,7 +25,11 @@ typedef enum {
    RR_LOCAL_MODEM_TX_ROUTE,
    RR_LOCAL_MODEM_PTT_ROUTE,
    RR_LOCAL_MODEM_SET_TX_ENABLED,
-   RR_LOCAL_MODEM_SEND_TEXT
+   RR_LOCAL_MODEM_SEND_TEXT,
+   RR_LOCAL_MODEM_STREAM_BEGIN,
+   RR_LOCAL_MODEM_STREAM_DATA,
+   RR_LOCAL_MODEM_STREAM_END,
+   RR_LOCAL_MODEM_STREAM_ABORT
 } rr_local_modem_action_t;
 typedef struct {
    rr_local_modem_action_t action;
@@ -35,11 +39,11 @@ typedef struct {
    char option[24];             /* BPSK31 or Olivia tones */
    unsigned value;              /* carrier Hz or Olivia bandwidth */
    bool tx_enabled;             /* Opt-in TX routing; does not authorize PTT */
-   char text[256];              /* SEND_TEXT: bounded UTF-8 payload */
+   char text[256];              /* SEND_TEXT / STREAM_DATA: bounded UTF-8 payload */
 } rr_local_modem_request_t;
 typedef struct {
    unsigned slot, value;
-   bool running, tx_enabled;
+   bool running, tx_enabled, stream_active;
    char source[64], engine[16], option[24];
    guint64 drops, received;
    char text[RR_LOCAL_MODEM_TEXT];
