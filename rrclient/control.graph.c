@@ -1,7 +1,30 @@
 // SPDX-License-Identifier: GPL-2.0-only
 #include <rrclient/control.graph.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
+/* Canonical external pin names are stable even when a gate changes shape.
+ * The graph still stores zero-based pin indices, preserving old profiles. */
+bool rr_control_graph_port_name(bool output,unsigned index,char *buf,size_t size) {
+   if (!buf || !size || index >= (output ? 1u : 32u)) return false;
+   int count;
+   if(output) count=snprintf(buf,size,"out_a");
+   else if(index<26) count=snprintf(buf,size,"in_%c",'a'+index);
+   else count=snprintf(buf,size,"in_a%c",'a'+index-26);
+   return count>0 && (size_t)count<size;
+}
+bool rr_control_graph_port_index(const char *name,bool *output,unsigned *index) {
+   if(!name || !output || !index) return false;
+   if(!strcmp(name,"out_a")) { *output=true;*index=0;return true; }
+   if(strncmp(name,"in_",3))return false;
+   unsigned i;
+   if(name[3]>='a' && name[3]<='z' && name[4]=='\0') i=(unsigned)(name[3]-'a');
+   else if(name[3]=='a' && name[4]>='a' && name[4]<='f' && name[5]=='\0')
+      i=26u+(unsigned)(name[4]-'a');
+   else return false;
+   *output=false;*index=i;
+   return true;
+}
 typedef struct {
    char name[RR_CONTROL_NAME_LEN];
    bool gate, valid, high;
