@@ -4,6 +4,8 @@ event script.init {
     ui.panel("wires", "Patchbay Wires")
     ui.add("wires", "knob", "sag", "Wire Sag", "0:240:5:60")
     ui.bind("sag", "ui.patchbay.wire-sag")
+    ui.root("wires", "patchbay")
+    ui.shrinkwrap("wires")
 }
 
 script("/wires", {
