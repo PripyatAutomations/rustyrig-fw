@@ -1351,6 +1351,7 @@ static gboolean audio_lv2_would_cycle(guint destination, const char *source) {
 }
 
 static gboolean audio_lv2_source_present(const char *id) {
+   if(audio_oscillator_source_present(id))return TRUE;
    /* The capture endpoint is local, not an entry in audio_rx_streams(). */
    if (id && !strcmp(id,"src.client.dsp0"))return TRUE;
    if (audio_lv2_output_owner(id) >= 0) return TRUE;
