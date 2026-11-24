@@ -46,7 +46,7 @@ Description: Common RustyRig administration helpers
 
 Package: rustyrig-rrbridge
 Architecture: any
-Depends: librustyaxe1 (>= 0.2.0-1), ${shlibs:Depends}, ${misc:Depends}
+Depends: ${shlibs:Depends}, ${misc:Depends}
 # Bridge host and Kiwi module previously belonged to rustyrig-server and rustyrig-bridge.
 Breaks: rustyrig-bridge (<< 1.0.3~)
 Replaces: rustyrig-bridge (<< 1.0.3~), rustyrig-server (<< 1.0.3~)
@@ -58,7 +58,7 @@ Description: Remote SDR bridge host and KiwiSDR module for RustyRig
 Package: rustyrig-server
 Architecture: any
 Pre-Depends: adduser
-Depends: rustyrig-common (= ${binary:Version}), acl, debconf, jq, sqlite3, python3, librrprotocol1 (>= 0.2.0-1), rustyrig-fwdsp (= ${binary:Version}), librustyaxe1, ${shlibs:Depends}, ${misc:Depends}
+Depends: rustyrig-common (= ${binary:Version}), acl, debconf, jq, sqlite3, python3, rustyrig-fwdsp (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
 Recommends: rustyrig-rrbridge (= ${binary:Version}), rustyrig-callsign-lookup (>= 1.0.3), rustyrig-modems (= ${binary:Version})
 Suggests: rustyrig-server-hamlib
 Description: RustyRig server
@@ -67,7 +67,7 @@ Description: RustyRig server
 Package: rustyrig-client
 Architecture: any
 Pre-Depends: adduser
-Depends: hamradio-files, rustyrig-common (= ${binary:Version}), librustyirc1, acl, debconf, librrprotocol1 (>= 0.2.0-1), rustyrig-fwdsp (= ${binary:Version}), librustyaxe1 (>= 0.2.0-1), ${shlibs:Depends}, ${misc:Depends}
+Depends: hamradio-files, rustyrig-common (= ${binary:Version}), acl, debconf, rustyrig-fwdsp (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
 Recommends: rustyrig-rrbridge (= ${binary:Version}), rustyrig-callsign-lookup (>= 1.0.3), rustyrig-modems (= ${binary:Version})
 Suggests: rrclient-screensaver
 Description: RustyRig client
@@ -93,8 +93,7 @@ Description: Optional fullscreen GTK screensaver for RustyRig
 Package: rustyrig-fwdsp
 Architecture: any
 Pre-Depends: adduser
-Depends: librustyaxe1,
- gstreamer1.0-tools, gstreamer1.0-plugins-base,
+Depends: gstreamer1.0-tools, gstreamer1.0-plugins-base,
  gstreamer1.0-plugins-good, gstreamer1.0-pulseaudio,
  gstreamer1.0-plugins-bad,
  ${shlibs:Depends}, ${misc:Depends}
