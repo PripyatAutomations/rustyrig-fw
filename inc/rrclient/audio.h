@@ -43,6 +43,18 @@ typedef struct {
    char target[64];    /* C/U sink: rx.mix, hq.mix, tx.mix, proc.lv2.N.in.L/R, modemN.rx */
 } rr_audio_osc_request_t;
 void audio_request_oscillator(const rr_audio_osc_request_t *request);
+/* Numeric control sources are core-owned and may override an oscillator
+ * property while connected; saved defaults remain unchanged. */
+#define RRCLIENT_AUDIO_OSC_CONTROL_REQUEST "client.audio.osc.control.request"
+typedef struct {
+   char action; /* B bind input, U unbind input, V update numeric source */
+   unsigned slot;
+   char property[24]; /* frequency, level, waveform */
+   char source[64];   /* control source ID (e.g. control.ctcss) */
+   double value;      /* valid only for V */
+} rr_audio_osc_control_request_t;
+void audio_request_oscillator_control(const rr_audio_osc_control_request_t *request);
+
 /* Core-domain source identity shared by modem and LV2 consumers. */
 bool audio_oscillator_source_present(const char *source);
 extern bool audio_enabled;
