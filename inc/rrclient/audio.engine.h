@@ -38,7 +38,15 @@ bool rr_audio_engine_osc_set(rr_audio_engine_t *engine,unsigned slot,
                              const rr_audio_osc_config_t *config);
 bool rr_audio_engine_osc_get(rr_audio_engine_t *engine,unsigned slot,
                              rr_audio_osc_config_t *config);
-/* Caller supplies frames*2 S16 output samples; no implicit routing. */
+/* The downstream consumer chooses the clock: 16/44.1/48 kHz.
+ * Calling with a rate incompatible with the configured frequency fails
+ * without advancing the oscillator's phase. One graph scheduler must render
+ * once per time interval, then fan out the samples to multiple destinations.
+ * Caller supplies frames*2 S16 output samples; no implicit routing.
+ */
+bool rr_audio_engine_osc_render_rate(rr_audio_engine_t *engine,unsigned slot,
+                                     uint32_t sample_rate_hz,int16_t *iq,size_t frames);
+/* Compatibility: render at the engine's own clock. */
 bool rr_audio_engine_osc_render(rr_audio_engine_t *engine,unsigned slot,
                                 int16_t *iq,size_t frames);
 
