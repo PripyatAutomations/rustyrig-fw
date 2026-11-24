@@ -20,7 +20,7 @@ static void verify_pre_gain(const int16_t *pcm, size_t frames, void *unused) {
 static void test_iq_oscillator(void) {
    rr_audio_engine_t *e=rr_audio_engine_new(NULL,NULL);
    assert(e);
-   int16_t iq[AUDIO_BLOCK*2],mixed[AUDIO_BLOCK*2];
+   int16_t iq[960*2],mixed[AUDIO_BLOCK*2];
    bool active=false;
    rr_audio_osc_config_t cfg={.active=true,.frequency_hz=1000.,
                              .level_db=-6.,.waveform=0,.route='M'};
@@ -61,6 +61,25 @@ static void test_iq_oscillator(void) {
    assert(rr_audio_engine_osc_render_rate(e,1,44100,iq,441));
    assert(rr_audio_engine_osc_render_rate(e,1,48000,iq,480));
    assert(!rr_audio_engine_osc_render_rate(e,1,32000,iq,320));
+   /* Both sample-rate domains describe one 20 ms time interval and must
+    * advance the shared oscillator just once. */
+   cfg.frequency_hz=137.;
+   assert(rr_audio_engine_osc_set(e,1,&cfg));
+   phase_before=e->oscillators[0].phase;
+   int16_t low[320*2];
+   assert(rr_audio_engine_osc_render_dual(e,1,low,iq,44100));
+   expected=fmod(phase_before+137.*.020,1.);
+   assert(fabs(e->oscillators[0].phase-expected)<1e-8);
+   assert(low[0]==iq[0] && low[1]==iq[1]);
+   phase_before=e->oscillators[0].phase;
+   assert(rr_audio_engine_osc_render_dual(e,1,low,iq,48000));
+   expected=fmod(phase_before+137.*.020,1.);
+   assert(fabs(e->oscillators[0].phase-expected)<1e-8);
+   phase_before=e->oscillators[0].phase;
+   assert(rr_audio_engine_osc_render_dual(e,1,NULL,iq,48000));
+   expected=fmod(phase_before+137.*.020,1.);
+   assert(fabs(e->oscillators[0].phase-expected)<1e-8);
+   assert(!rr_audio_engine_osc_render_dual(e,1,low,iq,32000));
    cfg=(rr_audio_osc_config_t){0};
    assert(rr_audio_engine_osc_set(e,1,&cfg));
    assert(!rr_audio_engine_osc_render(e,1,iq,AUDIO_BLOCK));
