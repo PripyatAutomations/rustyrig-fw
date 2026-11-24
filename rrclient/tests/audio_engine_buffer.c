@@ -43,6 +43,24 @@ static void test_iq_oscillator(void) {
    assert(rr_audio_engine_osc_render(e,1,iq,AUDIO_BLOCK));
    assert(fabs(e->oscillators[0].phase-phase)<1e-8); /* 1200 Hz * 20ms = 24 cycles */
    assert(!rr_audio_engine_osc_render(e,9,iq,AUDIO_BLOCK));
+   /* 10ms in each clock domain advances the SAME phase by 30ms total. */
+   cfg.frequency_hz=137.;
+   assert(rr_audio_engine_osc_set(e,1,&cfg));
+   double phase_before=e->oscillators[0].phase;
+   assert(rr_audio_engine_osc_render_rate(e,1,16000,iq,160));
+   assert(rr_audio_engine_osc_render_rate(e,1,44100,iq,441));
+   assert(rr_audio_engine_osc_render_rate(e,1,48000,iq,480));
+   double expected=fmod(phase_before+137.*.030,1.);
+   assert(fabs(e->oscillators[0].phase-expected)<1e-8);
+   /* A pitch above the 16k source ceiling still works at 44.1/48k. */
+   cfg.frequency_hz=9000.;
+   assert(rr_audio_engine_osc_set(e,1,&cfg));
+   phase_before=e->oscillators[0].phase;
+   assert(!rr_audio_engine_osc_render_rate(e,1,16000,iq,160));
+   assert(fabs(e->oscillators[0].phase-phase_before)<1e-12);
+   assert(rr_audio_engine_osc_render_rate(e,1,44100,iq,441));
+   assert(rr_audio_engine_osc_render_rate(e,1,48000,iq,480));
+   assert(!rr_audio_engine_osc_render_rate(e,1,32000,iq,320));
    cfg=(rr_audio_osc_config_t){0};
    assert(rr_audio_engine_osc_set(e,1,&cfg));
    assert(!rr_audio_engine_osc_render(e,1,iq,AUDIO_BLOCK));
