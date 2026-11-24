@@ -5,6 +5,7 @@
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include "../audio.engine.c"
 
 static int16_t last_pre_gain;
