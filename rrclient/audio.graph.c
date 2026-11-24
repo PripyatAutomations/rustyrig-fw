@@ -13,7 +13,7 @@ typedef struct {
    guint src, dst;
    rr_ag_link_type_t type;
    guint8 channels; /* source mask for existing graph consumers */
-   guint8 src_channels,dst_channels;
+   guint8 src_channels,dst_channels,control_pin;
 } rr_ag_edge_t;
 struct rr_audio_graph {
    GArray *nodes, *edges;
@@ -183,6 +183,29 @@ bool rr_audio_graph_add_port_link(rr_audio_graph_t *g,const char *src,const char
    return true;
 }
 
+bool rr_audio_graph_add_numeric_link(rr_audio_graph_t *g,const char *source,
+                                     const char *oscillator,unsigned input) {
+   gint a=lookup(g,source),b=lookup(g,oscillator);
+   if(a<0 || b<0 || a==b || input>2 || g->edges->len>=512 ||
+      !g_str_has_prefix(source,"control.") ||
+      !g_str_has_prefix(oscillator,"osc.") ||
+      g_array_index(g->nodes,rr_ag_node_t,(guint)a).type!=RR_AG_SOURCE ||
+      g_array_index(g->nodes,rr_ag_node_t,(guint)b).type!=RR_AG_SOURCE)
+      return false;
+   for(guint i=0;i<g->edges->len;i++) {
+      const rr_ag_edge_t *edge=&g_array_index(g->edges,rr_ag_edge_t,i);
+      if(edge->dst==(guint)b && edge->type==RR_AG_NUMBER &&
+         edge->control_pin==input)return false;
+   }
+   rr_ag_edge_t edge={.src=(guint)a,.dst=(guint)b,.type=RR_AG_NUMBER,
+                       .control_pin=(guint8)input,
+                       .channels=RR_AG_CHANNEL_LEFT,
+                       .src_channels=RR_AG_CHANNEL_LEFT,
+                       .dst_channels=RR_AG_CHANNEL_LEFT};
+   g_array_append_val(g->edges,edge);
+   return true;
+}
+
 bool rr_audio_graph_add_channel_link(rr_audio_graph_t *g,const char *src,
                                      const char *dst,rr_ag_link_type_t type,
                                      unsigned channels) {
@@ -272,7 +295,7 @@ bool rr_audio_graph_snapshot(const rr_audio_graph_t *g, rr_audio_graph_snapshot_
       out->links[i] = (rr_ag_view_link_t) {
          .src = e->src, .dst = e->dst, .kind = e->type,
          .channels = e->src_channels, .src_channels=e->src_channels,
-         .dst_channels=e->dst_channels
+         .dst_channels=e->dst_channels,.control_pin=e->control_pin
       };
    }
 
