@@ -4,6 +4,7 @@
 #include <rrclient/script.gui.h>
 #include <rrclient/database.h>
 #include <rrclient/cmd.h>
+#include <rrclient/audio.h>
 #include <librustyaxe/event-bus.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/frontend.h>
@@ -525,11 +526,100 @@ static bool register_gui_api(rrs_vm_t *vm) {
       rrs_vm_register_native(vm,"control.val",script_gui_value,NULL);
 }
 
+/* A typed, backend-neutral scripting entry point for routing blocks.
+ * Only the native I/Q oscillator kind is implemented so far. All mutations
+ * are delivered asynchronously to the core domain; scripts never touch GTK
+ * widgets or audio engine internals. */
+static bool native_routing_slot(const char *id,unsigned *slot) {
+   unsigned value=0;
+   char extra=0;
+   if(!id || sscanf(id,"osc.%u%c",&value,&extra)!=1 ||
+      value<1 || value>RR_AUDIO_OSC_MAX)return false;
+   *slot=value;
+   return true;
+}
+static bool native_routing_number(const rrs_value_t *value,double *out) {
+   if(rrs_value_type(value)==RRS_INT)*out=(double)rrs_value_int(value);
+   else if(rrs_value_type(value)==RRS_FLOAT)*out=rrs_value_float(value);
+   else return false;
+   return isfinite(*out);
+}
+static bool native_routing_wave(const char *name,unsigned *wave) {
+   static const char *names[]={"sine","square","triangle","saw"};
+   for(unsigned i=0;i<G_N_ELEMENTS(names);i++)
+      if(!strcmp(name,names[i])){*wave=i;return true;}
+   if(!strcmp(name,"sawtooth")){*wave=3;return true;}
+   return false;
+}
+static rrs_value_t *native_routing_block(rrs_vm_t *vm,int argc,
+                          const rrs_value_t *const args[],void *userdata) {
+   int op=GPOINTER_TO_INT(userdata);
+   rr_audio_osc_request_t req={0};
+   if(op==1) {
+      /* routing.block.create("oscillator", slot, Hz, dBFS, waveform) */
+      double slot=0,hz=0,db=0;
+      unsigned wave=0;
+      if(argc!=5 || rrs_value_type(args[0])!=RRS_STRING ||
+         strcmp(rrs_value_string(args[0]),"oscillator") ||
+         !native_routing_number(args[1],&slot) ||
+         !native_routing_number(args[2],&hz) ||
+         !native_routing_number(args[3],&db) ||
+         rrs_value_type(args[4])!=RRS_STRING ||
+         !native_routing_wave(rrs_value_string(args[4]),&wave) ||
+         slot<1 || slot>RR_AUDIO_OSC_MAX || slot!=floor(slot)) {
+         rrs_vm_raise(vm,"routing.block.create(oscillator, slot 1..8, Hz, dBFS, sine|square|triangle|saw)");
+         return NULL;
+      }
+      req=(rr_audio_osc_request_t){
+         .action='A',.slot=(unsigned)slot,
+         .config={.active=true,.frequency_hz=hz,.level_db=db,
+                  .waveform=wave,.route='M'}
+      };
+   } else if(op==2) {
+      /* routing.block.set("osc.1", "frequency"|"level"|"waveform", value) */
+      unsigned slot=0,wave=0;
+      double number=0;
+      if(argc!=3 || rrs_value_type(args[0])!=RRS_STRING ||
+         rrs_value_type(args[1])!=RRS_STRING ||
+         !native_routing_slot(rrs_value_string(args[0]),&slot)) {
+         rrs_vm_raise(vm,"routing.block.set(osc.N, property, value)");
+         return NULL;
+      }
+      const char *property=rrs_value_string(args[1]);
+      if(!strcmp(property,"waveform") && rrs_value_type(args[2])==RRS_STRING) {
+         if(!native_routing_wave(rrs_value_string(args[2]),&wave)) {
+            rrs_vm_raise(vm,"Unknown oscillator waveform");return NULL;
+         }
+         number=wave;
+      } else if((strcmp(property,"frequency") && strcmp(property,"level") &&
+                 strcmp(property,"waveform")) ||
+                 !native_routing_number(args[2],&number)) {
+         rrs_vm_raise(vm,"Supported oscillator properties: frequency, level, waveform");
+         return NULL;
+      }
+      req.action='P';req.slot=slot;req.number=number;
+      g_strlcpy(req.property,property,sizeof(req.property));
+   } else {
+      /* routing.block.remove("osc.1") */
+      unsigned slot=0;
+      if(argc!=1 || rrs_value_type(args[0])!=RRS_STRING ||
+         !native_routing_slot(rrs_value_string(args[0]),&slot)) {
+         rrs_vm_raise(vm,"routing.block.remove(osc.N)");
+         return NULL;
+      }
+      req.action='D';req.slot=slot;
+   }
+   audio_request_oscillator(&req);
+   return rrs_boolean(true); /* submitted, not a synchronous processing ack */
+}
 static bool register_window_api(rrs_vm_t *vm) {
    return rrs_vm_register_native(vm,"setting.get",native_script_settings,GINT_TO_POINTER(0)) &&
       rrs_vm_register_native(vm,"setting.set",native_script_settings,GINT_TO_POINTER(1)) &&
       rrs_vm_register_native(vm,"chat.send",native_script_chat,GINT_TO_POINTER(0)) &&
       rrs_vm_register_native(vm,"chat.cancel",native_script_chat,GINT_TO_POINTER(1)) &&
+      rrs_vm_register_native(vm,"routing.block.create",native_routing_block,GINT_TO_POINTER(1)) &&
+      rrs_vm_register_native(vm,"routing.block.set",native_routing_block,GINT_TO_POINTER(2)) &&
+      rrs_vm_register_native(vm,"routing.block.remove",native_routing_block,GINT_TO_POINTER(3)) &&
       rrs_vm_register_native(vm,"window.find",native_window_find,NULL) &&
       rrs_vm_register_native(vm,"window.move",native_window_move,NULL) &&
       rrs_vm_register_native(vm,"window.zoom",native_window_percent,GINT_TO_POINTER(1)) &&
