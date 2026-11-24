@@ -2869,7 +2869,16 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
       g_snprintf(id,sizeof(id),"osc.%u",i+1);
       if(!rr_audio_graph_add_node(graph,id,RR_AG_SOURCE))continue;
       rr_audio_graph_set_health(graph,id,osc_engine?RR_AG_HEALTHY:RR_AG_FAILED);
-      rr_audio_graph_set_route(graph,id,'M'); /* independent unpatched I/Q source */
+      unsigned mask=0;
+      for(unsigned pin=0;pin<2;pin++) {
+         unsigned bus=osc_bus[i][pin];
+         if(!bus)continue;
+         unsigned bit=pin?RR_AG_CHANNEL_RIGHT:RR_AG_CHANNEL_LEFT;
+         mask|=bit;
+         rr_audio_graph_add_channel_link(graph,id,
+            bus==1?"rx.mix":bus==2?"hq.mix":"tx.mix",RR_AG_NORMAL,bit);
+      }
+      rr_audio_graph_set_route(graph,id,mask==3?'S':mask==1?'L':mask==2?'R':'M');
    }
    /* The playback source is always present, including while stopped. */
    rr_audio_graph_add_node(graph, RECORDING_PLAYBACK_ID, RR_AG_SOURCE);
@@ -2957,10 +2966,16 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
                g_snprintf(parent,sizeof(parent),"proc.lv2.%u",upstream);
                from=parent;
             }
+            unsigned osc_slot=0,osc_port=0;
+            if(audio_osc_source_port(from,&osc_slot,&osc_port)) {
+               g_snprintf(parent,sizeof(parent),"osc.%u",osc_slot);
+               from=parent;
+            }
             rr_audio_graph_add_channel_link(graph,
                active_rx_id && !strcmp(from,active_rx_id) ? "rig.src" : from,
                fx->name, RR_AG_NORMAL,
-               ch ? RR_AG_CHANNEL_RIGHT : RR_AG_CHANNEL_LEFT);
+               osc_slot ? (osc_port?RR_AG_CHANNEL_RIGHT:RR_AG_CHANNEL_LEFT) :
+                          (ch ? RR_AG_CHANNEL_RIGHT : RR_AG_CHANNEL_LEFT));
          }
          if (ch >= fx->channels) continue; /* Mono has one output only. */
          unsigned mask = fx->output[ch] == 'L' ? RR_AG_CHANNEL_LEFT :
@@ -2996,8 +3011,15 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
          rr_audio_graph_set_health(graph, rx_id, RR_AG_HEALTHY);
 
          if (modems[i].source[0]) {
-            rr_audio_graph_add_channel_link(graph, active_rx_id && !strcmp(modems[i].source, active_rx_id) ? "rig.src" : modems[i].source, rx_id, RR_AG_NORMAL,
-               RR_AG_CHANNEL_LEFT);
+            unsigned os=0,op=0;
+            char parent[64];
+            const char *source=modems[i].source;
+            if(audio_osc_source_port(source,&os,&op)) {
+               g_snprintf(parent,sizeof(parent),"osc.%u",os);
+               source=parent;
+            }
+            rr_audio_graph_add_channel_link(graph,active_rx_id && !strcmp(source,active_rx_id)?"rig.src":source,
+               rx_id,RR_AG_NORMAL,os && op?RR_AG_CHANNEL_RIGHT:RR_AG_CHANNEL_LEFT);
          }
       }
 
@@ -3192,7 +3214,7 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
                node->downstream_rate_hz=0;
                node->channels=2;
                node->sample_format=RR_PCM_S16LE;
-               node->read_only=TRUE; /* Configuration handled by native oscillator dialog. */
+               node->read_only=FALSE; /* Output pins connect via the graph; settings use the oscillator dialog. */
                g_snprintf(node->rig,sizeof(node->rig),"Native I/Q oscillator %u: %.1f Hz, %.1f dB (16/44.1/48k)",slot,cfg->frequency_hz,cfg->level_db);
             }
             continue;
