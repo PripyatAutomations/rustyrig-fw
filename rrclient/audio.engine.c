@@ -19,6 +19,10 @@
 /* Allow up to 240 ms of bursty decoded PCM before dropping the oldest samples. The fixed 160 ms ceiling was discarding bursts that arrived shortly after
  * underflow, forcing unnecessary further rebuffering. */
 #define AUDIO_FADE_IN 64u
+typedef struct {
+   rr_audio_osc_config_t config;
+   double phase; /* Cycles, shared by I and Q; never reset on parameter change. */
+} oscillator_t;
 typedef struct stream {
    struct stream *next;
    char *id;
@@ -43,6 +47,7 @@ struct rr_audio_engine {
    GThread *thread;
    bool running;
    stream_t *streams;
+   oscillator_t oscillators[RR_AUDIO_OSC_MAX];
    rr_audio_output_fn output;
    void *user;
    rr_audio_output_fn pre_gain_tap;
@@ -160,6 +165,42 @@ static void tick(rr_audio_engine_t *e, int16_t *stereo, bool *active) {
       if (!s->count && s->finishing) {
          s->primed = false;
       }
+   }
+
+   /* DSP sources run on the mix clock: no GLib timer jitter, ring-buffer
+    * underruns, or extra subprocesses. Preserve phase even while muted.
+    * Parameter updates are atomic with respect to the mix block. */
+   for(unsigned slot=0;slot<RR_AUDIO_OSC_MAX;slot++) {
+      oscillator_t *osc=&e->oscillators[slot];
+      const rr_audio_osc_config_t *cfg=&osc->config;
+      if(!cfg->active)continue;
+      double phase=osc->phase;
+      const double step=cfg->frequency_hz/(double)e->sample_rate_hz;
+      const double amplitude=32767.0*pow(10.,cfg->level_db/20.);
+      if(cfg->route!='M')*active=true;
+      for(size_t i=0;i<block;i++) {
+         double qphase=phase+.25;
+         if(qphase>=1.)qphase-=1.;
+         double in=0.,quad=0.;
+         switch(cfg->waveform) {
+         case 1: in=phase<.5?1.:-1.;quad=qphase<.5?1.:-1.;break;
+         case 2: in=1.-4.*fabs(phase-.5);quad=1.-4.*fabs(qphase-.5);break;
+         case 3: in=2.*phase-1.;quad=2.*qphase-1.;break;
+         default: in=sin(2.*G_PI*phase);quad=sin(2.*G_PI*qphase);break;
+         }
+         phase+=step;
+         if(phase>=1.)phase-=floor(phase);
+         if(cfg->route=='M')continue;
+         const int32_t vi=(int32_t)lrint(amplitude*in);
+         const int32_t vq=(int32_t)lrint(amplitude*quad);
+         int32_t l=0,r=0;
+         if(cfg->route=='I')l=r=vi;
+         else if(cfg->route=='Q')l=r=vq;
+         else if(cfg->route=='S'){l=vi;r=vq;}
+         raw_accum[2*i]+=l;raw_accum[2*i+1]+=r;
+         accum[2*i]+=l;accum[2*i+1]+=r;
+      }
+      osc->phase=phase;
    }
 
    e->stats.blocks++;
@@ -321,6 +362,28 @@ void rr_audio_engine_free(rr_audio_engine_t *e) {
    }
    g_mutex_clear(&e->lock);
    g_free(e);
+}
+
+bool rr_audio_engine_osc_set(rr_audio_engine_t *e,unsigned slot,
+                             const rr_audio_osc_config_t *cfg) {
+   if(!e || !cfg || slot<1 || slot>RR_AUDIO_OSC_MAX ||
+      !isfinite(cfg->frequency_hz) || cfg->frequency_hz<0. ||
+      cfg->frequency_hz>=e->sample_rate_hz*.45 ||
+      !isfinite(cfg->level_db) || cfg->level_db < -90. ||
+      cfg->level_db>0. || cfg->waveform>3 ||
+      !strchr("MIQS",cfg->route) || !cfg->route)return false;
+   g_mutex_lock(&e->lock);
+   e->oscillators[slot-1].config=*cfg;
+   g_mutex_unlock(&e->lock);
+   return true;
+}
+bool rr_audio_engine_osc_get(rr_audio_engine_t *e,unsigned slot,
+                             rr_audio_osc_config_t *cfg) {
+   if(!e || !cfg || slot<1 || slot>RR_AUDIO_OSC_MAX)return false;
+   g_mutex_lock(&e->lock);
+   *cfg=e->oscillators[slot-1].config;
+   g_mutex_unlock(&e->lock);
+   return true;
 }
 
 bool rr_pcm_stream_format_valid(const rr_pcm_stream_format_t *format) {
