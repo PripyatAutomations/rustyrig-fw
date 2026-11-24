@@ -84,6 +84,7 @@ static guint mixer_source;
 static GSource *rx_maintenance_source;
 static rr_audio_engine_t *rx_engine;   /* 16 kHz legacy radio/AF bus */
 static rr_audio_engine_t *hq_engine;   /* 44.1/48 kHz final playback bus */
+static rr_audio_engine_t *osc_engine;  /* Independent 16 kHz DSP source bank (not started as a mixer) */
 static rr_audio_engine_t *tx_engine;   /* Independent 16 kHz TX PCM mixer */
 
 static rr_audio_osc_config_t oscillator_configs[RR_AUDIO_OSC_MAX];
@@ -113,8 +114,8 @@ static void audio_osc_request(const rr_event_message_t *message,void *unused) {
    else cfg.active=true;
    /* Ports are unconnected until the routing system explicitly patches them. */
    cfg.route='M';
-   if(!hq_engine || !rr_audio_engine_osc_set(hq_engine,slot,&cfg)) {
-      Log(LOG_WARN,"audio.osc","Oscillator %u rejected: invalid parameters or HQ audio unavailable",slot);
+   if(!osc_engine || !rr_audio_engine_osc_set(osc_engine,slot,&cfg)) {
+      Log(LOG_WARN,"audio.osc","Oscillator %u rejected: invalid parameters or source bank unavailable",slot);
       return;
    }
    oscillator_configs[slot-1]=cfg;
@@ -2696,7 +2697,7 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
       char id[64];
       g_snprintf(id,sizeof(id),"osc.%u",i+1);
       if(!rr_audio_graph_add_node(graph,id,RR_AG_SOURCE))continue;
-      rr_audio_graph_set_health(graph,id,hq_engine?RR_AG_HEALTHY:RR_AG_FAILED);
+      rr_audio_graph_set_health(graph,id,osc_engine?RR_AG_HEALTHY:RR_AG_FAILED);
       rr_audio_graph_set_route(graph,id,'M'); /* independent unpatched I/Q source */
    }
    /* The playback source is always present, including while stopped. */
@@ -3014,7 +3015,7 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
             unsigned slot=0;
             if(sscanf(node->id,"osc.%u",&slot)==1 && slot>=1 && slot<=RR_AUDIO_OSC_MAX) {
                const rr_audio_osc_config_t *cfg=&oscillator_configs[slot-1];
-               node->rate_hz=node->downstream_rate_hz=rr_audio_engine_sample_rate(hq_engine);
+               node->rate_hz=node->downstream_rate_hz=rr_audio_engine_sample_rate(osc_engine);
                node->channels=2;
                node->sample_format=RR_PCM_S16LE;
                node->read_only=TRUE; /* Configuration handled by native oscillator dialog. */
@@ -3542,6 +3543,21 @@ void audio_request_rx_stream_route(const char *id, char output) {
 }
 
 bool audio_init(void) {
+   /* An independent source bank must not depend on speaker playback,
+    * audio devices or an active TX pipeline. 16k is the initial modem rate. */
+   if(!osc_engine)osc_engine=rr_audio_engine_new(NULL,NULL);
+   if(osc_engine)for(unsigned slot=1;slot<=RR_AUDIO_OSC_MAX;slot++) {
+      char key[80];g_snprintf(key,sizeof(key),"audio.osc.%u",slot);
+      char *saved=rrclient_database_setting_get(key);
+      rr_audio_osc_config_t cfg={.active=true};
+      if(saved && sscanf(saved,"%lf,%lf,%u,%c",&cfg.frequency_hz,
+                        &cfg.level_db,&cfg.waveform,&cfg.route)==4) {
+         cfg.route='M';
+         if(rr_audio_engine_osc_set(osc_engine,slot,&cfg))
+            oscillator_configs[slot-1]=cfg;
+      }
+      g_free(saved);
+   }
    char *saved_mic = rrclient_database_setting_get("audio.tx.mic.target");
 
    /* Older versions stored the selected rig UUID in the mic's patch. With a real TX bus the rig belongs to the transport selection, not the microphone input.
@@ -3622,18 +3638,6 @@ bool audio_init(void) {
    /* Start the final sound-card bus first. The 16 kHz radio/AF bus feeds a single stereo 16->HQ converter at its input. HQ demodulators are admitted directly
     * to this bus without first losing bandwidth at 16k. */
    hq_engine = rr_audio_engine_new_rate(audio_hq_output_rate(), rx_sink_output, NULL);
-   /* Restore saved generators before the audio clock begins running. */
-   if(hq_engine)for(unsigned slot=1;slot<=RR_AUDIO_OSC_MAX;slot++) {
-      char key[80];g_snprintf(key,sizeof(key),"audio.osc.%u",slot);
-      char *saved=rrclient_database_setting_get(key);
-      rr_audio_osc_config_t cfg={.active=true};
-      if(saved && sscanf(saved,"%lf,%lf,%u,%c",&cfg.frequency_hz,
-                        &cfg.level_db,&cfg.waveform,&cfg.route)==4 &&
-         (cfg.route='M',rr_audio_engine_osc_set(hq_engine,slot,&cfg)))
-         oscillator_configs[slot-1]=cfg;
-      else oscillator_configs[slot-1]=(rr_audio_osc_config_t){0};
-      g_free(saved);
-   }
    const rr_pcm_stream_format_t low_bus_format = {
       16000, 2, RR_PCM_S16LE
    };
@@ -3896,6 +3900,10 @@ void audio_stop_codec(bool is_tx) {
 }
 
 void ws_audio_shutdown(void) {
+   if(osc_engine) {
+      rr_audio_engine_free(osc_engine);
+      osc_engine=NULL;
+   }
    rr_recordings_shutdown();
 
    /* audio_init() can fail before rx_sink_lock is initialized, and cleanup can be called more than once. Never clear an uninitialized mutex. */
