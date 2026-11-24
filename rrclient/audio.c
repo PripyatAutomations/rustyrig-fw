@@ -2875,8 +2875,9 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
          if(!bus)continue;
          unsigned bit=pin?RR_AG_CHANNEL_RIGHT:RR_AG_CHANNEL_LEFT;
          mask|=bit;
-         rr_audio_graph_add_channel_link(graph,id,
-            bus==1?"rx.mix":bus==2?"hq.mix":"tx.mix",RR_AG_NORMAL,bit);
+         rr_audio_graph_add_port_link(graph,id,
+            bus==1?"rx.mix":bus==2?"hq.mix":"tx.mix",RR_AG_NORMAL,
+            bit,RR_AG_CHANNEL_STEREO);
       }
       rr_audio_graph_set_route(graph,id,mask==3?'S':mask==1?'L':mask==2?'R':'M');
    }
@@ -2971,11 +2972,12 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
                g_snprintf(parent,sizeof(parent),"osc.%u",osc_slot);
                from=parent;
             }
-            rr_audio_graph_add_channel_link(graph,
+            rr_audio_graph_add_port_link(graph,
                active_rx_id && !strcmp(from,active_rx_id) ? "rig.src" : from,
                fx->name, RR_AG_NORMAL,
                osc_slot ? (osc_port?RR_AG_CHANNEL_RIGHT:RR_AG_CHANNEL_LEFT) :
-                          (ch ? RR_AG_CHANNEL_RIGHT : RR_AG_CHANNEL_LEFT));
+                          (ch ? RR_AG_CHANNEL_RIGHT : RR_AG_CHANNEL_LEFT),
+               ch ? RR_AG_CHANNEL_RIGHT : RR_AG_CHANNEL_LEFT);
          }
          if (ch >= fx->channels) continue; /* Mono has one output only. */
          unsigned mask = fx->output[ch] == 'L' ? RR_AG_CHANNEL_LEFT :
@@ -3018,8 +3020,10 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
                g_snprintf(parent,sizeof(parent),"osc.%u",os);
                source=parent;
             }
-            rr_audio_graph_add_channel_link(graph,active_rx_id && !strcmp(source,active_rx_id)?"rig.src":source,
-               rx_id,RR_AG_NORMAL,os && op?RR_AG_CHANNEL_RIGHT:RR_AG_CHANNEL_LEFT);
+            rr_audio_graph_add_port_link(graph,
+               active_rx_id && !strcmp(source,active_rx_id)?"rig.src":source,
+               rx_id,RR_AG_NORMAL,
+               os && op?RR_AG_CHANNEL_RIGHT:RR_AG_CHANNEL_LEFT,RR_AG_CHANNEL_LEFT);
          }
       }
 
