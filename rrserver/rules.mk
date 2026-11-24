@@ -1,6 +1,7 @@
 # Private helper for first-install account hashing (password via stdin, never argv).
 extra_build += bin/rr-password-hash
-bin/rr-password-hash: rrserver/password.hash.c
+extra_clean += bin/rr-password-hash
+bin/rr-password-hash: rrserver/password.hash.c rrserver/rules.mk mk/compile.mk
 	@mkdir -p bin
 	@$(CC) $(CFLAGS) -o $@ $< -lrrprotocol -lrustyaxe $(LDFLAGS)
 
