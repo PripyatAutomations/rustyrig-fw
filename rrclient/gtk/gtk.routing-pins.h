@@ -13,9 +13,15 @@ static inline gboolean rr_routing_pin_matches_link(
 {
    if (!snapshot || !link || node >= snapshot->node_count ||
        link->src >= snapshot->node_count ||
-       link->dst >= snapshot->node_count || pin < 0 || pin > 1 ||
+       link->dst >= snapshot->node_count || pin < 0 || pin > 2 ||
        (incoming ? link->dst : link->src) != node)
       return FALSE;
+   if(link->kind==RR_AG_NUMBER) {
+      if(incoming)return pin==link->control_pin &&
+         g_str_has_prefix(snapshot->nodes[node].id,"osc.");
+      return pin==0 && g_str_has_prefix(snapshot->nodes[node].id,"control.");
+   }
+   if(pin>1)return FALSE;
 
    const char *id = snapshot->nodes[node].id;
    gboolean ptt_pin = !strcmp(id, "rig.sink") ||
