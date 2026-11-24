@@ -46,6 +46,12 @@ bool rr_audio_engine_osc_get(rr_audio_engine_t *engine,unsigned slot,
  */
 bool rr_audio_engine_osc_render_rate(rr_audio_engine_t *engine,unsigned slot,
                                      uint32_t sample_rate_hz,int16_t *iq,size_t frames);
+/* Render the same 20 ms instant at low and/or HQ clocks, advancing phase
+ * only once even when both consumers are attached.  Pass NULL to omit a bus.
+ * Caller supplies 320*2 low samples and (hq_rate/50)*2 high samples. */
+bool rr_audio_engine_osc_render_dual(rr_audio_engine_t *engine,unsigned slot,
+                                    int16_t *low_iq,int16_t *hq_iq,
+                                    uint32_t hq_rate_hz);
 /* Compatibility: render at the engine's own clock. */
 bool rr_audio_engine_osc_render(rr_audio_engine_t *engine,unsigned slot,
                                 int16_t *iq,size_t frames);
