@@ -95,6 +95,7 @@ static unsigned char osc_bus[RR_AUDIO_OSC_MAX][2];
 
 /* Numeric signal registry. Values are live; only bindings are persisted.
  * Missing/stale controls never overwrite the configured fallback. */
+static gboolean audio_osc_has_low_consumer(unsigned slot);
 #define RR_OSC_CONTROL_SOURCES 64
 typedef struct { char id[64]; double value; gboolean valid; } rr_osc_numeric_t;
 static rr_osc_numeric_t osc_numeric[RR_OSC_CONTROL_SOURCES];
@@ -248,6 +249,17 @@ static void audio_osc_request(const rr_event_message_t *message,void *unused) {
       return;
    }
    oscillator_configs[slot-1]=cfg;
+   if(req->action=='D') {
+      for(unsigned p=0;p<3;p++) {
+         osc_control_bindings[slot-1][p][0]=0;
+         char k[96];
+         g_snprintf(k,sizeof(k),"audio.osc.%u.control.%s",slot,
+                    p==0?"frequency":p==1?"level":"waveform");
+         rrclient_database_setting_set(k,"");
+      }
+   } else {
+      audio_osc_apply_controls(slot);
+   }
    if(req->action=='D') {
       for(unsigned port=0;port<2;port++) {
          rr_audio_osc_request_t disconnect={.action='U',.slot=slot,.port=port};
@@ -3870,6 +3882,8 @@ void audio_request_rx_stream_route(const char *id, char output) {
 bool audio_init(void) {
    memset(osc_bus,0,sizeof(osc_bus));
    memset(oscillator_configs,0,sizeof(oscillator_configs));
+   memset(osc_control_bindings,0,sizeof(osc_control_bindings));
+   memset(osc_numeric,0,sizeof(osc_numeric));
    /* An independent source bank must not depend on speaker playback,
     * audio devices or an active TX pipeline. 16k is the initial modem rate. */
    if(!osc_engine)osc_engine=rr_audio_engine_new(NULL,NULL);
@@ -3884,6 +3898,15 @@ bool audio_init(void) {
             oscillator_configs[slot-1]=cfg;
       }
       g_free(saved);
+      for(unsigned p=0;p<3;p++) {
+         const char *name=p==0?"frequency":p==1?"level":"waveform";
+         char binding_key[96];
+         g_snprintf(binding_key,sizeof(binding_key),"audio.osc.%u.control.%s",slot,name);
+         char *src=rrclient_database_setting_get(binding_key);
+         if(src && audio_osc_control_source(src))
+            g_strlcpy(osc_control_bindings[slot-1][p],src,64);
+         g_free(src);
+      }
    }
    char *saved_mic = rrclient_database_setting_get("audio.tx.mic.target");
 
@@ -3927,6 +3950,7 @@ bool audio_init(void) {
       lv2_effect_ready = TRUE;
    }
    event_on_message_domain_token(RRCLIENT_AUDIO_OSC_REQUEST,audio_osc_request,NULL,"core");
+   event_on_message_domain_token(RRCLIENT_AUDIO_OSC_CONTROL_REQUEST,audio_osc_control_request,NULL,"core");
    event_on_message_domain_token(RRCLIENT_AUDIO_EFFECT_REQUEST, audio_lv2_request, NULL, "core");
    event_on_message_domain_token(RRCLIENT_AUDIO_CONTROL_REQUEST, audio_control_request, NULL, "core");
    event_on_message_domain_token(RRCLIENT_AUDIO_SNAPSHOT_REQUEST, audio_snapshot_request, NULL, "core");
