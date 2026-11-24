@@ -84,7 +84,54 @@ static guint mixer_source;
 static GSource *rx_maintenance_source;
 static rr_audio_engine_t *rx_engine;   /* 16 kHz legacy radio/AF bus */
 static rr_audio_engine_t *hq_engine;   /* 44.1/48 kHz final playback bus */
+static rr_audio_engine_t *osc_engine;  /* Independent 16 kHz DSP source bank (not started as a mixer) */
 static rr_audio_engine_t *tx_engine;   /* Independent 16 kHz TX PCM mixer */
+
+static rr_audio_osc_config_t oscillator_configs[RR_AUDIO_OSC_MAX];
+/* Core-domain control of a disconnected, pull-driven native DSP source. */
+static void audio_osc_request(const rr_event_message_t *message,void *unused) {
+   (void)unused;
+   if(!message || !message->payload || message->length!=sizeof(rr_audio_osc_request_t))return;
+   const rr_audio_osc_request_t *req=message->payload;
+   unsigned slot=req->slot;
+   if(req->action=='A' && !slot)
+      for(unsigned i=0;i<RR_AUDIO_OSC_MAX;i++)
+         if(!oscillator_configs[i].active){slot=i+1;break;}
+   if(slot<1 || slot>RR_AUDIO_OSC_MAX ||
+      (req->action!='A' && req->action!='D' && req->action!='P'))return;
+   rr_audio_osc_config_t cfg=req->action=='P' ? oscillator_configs[slot-1] : req->config;
+   if(req->action=='P') {
+      if(!cfg.active || !memchr(req->property,0,sizeof(req->property)))return;
+      if(!strcmp(req->property,"frequency"))cfg.frequency_hz=req->number;
+      else if(!strcmp(req->property,"level"))cfg.level_db=req->number;
+      else if(!strcmp(req->property,"waveform")) {
+         if(!isfinite(req->number) || req->number<0. || req->number>3. ||
+            req->number!=floor(req->number))return;
+         cfg.waveform=(unsigned)req->number;
+      } else return;
+   }
+   if(req->action=='D')cfg=(rr_audio_osc_config_t){0};
+   else cfg.active=true;
+   /* Ports are unconnected until the routing system explicitly patches them. */
+   cfg.route='M';
+   if(!osc_engine || !rr_audio_engine_osc_set(osc_engine,slot,&cfg)) {
+      Log(LOG_WARN,"audio.osc","Oscillator %u rejected: invalid parameters or source bank unavailable",slot);
+      return;
+   }
+   oscillator_configs[slot-1]=cfg;
+   char key[80],value[128];
+   g_snprintf(key,sizeof(key),"audio.osc.%u",slot);
+   g_snprintf(value,sizeof(value),"%.8f,%.2f,%u,%c",cfg.frequency_hz,cfg.level_db,cfg.waveform,cfg.route);
+   rrclient_database_setting_set(key,cfg.active?value:"");
+   event_emit("client.audio.route.changed",NULL,NULL);
+}
+void audio_request_oscillator(const rr_audio_osc_request_t *req) {
+   if(!req)return;
+   rr_event_message_t message={.name=RRCLIENT_AUDIO_OSC_REQUEST,
+                               .payload=req,.length=sizeof(*req)};
+   event_emit_message(&message);
+}
+
 static GAsyncQueue *tx_pcm_queue;
 static GSource *tx_drain_source;
 static volatile gint tx_pcm_queued;
@@ -2642,6 +2689,17 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
       rr_audio_graph_add_channel_link(graph, "src.client.dsp0", "tx.mix",
                                      RR_AG_NORMAL, mic_channels);
    }
+   /* The native I/Q oscillator has two phase-locked audio outputs.
+    * The actual samples are mixed directly on the HQ audio clock. */
+   for(unsigned i=0;i<RR_AUDIO_OSC_MAX;i++) {
+      const rr_audio_osc_config_t *cfg=&oscillator_configs[i];
+      if(!cfg->active)continue;
+      char id[64];
+      g_snprintf(id,sizeof(id),"osc.%u",i+1);
+      if(!rr_audio_graph_add_node(graph,id,RR_AG_SOURCE))continue;
+      rr_audio_graph_set_health(graph,id,osc_engine?RR_AG_HEALTHY:RR_AG_FAILED);
+      rr_audio_graph_set_route(graph,id,'M'); /* independent unpatched I/Q source */
+   }
    /* The playback source is always present, including while stopped. */
    rr_audio_graph_add_node(graph, RECORDING_PLAYBACK_ID, RR_AG_SOURCE);
    rr_audio_graph_add_node(graph, "legacy.speaker", RR_AG_SOURCE);
@@ -2950,6 +3008,22 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
          }
 
          if (node->type != RR_AG_SOURCE) {
+            continue;
+         }
+
+         if (g_str_has_prefix(node->id,"osc.")) {
+            unsigned slot=0;
+            if(sscanf(node->id,"osc.%u",&slot)==1 && slot>=1 && slot<=RR_AUDIO_OSC_MAX) {
+               const rr_audio_osc_config_t *cfg=&oscillator_configs[slot-1];
+               /* Unconnected source: actual PCM rate is chosen by the consumer,
+                * not the oscillator bank's internal/default clock. */
+               node->rate_hz=0;
+               node->downstream_rate_hz=0;
+               node->channels=2;
+               node->sample_format=RR_PCM_S16LE;
+               node->read_only=TRUE; /* Configuration handled by native oscillator dialog. */
+               g_snprintf(node->rig,sizeof(node->rig),"Native I/Q oscillator %u: %.1f Hz, %.1f dB (16/44.1/48k)",slot,cfg->frequency_hz,cfg->level_db);
+            }
             continue;
          }
 
@@ -3472,6 +3546,21 @@ void audio_request_rx_stream_route(const char *id, char output) {
 }
 
 bool audio_init(void) {
+   /* An independent source bank must not depend on speaker playback,
+    * audio devices or an active TX pipeline. 16k is the initial modem rate. */
+   if(!osc_engine)osc_engine=rr_audio_engine_new(NULL,NULL);
+   if(osc_engine)for(unsigned slot=1;slot<=RR_AUDIO_OSC_MAX;slot++) {
+      char key[80];g_snprintf(key,sizeof(key),"audio.osc.%u",slot);
+      char *saved=rrclient_database_setting_get(key);
+      rr_audio_osc_config_t cfg={.active=true};
+      if(saved && sscanf(saved,"%lf,%lf,%u,%c",&cfg.frequency_hz,
+                        &cfg.level_db,&cfg.waveform,&cfg.route)==4) {
+         cfg.route='M';
+         if(rr_audio_engine_osc_set(osc_engine,slot,&cfg))
+            oscillator_configs[slot-1]=cfg;
+      }
+      g_free(saved);
+   }
    char *saved_mic = rrclient_database_setting_get("audio.tx.mic.target");
 
    /* Older versions stored the selected rig UUID in the mic's patch. With a real TX bus the rig belongs to the transport selection, not the microphone input.
@@ -3513,6 +3602,7 @@ bool audio_init(void) {
       g_mutex_init(&lv2_effect_lock);
       lv2_effect_ready = TRUE;
    }
+   event_on_message_domain_token(RRCLIENT_AUDIO_OSC_REQUEST,audio_osc_request,NULL,"core");
    event_on_message_domain_token(RRCLIENT_AUDIO_EFFECT_REQUEST, audio_lv2_request, NULL, "core");
    event_on_message_domain_token(RRCLIENT_AUDIO_CONTROL_REQUEST, audio_control_request, NULL, "core");
    event_on_message_domain_token(RRCLIENT_AUDIO_SNAPSHOT_REQUEST, audio_snapshot_request, NULL, "core");
@@ -3813,6 +3903,10 @@ void audio_stop_codec(bool is_tx) {
 }
 
 void ws_audio_shutdown(void) {
+   if(osc_engine) {
+      rr_audio_engine_free(osc_engine);
+      osc_engine=NULL;
+   }
    rr_recordings_shutdown();
 
    /* audio_init() can fail before rx_sink_lock is initialized, and cleanup can be called more than once. Never clear an uninitialized mutex. */
