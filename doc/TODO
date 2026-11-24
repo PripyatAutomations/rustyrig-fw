@@ -1,17 +1,7 @@
 Immediate needs
 ---------------
-[Completed / pending verification]
-- Ctrl+0 resets global UI zoom to precisely 100%.
-- RF spectrum panel can be resized below its previous 420x190 minimum.
-- Floating panels no longer snap to unrelated dock-local coordinates and clear guides on reparenting.
-- Unknown TLS identity explanation and fingerprints wrap within the panel width.
-- Debian first-install remote-admin Debconf prompts already exist and accept future
-  user@site or user@* identities; grants do not enroll or trust a certificate.
-
-[Still to verify / refine]
-- Test panel snapping, undocking, and saved coordinates in multiple dock layouts.
-- Verify the remote-admin policy is enforced only after authenticated/pinned
-  mesh origin identity; never treat an installer-supplied site name as proof.
+If someone else sends TX audio into the VFO, we want to hear it.
+We don't need to hear our talk-back audio.
 
 rrclient: Finish remote controls (brightness etc)
   - protocol
@@ -31,13 +21,6 @@ rrclient: Finish remote controls (brightness etc)
 * mini view mode; same stuff just much smaller until double clicked
 * get rid of borders around 
 * allow docking controls into the VFO window
-
-[Config tab]
-* bottom buttons & tab strip go missing if we zoom in a bit
-
-[ON AIR / PTT OUTPUT]
-* Stray black line?
-* ON AIR's PTT input should be hollow circle
 
 [Routing]
 * fix disconnecting lines (esp tx.mix -> tx.transport)
@@ -94,38 +77,13 @@ rrserver: A way to export a GPIO as RELAY | SWITCH | other types to clients
 
 rrbridge: More connectors!
 
-
---------
-WISHLIST
---------
-rrclient: Can we make the tab list wrap to multiple rows?
-
-* Mesh style multi-peer linking
-  - Each server should be able to peer to any number of peers
-  - We should track latency, loss, weight, etc metrics for each hop
-  - Build shortest path and lowest latency route cache
-  - Some algorithm to decide which paths to send messages to
-    such that they'll reach all subscribed nodes without duplication
-    or sending down unrelated tree branches
-  - Attempt re-routing internally as needed due to loss or latency
-
-* GUI pipeline composer/editor for gstreamer
-
-* Object browser / subscription manager UI
-
-* sercom/gps manager UI
-
 * Repeater module for rrserver
 
 * add a default off config option ui.gtk.scale-on-resize
   - change the scaling as the window resize is attempted, so the window isnt constrained to a minimum size
   - shrink/grow stuff to fit the window size selected by the user.
 
---
-If someone else sends TX audio into the VFO, we want to hear it.
-We don't need to hear our talk-back audio.
---
-Let improve the websdr.listen privs a little to let them join a rig someone
+* Let improve the websdr.listen privs a little to let them join a rig someone
 else connected up, but part them from it when the last person with the
 privileged needed to create it leaves. We should tell them they were removed
 because the admin left the room
