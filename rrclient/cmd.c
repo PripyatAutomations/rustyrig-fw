@@ -520,6 +520,18 @@ static bool chat_send_paced(rrconn_t *connection, dict *message, bool irc, const
    return true;
 }
 
+/* Room membership is scoped to the destination connection, not the selected tab. */
+typedef struct {
+   const char *room;
+   bool joined, offline;
+} script_room_check_t;
+
+static void script_room_check(void *data) {
+   script_room_check_t *check = data;
+   check->joined = rrclient_room_is_joined(check->room);
+   check->offline = rrclient_room_offline(check->room);
+}
+
 /* Script sends share the bounded queue; interval zero opts into caller pacing. */
 bool rrclient_script_chat_send(const char *profile,const char *target,
                                const char *text,const char *tag,unsigned interval_ms) {
@@ -528,9 +540,23 @@ bool rrclient_script_chat_send(const char *profile,const char *target,
       strchr(text,'\r')||strchr(text,'\n'))return false;
    rrconn_t *connection=rrclient_connection_find(profile);
    bool channel=target[0]=='#'||target[0]=='&';
-   if(!connection||!connection->authenticated||rrclient_connection_state(profile)!=1||
-      !rrclient_window_find_for_connection(connection,target)||
-      (channel&&!rrclient_room_is_joined(target)))return false;
+   if(!connection||!connection->authenticated||rrclient_connection_state(profile)!=1) {
+      Log(LOG_DEBUG, "chat.script", "Destination %s@%s is disconnected or unauthenticated", target, profile);
+      return false;
+   }
+   if(!rrclient_window_find_for_connection(connection,target)) {
+      Log(LOG_DEBUG, "chat.script", "Destination %s@%s has no conversation window", target, profile);
+      return false;
+   }
+   if(channel) {
+      script_room_check_t check = { .room = target };
+      rrclient_connection_dispatch(connection, script_room_check, &check);
+      if(!check.joined || check.offline) {
+         Log(LOG_DEBUG, "chat.script", "Destination %s@%s is %s", target, profile,
+             check.offline ? "offline" : "not joined");
+         return false;
+      }
+   }
    dict *message=dict_new();
    if(!message)return false;
    dict_add(message,"msg.type","talk");
