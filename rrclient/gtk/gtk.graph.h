@@ -13,7 +13,8 @@ typedef enum {
    RR_GTK_GRAPH_NORMAL,
    RR_GTK_GRAPH_BYPASS,
    RR_GTK_GRAPH_CONTROL,
-   RR_GTK_GRAPH_COS             /* carrier/synchronization indication, not PTT */
+   RR_GTK_GRAPH_COS,            /* carrier/synchronization indication, not PTT */
+   RR_GTK_GRAPH_NUMBER          /* numeric modulation/control input */
 } rr_gtk_graph_edge_kind_t;
 typedef enum {
    RR_GTK_GRAPH_IO_BOTH = 0,
@@ -71,6 +72,7 @@ typedef struct {
    unsigned from, to;
    rr_gtk_graph_edge_kind_t kind;
    rr_gtk_graph_pin_t src_pin, dst_pin;
+   guint8 control_pin; /* RR_GTK_GRAPH_NUMBER: oscillator property input 0..2 */
 } rr_gtk_graph_edge_t;
 #define RR_GTK_GRAPH_NODE_W 160
 #define RR_GTK_GRAPH_NODE_H 112
