@@ -150,6 +150,25 @@ int main(void) {
    assert(pins->links[1].dst_channels==RR_AG_CHANNEL_LEFT);
    g_free(pins);
    rr_audio_graph_free(g);
+   /* Numeric controls do not masquerade as PCM or Boolean/PTT signals.
+    * Each oscillator parameter accepts one independent numeric input. */
+   g=rr_audio_graph_new();
+   assert(g);
+   assert(rr_audio_graph_add_node(g,"control.ctcss",RR_AG_SOURCE));
+   assert(rr_audio_graph_add_node(g,"control.level",RR_AG_SOURCE));
+   assert(rr_audio_graph_add_node(g,"osc.1",RR_AG_SOURCE));
+   assert(rr_audio_graph_add_numeric_link(g,"control.ctcss","osc.1",0));
+   assert(rr_audio_graph_add_numeric_link(g,"control.level","osc.1",1));
+   assert(!rr_audio_graph_add_numeric_link(g,"control.level","osc.1",0));
+   assert(!rr_audio_graph_add_numeric_link(g,"control.level","osc.1",3));
+   rr_audio_graph_snapshot_t *numeric=g_new0(rr_audio_graph_snapshot_t,1);
+   assert(rr_audio_graph_snapshot(g,numeric));
+   assert(numeric->link_count==2);
+   assert(numeric->links[0].kind==RR_AG_NUMBER);
+   assert(numeric->links[0].control_pin==0);
+   assert(numeric->links[1].control_pin==1);
+   g_free(numeric);
+   rr_audio_graph_free(g);
    puts("audio graph bypass and direct modem TX routing passed");
 
    return 0;
