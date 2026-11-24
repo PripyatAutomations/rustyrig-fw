@@ -209,6 +209,9 @@ static void callsign_notify(const rr_local_modem_decode_t *d,const char *body,
    dict *fields=dict_new();
    if(!fields)return;
    dict_add(fields,"callsign",call);
+   const char *country=rr_watch_country(call);
+   if(country)dict_add(fields,"country",country);
+   dict_add_bool(fields,"cq",rr_modem_callsign_in_text(body,"CQ"));
    dict_add(fields,"kind",kind);
    dict_add(fields,"origin","modem");
    char modem[24];
@@ -291,7 +294,7 @@ static void watch_hit_free(gpointer data) {
 }
 static void callsign_watch_rule(const rrclient_watched_call_t *rule,void *data) {
    watch_context_t *ctx=data;
-   if(!rule->callsign||!rr_modem_callsign_in_text(ctx->text,rule->callsign))return;
+   if(!rule->callsign)return;
    const char *mode=rr_modem_callsign_mode(ctx->decode->engine,ctx->decode->mode),*band=rr_modem_callsign_band(ctx->decode->frequency_hz);
    gboolean mode_ok=!g_ascii_strcasecmp(rule->mode,"Any")||
       !g_ascii_strcasecmp(rule->mode,mode)||
@@ -300,8 +303,10 @@ static void callsign_watch_rule(const rrclient_watched_call_t *rule,void *data) 
    gboolean band_ok=!g_ascii_strcasecmp(rule->band,"Any")||
       (band&&!g_ascii_strcasecmp(rule->band,band));
    if(mode_ok&&band_ok) {
+      char *call=rr_watch_match(ctx->text,rule->callsign,rule->match_type,rule->cq_only);
+      if(!call)return;
       watch_hit_t *hit=g_new0(watch_hit_t,1);
-      hit->callsign=g_strdup(rule->callsign);
+      hit->callsign=call;
       hit->id=rule->id;
       g_ptr_array_add(ctx->hits,hit);
    }
