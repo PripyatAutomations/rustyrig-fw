@@ -298,11 +298,17 @@ def run():
             legacy.until(lambda m: m.get('talk', {}).get('data') == 'native-to-legacy')
             legacy.socket.close()
             print('PASS: startup mesh, /link list, native client login/LIST and mixed-transport chat')
+            with sqlite3.connect(b.db) as db:
+                assert db.execute('SELECT site FROM mesh_bootstrap_peers WHERE node_uuid=?',
+                                  (a.node,)).fetchone() == ('alpha',)
             old_a = a.log().count('Linked to beta')
             old_b = b.log().count('Linked to alpha')
+            old_dials = b.log().count('Autoconnect dialing peer alpha [')
             b.stop()
             wait(lambda: 'Unlinked site beta' in a.log(), 'link withdrawal', [a])
             b.start()
+            wait(lambda: b.log().count('Autoconnect dialing peer alpha [') > old_dials,
+                 'cached authenticated station name before reconnect', [a, b])
             wait(lambda: a.log().count('Linked to beta') > old_a and b.log().count('Linked to alpha') > old_b,
                  'automatic reconnect', [a, b])
             client.send({'msg': {'type': 'talk'}, 'talk': {'cmd': 'link', 'data': 'list'}})
