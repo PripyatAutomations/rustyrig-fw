@@ -334,10 +334,15 @@ void rr_gtk_graph_draw(cairo_t *cr, const rr_gtk_graph_node_t *nodes, guint n_no
       gboolean bypass = e->kind == RR_GTK_GRAPH_BYPASS;
       gboolean control = e->kind == RR_GTK_GRAPH_CONTROL;
       gboolean cos = e->kind == RR_GTK_GRAPH_COS;
-      double from_y = cos ? a->y + 14 : control ? a->y + RR_GTK_GRAPH_NODE_H - 16 : pin_y(a, e->src_pin, bypass);
-      double to_y = cos ? b->y + 14 : control ? b->y + RR_GTK_GRAPH_NODE_H - 16 : pin_y(b, e->dst_pin, bypass);
+      gboolean number = e->kind == RR_GTK_GRAPH_NUMBER;
+      double from_y = number ? a->y + 68. : cos ? a->y + 14 : control ? a->y + RR_GTK_GRAPH_NODE_H - 16 : pin_y(a, e->src_pin, bypass);
+      double to_y = number ? b->y + 55. + 19. * MIN(e->control_pin,2) :
+         cos ? b->y + 14 : control ? b->y + RR_GTK_GRAPH_NODE_H - 16 : pin_y(b, e->dst_pin, bypass);
 
-      if (cos) {
+      if (number) {
+         cairo_set_source_rgb(cr,.29,.84,.46);
+         cairo_set_dash(cr,NULL,0,0);
+      } else if (cos) {
          cairo_set_source_rgb(cr, 1., .87, .13);
          cairo_set_dash(cr, NULL, 0, 0);
       } else if (control) {
@@ -430,6 +435,25 @@ void rr_gtk_graph_draw(cairo_t *cr, const rr_gtk_graph_node_t *nodes, guint n_no
          cairo_show_text(cr, n->detail);
       }
 
+      if(n->title && !strncmp(n->title,"osc.",4)) {
+         const char *names[]={"FREQ","LEVEL","WAVE"};
+         for(unsigned p=0;p<3;p++) {
+            const double y=n->y+55.+19.*p;
+            cairo_set_source_rgb(cr,.29,.84,.46);
+            pin(cr,n->x,y,FALSE,TRUE);
+            cairo_set_source_rgb(cr,.85,.94,.87);
+            cairo_set_font_size(cr,8.);
+            cairo_move_to(cr,n->x+13,y+3);
+            cairo_show_text(cr,names[p]);
+         }
+      } else if(n->title && !strncmp(n->title,"control.",8)) {
+         cairo_set_source_rgb(cr,.29,.84,.46);
+         pin(cr,n->x+RR_GTK_GRAPH_NODE_W,n->y+68.,FALSE,FALSE);
+         cairo_set_source_rgb(cr,.85,.94,.87);
+         cairo_set_font_size(cr,8.);
+         cairo_move_to(cr,n->x+RR_GTK_GRAPH_NODE_W-51,n->y+71.);
+         cairo_show_text(cr,"VALUE");
+      }
       if (n->cos_input) {
          const double px = n->x, py = n->y + 14.;
          cairo_set_source_rgb(cr, 1., .87, .13);
@@ -486,6 +510,8 @@ void rr_gtk_graph_draw(cairo_t *cr, const rr_gtk_graph_node_t *nodes, guint n_no
          continue;
       }
 
+      if(n->title && !strncmp(n->title,"control.",8))
+         continue; /* Numeric source has no PCM L/R ports. */
       if (n->stereo_pins) {
          /* Both ends have independent L/R ports. Label them at both edges, not just the left, so ear-specific routes are legible. */
          for (unsigned channel = 0 ; channel < 2 ; channel++) {
