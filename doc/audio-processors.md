@@ -349,9 +349,20 @@ phase. The audio engine exposes
 interleaved signed 16-bit I/Q samples **on demand** without ever mixing the
 signal into a speaker bus. The node's I and Q pins are displayed separately
 in Routing. The backend stores these oscillator instances in a **separate, non-running
-16 kHz source bank**, not in either the playback or transmit mixer. Consumers
-pull PCM with an explicit frame count. This avoids coupling modem/DDS work
-to the availability or configuration of the user's sound card.
+source bank**, not in either the playback or transmit mixer. Each consumer
+requests PCM with an explicit frame count and rate via
+`rr_audio_engine_osc_render_rate(engine, slot, rate, iq, frames)`.
+The supported clock rates are **16, 44.1 and 48 kHz**. This avoids coupling
+modem/DDS work to the user's sound card or unnecessarily resampling a tone.
+The phase accumulator is independent of the selected rendering rate, and
+a frequency too high for a consumer's clock is rejected (less than 45% of
+the sample rate is required), without advancing phase.
+
+A real routing scheduler must render once per audio time interval and fan
+out the same I/Q buffers to all attached consumers; calling render separately
+for two consumers would advance the same oscillator twice. Consumers with
+different rates require a common graph clock plus a resampling boundary or
+separately time-aligned views, not independent phase advancement.
 
 RustyScript can submit configuration changes without GTK:
 ```c
