@@ -3708,6 +3708,40 @@ static void audio_snapshot_request(const rr_event_message_t *unused_message, voi
    g_free(snapshot);
 }
 
+/* Coalesce live gain adjustments by setting key on the core context.
+ * The DSP is updated immediately; only SQLite persistence is delayed. */
+static GHashTable *audio_gain_pending;
+static GSource *audio_gain_save_source;
+static gboolean audio_gain_flush(gpointer unused) {
+   (void)unused;
+   if(audio_gain_save_source) {
+      g_source_destroy(audio_gain_save_source);
+      g_source_unref(audio_gain_save_source);
+      audio_gain_save_source=NULL;
+   }
+   if(audio_gain_pending) {
+      GHashTableIter iter;
+      gpointer key,value;
+      g_hash_table_iter_init(&iter,audio_gain_pending);
+      while(g_hash_table_iter_next(&iter,&key,&value))
+         rrclient_database_setting_set(key,value);
+      g_hash_table_destroy(audio_gain_pending);
+      audio_gain_pending=NULL;
+   }
+   return G_SOURCE_REMOVE;
+}
+static void audio_gain_defer(const char *key,const char *value) {
+   if(!audio_gain_pending)
+      audio_gain_pending=g_hash_table_new_full(g_str_hash,g_str_equal,g_free,g_free);
+   g_hash_table_replace(audio_gain_pending,g_strdup(key),g_strdup(value));
+   if(audio_gain_save_source) {
+      g_source_destroy(audio_gain_save_source);
+      g_source_unref(audio_gain_save_source);
+   }
+   audio_gain_save_source=g_timeout_source_new(750);
+   g_source_set_callback(audio_gain_save_source,audio_gain_flush,NULL,NULL);
+   g_source_attach(audio_gain_save_source,rrclient_core_context());
+}
 static void audio_control_request(const rr_event_message_t *message, void *unused) {
    (void)unused;
 
@@ -3749,7 +3783,7 @@ static void audio_control_request(const rr_event_message_t *message, void *unuse
             char *key = g_strdup_printf("audio.graph.port.%s.%c", sink_input ? "sink" : hq_mix ? "hq" : tx_mix ? "tx" : "mix", req->channel ? 'R' : 'L');
             char val[G_ASCII_DTOSTR_BUF_SIZE];
             g_ascii_formatd(val, sizeof(val), "%.2f", req->gain_db);
-            rrclient_database_setting_set(key, val);
+            audio_gain_defer(key,val);
             g_free(key);
          }
          break;
@@ -3784,7 +3818,7 @@ static void audio_control_request(const rr_event_message_t *message, void *unuse
             char *key = g_strdup_printf("audio.graph.input.%s.%c", hash, req->channel ? 'R' : 'L');
             char val[G_ASCII_DTOSTR_BUF_SIZE];
             g_ascii_formatd(val, sizeof(val), "%.2f", req->gain_db);
-            rrclient_database_setting_set(key, val);
+            audio_gain_defer(key,val);
             g_free(key);
             g_free(hash);
          }
@@ -4375,6 +4409,7 @@ void audio_stop_codec(bool is_tx) {
 }
 
 void ws_audio_shutdown(void) {
+   audio_gain_flush(NULL);
    if(osc_pump_source) {
       g_source_destroy(osc_pump_source);
       g_source_unref(osc_pump_source);
