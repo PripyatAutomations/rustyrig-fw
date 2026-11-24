@@ -208,19 +208,26 @@ do not grant network privileges or remotely change server access rights.
 Native I/Q oscillators are the first exposed kind in the generic
 `routing.block.*` API. These methods enqueue typed requests in the client
 core domain; a `true` return means submitted, **not** a confirmed render
-or hardware operation. The next stage is to expose snapshot, typed pins,
-wiring, and lifecycle notifications using these same core ownership rules.
+or hardware operation. Pin-level output connections are supported for oscillators;
+graph snapshots and lifecycle notifications for other block types remain
+future additions.
 
 ```c
 routing.block.create("oscillator", 1, 136.5, -18, "sine")
+routing.connect("osc.1.I", "tx.mix")
+routing.connect("osc.1.Q", "proc.lv2.1.in.R")
 routing.block.set("osc.1", "frequency", 123)
+routing.disconnect("osc.1.I", "tx.mix")
 routing.block.remove("osc.1")
 ```
 
 An oscillator is **not connected to a speaker, microphone, TX mixer or radio**
-just because it was created. Its `I` and `Q` waveform outputs are available
-through a native PCM pull API; scriptable per-pin graph connections are
-separate follow-on work. For server-side RF DDS devices, a future hardware
+just because it was created. Its `I` and `Q` output pins are connectable
+to `rx.mix`, `tx.mix`, `hq.mix`, `proc.lv2.N.in.L`/`.R`, or
+`modemN.rx`. Both the GTK Routing view and RustyScript send the same
+core-domain connection requests. The named mixer must already be available;
+LV2 processors and modems must exist before being connected. TX mixer
+connections remain subject to existing interlocks and do **not** key PTT. For server-side RF DDS devices, a future hardware
 provider uses compatible controls without claiming to generate client audio.
 
 ## Initial registration syntax
@@ -314,6 +321,8 @@ host exits; it is not persistent storage.
 | `routing.block.create("oscillator", slot, hz, dbfs, waveform)` | Create/update one native I/Q oscillator (slots 1–8; waveform `sine`, `square`, `triangle`, `saw`); unconnected by default |
 | `routing.block.set("osc.N", property, value)` | Configure an existing oscillator's `frequency`, `level` or `waveform` without changing its phase |
 | `routing.block.remove("osc.N")` | Remove a native oscillator |
+| `routing.connect("osc.N.I|Q", destination)` | Connect one I/Q source to a compatible mixer bus, LV2 effect input, or modem RX |
+| `routing.disconnect("osc.N.I|Q", destination)` | Disconnect a specific sink (or use `"all"` to disconnect every consumer of that pin) |
 
 | `window.find(pattern[, location])` / `panel.find(...)` | Look up existing panel (GTK only) |
 | `window.move(id, location[, x, y])`, `window.zoom(id, percent)`, `window.opacity(id, percent)` | Change panel placement/display (GTK only); `panel.*` aliases available |
