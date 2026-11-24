@@ -579,6 +579,7 @@ void rr_local_modem_feed(const char *source, const int16_t *pcm, size_t frames) 
 }
 
 static bool source_present(const char *source) {
+   if(audio_oscillator_source_present(source))return true;
    struct rrclient_rx_stream streams[RR_LOCAL_MODEM_STREAMS] = {
       0
    };
