@@ -209,8 +209,14 @@ static void callsign_notify(const rr_local_modem_decode_t *d,const char *body,
    dict *fields=dict_new();
    if(!fields)return;
    dict_add(fields,"callsign",call);
-   const char *country=rr_watch_country(call);
-   if(country)dict_add(fields,"country",country);
+   const rr_watch_region_t *region=rr_watch_region(call);
+   if(region) {
+      dict_add(fields,"country",region->country);
+      dict_add(fields,"dxcc_prefix",region->entity);
+      dict_add(fields,"continent",region->continent);
+      if(region->cq)dict_add_int(fields,"cq_zone",region->cq);
+      if(region->itu)dict_add_int(fields,"itu_zone",region->itu);
+   }
    dict_add_bool(fields,"cq",rr_modem_callsign_in_text(body,"CQ"));
    dict_add(fields,"kind",kind);
    dict_add(fields,"origin","modem");
@@ -286,6 +292,7 @@ typedef struct {
    const rr_local_modem_decode_t *decode;
    const char *text;
    GPtrArray *hits;
+   gboolean global_cq;
 } watch_context_t;
 static void watch_hit_free(gpointer data) {
    watch_hit_t *hit=data;
@@ -303,7 +310,7 @@ static void callsign_watch_rule(const rrclient_watched_call_t *rule,void *data) 
    gboolean band_ok=!g_ascii_strcasecmp(rule->band,"Any")||
       (band&&!g_ascii_strcasecmp(rule->band,band));
    if(mode_ok&&band_ok) {
-      char *call=rr_watch_match(ctx->text,rule->callsign,rule->match_type,rule->cq_only);
+      char *call=rr_watch_match(ctx->text,rule->callsign,rule->match_type,rule->cq_only||ctx->global_cq);
       if(!call)return;
       watch_hit_t *hit=g_new0(watch_hit_t,1);
       hit->callsign=call;
@@ -315,7 +322,9 @@ static void notify_decode_callsigns(const rr_local_modem_decode_t *d) {
    char *plain=decode_plain(d);
    if(!plain||!*plain){g_free(plain);return;}
    GPtrArray *hits=g_ptr_array_new_with_free_func(watch_hit_free);
-   watch_context_t ctx={.decode=d,.text=plain,.hits=hits};
+   char *cq=rrclient_database_setting_get("watch.cq-only");
+   watch_context_t ctx={.decode=d,.text=plain,.hits=hits,.global_cq=!g_strcmp0(cq,"true")};
+   g_free(cq);
    rrclient_database_watched_calls_foreach(callsign_watch_rule,&ctx);
    char *own=rrclient_database_setting_get("modem.my_callsign");
    for(guint i=0;i<hits->len;i++) {
