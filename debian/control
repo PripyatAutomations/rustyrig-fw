@@ -67,7 +67,7 @@ Description: RustyRig server
 Package: rustyrig-client
 Architecture: any
 Pre-Depends: adduser
-Depends: rustyrig-common (= ${binary:Version}), librustyirc0, acl, debconf, librrprotocol0 (>= 0.1.0-7), rustyrig-fwdsp (= ${binary:Version}), librustyaxe0 (>= 0.1.0-7), ${shlibs:Depends}, ${misc:Depends}
+Depends: hamradio-files, rustyrig-common (= ${binary:Version}), librustyirc0, acl, debconf, librrprotocol0 (>= 0.1.0-7), rustyrig-fwdsp (= ${binary:Version}), librustyaxe0 (>= 0.1.0-7), ${shlibs:Depends}, ${misc:Depends}
 Recommends: rustyrig-rrbridge (= ${binary:Version}), rustyrig-callsign-lookup (>= 1.0.3), rustyrig-modems (= ${binary:Version})
 Suggests: rrclient-screensaver
 Description: RustyRig client
