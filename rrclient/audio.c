@@ -96,10 +96,23 @@ static void audio_osc_request(const rr_event_message_t *message,void *unused) {
    if(req->action=='A' && !slot)
       for(unsigned i=0;i<RR_AUDIO_OSC_MAX;i++)
          if(!oscillator_configs[i].active){slot=i+1;break;}
-   if(slot<1 || slot>RR_AUDIO_OSC_MAX || (req->action!='A' && req->action!='D'))return;
-   rr_audio_osc_config_t cfg=req->config;
+   if(slot<1 || slot>RR_AUDIO_OSC_MAX ||
+      (req->action!='A' && req->action!='D' && req->action!='P'))return;
+   rr_audio_osc_config_t cfg=req->action=='P' ? oscillator_configs[slot-1] : req->config;
+   if(req->action=='P') {
+      if(!cfg.active || !memchr(req->property,0,sizeof(req->property)))return;
+      if(!strcmp(req->property,"frequency"))cfg.frequency_hz=req->number;
+      else if(!strcmp(req->property,"level"))cfg.level_db=req->number;
+      else if(!strcmp(req->property,"waveform")) {
+         if(!isfinite(req->number) || req->number<0. || req->number>3. ||
+            req->number!=floor(req->number))return;
+         cfg.waveform=(unsigned)req->number;
+      } else return;
+   }
    if(req->action=='D')cfg=(rr_audio_osc_config_t){0};
    else cfg.active=true;
+   /* Ports are unconnected until the routing system explicitly patches them. */
+   cfg.route='M';
    if(!hq_engine || !rr_audio_engine_osc_set(hq_engine,slot,&cfg)) {
       Log(LOG_WARN,"audio.osc","Oscillator %u rejected: invalid parameters or HQ audio unavailable",slot);
       return;
@@ -2684,9 +2697,7 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
       g_snprintf(id,sizeof(id),"osc.%u",i+1);
       if(!rr_audio_graph_add_node(graph,id,RR_AG_SOURCE))continue;
       rr_audio_graph_set_health(graph,id,hq_engine?RR_AG_HEALTHY:RR_AG_FAILED);
-      rr_audio_graph_set_route(graph,id,cfg->route=='M'?'M':'S');
-      if(cfg->route!='M')rr_audio_graph_add_channel_link(graph,id,"hq.mix",
-         RR_AG_NORMAL,RR_AG_CHANNEL_STEREO);
+      rr_audio_graph_set_route(graph,id,'M'); /* independent unpatched I/Q source */
    }
    /* The playback source is always present, including while stopped. */
    rr_audio_graph_add_node(graph, RECORDING_PLAYBACK_ID, RR_AG_SOURCE);
@@ -3618,7 +3629,7 @@ bool audio_init(void) {
       rr_audio_osc_config_t cfg={.active=true};
       if(saved && sscanf(saved,"%lf,%lf,%u,%c",&cfg.frequency_hz,
                         &cfg.level_db,&cfg.waveform,&cfg.route)==4 &&
-         rr_audio_engine_osc_set(hq_engine,slot,&cfg))
+         (cfg.route='M',rr_audio_engine_osc_set(hq_engine,slot,&cfg)))
          oscillator_configs[slot-1]=cfg;
       else oscillator_configs[slot-1]=(rr_audio_osc_config_t){0};
       g_free(saved);
