@@ -203,6 +203,26 @@ same permissions as the host process; these are *not* sandboxed APIs. They
 do not grant network privileges or remotely change server access rights.
 
 
+## Scriptable routing objects (experimental)
+
+Native I/Q oscillators are the first exposed kind in the generic
+`routing.block.*` API. These methods enqueue typed requests in the client
+core domain; a `true` return means submitted, **not** a confirmed render
+or hardware operation. The next stage is to expose snapshot, typed pins,
+wiring, and lifecycle notifications using these same core ownership rules.
+
+```c
+routing.block.create("oscillator", 1, 136.5, -18, "sine")
+routing.block.set("osc.1", "frequency", 123)
+routing.block.remove("osc.1")
+```
+
+An oscillator is **not connected to a speaker, microphone, TX mixer or radio**
+just because it was created. Its `I` and `Q` waveform outputs are available
+through a native PCM pull API; scriptable per-pin graph connections are
+separate follow-on work. For server-side RF DDS devices, a future hardware
+provider uses compatible controls without claiming to generate client audio.
+
 ## Initial registration syntax
 
 ```c
@@ -291,6 +311,10 @@ host exits; it is not persistent storage.
 | `setting.set(key, value)` | Persist string, numeric, or boolean value; values are read back as strings |
 | `chat.send("#room@network", text[, tag[, interval_ms]])` or `chat.send(rooms[], text[, tag[, interval_ms]])` | Queue into one or more joined rooms through any connected IRC/RustyRig profile; returns whether all destinations enqueued |
 | `chat.cancel(tag)` | Remove this script's unsent queued messages with the supplied tag |
+| `routing.block.create("oscillator", slot, hz, dbfs, waveform)` | Create/update one native I/Q oscillator (slots 1–8; waveform `sine`, `square`, `triangle`, `saw`); unconnected by default |
+| `routing.block.set("osc.N", property, value)` | Configure an existing oscillator's `frequency`, `level` or `waveform` without changing its phase |
+| `routing.block.remove("osc.N")` | Remove a native oscillator |
+
 | `window.find(pattern[, location])` / `panel.find(...)` | Look up existing panel (GTK only) |
 | `window.move(id, location[, x, y])`, `window.zoom(id, percent)`, `window.opacity(id, percent)` | Change panel placement/display (GTK only); `panel.*` aliases available |
 | `ui.*`, `gui.*`, `control.val/set` | Build and control logical UI widgets; see [RustyScript UI model](RUSTYSCRIPT-UI.md) |
