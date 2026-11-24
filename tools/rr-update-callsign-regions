@@ -1,0 +1,106 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-2.0-only
+"""Build an offline callsign/subdivision index, without retaining addresses."""
+import argparse
+import csv
+import datetime
+import io
+import os
+import re
+import tempfile
+import urllib.request
+import zipfile
+from pathlib import Path
+
+FCC = "https://data.fcc.gov/download/pub/uls/complete/l_amat.zip"
+ISED = "https://apc-cap.ic.gc.ca/datafiles/amateur_delim.zip"
+US = set("AL AK AZ AR CA CO CT DE DC FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY AS GU MP PR VI".split())
+CA = set("AB BC MB NB NL NS NT NU ON PE QC SK YT".split())
+CALL = re.compile(r"[A-Z0-9]{3,24}\Z")
+
+def records(archive, name):
+    matches = [n for n in archive.namelist() if n.rsplit("/", 1)[-1].lower() == name.lower()]
+    if len(matches) != 1:
+        raise ValueError("Missing or ambiguous member: " + name)
+    return io.TextIOWrapper(archive.open(matches[0]), encoding="latin-1", newline="")
+
+def fcc(path):
+    active = {}
+    with zipfile.ZipFile(path) as z:
+        with records(z, "HD.dat") as rows:
+            for line in rows:
+                f = line.rstrip("\r\n").split("|")
+                if len(f) < 9 or f[0] != "HD" or f[5] != "A":
+                    continue
+                try:
+                    if datetime.datetime.strptime(f[8], "%m/%d/%Y").date() < datetime.date.today():
+                        continue
+                    serial = int(f[1])
+                except ValueError:
+                    continue
+                call = f[4].upper()
+                if CALL.fullmatch(call):
+                    active[call] = max(serial, active.get(call, 0))
+        result = {}
+        with records(z, "EN.dat") as rows:
+            for line in rows:
+                f = line.rstrip("\r\n").split("|")
+                if len(f) < 18 or f[0] != "EN" or f[5] != "L":
+                    continue
+                call, state = f[4].upper(), f[17].strip().upper()
+                if state in US and call in active and f[1] == str(active[call]):
+                    result[call] = "US-" + state
+        return result
+
+def ised(path):
+    result = {}
+    with zipfile.ZipFile(path) as z:
+        with records(z, "amateur_delim.txt") as rows:
+            sample = rows.read(8192)
+            rows.seek(0)
+            dialect = csv.Sniffer().sniff(sample, delimiters=";,|\t")
+            for f in csv.reader(rows, dialect):
+                if len(f) < 6:
+                    continue
+                call, province = f[0].strip().upper(), f[5].strip().upper()
+                if CALL.fullmatch(call) and province in CA:
+                    result[call] = "CA-" + province
+    return result
+
+def download(url, path):
+    request = urllib.request.Request(url, headers={"User-Agent": "RustyRig-region-index/1"})
+    with urllib.request.urlopen(request, timeout=60) as source, open(path, "wb") as target:
+        while chunk := source.read(1024 * 1024):
+            target.write(chunk)
+
+def main():
+    p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--fcc", type=Path, help="local FCC ZIP instead of downloading")
+    p.add_argument("--ised", type=Path, help="local ISED ZIP instead of downloading")
+    p.add_argument("--output", type=Path, default=Path(os.environ.get("XDG_STATE_HOME") or Path.home()/".local/state")/"rustyrig/callsign-regions.tsv")
+    args = p.parse_args()
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(dir=args.output.parent) as directory:
+        tmp = Path(directory)
+        a, b = args.fcc or tmp/"fcc.zip", args.ised or tmp/"ised.zip"
+        if args.fcc is None:
+            download(FCC, a)
+        if args.ised is None:
+            download(ISED, b)
+        us, ca = fcc(a), ised(b)
+        if not us or not ca:
+            raise ValueError("Empty source index; keeping previous index")
+        if args.fcc is None and len(us) < 100000 or args.ised is None and len(ca) < 10000:
+            raise ValueError("Unexpectedly small source index; keeping previous index")
+        result = us | ca
+        out = tmp/"regions.tsv"
+        with out.open("w", encoding="ascii") as stream:
+            for call, region in sorted(result.items()):
+                stream.write(f"{call}\t{region}\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(out, args.output)
+        print(f"Updated {len(us)} US and {len(ca)} Canadian callsigns: {args.output}")
+
+if __name__ == "__main__":
+    main()
