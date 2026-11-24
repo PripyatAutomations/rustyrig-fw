@@ -6,6 +6,8 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <glib/gstdio.h>
 static inline gboolean rr_modem_callsign_in_text(const char *text,const char *call) {
    if(!text||!call||!*call)return FALSE;
    size_t n=strlen(call);
@@ -130,7 +132,54 @@ static inline gboolean rr_watch_is_grid(const char *s) {
        g_ascii_isdigit(s[2])&&g_ascii_isdigit(s[3])&&
        (n==4||(s[4]>='A'&&s[4]<='X'&&s[5]>='A'&&s[5]<='X'));
 }
+/* Offline subdivision index: CALL<TAB>ISO-3166-2, one record per call.
+ * Importers replace this file atomically. Never infer states from call districts. */
+static inline gboolean rr_watch_subdivision_match(const char *call,const char *pattern) {
+   static GMutex lock;
+   static GHashTable *index;
+   static gint64 next_check;
+   static GStatBuf previous;
+   static gboolean loaded;
+   g_mutex_lock(&lock);
+   gint64 now=g_get_monotonic_time();
+   if(now>=next_check) {
+      next_check=now+60*G_USEC_PER_SEC;
+      char *path=g_build_filename(g_get_user_state_dir(),"rustyrig","callsign-regions.tsv",NULL);
+      GStatBuf st;
+      if(g_stat(path,&st)==0 && (!loaded||st.st_mtime!=previous.st_mtime||st.st_size!=previous.st_size||st.st_ino!=previous.st_ino)) {
+         FILE *file=g_fopen(path,"r");
+         if(file) {
+            GHashTable *fresh=g_hash_table_new_full(g_str_hash,g_str_equal,g_free,g_free);
+            char line[128];
+            while(fgets(line,sizeof(line),file)) {
+               if(!strchr(line,'\n')&&!feof(file)) {
+                  int ch;while((ch=fgetc(file))!=EOF&&ch!='\n'){}
+                  continue;
+               }
+               char *tab=strchr(line,'\t');
+               if(!tab)continue;
+               *tab++=0;g_strstrip(line);g_strstrip(tab);
+               if(*line && strlen(line)<=24 && strlen(tab)==5 && tab[2]=='-')
+                  g_hash_table_replace(fresh,g_ascii_strup(line,-1),g_ascii_strup(tab,-1));
+            }
+            if(!ferror(file)) {
+               if(index)g_hash_table_destroy(index);
+               index=fresh;previous=st;loaded=TRUE;
+            } else g_hash_table_destroy(fresh);
+            fclose(file);
+         }
+      }
+      g_free(path);
+   }
+   char *key=g_ascii_strup(call,-1);
+   const char *region=index?g_hash_table_lookup(index,key):NULL;
+   gboolean match=region&&!g_ascii_strcasecmp(region,pattern);
+   g_free(key);
+   g_mutex_unlock(&lock);
+   return match;
+}
 static inline gboolean rr_watch_geo_match(const char *type,const char *pattern,const char *call) {
+   if(!g_ascii_strcasecmp(type,"State / Province"))return rr_watch_subdivision_match(call,pattern);
    const rr_watch_region_t *r=rr_watch_region(call);
    if(!r)return FALSE;
    if(!g_ascii_strcasecmp(type,"Country"))
@@ -149,7 +198,7 @@ static inline char *rr_watch_match(const char *text,const char *pattern,
    gboolean grid=type&&!g_ascii_strcasecmp(type,"Grid");
    gboolean geo=type&&(!g_ascii_strcasecmp(type,"Country")||
       !g_ascii_strcasecmp(type,"Continent")||!g_ascii_strcasecmp(type,"CQ zone")||
-      !g_ascii_strcasecmp(type,"ITU zone"));
+      !g_ascii_strcasecmp(type,"ITU zone")||!g_ascii_strcasecmp(type,"State / Province"));
    GRegex *regex=re?rr_watch_regex(pattern):NULL;
    char *upper=g_ascii_strup(pattern,-1),*result=NULL,*caller=NULL;
    gboolean cq=FALSE;
