@@ -2417,6 +2417,8 @@ static gboolean audio_osc_patch(const rr_audio_osc_request_t *req) {
       osc_bus[slot-1][port]=connect?bus:0;
       char key[80];g_snprintf(key,sizeof(key),"audio.osc.%u.%c.bus",slot,port?'Q':'I');
       rrclient_database_setting_set(key,connect?target:"");
+      /* Clock-domain changes can change which frequency override is valid. */
+      audio_osc_apply_controls(slot);
       event_emit("client.audio.route.changed",NULL,NULL);
       return TRUE;
    }
@@ -2432,6 +2434,7 @@ static gboolean audio_osc_patch(const rr_audio_osc_request_t *req) {
       rr_audio_effect_request_t r={.action='R',.slot=fxslot,.channel=ch};
       if(connect)g_strlcpy(r.source,source,sizeof(r.source));
       audio_request_effect_block(&r);
+      audio_osc_apply_controls(slot);
       return TRUE;
    }
 
@@ -2442,6 +2445,7 @@ static gboolean audio_osc_patch(const rr_audio_osc_request_t *req) {
       rr_local_modem_request_t r={.action=RR_LOCAL_MODEM_ROUTE,.slot=modem};
       if(connect)g_strlcpy(r.source,source,sizeof(r.source));
       rr_local_modem_request(&r);
+      audio_osc_apply_controls(slot);
       return TRUE;
    }
    return FALSE;
