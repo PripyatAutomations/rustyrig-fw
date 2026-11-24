@@ -333,3 +333,27 @@ report independent scheduling and buffering diagnostics. Legacy recording
 and AF analysis remain tapped from the 16 kHz bus; full-HQ recording is a
 separate follow-up.
 
+
+## Native I/Q oscillator (experimental)
+
+Routing → Add → **Oscillator (I/Q)…** creates/edits up to eight persistent
+local oscillators (`osc.1` through `osc.8`). Right-click an existing block
+to configure it. Settings: frequency, level in dBFS, waveform (sine, square,
+triangle, sawtooth), and monitor routing. New slots default to **muted**
+at 1200 Hz / -18 dBFS. The Remove action deletes the selected slot.
+
+The oscillator is a native generator inside the 44.1/48 kHz client PCM mixer,
+not an LV2 instance or a separate process. A single continuous phase
+accumulator produces I=sin(phase) and Q=cos(phase), with the alternative
+waveforms calculated from the same phase. Frequency changes preserve phase
+but currently take effect at mixer block boundaries. Its two output pins
+are labeled I and Q. Monitoring choices are muted, I to both ears, Q to
+both ears, and I-left/Q-right. The output also feeds the normal pre-gain
+recording/analysis tap. This first version has **no automatic TX/PTT
+path**, and its output is not yet a general-purpose source for arbitrary
+LV2/modem connections. It is not an RF oscillator.
+
+The non-sinusoidal shapes are currently naive waveforms, **not band-limited**;
+higher frequencies may alias. Use sine for clean FSK audio. Graph-wide
+script construction, symbol-rate frequency-control inputs, and generic
+patching of either output to processors are follow-on work.
