@@ -2178,6 +2178,7 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
             g_str_has_prefix(n->id, "modem") ?
             (source ? "Modem TX audio / PTT" : "Modem RX audio") :
             g_str_has_prefix(n->id, "rig.") ? "Rig TX audio / PTT" :
+            g_str_has_prefix(n->id,"control.") ? "Numeric control" :
             n->type == RR_AG_PROCESSOR ? "Audio processor" :
             n->type == RR_AG_SINK ? "GStreamer playback" :
             n->type == RR_AG_MIXER ? "Core PCM mixer" : "Audio source", .detail =
@@ -2201,8 +2202,17 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
          continue;
       }
       rr_gtk_graph_edge_kind_t kind =
-         link->kind == RR_AG_BYPASS ? RR_GTK_GRAPH_BYPASS : link->kind == RR_AG_CONTROL ? RR_GTK_GRAPH_CONTROL : RR_GTK_GRAPH_NORMAL;
+         link->kind == RR_AG_BYPASS ? RR_GTK_GRAPH_BYPASS :
+         link->kind == RR_AG_CONTROL ? RR_GTK_GRAPH_CONTROL :
+         link->kind == RR_AG_NUMBER ? RR_GTK_GRAPH_NUMBER : RR_GTK_GRAPH_NORMAL;
 
+      if(kind==RR_GTK_GRAPH_NUMBER) {
+         edges[edge_count++]=(rr_gtk_graph_edge_t){
+            .from=link->src,.to=link->dst,.kind=kind,
+            .control_pin=link->control_pin
+         };
+         continue;
+      }
       if (kind == RR_GTK_GRAPH_BYPASS || kind == RR_GTK_GRAPH_CONTROL) {
          edges[edge_count++] = (rr_gtk_graph_edge_t) {
             .from = link->src, .to = link->dst, .kind = kind
