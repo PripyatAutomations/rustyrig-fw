@@ -209,6 +209,7 @@ static gboolean decode_has_call(const char *line, const char *call) {
 typedef struct {
    const char *message, *mode, *band;
    gboolean matched;
+   gboolean global_cq;
 } DecodeWatchMatch;
 static void decode_watch_match_entry(const rrclient_watched_call_t *rule, void *user) {
    DecodeWatchMatch *match = user;
@@ -222,7 +223,7 @@ static void decode_watch_match_entry(const rrclient_watched_call_t *rule, void *
    gboolean band_ok = !g_ascii_strcasecmp(rule->band, "Any") || (match->band && !g_ascii_strcasecmp(rule->band, match->band));
 
    if (mode_ok && band_ok) {
-      char *call=rr_watch_match(match->message,rule->callsign,rule->match_type,rule->cq_only);
+      char *call=rr_watch_match(match->message,rule->callsign,rule->match_type,rule->cq_only||match->global_cq);
       match->matched=call!=NULL;
       g_free(call);
    }
@@ -236,6 +237,9 @@ static gboolean decode_watch_matches(const rr_local_modem_decode_t *d, const cha
       .message = body, .mode = rr_modem_callsign_mode(d->engine,d->mode),
       .band = rr_modem_callsign_band(d->frequency_hz)
    };
+   char *cq=rrclient_database_setting_get("watch.cq-only");
+   match.global_cq=!g_strcmp0(cq,"true");
+   g_free(cq);
    rrclient_database_watched_calls_foreach(decode_watch_match_entry, &match);
 
    return match.matched;
