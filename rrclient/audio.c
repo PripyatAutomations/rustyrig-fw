@@ -94,6 +94,7 @@ static rr_audio_osc_config_t oscillator_configs[RR_AUDIO_OSC_MAX];
 static unsigned char osc_bus[RR_AUDIO_OSC_MAX][2];
 static GSource *osc_pump_source;
 static gboolean audio_osc_patch(const rr_audio_osc_request_t *req);
+static gboolean audio_osc_has_low_consumer(unsigned slot);
 static gboolean audio_osc_pump(gpointer unused);
 static gboolean audio_osc_source_port(const char *name,unsigned *slot,unsigned *port) {
    unsigned index=0;char side=0,extra=0;
@@ -139,6 +140,12 @@ static void audio_osc_request(const rr_event_message_t *message,void *unused) {
    }
    if(req->action=='D')cfg=(rr_audio_osc_config_t){0};
    else cfg.active=true;
+   if(cfg.active && cfg.frequency_hz>=7200. &&
+      audio_osc_has_low_consumer(slot)) {
+      Log(LOG_WARN,"audio.osc","Frequency %.1f Hz exceeds the connected 16k source bandwidth",
+          cfg.frequency_hz);
+      return;
+   }
    /* Ports are unconnected until the routing system explicitly patches them. */
    cfg.route='M';
    if(!osc_engine || !rr_audio_engine_osc_set(osc_engine,slot,&cfg)) {
@@ -2241,6 +2248,7 @@ static gboolean audio_osc_patch(const rr_audio_osc_request_t *req) {
    unsigned fxslot=0;char channel=0,tail=0;
    if(sscanf(target,"proc.lv2.%u.in.%c%c",&fxslot,&channel,&tail)==2 &&
       fxslot>=1 && fxslot<=RR_AUDIO_EFFECT_MAX && (channel=='L'||channel=='R')) {
+      if(connect && oscillator_configs[slot-1].frequency_hz>=7200.)return FALSE;
       rr_lv2_effect_t *fx=&lv2_effects[fxslot-1];
       if(!g_atomic_int_get(&fx->active))return FALSE;
       unsigned ch=channel=='R';
@@ -2254,10 +2262,31 @@ static gboolean audio_osc_patch(const rr_audio_osc_request_t *req) {
    unsigned modem=0;
    if(sscanf(target,"modem%u.rx%c",&modem,&tail)==1 &&
       modem>=1 && modem<=RR_LOCAL_MODEM_MAX) {
+      if(connect && oscillator_configs[slot-1].frequency_hz>=7200.)return FALSE;
       rr_local_modem_request_t r={.action=RR_LOCAL_MODEM_ROUTE,.slot=modem};
       if(connect)g_strlcpy(r.source,source,sizeof(r.source));
       rr_local_modem_request(&r);
       return TRUE;
+   }
+   return FALSE;
+}
+
+static gboolean audio_osc_has_low_consumer(unsigned slot) {
+   if(slot<1 || slot>RR_AUDIO_OSC_MAX)return FALSE;
+   for(unsigned pin=0;pin<2;pin++)
+      if(osc_bus[slot-1][pin]==1 || osc_bus[slot-1][pin]==3)return TRUE;
+   rr_local_modem_route_t modems[RR_LOCAL_MODEM_MAX]={0};
+   size_t count=rr_local_modem_routes(modems,G_N_ELEMENTS(modems));
+   for(unsigned pin=0;pin<2;pin++) {
+      char source[64];audio_osc_pin_name(slot,pin,source);
+      for(size_t i=0;i<count;i++)
+         if(!strcmp(modems[i].source,source))return TRUE;
+      for(unsigned i=0;i<RR_AUDIO_EFFECT_MAX;i++) {
+         rr_lv2_effect_t *fx=&lv2_effects[i];
+         if(g_atomic_int_get(&fx->active) &&
+            (!strcmp(fx->source[0],source) ||
+             !strcmp(fx->source[1],source)))return TRUE;
+      }
    }
    return FALSE;
 }
