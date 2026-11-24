@@ -324,7 +324,7 @@ host exits; it is not persistent storage.
 |---|---|
 | `setting.get(key)` | String from client settings database, or `null` |
 | `setting.set(key, value)` | Persist string, numeric, or boolean value; values are read back as strings |
-| `chat.send("#room@network", text[, tag[, interval_ms]])` or `chat.send(rooms[], text[, tag[, interval_ms]])` | Queue into one or more joined rooms through any connected IRC/RustyRig profile; returns whether all destinations enqueued |
+| `chat.send("#room@network", text[, tag[, interval_ms]])` or `chat.send(rooms[], text[, tag[, interval_ms]])` | Queue into one or more joined rooms through any connected IRC/RustyRig profile; returns whether all destinations enqueued. Explicit interval 0 selects caller-managed pacing; otherwise normal flood control applies |
 | `chat.cancel(tag)` | Remove this script's unsent queued messages with the supplied tag |
 | `routing.block.create("oscillator", slot, hz, dbfs, waveform)` | Create/update one native I/Q oscillator (slots 1–8; waveform `sine`, `square`, `triangle`, `saw`); unconnected by default |
 | `routing.block.set("osc.N", property, value)` | Configure an existing oscillator's `frequency`, `level` or `waveform` without changing its phase |
