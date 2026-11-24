@@ -130,6 +130,26 @@ int main(void) {
    assert(rr_audio_graph_add_link(g,"rx16.resample","hq.mix",RR_AG_NORMAL));
    assert(rr_audio_graph_link_count(g)==3);
    rr_audio_graph_free(g);
+   /* Cross-port links must preserve I/Q source identity independently of
+    * the LV2 destination channel; two sources cannot occupy one input. */
+   g=rr_audio_graph_new();
+   assert(g);
+   assert(rr_audio_graph_add_node(g,"osc.1",RR_AG_SOURCE));
+   assert(rr_audio_graph_add_node(g,"proc.lv2.1",RR_AG_PROCESSOR));
+   assert(rr_audio_graph_add_port_link(g,"osc.1","proc.lv2.1",
+      RR_AG_NORMAL,RR_AG_CHANNEL_LEFT,RR_AG_CHANNEL_RIGHT));
+   assert(rr_audio_graph_add_port_link(g,"osc.1","proc.lv2.1",
+      RR_AG_NORMAL,RR_AG_CHANNEL_RIGHT,RR_AG_CHANNEL_LEFT));
+   assert(!rr_audio_graph_add_port_link(g,"osc.1","proc.lv2.1",
+      RR_AG_NORMAL,RR_AG_CHANNEL_LEFT,RR_AG_CHANNEL_RIGHT));
+   rr_audio_graph_snapshot_t *pins=g_new0(rr_audio_graph_snapshot_t,1);
+   assert(rr_audio_graph_snapshot(g,pins) && pins->link_count==2);
+   assert(pins->links[0].src_channels==RR_AG_CHANNEL_LEFT);
+   assert(pins->links[0].dst_channels==RR_AG_CHANNEL_RIGHT);
+   assert(pins->links[1].src_channels==RR_AG_CHANNEL_RIGHT);
+   assert(pins->links[1].dst_channels==RR_AG_CHANNEL_LEFT);
+   g_free(pins);
+   rr_audio_graph_free(g);
    puts("audio graph bypass and direct modem TX routing passed");
 
    return 0;
