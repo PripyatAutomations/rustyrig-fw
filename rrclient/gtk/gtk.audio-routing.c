@@ -6095,6 +6095,7 @@ static gboolean routing_link_disconnectable(const rr_ag_view_link_t *link) {
    const char *from = graph_snapshot->nodes[link->src].id;
    const char *to = graph_snapshot->nodes[link->dst].id;
 
+   if(link->kind==RR_AG_NUMBER)return TRUE;
    if (!strcmp(from, "src.client.dsp0") && !strcmp(to, "tx.mix")) {
       return TRUE;
    }
@@ -6138,7 +6139,9 @@ static gboolean graph_link_at(double x, double y, guint *link_index, gint *chann
       }
 
       for (int ch = 0 ; ch < 2 ; ch++) {
-         if (link->kind != RR_AG_CONTROL && !(link->channels & (ch ? RR_AG_CHANNEL_RIGHT : RR_AG_CHANNEL_LEFT))) {
+         if(link->kind==RR_AG_NUMBER && ch)continue;
+         if (link->kind != RR_AG_CONTROL && link->kind!=RR_AG_NUMBER &&
+             !(link->channels & (ch ? RR_AG_CHANNEL_RIGHT : RR_AG_CHANNEL_LEFT))) {
             continue;
          }
 
@@ -6151,8 +6154,10 @@ static gboolean graph_link_at(double x, double y, guint *link_index, gint *chann
             (g_str_has_prefix(dst->id, "modem") || g_str_has_prefix(dst->id, "proc.lv2.") || g_str_has_prefix(dst->id, "rig."));
          double x0 = routing_node_x(src) + RR_GTK_GRAPH_NODE_W;
          double x1 = routing_node_x(dst) - 9.;
-         double y0 = routing_node_y(src) + (link->kind == RR_AG_CONTROL ? RR_GTK_GRAPH_NODE_H - 16. : mono_src ? 68. : ch ? 79. : 60.);
-         double y1 = routing_node_y(dst) + (link->kind == RR_AG_CONTROL ? RR_GTK_GRAPH_NODE_H - 16. : mono_dst ? 68. : ch ? 79. : 60.);
+         double y0 = routing_node_y(src) + (link->kind==RR_AG_NUMBER ? 68. :
+            link->kind == RR_AG_CONTROL ? RR_GTK_GRAPH_NODE_H - 16. : mono_src ? 68. : ch ? 79. : 60.);
+         double y1 = routing_node_y(dst) + (link->kind==RR_AG_NUMBER ? 55.+19.*link->control_pin :
+            link->kind == RR_AG_CONTROL ? RR_GTK_GRAPH_NODE_H - 16. : mono_dst ? 68. : ch ? 79. : 60.);
          for (int k = 0 ; k <= 64 ; k++) {
             double t = k / 64., px,py;
             rr_patchbay_wire_point(x0,y0,x1,y1,rr_gtk_graph_wire_sag(),
@@ -6178,9 +6183,10 @@ static gboolean routing_disconnect_link(guint index, gint channel) {
    }
    const rr_ag_view_link_t *link = &graph_snapshot->links[index];
 
-   if (!routing_link_disconnectable(link) || channel < 0 || channel > 1 ||
-       (link->kind == RR_AG_CONTROL ? channel != 0 :
-        !(link->channels & (channel ? RR_AG_CHANNEL_RIGHT : RR_AG_CHANNEL_LEFT)))) {
+   if (!routing_link_disconnectable(link) || channel < 0 || channel > 2 ||
+       (link->kind == RR_AG_NUMBER ? channel != link->control_pin :
+        link->kind == RR_AG_CONTROL ? channel != 0 :
+        channel>1 || !(link->channels & (channel ? RR_AG_CHANNEL_RIGHT : RR_AG_CHANNEL_LEFT)))) {
       return FALSE;
    }
    const char *src = graph_snapshot->nodes[link->src].id;
@@ -6190,7 +6196,16 @@ static gboolean routing_disconnect_link(guint index, gint channel) {
       .slot = 0
    };
 
-   if(g_str_has_prefix(src,"osc.")) {
+   if(link->kind==RR_AG_NUMBER) {
+      unsigned oscillator=0;
+      if(sscanf(dst,"osc.%u",&oscillator)!=1 ||
+         oscillator<1 || oscillator>RR_AUDIO_OSC_MAX)return FALSE;
+      rr_audio_osc_control_request_t req={.action='U',.slot=oscillator};
+      g_strlcpy(req.source,src,sizeof(req.source));
+      g_strlcpy(req.property,link->control_pin==0?"frequency":
+          link->control_pin==1?"level":"waveform",sizeof(req.property));
+      audio_request_oscillator_control(&req);
+   } else if(g_str_has_prefix(src,"osc.")) {
       unsigned oscillator=0;char extra=0;
       if(sscanf(src,"osc.%u%c",&oscillator,&extra)!=1 ||
          oscillator<1 || oscillator>RR_AUDIO_OSC_MAX)return FALSE;
@@ -6302,6 +6317,8 @@ static gboolean routing_audio_pin_disconnect(gint hit_source,gint channel,
    }
    if(!count)return FALSE;
    if(count==1)return routing_disconnect_link(first,
+      graph_snapshot->links[first].kind==RR_AG_NUMBER ?
+      graph_snapshot->links[first].control_pin :
       graph_snapshot->links[first].kind==RR_AG_CONTROL ? 0 :
       routing_source_pin_for_link(&graph_snapshot->links[first],channel));
    GtkWidget *menu=gtk_menu_new();
@@ -6321,7 +6338,8 @@ static gboolean routing_audio_pin_disconnect(gint hit_source,gint channel,
       g_object_set_data_full(G_OBJECT(item),"rr-wire-from",g_strdup(from),g_free);
       g_object_set_data_full(G_OBJECT(item),"rr-wire-to",g_strdup(to),g_free);
       g_object_set_data(G_OBJECT(item),"rr-wire-channel",
-         GINT_TO_POINTER(link->kind==RR_AG_CONTROL ? 0 :
+         GINT_TO_POINTER(link->kind==RR_AG_NUMBER ? link->control_pin :
+         link->kind==RR_AG_CONTROL ? 0 :
          routing_source_pin_for_link(link,channel)));
       g_object_set_data(G_OBJECT(item),"rr-wire-kind",GINT_TO_POINTER(link->kind));
       g_signal_connect(item,"activate",G_CALLBACK(routing_wire_remove),NULL);
@@ -6345,7 +6363,8 @@ static gboolean routing_wire_context_menu(GdkEventButton *event, double x, doubl
    gtk_widget_set_size_request(disconnect, -1, 48);
    g_object_set_data_full(G_OBJECT(disconnect), "rr-wire-from", g_strdup(graph_snapshot->nodes[link->src].id), g_free);
    g_object_set_data_full(G_OBJECT(disconnect), "rr-wire-to", g_strdup(graph_snapshot->nodes[link->dst].id), g_free);
-   g_object_set_data(G_OBJECT(disconnect), "rr-wire-channel", GINT_TO_POINTER(channel));
+   g_object_set_data(G_OBJECT(disconnect), "rr-wire-channel",
+      GINT_TO_POINTER(link->kind==RR_AG_NUMBER?link->control_pin:channel));
    g_object_set_data(G_OBJECT(disconnect), "rr-wire-kind", GINT_TO_POINTER(link->kind));
    g_signal_connect(disconnect, "activate", G_CALLBACK(routing_wire_remove), NULL);
    gtk_menu_shell_append(GTK_MENU_SHELL(menu), disconnect);
