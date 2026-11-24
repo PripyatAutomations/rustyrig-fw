@@ -213,7 +213,7 @@ typedef struct {
 static void decode_watch_match_entry(const rrclient_watched_call_t *rule, void *user) {
    DecodeWatchMatch *match = user;
 
-   if (match->matched || !decode_has_call(match->message, rule->callsign)) {
+   if (match->matched) {
       return;
    }
    gboolean mode_ok = !g_ascii_strcasecmp(rule->mode, "Any") ||
@@ -222,7 +222,9 @@ static void decode_watch_match_entry(const rrclient_watched_call_t *rule, void *
    gboolean band_ok = !g_ascii_strcasecmp(rule->band, "Any") || (match->band && !g_ascii_strcasecmp(rule->band, match->band));
 
    if (mode_ok && band_ok) {
-      match->matched = TRUE;
+      char *call=rr_watch_match(match->message,rule->callsign,rule->match_type,rule->cq_only);
+      match->matched=call!=NULL;
+      g_free(call);
    }
 }
 
