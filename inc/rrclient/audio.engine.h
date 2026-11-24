@@ -22,6 +22,34 @@ typedef struct {
 } rr_pcm_stream_format_t;
 bool rr_pcm_stream_format_valid(const rr_pcm_stream_format_t *format);
 typedef struct rr_audio_engine rr_audio_engine_t;
+/* Native pull-based I/Q oscillator, not implicitly connected to a sink.
+ * I=sin(phase), Q=cos(phase), sharing a continuous phase accumulator.
+ * Waveform: 0 sine, 1 square, 2 triangle, 3 saw.
+ */
+#define RR_AUDIO_OSC_MAX 8u
+typedef struct {
+   bool active;
+   double frequency_hz;
+   double level_db;
+   unsigned waveform;
+   char route; /* reserved for future patch profiles; M=unconnected */
+} rr_audio_osc_config_t;
+bool rr_audio_engine_osc_set(rr_audio_engine_t *engine,unsigned slot,
+                             const rr_audio_osc_config_t *config);
+bool rr_audio_engine_osc_get(rr_audio_engine_t *engine,unsigned slot,
+                             rr_audio_osc_config_t *config);
+/* The downstream consumer chooses the clock: 16/44.1/48 kHz.
+ * Calling with a rate incompatible with the configured frequency fails
+ * without advancing the oscillator's phase. One graph scheduler must render
+ * once per time interval, then fan out the samples to multiple destinations.
+ * Caller supplies frames*2 S16 output samples; no implicit routing.
+ */
+bool rr_audio_engine_osc_render_rate(rr_audio_engine_t *engine,unsigned slot,
+                                     uint32_t sample_rate_hz,int16_t *iq,size_t frames);
+/* Compatibility: render at the engine's own clock. */
+bool rr_audio_engine_osc_render(rr_audio_engine_t *engine,unsigned slot,
+                                int16_t *iq,size_t frames);
+
 typedef void (*rr_audio_output_fn)(const int16_t *stereo, size_t frames, void *user);
 typedef struct {
    uint64_t blocks, late_ticks, max_late_us, skipped_blocks;
