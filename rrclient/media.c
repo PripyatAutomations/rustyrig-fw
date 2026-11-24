@@ -53,7 +53,7 @@ static const char *media_output_window(void) {
 #define media_print(...) ui_print(media_output_window(), __VA_ARGS__)
 
 // Privileges the server granted us at auth (e.g. "admin,edit,view,...")
-static char media_my_privs[128] = {
+static char media_my_privs[USER_PRIV_LEN + 1] = {
    0
 };
 
