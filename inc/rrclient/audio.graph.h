@@ -12,7 +12,7 @@ typedef enum {
    RR_AG_SOURCE, RR_AG_PROCESSOR, RR_AG_MIXER, RR_AG_SINK
 } rr_ag_node_type_t;
 typedef enum {
-   RR_AG_NORMAL = 0, RR_AG_BYPASS, RR_AG_CONTROL
+   RR_AG_NORMAL = 0, RR_AG_BYPASS, RR_AG_CONTROL, RR_AG_NUMBER
 } rr_ag_link_type_t;
 #define RR_AG_CHANNEL_LEFT 1u
 #define RR_AG_CHANNEL_RIGHT 2u
@@ -30,6 +30,9 @@ bool rr_audio_graph_add_channel_link(rr_audio_graph_t *graph, const char *src, c
 bool rr_audio_graph_add_port_link(rr_audio_graph_t *graph,const char *src,
                                   const char *dst,rr_ag_link_type_t type,
                                   unsigned source_channels,unsigned destination_channels);
+/* Numeric control source -> typed input on an oscillator (0 Hz, 1 dB, 2 waveform). */
+bool rr_audio_graph_add_numeric_link(rr_audio_graph_t *graph,const char *source,
+                                     const char *oscillator,unsigned input);
 bool rr_audio_graph_set_health(rr_audio_graph_t *graph, const char *id, rr_ag_health_t health);
 bool rr_audio_graph_set_route(rr_audio_graph_t *graph, const char *id, char route);
 /* Resolve a listener mix request into an existing, executable PCM bus.
@@ -72,6 +75,7 @@ typedef struct {
    guint8 channels;             /* source L=1, R=2; legacy accessor */
    guint8 src_channels;         /* output pin channel mask */
    guint8 dst_channels;         /* input pin channel mask */
+   guint8 control_pin;          /* RR_AG_NUMBER: 0 frequency, 1 level, 2 waveform */
 } rr_ag_view_link_t;
 typedef struct {
    guint32 node_count, link_count;
