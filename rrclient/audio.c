@@ -2180,6 +2180,88 @@ void audio_request_effect_block(const rr_audio_effect_request_t *req) {
    event_emit_message(&msg);
 }
 
+/* Oscillator pins are real independent, opt-in sources. Patch ownership
+ * lives on the core thread, just as LV2 and modem routes do. */
+static rr_audio_engine_t *audio_osc_bus_engine(unsigned bus) {
+   return bus==1 ? rx_engine : bus==2 ? hq_engine : bus==3 ? tx_engine : NULL;
+}
+static const char *audio_osc_bus_name(unsigned bus) {
+   return bus==1 ? "rx.mix" : bus==2 ? "hq.mix" : bus==3 ? "tx.mix" : "";
+}
+static void audio_osc_pin_name(unsigned slot,unsigned port,char out[64]) {
+   g_snprintf(out,64,"osc.%u.%c",slot,port?'Q':'I');
+}
+static gboolean audio_osc_patch(const rr_audio_osc_request_t *req) {
+   if(!req || req->slot<1 || req->slot>RR_AUDIO_OSC_MAX || req->port>1 ||
+      !memchr(req->target,0,sizeof(req->target)))return FALSE;
+   const unsigned slot=req->slot,port=req->port;
+   char source[64];audio_osc_pin_name(slot,port,source);
+   const gboolean connect=req->action=='C';
+   const char *target=req->target;
+   if(connect && !oscillator_configs[slot-1].active)return FALSE;
+
+   if(!strcmp(target,"all")) {
+      if(connect)return FALSE;
+      /* Disconnect all effect/decoder consumers using this pin as well. */
+      for(unsigned fxslot=1;fxslot<=RR_AUDIO_EFFECT_MAX;fxslot++) {
+         rr_lv2_effect_t *fx=&lv2_effects[fxslot-1];
+         if(!g_atomic_int_get(&fx->active))continue;
+         for(unsigned ch=0;ch<2;ch++)if(!strcmp(fx->source[ch],source)) {
+            rr_audio_effect_request_t r={.action='R',.slot=fxslot,.channel=ch};
+            audio_request_effect_block(&r);
+         }
+      }
+      rr_local_modem_route_t modems[RR_LOCAL_MODEM_MAX]={0};
+      size_t count=rr_local_modem_routes(modems,G_N_ELEMENTS(modems));
+      for(size_t i=0;i<count;i++)if(!strcmp(modems[i].source,source)) {
+         rr_local_modem_request_t r={.action=RR_LOCAL_MODEM_ROUTE,.slot=modems[i].slot};
+         rr_local_modem_request(&r);
+      }
+   }
+   unsigned bus=!strcmp(target,"rx.mix")?1:!strcmp(target,"hq.mix")?2:
+                 !strcmp(target,"tx.mix")?3:0;
+   if(bus || !strcmp(target,"all")) {
+      unsigned old=osc_bus[slot-1][port];
+      if(connect && bus) {
+         rr_audio_engine_t *dest=audio_osc_bus_engine(bus);
+         if(!dest || oscillator_configs[slot-1].frequency_hz >=
+                     .45*rr_audio_engine_sample_rate(dest))return FALSE;
+         if(old==bus)return TRUE;
+         if(!rr_audio_engine_add_stream(dest,source))return FALSE;
+         rr_audio_engine_route(dest,source,'S');
+      }
+      if(old)rr_audio_engine_remove_stream(audio_osc_bus_engine(old),source);
+      osc_bus[slot-1][port]=connect?bus:0;
+      char key[80];g_snprintf(key,sizeof(key),"audio.osc.%u.%c.bus",slot,port?'Q':'I');
+      rrclient_database_setting_set(key,connect?target:"");
+      event_emit("client.audio.route.changed",NULL,NULL);
+      return TRUE;
+   }
+
+   unsigned fxslot=0;char channel=0,tail=0;
+   if(sscanf(target,"proc.lv2.%u.in.%c%c",&fxslot,&channel,&tail)==2 &&
+      fxslot>=1 && fxslot<=RR_AUDIO_EFFECT_MAX && (channel=='L'||channel=='R')) {
+      rr_lv2_effect_t *fx=&lv2_effects[fxslot-1];
+      if(!g_atomic_int_get(&fx->active))return FALSE;
+      unsigned ch=channel=='R';
+      if(!connect && strcmp(fx->source[ch],source))return FALSE;
+      rr_audio_effect_request_t r={.action='R',.slot=fxslot,.channel=ch};
+      if(connect)g_strlcpy(r.source,source,sizeof(r.source));
+      audio_request_effect_block(&r);
+      return TRUE;
+   }
+
+   unsigned modem=0;
+   if(sscanf(target,"modem%u.rx%c",&modem,&tail)==1 &&
+      modem>=1 && modem<=RR_LOCAL_MODEM_MAX) {
+      rr_local_modem_request_t r={.action=RR_LOCAL_MODEM_ROUTE,.slot=modem};
+      if(connect)g_strlcpy(r.source,source,sizeof(r.source));
+      rr_local_modem_request(&r);
+      return TRUE;
+   }
+   return FALSE;
+}
+
 /* LV2 output is patched separately; source ear changes must not rewire it. */
 static void audio_lv2_route_source(const char *source, char output) {
    (void)source;
