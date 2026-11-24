@@ -25,6 +25,11 @@ void rr_audio_graph_free(rr_audio_graph_t *graph);
 bool rr_audio_graph_add_node(rr_audio_graph_t *graph, const char *id, rr_ag_node_type_t type);
 bool rr_audio_graph_add_link(rr_audio_graph_t *graph, const char *src, const char *dst, rr_ag_link_type_t type);
 bool rr_audio_graph_add_channel_link(rr_audio_graph_t *graph, const char *src, const char *dst, rr_ag_link_type_t type, unsigned channels);
+/* Explicit source/destination pin masks; unlike legacy channel links the
+ * output and input channel may differ (e.g. oscillator I -> LV2 R input). */
+bool rr_audio_graph_add_port_link(rr_audio_graph_t *graph,const char *src,
+                                  const char *dst,rr_ag_link_type_t type,
+                                  unsigned source_channels,unsigned destination_channels);
 bool rr_audio_graph_set_health(rr_audio_graph_t *graph, const char *id, rr_ag_health_t health);
 bool rr_audio_graph_set_route(rr_audio_graph_t *graph, const char *id, char route);
 /* Resolve a listener mix request into an existing, executable PCM bus.
@@ -62,7 +67,9 @@ typedef struct {
 typedef struct {
    guint32 src, dst;
    rr_ag_link_type_t kind;
-   guint8 channels;             /* L=1, R=2; both use separate stereo pins */
+   guint8 channels;             /* source L=1, R=2; legacy accessor */
+   guint8 src_channels;         /* output pin channel mask */
+   guint8 dst_channels;         /* input pin channel mask */
 } rr_ag_view_link_t;
 typedef struct {
    guint32 node_count, link_count;
