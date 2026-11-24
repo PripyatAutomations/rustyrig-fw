@@ -214,6 +214,8 @@ future additions.
 
 ```c
 routing.block.create("oscillator", 1, 136.5, -18, "sine")
+routing.control.set("control.ctcss", 123.0)
+routing.connect("control.ctcss", "osc.1.frequency")
 routing.connect("osc.1.I", "tx.mix")
 routing.connect("osc.1.Q", "proc.lv2.1.in.R")
 routing.block.set("osc.1", "frequency", 123)
@@ -221,6 +223,12 @@ routing.disconnect("osc.1.I", "tx.mix")
 routing.block.remove("osc.1")
 ```
 
+Frequency, level (dBFS), and waveform each have a typed green numeric
+input. A connected numeric control overrides that property; the saved
+oscillator setting remains the fallback. Disconnecting a control restores
+the fallback without restarting oscillator phase. Use
+`routing.control.set("control.NAME", number)` for live, nonpersistent
+updates; Routing → Add → Numeric Control creates a reusable saved source.
 An oscillator is **not connected to a speaker, microphone, TX mixer or radio**
 just because it was created. Its `I` and `Q` output pins are connectable
 to `rx.mix`, `tx.mix`, `hq.mix`, `proc.lv2.N.in.L`/`.R`, or
@@ -323,6 +331,9 @@ host exits; it is not persistent storage.
 | `routing.block.remove("osc.N")` | Remove a native oscillator |
 | `routing.connect("osc.N.I|Q", destination)` | Connect one I/Q source to a compatible mixer bus, LV2 effect input, or modem RX |
 | `routing.disconnect("osc.N.I|Q", destination)` | Disconnect a specific sink (or use `"all"` to disconnect every consumer of that pin) |
+| `routing.control.set("control.NAME", number)` | Update a numeric signal source without writing to persistent settings (suitable for modulation) |
+| `routing.connect("control.NAME", "osc.N.frequency|level|waveform")` | Patch a live numeric signal to one oscillator control-input pin |
+| `routing.disconnect("control.NAME", "osc.N.frequency|level|waveform")` | Remove the numeric override; restore its configured fallback |
 
 | `window.find(pattern[, location])` / `panel.find(...)` | Look up existing panel (GTK only) |
 | `window.move(id, location[, x, y])`, `window.zoom(id, percent)`, `window.opacity(id, percent)` | Change panel placement/display (GTK only); `panel.*` aliases available |
