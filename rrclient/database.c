@@ -582,7 +582,31 @@ bool rrclient_database_restore_sql(const char *sql, size_t length) {
    return ok;
 }
 
+/* GUI-owned deferred geometry snapshots; copied by ID, never retain widgets. */
+static GHashTable *window_pending;
+static guint window_save_timer;
+static bool database_window_write(const char *id,const rrclient_window_state_t *state);
+static gboolean database_window_flush(gpointer unused) {
+   (void)unused;
+   window_save_timer=0;
+   if(!window_pending)return G_SOURCE_REMOVE;
+   GHashTableIter iter;
+   gpointer key,value;
+   g_hash_table_iter_init(&iter,window_pending);
+   while(g_hash_table_iter_next(&iter,&key,&value)) {
+      if(database_window_write(key,value))g_hash_table_iter_remove(&iter);
+      else g_warning("Unable to persist window state: %s",(char*)key);
+   }
+   if(g_hash_table_size(window_pending)==0) {
+      g_hash_table_destroy(window_pending);
+      window_pending=NULL;
+   }
+   return G_SOURCE_REMOVE;
+}
 void rrclient_database_shutdown(void) {
+   if(window_save_timer)g_source_remove(window_save_timer);
+   database_window_flush(NULL);
+   if(window_pending){g_hash_table_destroy(window_pending);window_pending=NULL;}
    if (client_db) {
       sqlite3_close(client_db);
    }
@@ -1070,6 +1094,8 @@ bool rrclient_database_window_load(const char *id, rrclient_window_state_t *out)
    if (!client_db || !id || !*id || !out) {
       return false;
    }
+   const rrclient_window_state_t *pending=window_pending?g_hash_table_lookup(window_pending,id):NULL;
+   if(pending){*out=*pending;return true;}
    sqlite3_stmt *q = NULL;
    bool found = false;
    const char *sql = "SELECT x,y,width,height,zoom,rolled,minimized,pinned,opacity FROM window_states WHERE id=?1";
@@ -1091,7 +1117,18 @@ bool rrclient_database_window_load(const char *id, rrclient_window_state_t *out)
    return found;
 }
 
-bool rrclient_database_window_save(const char *id, const rrclient_window_state_t *state) {
+bool rrclient_database_window_save(const char *id,const rrclient_window_state_t *state) {
+   if(!client_db || !id || !*id || !state)return false;
+   if(!window_pending)window_pending=g_hash_table_new_full(g_str_hash,g_str_equal,g_free,g_free);
+   rrclient_window_state_t *copy=g_new(rrclient_window_state_t,1);
+   *copy=*state;
+   g_hash_table_replace(window_pending,g_strdup(id),copy);
+   if(window_save_timer)g_source_remove(window_save_timer);
+   window_save_timer=g_timeout_add(750,database_window_flush,NULL);
+   return true;
+}
+
+static bool database_window_write(const char *id, const rrclient_window_state_t *state) {
    if (!client_db || !id || !*id || !state) {
       return false;
    }
