@@ -92,6 +92,101 @@ static rr_audio_osc_config_t oscillator_configs[RR_AUDIO_OSC_MAX];
  * 1=RX 16k, 2=HQ 44.1/48k, 3=TX 16k). Effects/modems may tap the
  * same source independently without changing its bus destination. */
 static unsigned char osc_bus[RR_AUDIO_OSC_MAX][2];
+
+/* Numeric signal registry. Values are live; only bindings are persisted.
+ * Missing/stale controls never overwrite the configured fallback. */
+#define RR_OSC_CONTROL_SOURCES 64
+typedef struct { char id[64]; double value; gboolean valid; } rr_osc_numeric_t;
+static rr_osc_numeric_t osc_numeric[RR_OSC_CONTROL_SOURCES];
+static char osc_control_bindings[RR_AUDIO_OSC_MAX][3][64];
+static gboolean audio_osc_control_property(const char *name,unsigned *property) {
+   if(!name)return FALSE;
+   const char *names[]={"frequency","level","waveform"};
+   for(unsigned i=0;i<3;i++)
+      if(!strcmp(name,names[i])) { if(property)*property=i;return TRUE; }
+   return FALSE;
+}
+static gboolean audio_osc_control_source(const char *source) {
+   if(!source || !g_str_has_prefix(source,"control.") ||
+      strlen(source)>=64 || strlen(source)<9)return FALSE;
+   for(const unsigned char *p=(const unsigned char*)source;*p;p++)
+      if(!g_ascii_isalnum(*p) && *p!='_' && *p!='-' && *p!='.')return FALSE;
+   return TRUE;
+}
+static rr_osc_numeric_t *audio_osc_numeric_slot(const char *source,gboolean create) {
+   rr_osc_numeric_t *free_slot=NULL;
+   for(unsigned i=0;i<RR_OSC_CONTROL_SOURCES;i++) {
+      if(!strcmp(osc_numeric[i].id,source))return &osc_numeric[i];
+      if(create && !osc_numeric[i].id[0] && !free_slot)free_slot=&osc_numeric[i];
+   }
+   if(free_slot)g_strlcpy(free_slot->id,source,sizeof(free_slot->id));
+   return free_slot;
+}
+static void audio_osc_apply_controls(unsigned slot) {
+   if(!osc_engine || slot<1 || slot>RR_AUDIO_OSC_MAX ||
+      !oscillator_configs[slot-1].active)return;
+   rr_audio_osc_config_t effective=oscillator_configs[slot-1];
+   for(unsigned p=0;p<3;p++) {
+      const char *binding=osc_control_bindings[slot-1][p];
+      if(!*binding)continue;
+      rr_osc_numeric_t *source=audio_osc_numeric_slot(binding,FALSE);
+      if(!source || !source->valid)continue;
+      const double value=source->value;
+      if(p==0) {
+         if(value>=0 && value<21600. &&
+            !(value>=7200. && audio_osc_has_low_consumer(slot)))
+            effective.frequency_hz=value;
+      } else if(p==1) {
+         if(value>=-90. && value<=0.)effective.level_db=value;
+      } else if(isfinite(value) && value>=0. && value<=3. &&
+                floor(value)==value)
+         effective.waveform=(unsigned)value;
+   }
+   rr_audio_engine_osc_set(osc_engine,slot,&effective);
+}
+static void audio_osc_control_request(const rr_event_message_t *message,void *unused) {
+   (void)unused;
+   if(!message || !message->payload ||
+      message->length!=sizeof(rr_audio_osc_control_request_t))return;
+   rr_audio_osc_control_request_t request;
+   memcpy(&request,message->payload,sizeof(request));
+   if(!memchr(request.source,0,sizeof(request.source)) ||
+      !memchr(request.property,0,sizeof(request.property)) ||
+      !audio_osc_control_source(request.source))return;
+   if(request.action=='V') {
+      if(!isfinite(request.value))return;
+      rr_osc_numeric_t *source=audio_osc_numeric_slot(request.source,TRUE);
+      if(!source)return;
+      source->value=request.value;
+      source->valid=TRUE;
+      for(unsigned slot=1;slot<=RR_AUDIO_OSC_MAX;slot++)
+         audio_osc_apply_controls(slot);
+      return;
+   }
+   unsigned p=0;
+   if(request.slot<1 || request.slot>RR_AUDIO_OSC_MAX ||
+      !audio_osc_control_property(request.property,&p) ||
+      !oscillator_configs[request.slot-1].active ||
+      (request.action!='B' && request.action!='U'))return;
+   char *binding=osc_control_bindings[request.slot-1][p];
+   if(request.action=='B')
+      g_strlcpy(binding,request.source,64);
+   else if(!strcmp(binding,request.source))
+      binding[0]=0;
+   else return;
+   char key[96];
+   g_snprintf(key,sizeof(key),"audio.osc.%u.control.%s",request.slot,request.property);
+   rrclient_database_setting_set(key,binding);
+   audio_osc_apply_controls(request.slot);
+   event_emit("client.audio.route.changed",NULL,NULL);
+}
+void audio_request_oscillator_control(const rr_audio_osc_control_request_t *request) {
+   if(!request)return;
+   rr_event_message_t message={.name=RRCLIENT_AUDIO_OSC_CONTROL_REQUEST,
+       .payload=request,.length=sizeof(*request)};
+   event_emit_message(&message);
+}
+
 static GSource *osc_pump_source;
 static gboolean audio_osc_patch(const rr_audio_osc_request_t *req);
 static gboolean audio_osc_has_low_consumer(unsigned slot);
