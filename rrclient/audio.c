@@ -2262,6 +2262,60 @@ static gboolean audio_osc_patch(const rr_audio_osc_request_t *req) {
    return FALSE;
 }
 
+/* Core-owned 20 ms DSP producer. Only connected sources are rendered.
+ * Generate 16k and HQ versions from the same phase instant; downstream
+ * mixer and effect queues remain bounded and nonblocking. */
+static gboolean audio_osc_pump(gpointer unused) {
+   (void)unused;
+   if(!osc_engine)return G_SOURCE_CONTINUE;
+   rr_local_modem_route_t modems[RR_LOCAL_MODEM_MAX]={0};
+   size_t modem_count=rr_local_modem_routes(modems,G_N_ELEMENTS(modems));
+   const uint32_t hq_rate=hq_engine?rr_audio_engine_sample_rate(hq_engine):0;
+   for(unsigned slot=1;slot<=RR_AUDIO_OSC_MAX;slot++) {
+      if(!oscillator_configs[slot-1].active)continue;
+      gboolean low_needed=FALSE,high_needed=FALSE;
+      for(unsigned ch=0;ch<2;ch++) {
+         unsigned bus=osc_bus[slot-1][ch];
+         low_needed|=(bus==1 || bus==3);
+         high_needed|=(bus==2);
+      }
+      for(unsigned ch=0;ch<2;ch++) {
+         char name[64];audio_osc_pin_name(slot,ch,name);
+         for(size_t i=0;i<modem_count;i++)
+            if(!strcmp(modems[i].source,name))low_needed=TRUE;
+         for(unsigned i=0;i<RR_AUDIO_EFFECT_MAX;i++) {
+            rr_lv2_effect_t *fx=&lv2_effects[i];
+            if(!g_atomic_int_get(&fx->active))continue;
+            if(!strcmp(fx->source[0],name)||!strcmp(fx->source[1],name))
+               low_needed=TRUE;
+         }
+      }
+      if(!low_needed && !high_needed)continue;
+      int16_t low[320*2],high[960*2];
+      if(!rr_audio_engine_osc_render_dual(osc_engine,slot,
+            low_needed?low:NULL,high_needed?high:NULL,hq_rate))continue;
+      for(unsigned ch=0;ch<2;ch++) {
+         char name[64];audio_osc_pin_name(slot,ch,name);
+         unsigned bus=osc_bus[slot-1][ch];
+         if(low_needed) {
+            int16_t mono[320];
+            for(unsigned i=0;i<320;i++)mono[i]=low[i*2+ch];
+            audio_lv2_feed(name,mono,sizeof(mono));
+            rr_local_modem_feed(name,mono,320);
+            if(bus==1 && rx_engine)rr_audio_engine_push(rx_engine,name,mono,320);
+            if(bus==3 && tx_engine)rr_audio_engine_push(tx_engine,name,mono,320);
+         }
+         if(high_needed && bus==2 && hq_engine) {
+            int16_t mono[960];
+            const unsigned frames=hq_rate/50;
+            for(unsigned i=0;i<frames;i++)mono[i]=high[i*2+ch];
+            rr_audio_engine_push(hq_engine,name,mono,frames);
+         }
+      }
+   }
+   return G_SOURCE_CONTINUE;
+}
+
 /* LV2 output is patched separately; source ear changes must not rewire it. */
 static void audio_lv2_route_source(const char *source, char output) {
    (void)source;
@@ -3725,6 +3779,11 @@ bool audio_init(void) {
    event_on_message_domain_token(RRCLIENT_AUDIO_SNAPSHOT_REQUEST, audio_snapshot_request, NULL, "core");
    event_on_message_domain_token(RRCLIENT_AF_SPECTRUM_REQUEST, audio_af_spectrum_request, NULL, "core");
    rr_local_modem_init();
+   if(!osc_pump_source) {
+      osc_pump_source=g_timeout_source_new(20);
+      g_source_set_callback(osc_pump_source,audio_osc_pump,NULL,NULL);
+      g_source_attach(osc_pump_source,rrclient_core_context());
+   }
 
    /* Register before starting the first encoder so early codec headers are not discarded by the shared fwdsp manager. */
    fwdsp_set_encoded_output_callback(audio_tx_encoded, NULL);
@@ -4020,6 +4079,11 @@ void audio_stop_codec(bool is_tx) {
 }
 
 void ws_audio_shutdown(void) {
+   if(osc_pump_source) {
+      g_source_destroy(osc_pump_source);
+      g_source_unref(osc_pump_source);
+      osc_pump_source=NULL;
+   }
    if(osc_engine) {
       rr_audio_engine_free(osc_engine);
       osc_engine=NULL;
