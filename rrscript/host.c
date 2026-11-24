@@ -330,7 +330,10 @@ static rrs_value_t *native_script_util(rrs_vm_t *vm,int argc,
       while(*p) {
          const char *end=strchr(p,'\n');
          if(op==UTIL_LINE&&(gint64)count==index) {
-            char *line=g_strndup(p,end?(gsize)(end-p):strlen(p));
+            gsize len=end?(gsize)(end-p):strlen(p);
+            /* Treat CRLF as a line terminator, preserving artwork whitespace. */
+            if(end && len && p[len-1]=='\r')len--;
+            char *line=g_strndup(p,len);
             rrs_value_t *ret=rrs_string(line);
             g_free(line);return ret;
          }
