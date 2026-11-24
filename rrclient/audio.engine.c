@@ -19,6 +19,10 @@
 /* Allow up to 240 ms of bursty decoded PCM before dropping the oldest samples. The fixed 160 ms ceiling was discarding bursts that arrived shortly after
  * underflow, forcing unnecessary further rebuffering. */
 #define AUDIO_FADE_IN 64u
+typedef struct {
+   rr_audio_osc_config_t config;
+   double phase; /* Cycles, shared by I and Q; never reset on parameter change. */
+} oscillator_t;
 typedef struct stream {
    struct stream *next;
    char *id;
@@ -43,6 +47,7 @@ struct rr_audio_engine {
    GThread *thread;
    bool running;
    stream_t *streams;
+   oscillator_t oscillators[RR_AUDIO_OSC_MAX];
    rr_audio_output_fn output;
    void *user;
    rr_audio_output_fn pre_gain_tap;
@@ -321,6 +326,75 @@ void rr_audio_engine_free(rr_audio_engine_t *e) {
    }
    g_mutex_clear(&e->lock);
    g_free(e);
+}
+
+bool rr_audio_engine_osc_set(rr_audio_engine_t *e,unsigned slot,
+                             const rr_audio_osc_config_t *cfg) {
+   if(!e || !cfg || slot<1 || slot>RR_AUDIO_OSC_MAX)return false;
+   /* Deleting a generator may supply a zeroed configuration. */
+   if(cfg->active && (
+      !isfinite(cfg->frequency_hz) || cfg->frequency_hz<0. ||
+      cfg->frequency_hz>=48000.*.45 ||
+      !isfinite(cfg->level_db) || cfg->level_db < -90. ||
+      cfg->level_db>0. || cfg->waveform>3 ||
+      !strchr("MIQS",cfg->route) || !cfg->route))return false;
+   g_mutex_lock(&e->lock);
+   e->oscillators[slot-1].config=*cfg;
+   if(!cfg->active)e->oscillators[slot-1].phase=0.;
+   g_mutex_unlock(&e->lock);
+   return true;
+}
+/* Pull-based oscillator source: no implicit playback, TX or PTT. A consumer
+ * chooses when/how many frames to request and where to connect the I/Q pins.
+ * Returning interleaved I,Q allows independent downstream audio connections.
+ */
+bool rr_audio_engine_osc_render_rate(rr_audio_engine_t *e,unsigned slot,
+                                uint32_t rate_hz,int16_t *iq,size_t frames) {
+   /* A consumer chooses the native clock. Do not change phase on rejection.
+    * A single graph scheduler must render once and fan out to any listeners. */
+   if(!e || !iq || !frames || frames>4096 || slot<1 || slot>RR_AUDIO_OSC_MAX ||
+      (rate_hz!=16000 && rate_hz!=44100 && rate_hz!=48000))return false;
+   g_mutex_lock(&e->lock);
+   oscillator_t *osc=&e->oscillators[slot-1];
+   const rr_audio_osc_config_t cfg=osc->config;
+   if(!cfg.active || cfg.frequency_hz>=rate_hz*.45) {
+      g_mutex_unlock(&e->lock);
+      return false;
+   }
+   double phase=osc->phase;
+   const double step=cfg.frequency_hz/(double)rate_hz;
+   const double amplitude=32767.*pow(10.,cfg.level_db/20.);
+   for(size_t j=0;j<frames;j++) {
+      double qphase=phase+.25;
+      if(qphase>=1.)qphase-=1.;
+      double in,quad;
+      switch(cfg.waveform) {
+      case 1:in=phase<.5?1.:-1.;quad=qphase<.5?1.:-1.;break;
+      case 2:in=1.-4.*fabs(phase-.5);quad=1.-4.*fabs(qphase-.5);break;
+      case 3:in=2.*phase-1.;quad=2.*qphase-1.;break;
+      default:in=sin(2.*G_PI*phase);quad=sin(2.*G_PI*qphase);break;
+      }
+      iq[2*j]=(int16_t)lrint(amplitude*in);
+      iq[2*j+1]=(int16_t)lrint(amplitude*quad);
+      phase+=step;
+      if(phase>=1.)phase-=floor(phase);
+   }
+   osc->phase=phase;
+   g_mutex_unlock(&e->lock);
+   return true;
+}
+bool rr_audio_engine_osc_render(rr_audio_engine_t *e,unsigned slot,
+                                int16_t *iq,size_t frames) {
+   return e && rr_audio_engine_osc_render_rate(e,slot,e->sample_rate_hz,iq,frames);
+}
+
+bool rr_audio_engine_osc_get(rr_audio_engine_t *e,unsigned slot,
+                             rr_audio_osc_config_t *cfg) {
+   if(!e || !cfg || slot<1 || slot>RR_AUDIO_OSC_MAX)return false;
+   g_mutex_lock(&e->lock);
+   *cfg=e->oscillators[slot-1].config;
+   g_mutex_unlock(&e->lock);
+   return true;
 }
 
 bool rr_pcm_stream_format_valid(const rr_pcm_stream_format_t *format) {
