@@ -6502,7 +6502,7 @@ static void routing_osc_load(GtkSpinButton *slot,gpointer data) {
       hz=1200.;db=-18.;wave=0;route='M';
    }
    g_free(saved);
-   gtk_spin_button_set_value(GTK_SPIN_BUTTON(form->frequency),CLAMP(hz,0.,16000.));
+   gtk_spin_button_set_value(GTK_SPIN_BUTTON(form->frequency),CLAMP(hz,0.,7000.));
    gtk_spin_button_set_value(GTK_SPIN_BUTTON(form->level),CLAMP(db,-90.,0.));
    gtk_combo_box_set_active(GTK_COMBO_BOX(form->wave),MIN(wave,3u));
    (void)route; /* Stored older monitor route ignored: output remains unpatched. */
@@ -6525,7 +6525,7 @@ static void routing_add_oscillator(GtkButton *button,gpointer unused) {
    if(selected>=1 && selected<=RR_AUDIO_OSC_MAX)
       gtk_spin_button_set_value(GTK_SPIN_BUTTON(slot),selected);
    routing_osc_form_t form={
-      .frequency=gtk_spin_button_new_with_range(0,16000,1),
+      .frequency=gtk_spin_button_new_with_range(0,7000,1),
       .level=gtk_spin_button_new_with_range(-90,0,.5),
       .wave=gtk_combo_box_text_new()
    };
