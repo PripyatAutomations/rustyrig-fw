@@ -22,6 +22,24 @@ typedef struct {
 } rr_pcm_stream_format_t;
 bool rr_pcm_stream_format_valid(const rr_pcm_stream_format_t *format);
 typedef struct rr_audio_engine rr_audio_engine_t;
+/* Native audio-rate I/Q oscillator; slot numbers are stable within an engine.
+ * I=sin(phase), Q=cos(phase), both derived from one continuous accumulator.
+ * Route: M muted, I I to both ears, Q Q to both ears, S I left/Q right.
+ * Waveform: 0 sine, 1 square, 2 triangle, 3 saw.
+ */
+#define RR_AUDIO_OSC_MAX 8u
+typedef struct {
+   bool active;
+   double frequency_hz;
+   double level_db;
+   unsigned waveform;
+   char route;
+} rr_audio_osc_config_t;
+bool rr_audio_engine_osc_set(rr_audio_engine_t *engine,unsigned slot,
+                             const rr_audio_osc_config_t *config);
+bool rr_audio_engine_osc_get(rr_audio_engine_t *engine,unsigned slot,
+                             rr_audio_osc_config_t *config);
+
 typedef void (*rr_audio_output_fn)(const int16_t *stereo, size_t frames, void *user);
 typedef struct {
    uint64_t blocks, late_ticks, max_late_us, skipped_blocks;
