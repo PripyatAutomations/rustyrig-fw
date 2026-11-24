@@ -6487,7 +6487,7 @@ static void routing_touch_long_pressed(GtkGestureLongPress *gesture, gdouble x, 
 
 /* Native I/Q tone generator. No implicit TX routing, and new blocks start muted. */
 typedef struct {
-   GtkWidget *frequency,*level,*wave,*route;
+   GtkWidget *frequency,*level,*wave;
 } routing_osc_form_t;
 static void routing_osc_load(GtkSpinButton *slot,gpointer data) {
    routing_osc_form_t *form=data;
@@ -6505,9 +6505,7 @@ static void routing_osc_load(GtkSpinButton *slot,gpointer data) {
    gtk_spin_button_set_value(GTK_SPIN_BUTTON(form->frequency),CLAMP(hz,0.,16000.));
    gtk_spin_button_set_value(GTK_SPIN_BUTTON(form->level),CLAMP(db,-90.,0.));
    gtk_combo_box_set_active(GTK_COMBO_BOX(form->wave),MIN(wave,3u));
-   const char *routes="MIQS";
-   const char *found=strchr(routes,route);
-   gtk_combo_box_set_active(GTK_COMBO_BOX(form->route),found?(int)(found-routes):0);
+   (void)route; /* Stored older monitor route ignored: output remains unpatched. */
 }
 static void routing_add_oscillator(GtkButton *button,gpointer unused) {
    (void)unused;
@@ -6529,27 +6527,24 @@ static void routing_add_oscillator(GtkButton *button,gpointer unused) {
    routing_osc_form_t form={
       .frequency=gtk_spin_button_new_with_range(0,16000,1),
       .level=gtk_spin_button_new_with_range(-90,0,.5),
-      .wave=gtk_combo_box_text_new(),
-      .route=gtk_combo_box_text_new()
+      .wave=gtk_combo_box_text_new()
    };
    gtk_spin_button_set_digits(GTK_SPIN_BUTTON(form.frequency),1);
    gtk_spin_button_set_digits(GTK_SPIN_BUTTON(form.level),1);
    const char *names[]={"Sine","Square","Triangle","Sawtooth"};
    for(unsigned i=0;i<G_N_ELEMENTS(names);i++)
       gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(form.wave),names[i]);
-   const char *routes[]={"Muted (no audio)","I only (both ears)","Q only (both ears)","I left / Q right"};
-   for(unsigned i=0;i<G_N_ELEMENTS(routes);i++)
-      gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(form.route),routes[i]);
-   GtkWidget *widgets[]={slot,form.frequency,form.level,form.wave,form.route};
-   const char *labels[]={"Slot (1–8)","Frequency (Hz)","Level (dBFS)","Waveform","Monitor routing"};
+   GtkWidget *widgets[]={slot,form.frequency,form.level,form.wave};
+   const char *labels[]={"Slot (1–8)","Frequency (Hz)","Level (dBFS)","Waveform"};
    for(unsigned i=0;i<G_N_ELEMENTS(widgets);i++) {
       GtkWidget *label=gtk_label_new(labels[i]);
       gtk_widget_set_halign(label,GTK_ALIGN_START);
       gtk_grid_attach(GTK_GRID(grid),label,0,i,1,1);
       gtk_grid_attach(GTK_GRID(grid),widgets[i],1,i,1,1);
    }
-   GtkWidget *notice=gtk_label_new("I = sin(phase), Q = cos(phase). No PTT or TX connection.");
-   gtk_grid_attach(GTK_GRID(grid),notice,0,5,2,1);
+   GtkWidget *notice=gtk_label_new("I = sin(phase), Q = cos(phase). Outputs start disconnected; no automatic speaker or TX path.");
+   gtk_label_set_line_wrap(GTK_LABEL(notice),TRUE);
+   gtk_grid_attach(GTK_GRID(grid),notice,0,4,2,1);
    g_signal_connect(slot,"value-changed",G_CALLBACK(routing_osc_load),&form);
    routing_osc_load(GTK_SPIN_BUTTON(slot),&form);
    gtk_widget_show_all(dialog);
@@ -6563,7 +6558,7 @@ static void routing_add_oscillator(GtkButton *button,gpointer unused) {
             .frequency_hz=gtk_spin_button_get_value(GTK_SPIN_BUTTON(form.frequency)),
             .level_db=gtk_spin_button_get_value(GTK_SPIN_BUTTON(form.level)),
             .waveform=(unsigned)gtk_combo_box_get_active(GTK_COMBO_BOX(form.wave)),
-            .route="MIQS"[MAX(0,gtk_combo_box_get_active(GTK_COMBO_BOX(form.route)))]
+            .route='M'
          };
       }
       audio_request_oscillator(&req);
