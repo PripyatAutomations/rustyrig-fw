@@ -97,8 +97,8 @@ install-sql:
 	install -Dm644 sql/sqlite.client.sql "$(DESTDIR)$(DATADIR)/sql/sqlite.client.sql"
 	@echo "[install-sql] schema and preload => $(DESTDIR)$(DATADIR)/sql/"
 
-install-tools: bin/rr-password-hash
-	install -Dm755 bin/rr-password-hash "$(DESTDIR)$(PREFIX)/lib/rustyrig/rr-password-hash"
+install-tools: bin/rrhashpass
+	install -Dm755 bin/rrhashpass "$(DESTDIR)$(PREFIX)/lib/rustyrig/rrhashpass"
 	@set -e; for src in ${LOG_TOOLS}; do \
 		install -Dm755 "$$src" "$(DESTDIR)$(BINDIR)/$$(basename "$$src")"; \
 	done
@@ -150,7 +150,7 @@ uninstall:
 	done
 	@set -e; for src in $(LOG_TOOLS); do rm -f "$(DESTDIR)$(BINDIR)/$$(basename "$$src")"; done
 	rm -f "$(DESTDIR)$(CONF_DIR)/rrclient.css"
-	rm -f "$(DESTDIR)$(PREFIX)/lib/rustyrig/rr-password-hash"
+	rm -f "$(DESTDIR)$(PREFIX)/lib/rustyrig/rrhashpass"
 	rm -f "$(DESTDIR)$(PREFIX)/share/icons/hicolor/48x48/apps/rustyrig.png"
 	rm -f "$(DESTDIR)$(PREFIX)/share/applications/rustyrig-client.desktop"
 	rm -f "$(DESTDIR)$(DATADIR)/sql/sqlite.master.sql" "$(DESTDIR)$(DATADIR)/sql/sqlite.master.preload.sql" "$(DESTDIR)$(DATADIR)/sql/sqlite.client.sql"

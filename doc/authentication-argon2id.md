@@ -51,7 +51,7 @@ The standalone `librrprotocol` now depends on `libargon2` and requires
 and client, deploy the paired web UI, and restart after a coordinated
 maintenance window. Debian's first-install and administrator reset paths
 must write Argon2id, not SHA-1. Package bootstrap now uses the private
-`/usr/lib/rustyrig/rr-password-hash` tool (password on stdin, encoded hash
+`/usr/lib/rustyrig/rrhashpass` tool (password on stdin, encoded hash
 on stdout).
 
 Existing clients sending legacy SHA-1 wire responses cannot log into a

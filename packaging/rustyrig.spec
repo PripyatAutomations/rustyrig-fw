@@ -78,7 +78,7 @@ install -Dpm0755 modems/ft8/rrmodem-ft8 %{buildroot}%{_prefix}/libexec/rustyrig/
 install -Dpm0755 bin/rrbridge %{buildroot}%{_bindir}/rrbridge
 install -Dpm0755 bin/rrbridge-kiwi.so %{buildroot}/usr/lib/rustyrig/modules/rrbridge/rrbridge-kiwi.so
 install -Dpm0755 bin/rrserver %{buildroot}%{_bindir}/rrserver
-install -Dpm0755 bin/rr-password-hash %{buildroot}/usr/lib/rustyrig/rr-password-hash
+install -Dpm0755 bin/rrhashpass %{buildroot}/usr/lib/rustyrig/rrhashpass
 for module in bin/rrserver-gps*.so; do install -Dpm0755 "$module" "%{buildroot}/usr/lib/rustyrig/modules/rrserver/${module##*/}"; done
 install -Dpm0755 tools/rr-get-audit-log %{buildroot}%{_bindir}/rr-get-audit-log
 install -Dpm0755 tools/rr-get-chat-log %{buildroot}%{_bindir}/rr-get-chat-log

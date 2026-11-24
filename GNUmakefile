@@ -209,7 +209,7 @@ test-transports:
 
 TEST_SUITES ?= selftest packaging rrserver rrclient fwdsp libfwdspmgr
 .PHONY: test
-test tests: ${bins} bin/rr-password-hash test-rrsdrutils
+test tests: ${bins} bin/rrhashpass test-rrsdrutils
 	PROFILE='$(PROFILE)' ./tests/run-tests.sh ${TEST_SUITES}
 
 # Keep the historical alias for scripts which invoke "after-eeprom".

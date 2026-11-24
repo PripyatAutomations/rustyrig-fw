@@ -51,9 +51,9 @@ if SCHEMA is None:
 @lru_cache(maxsize=1)
 def test_password_hash():
     """Provision test users with current Argon2id credentials, not legacy SHA-1."""
-    helper = _ROOT / "bin/rr-password-hash"
+    helper = _ROOT / "bin/rrhashpass"
     if not helper.is_file():
-        raise RuntimeError("Missing bin/rr-password-hash; build it with make bin/rr-password-hash")
+        raise RuntimeError("Missing bin/rrhashpass; build it with make bin/rrhashpass")
     result = subprocess.run([str(helper)], input=b"test-password",
                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
     return result.stdout.decode().strip()

@@ -78,11 +78,11 @@ fi
 if [ "$new_database" = true ]; then
     # Never place the password in argv or command output. The private helper
     # reads it from stdin and emits an Argon2id encoded verifier only.
-    admin_hash=$(printf '%s' "$admin_password" | /usr/lib/rustyrig/rr-password-hash)
+    admin_hash=$(printf '%s' "$admin_password" | /usr/lib/rustyrig/rrhashpass)
     sqlite3 "$master_db" \
         "UPDATE users SET enabled=1,password='$admin_hash' WHERE name='admin';"
     if [ "$guest_enabled" = true ]; then
-        guest_hash=$(printf '%s' "$guest_password" | /usr/lib/rustyrig/rr-password-hash)
+        guest_hash=$(printf '%s' "$guest_password" | /usr/lib/rustyrig/rrhashpass)
         sqlite3 "$master_db" \
             "UPDATE users SET enabled=1,password='$guest_hash',permissions='rx,chat' WHERE name='guest';"
     fi

@@ -35,7 +35,7 @@ die "Passwords do not match\n" unless $pass1 eq $pass2;
 die "Password must be 8 to 256 characters\n" unless length($pass1) >= 8 && length($pass1) <= 256;
 
 my ($reader, $writer);
-my $pid = open2($reader, $writer, '/usr/lib/rustyrig/rr-password-hash');
+my $pid = open2($reader, $writer, '/usr/lib/rustyrig/rrhashpass');
 print {$writer} $pass1;
 close $writer;
 my $hash = <$reader>;

@@ -34,7 +34,7 @@ with tempfile.TemporaryDirectory() as directory:
     seed_helper = root / 'seed-remote-admin'
     seed_helper.write_text(pathlib.Path('packaging/seed-remote-admin.py').read_text())
     seed_helper.chmod(0o755)
-    hash_helper = root / 'rr-password-hash'
+    hash_helper = root / 'rrhashpass'
     hash_helper.write_text("#!/bin/sh\ncat >/dev/null\necho argon2id-fixture\n")
     hash_helper.chmod(0o755)
     script = root / 'postinst'
@@ -42,7 +42,7 @@ with tempfile.TemporaryDirectory() as directory:
                       .replace('/var/', str(root / 'var') + '/')
                       .replace('/usr/share/debconf/confmodule', str(confmodule))
                       .replace('/usr/lib/rustyrig/admin-permissions', str(permissions) + ' ' + str(root))
-                      .replace('/usr/lib/rustyrig/rr-password-hash', str(hash_helper))
+                      .replace('/usr/lib/rustyrig/rrhashpass', str(hash_helper))
                       .replace('/usr/lib/rustyrig/seed-remote-admin', str(seed_helper)))
     env = {**os.environ, 'PATH': str(commands) + ':' + os.environ['PATH'],
            'RR_TEST_ADMIN_PASSWORD': 'disposable-test-password',
