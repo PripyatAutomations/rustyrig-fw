@@ -3,10 +3,9 @@
 // Install in ~/.config/rustyrig/scripts/autoload/ascii-art.rrs
 // Type /artwork to open the script-created manager.
 //
-// A colored line starts a capture. Additional lines from the same nick
-// in the same channel join it until 3.5 seconds of silence. We save only
-// after the burst ends, so incomplete fragments aren't written to disk.
-// Two or more lines are required. Indexed colors (Ctrl+C) AND RGB hex
+// A colored line starts a capture. Only artwork lines from the same nick
+// and channel extend it. A normal line ends it, or 3.5 seconds of silence.
+// Six artwork lines are required. Indexed colors (Ctrl+C) AND RGB hex
 // colors (Ctrl+D plus six hex digits), and Unicode block graphics are preserved.
 
 event irc.privmsg {
@@ -18,7 +17,7 @@ event irc.privmsg {
                        string.regex(line, "[█▄▀▌▐░▒▓▖▗▘▙▚▛▜▝▞▟]")
         char body = state.get(key + ".body")
 
-        if (body != null || colored) {
+        if (colored) {
             if (body == null) {
                 state.set(key + ".body", "")
                 state.set(key + ".count", 0)
@@ -26,12 +25,18 @@ event irc.privmsg {
                     string.slug(string.slice(event.room, 1)) + "-" +
                     string.slug(event.nick) + "-" + time.stamp() + ".mac")
             }
-            // Limit a capture to 80 lines. Its timer will save it once.
-            if (state.get(key + ".count") < 80) {
+            // Bound memory, not line count. Discard overlarge bursts rather
+            // than saving a partial macro.
+            if (string.length(state.get(key + ".body")) + string.length(line) < 262144) {
                 state.set(key + ".body", state.get(key + ".body") + line + "\n")
                 state.set(key + ".count", state.get(key + ".count") + 1)
                 timer.after(key, 3500)
+            } else {
+                state.set(key + ".count", -1000000)
+                timer.after(key, 3500)
             }
+        } else if (body != null) {
+            timer.after(key, 1)
         }
     }
 }
@@ -41,7 +46,7 @@ event ui.timer {
     if (string.regex(event.id, "^artwork[.]capture-")) {
         char body = state.get(event.id + ".body")
         if (body != null) {
-            if (state.get(event.id + ".count") >= 2) {
+            if (state.get(event.id + ".count") >= 6) {
                 char dir = env.data_dir() + "/rustyrig/artwork"
                 file.mkdir(dir)
                 char name = state.get(event.id + ".filename")
@@ -89,7 +94,7 @@ event ui.timer {
                               state.get("artwork.play.burst.lines")
                     }
                     if (gap < 100) { gap = 100 }
-                    if (chat.send(state.get("artwork.play.target"), line, "artwork", 100)) {
+                    if (chat.send(state.get("artwork.play.target"), line, "artwork", 0)) {
                         state.set("artwork.play.cursor", cursor + 1)
                         state.set("artwork.play.sent", sent + 1)
                         state.set("artwork.play.next", time.now() + gap)
