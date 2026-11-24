@@ -123,6 +123,29 @@ static struct link_peer *authenticated_peer(struct link_session *s) {
 
    if (p->enrolled) {
       snprintf(p->site, sizeof(p->site), "%s", a->site);
+#ifdef USE_SQLITE
+      /* The live proof has verified the remote identity. Cache its display
+       * name only; this value must never become an authentication input. */
+      if (masterdb && p->url && *p->url) {
+         sqlite3_stmt *stmt = NULL;
+         int rc = sqlite3_prepare_v2(masterdb,
+            "UPDATE mesh_bootstrap_peers SET site=?1 WHERE domain=?2 AND node_uuid=?3 "
+            "AND catalog_pubkey=?4 AND tls_spki_sha256=?5 AND state='enrolled' AND site<>?1",
+            -1, &stmt, NULL);
+         if (rc == SQLITE_OK) {
+            sqlite3_bind_text(stmt, 1, a->site, -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(stmt, 2, links.domain, -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(stmt, 3, a->node, -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(stmt, 4, a->public_key, -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(stmt, 5, p->spki, -1, SQLITE_TRANSIENT);
+            rc = sqlite3_step(stmt);
+         }
+         if (rc != SQLITE_DONE) {
+            Log(LOG_WARN, "mesh.bootstrap", "Cannot cache authenticated peer name: %s", sqlite3_errmsg(masterdb));
+         }
+         sqlite3_finalize(stmt);
+      }
+#endif
    }
    snprintf(p->node, sizeof(p->node), "%s", a->node);
 
