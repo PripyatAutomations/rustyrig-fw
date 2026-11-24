@@ -1776,8 +1776,17 @@ bool rrserver_links_init(void) {
       sqlite3_stmt *stmt = NULL;
       unsigned eligible = 0, imported = 0, rejected = 0;
 
-      int prepared = sqlite3_prepare_v2(masterdb, "SELECT node_uuid,url,catalog_pubkey,tls_spki_sha256 "
-         "FROM mesh_bootstrap_peers WHERE domain=?1 AND state='enrolled'", -1, &stmt, NULL);
+      /* Upgrade old enrollment databases without changing identity trust. */
+      if (sqlite3_table_column_metadata(masterdb, NULL, "mesh_bootstrap_peers", "node_uuid", NULL, NULL, NULL, NULL, NULL) == SQLITE_OK &&
+         sqlite3_table_column_metadata(masterdb, NULL, "mesh_bootstrap_peers", "site", NULL, NULL, NULL, NULL, NULL) != SQLITE_OK) {
+         if (sqlite3_exec(masterdb, "ALTER TABLE mesh_bootstrap_peers ADD COLUMN site TEXT NOT NULL DEFAULT ''", NULL, NULL, NULL) != SQLITE_OK) {
+            Log(LOG_WARN, "mesh.bootstrap", "Cannot migrate enrolled peer names: %s", sqlite3_errmsg(masterdb));
+         }
+      }
+      bool have_site = sqlite3_table_column_metadata(masterdb, NULL, "mesh_bootstrap_peers", "site", NULL, NULL, NULL, NULL, NULL) == SQLITE_OK;
+      int prepared = sqlite3_prepare_v2(masterdb, have_site ?
+         "SELECT node_uuid,url,catalog_pubkey,tls_spki_sha256,site FROM mesh_bootstrap_peers WHERE domain=?1 AND state='enrolled'" :
+         "SELECT node_uuid,url,catalog_pubkey,tls_spki_sha256,'' FROM mesh_bootstrap_peers WHERE domain=?1 AND state='enrolled'", -1, &stmt, NULL);
 
       if (prepared == SQLITE_OK) {
          sqlite3_bind_text(stmt, 1, links.domain, -1, SQLITE_TRANSIENT);
@@ -1816,7 +1825,12 @@ bool rrserver_links_init(void) {
             struct link_peer *peer = &links.peers[links.peer_count];
             memset(peer, 0, sizeof(*peer));
             snprintf(peer->section, sizeof(peer->section), "enrolled:%s", uuid);
-            snprintf(peer->site, sizeof(peer->site), "enrolled-%s", uuid);
+            const char *site = (const char *)sqlite3_column_text(stmt, 4);
+            if (site && *site && strlen(site) < sizeof(peer->site)) {
+               snprintf(peer->site, sizeof(peer->site), "%s", site);
+            } else {
+               snprintf(peer->site, sizeof(peer->site), "enrolled-%s", uuid);
+            }
             snprintf(peer->node, sizeof(peer->node), "%s", uuid);
             peer->url = rr_mesh_bootstrap_url(masterdb, links.domain, uuid, url);
             snprintf(peer->spki, sizeof(peer->spki), "%s", pin);
