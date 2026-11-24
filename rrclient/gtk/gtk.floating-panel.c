@@ -276,7 +276,7 @@ static gboolean dock_edge_resize_release(GtkWidget *widget, GdkEventButton *even
    if (d->extent[edge] > 12) {
       char *key = dock_extent_key(edge, d->width_bucket ? d->width_bucket : 2);
       char *val = g_strdup_printf("%d", d->extent[edge]);
-      rrclient_database_setting_set(key, val);
+      rrclient_database_setting_defer(key, val);
       g_free(val);
       g_free(key);
    }
@@ -723,7 +723,7 @@ static void panel_dock_size_save(RRFloatPanel *p) {
    }
    char *key = g_strdup_printf("ui.panel.dock.size.%s", p->id);
    char *value = g_strdup_printf("%d,%d", p->dock_width, p->dock_height);
-   rrclient_database_setting_set(key, value);
+   rrclient_database_setting_defer(key, value);
    g_free(key);
    g_free(value);
 }
@@ -734,7 +734,7 @@ static void panel_dock_coords_save(RRFloatPanel *p) {
    }
    char *key = g_strdup_printf("ui.panel.dock.position.%s", p->id);
    char *val = g_strdup_printf("%d,%d", p->dock_x, p->dock_y);
-   rrclient_database_setting_set(key, val);
+   rrclient_database_setting_defer(key, val);
    g_free(val);
    g_free(key);
 }
