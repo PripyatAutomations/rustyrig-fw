@@ -12,7 +12,8 @@ typedef struct {
 typedef struct {
    guint src, dst;
    rr_ag_link_type_t type;
-   guint8 channels;
+   guint8 channels; /* source mask for existing graph consumers */
+   guint8 src_channels,dst_channels;
 } rr_ag_edge_t;
 struct rr_audio_graph {
    GArray *nodes, *edges;
@@ -102,10 +103,14 @@ static bool graph_reaches(const rr_audio_graph_t *g, guint start, guint target) 
    return false;
 }
 
-bool rr_audio_graph_add_channel_link(rr_audio_graph_t *g, const char *src, const char *dst, rr_ag_link_type_t type, unsigned channels) {
+bool rr_audio_graph_add_port_link(rr_audio_graph_t *g,const char *src,const char *dst,
+                                  rr_ag_link_type_t type,unsigned src_channels,
+                                  unsigned dst_channels) {
    gint a = lookup(g, src), b = lookup(g, dst);
 
-   if (a < 0 || b < 0 || a == b || type > RR_AG_CONTROL || !channels || (channels & ~RR_AG_CHANNEL_STEREO) || g->edges->len >= 512) {
+   if (a < 0 || b < 0 || a == b || type > RR_AG_CONTROL || !src_channels || !dst_channels ||
+      (src_channels & ~RR_AG_CHANNEL_STEREO) ||
+      (dst_channels & ~RR_AG_CHANNEL_STEREO) || g->edges->len >= 512) {
       return false;
    }
    const rr_ag_node_t *from = &g_array_index(g->nodes, rr_ag_node_t, (guint) a);
@@ -150,26 +155,38 @@ bool rr_audio_graph_add_channel_link(rr_audio_graph_t *g, const char *src, const
          return false;
       }
 
-      if (stereo_processor && (e->channels & channels)) {
+      if (stereo_processor && (e->dst_channels & dst_channels)) {
          return false;
       }
 
-      if (e->src == (guint) a) {
-         if (e->channels & channels) {
+      if (e->src == (guint) a && e->src_channels==e->dst_channels &&
+          src_channels==dst_channels) {
+         if (e->channels & src_channels) {
             return false;
          }
-         e->channels |= (guint8) channels;
+         e->channels |= (guint8) src_channels;
+         e->src_channels |= (guint8) src_channels;
+         e->dst_channels |= (guint8) dst_channels;
 
          return true;
       }
    }
 
    rr_ag_edge_t e = {
-      .src = (guint) a, .dst = (guint) b, .type = type, .channels = (guint8) channels
+      .src = (guint) a, .dst = (guint) b, .type = type,
+      .channels = (guint8) src_channels,
+      .src_channels = (guint8) src_channels,
+      .dst_channels = (guint8) dst_channels
    };
    g_array_append_val(g->edges, e);
 
    return true;
+}
+
+bool rr_audio_graph_add_channel_link(rr_audio_graph_t *g,const char *src,
+                                     const char *dst,rr_ag_link_type_t type,
+                                     unsigned channels) {
+   return rr_audio_graph_add_port_link(g,src,dst,type,channels,channels);
 }
 
 bool rr_audio_graph_add_link(rr_audio_graph_t *g, const char *src, const char *dst, rr_ag_link_type_t type) {
@@ -253,7 +270,9 @@ bool rr_audio_graph_snapshot(const rr_audio_graph_t *g, rr_audio_graph_snapshot_
    for (guint i = 0 ; i < g->edges->len ; i++) {
       const rr_ag_edge_t *e = &g_array_index(g->edges, rr_ag_edge_t, i);
       out->links[i] = (rr_ag_view_link_t) {
-         .src = e->src, .dst = e->dst, .kind = e->type, .channels = e->channels
+         .src = e->src, .dst = e->dst, .kind = e->type,
+         .channels = e->src_channels, .src_channels=e->src_channels,
+         .dst_channels=e->dst_channels
       };
    }
 
