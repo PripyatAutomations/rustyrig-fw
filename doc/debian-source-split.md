@@ -6,9 +6,9 @@ and are not Git submodules of this repository.
 
 | Upstream source | Debian development package | Runtime package |
 | --- | --- | --- |
-| `PripyatAutomations/librustyaxe` | `librustyaxe-dev` | `librustyaxe0` |
-| `PripyatAutomations/librustyaxe` (IRC) | `librustyirc-dev` | `librustyirc0` |
-| `PripyatAutomations/librrprotocol` | `librrprotocol-dev` | `librrprotocol0` |
+| `PripyatAutomations/librustyaxe` | `librustyaxe-dev` | `librustyaxe1` |
+| `PripyatAutomations/librustyaxe` (IRC) | `librustyirc-dev` | `librustyirc1` |
+| `PripyatAutomations/librrprotocol` | `librrprotocol-dev` | `librrprotocol1` |
 
 Install the development packages (including transitive GLib/crypto
 requirements) **before** building RustyRig. The main GNUmakefile probes the
