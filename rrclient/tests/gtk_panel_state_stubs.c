@@ -25,6 +25,10 @@ bool rrclient_database_setting_set(const char *key, const char *value) {
    return true;
 }
 
+bool rrclient_database_setting_defer(const char *key,const char *value) {
+   return rrclient_database_setting_set(key,value);
+}
+
 bool rrclient_database_window_save(const char *id, const rrclient_window_state_t *state) {
    if (!id || !state) return false;
    if (!windows)
