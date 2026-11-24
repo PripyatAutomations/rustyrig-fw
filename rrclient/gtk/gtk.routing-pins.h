@@ -25,7 +25,8 @@ static inline gboolean rr_routing_pin_matches_link(
       return ptt_pin && pin == 1;
    if (ptt_pin && pin != 0)
       return FALSE;
-   return !!(link->channels &
-      (pin ? RR_AG_CHANNEL_RIGHT : RR_AG_CHANNEL_LEFT));
+   unsigned mask = incoming ? link->dst_channels : link->src_channels;
+   if (!mask) mask=link->channels; /* legacy/synthetic snapshots */
+   return !!(mask & (pin ? RR_AG_CHANNEL_RIGHT : RR_AG_CHANNEL_LEFT));
 }
 #endif
