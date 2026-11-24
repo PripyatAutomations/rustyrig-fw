@@ -517,7 +517,8 @@ void rr_gtk_graph_draw(cairo_t *cr, const rr_gtk_graph_node_t *nodes, guint n_no
 
             if (n->io != RR_GTK_GRAPH_IO_SINK && !n->gain_pins) {
                cairo_move_to(cr, n->x + RR_GTK_GRAPH_NODE_W - 51, py + 3.5);
-               cairo_show_text(cr, channel ? "R OUT" : "L OUT");
+               cairo_show_text(cr, n->title && !strncmp(n->title,"osc.",4) ?
+                  (channel ? "Q OUT" : "I OUT") : (channel ? "R OUT" : "L OUT"));
             }
          }
       } else {
