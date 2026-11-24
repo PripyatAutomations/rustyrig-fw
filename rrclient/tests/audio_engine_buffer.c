@@ -20,38 +20,32 @@ static void verify_pre_gain(const int16_t *pcm, size_t frames, void *unused) {
 static void test_iq_oscillator(void) {
    rr_audio_engine_t *e=rr_audio_engine_new(NULL,NULL);
    assert(e);
-   int16_t stereo[AUDIO_BLOCK*2];
+   int16_t iq[AUDIO_BLOCK*2],mixed[AUDIO_BLOCK*2];
    bool active=false;
    rr_audio_osc_config_t cfg={.active=true,.frequency_hz=1000.,
-                             .level_db=-6.,.waveform=0,.route='S'};
+                             .level_db=-6.,.waveform=0,.route='M'};
    assert(rr_audio_engine_osc_set(e,1,&cfg));
    assert(!rr_audio_engine_osc_set(e,0,&cfg));
    rr_audio_osc_config_t check={0};
    assert(rr_audio_engine_osc_get(e,1,&check));
    assert(check.active && check.frequency_hz==1000.);
-   tick(e,stereo,&active);
-   assert(active);
-   /* A single accumulator makes I/Q orthogonal, with no startup latency. */
-   assert(abs(stereo[0])<=2 && stereo[1]>16000);
-   assert(stereo[8]>16000 && abs(stereo[9])<=2);
-   assert(abs(stereo[16])<=2 && stereo[17]<-16000);
-   /* A second 20ms block continues rather than restarting the phase. */
-   double at=e->oscillators[0].phase;
+   /* The graph's oscillator is silent until a consumer explicitly pulls it. */
+   tick(e,mixed,&active);
+   assert(!active);
+   assert(rr_audio_engine_osc_render(e,1,iq,AUDIO_BLOCK));
+   assert(abs(iq[0])<=2 && iq[1]>16000);
+   assert(iq[8]>16000 && abs(iq[9])<=2);
+   assert(abs(iq[16])<=2 && iq[17]<-16000);
+   double phase=e->oscillators[0].phase;
    cfg.frequency_hz=1200.;
    assert(rr_audio_engine_osc_set(e,1,&cfg));
-   assert(fabs(e->oscillators[0].phase-at)<1e-12);
-   tick(e,stereo,&active);
-   assert(active);
-   cfg.route='I';
-   assert(rr_audio_engine_osc_set(e,1,&cfg));
-   tick(e,stereo,&active);
-   assert(stereo[20]==stereo[21]);
-   cfg.route='M';
-   assert(rr_audio_engine_osc_set(e,1,&cfg));
-   tick(e,stereo,&active);
-   assert(!active);
+   assert(fabs(e->oscillators[0].phase-phase)<1e-12);
+   assert(rr_audio_engine_osc_render(e,1,iq,AUDIO_BLOCK));
+   assert(fabs(e->oscillators[0].phase-phase)<1e-8); /* 1200 Hz * 20ms = 24 cycles */
+   assert(!rr_audio_engine_osc_render(e,9,iq,AUDIO_BLOCK));
    cfg=(rr_audio_osc_config_t){0};
    assert(rr_audio_engine_osc_set(e,1,&cfg));
+   assert(!rr_audio_engine_osc_render(e,1,iq,AUDIO_BLOCK));
    assert(rr_audio_engine_osc_get(e,1,&check) && !check.active);
    rr_audio_engine_free(e);
 }
