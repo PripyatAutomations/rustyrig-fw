@@ -2210,15 +2210,25 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
          continue;
       }
 
-      if (link->channels & RR_AG_CHANNEL_LEFT) {
+      if (link->src_channels & RR_AG_CHANNEL_LEFT) {
          edges[edge_count++] = (rr_gtk_graph_edge_t) {
-            .from = link->src, .to = link->dst, .kind = kind, .src_pin = RR_GTK_GRAPH_PIN_LEFT, .dst_pin = RR_GTK_GRAPH_PIN_LEFT
+            .from=link->src,.to=link->dst,.kind=kind,
+            .src_pin=RR_GTK_GRAPH_PIN_LEFT,
+            .dst_pin=link->dst_channels==RR_AG_CHANNEL_STEREO?
+                  RR_GTK_GRAPH_PIN_LEFT:
+                  (link->dst_channels&RR_AG_CHANNEL_RIGHT?
+                   RR_GTK_GRAPH_PIN_RIGHT:RR_GTK_GRAPH_PIN_LEFT)
          };
       }
 
-      if (link->channels & RR_AG_CHANNEL_RIGHT) {
+      if (link->src_channels & RR_AG_CHANNEL_RIGHT) {
          edges[edge_count++] = (rr_gtk_graph_edge_t) {
-            .from = link->src, .to = link->dst, .kind = kind, .src_pin = RR_GTK_GRAPH_PIN_RIGHT, .dst_pin = RR_GTK_GRAPH_PIN_RIGHT
+            .from=link->src,.to=link->dst,.kind=kind,
+            .src_pin=RR_GTK_GRAPH_PIN_RIGHT,
+            .dst_pin=link->dst_channels==RR_AG_CHANNEL_STEREO?
+                  RR_GTK_GRAPH_PIN_RIGHT:
+                  (link->dst_channels&RR_AG_CHANNEL_RIGHT?
+                   RR_GTK_GRAPH_PIN_RIGHT:RR_GTK_GRAPH_PIN_LEFT)
          };
       }
    }
@@ -6012,6 +6022,7 @@ static gboolean routing_link_disconnectable(const rr_ag_view_link_t *link) {
       return TRUE;
    }
 
+   if(g_str_has_prefix(from,"osc."))return TRUE;
    if (g_str_has_prefix(from, "modem") || g_str_has_prefix(to, "modem")) {
       return TRUE;
    }
@@ -6102,7 +6113,25 @@ static gboolean routing_disconnect_link(guint index, gint channel) {
       .slot = 0
    };
 
-   if (sscanf(dst, "modem%u.rx", &slot) == 1 && slot && slot <= RR_LOCAL_MODEM_MAX) {
+   if(g_str_has_prefix(src,"osc.")) {
+      unsigned oscillator=0;char extra=0;
+      if(sscanf(src,"osc.%u%c",&oscillator,&extra)!=1 ||
+         oscillator<1 || oscillator>RR_AUDIO_OSC_MAX)return FALSE;
+      rr_audio_osc_request_t request={.action='U',.slot=oscillator,
+                                     .port=(unsigned)channel};
+      if(!strcmp(dst,"tx.mix")||!strcmp(dst,"rx.mix")||!strcmp(dst,"hq.mix"))
+         g_strlcpy(request.target,dst,sizeof(request.target));
+      else if(g_str_has_prefix(dst,"proc.lv2.")) {
+         unsigned effect=0;
+         if(sscanf(dst,"proc.lv2.%u",&effect)!=1 || !effect ||
+            effect>RR_AUDIO_EFFECT_MAX)return FALSE;
+         g_snprintf(request.target,sizeof(request.target),"proc.lv2.%u.in.%c",
+            effect,link->dst_channels&RR_AG_CHANNEL_RIGHT?'R':'L');
+      } else if(g_str_has_prefix(dst,"modem"))
+         g_strlcpy(request.target,dst,sizeof(request.target));
+      else return FALSE;
+      audio_request_oscillator(&request);
+   } else if (sscanf(dst, "modem%u.rx", &slot) == 1 && slot && slot <= RR_LOCAL_MODEM_MAX) {
       modem.slot = slot;
       modem.action = RR_LOCAL_MODEM_ROUTE;
       rr_local_modem_request(&modem);
