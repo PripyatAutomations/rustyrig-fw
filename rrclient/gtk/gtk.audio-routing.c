@@ -1808,6 +1808,7 @@ static gint graph_drag_lv2_target = -1;
 static gboolean graph_drag_lv2_output;
 static gint graph_drag_lv2_dest_channel;
 static gint graph_drag_lv2_source_channel;
+static char graph_drag_osc_bus[16];
 static double graph_drag_start_x, graph_drag_start_y, graph_drag_x, graph_drag_y;
 /* Locate a valid port on the opposite end of a patch cord. Use the same hit/clock-domain rules for live preview and final connection. */
 static gboolean routing_modem_slot(const rr_ag_view_node_t *n, unsigned *slot) {
@@ -1823,6 +1824,8 @@ static gboolean routing_modem_slot(const rr_ag_view_node_t *n, unsigned *slot) {
 }
 
 static gboolean routing_modem_source(const rr_ag_view_node_t *n) {
+   if(n && n->type==RR_AG_SOURCE && !n->read_only &&
+      g_str_has_prefix(n->id,"osc."))return TRUE;
    return n->type == RR_AG_SOURCE && !n->read_only &&
           n->downstream_rate_hz <= 16000 && n->channels == 1 && n->sample_format == RR_PCM_S16LE && !g_str_has_prefix(n->id, "modem");
 }
@@ -1885,6 +1888,10 @@ static void routing_modem_connect(unsigned slot, const char *source) {
  * independent direct HQ feed. The inverse direction has no such bridge. */
 static gboolean routing_source_can_feed_mix(const rr_ag_view_node_t *source,
                                              const char *mix) {
+   if(source && source->type==RR_AG_SOURCE && !source->read_only &&
+      g_str_has_prefix(source->id,"osc.") && mix &&
+      (!strcmp(mix,"rx.mix")||!strcmp(mix,"hq.mix")))
+      return TRUE;
    if (!source || source->type != RR_AG_SOURCE || source->read_only ||
        !mix || (strcmp(mix,"rx.mix") && strcmp(mix,"hq.mix")))
       return FALSE;
@@ -1906,6 +1913,7 @@ static gboolean routing_drag_target(double x, double y, gint *source_index, doub
    unsigned modem_slot = 0;
    gboolean from_modem = graph_drag_mixer && routing_modem_slot(origin_node, &modem_slot);
    gboolean from_lv2 = !graph_drag_mixer && g_str_has_prefix(origin_node->id, "proc.lv2.");
+   gboolean from_osc = !graph_drag_mixer && g_str_has_prefix(origin_node->id,"osc.");
    gboolean from_lv2_input = graph_drag_mixer && g_str_has_prefix(origin_node->id, "proc.lv2.");
    gboolean from_mic = !graph_drag_mixer && !strcmp(origin_node->id, "src.client.dsp0");
    gboolean from_modem_tx = !graph_drag_mixer && g_str_has_prefix(origin_node->id, "modem") && g_str_has_suffix(origin_node->id, ".tx");
@@ -1925,6 +1933,7 @@ static gboolean routing_drag_target(double x, double y, gint *source_index, doub
    graph_drag_lv2_output = FALSE;
    graph_drag_lv2_dest_channel = 0;
    graph_drag_lv2_source_channel = 0;
+   graph_drag_osc_bus[0]=0;
 
    for (guint i = 0 ; i < graph_snapshot->node_count ; i++) {
       const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
@@ -1944,7 +1953,7 @@ static gboolean routing_drag_target(double x, double y, gint *source_index, doub
          (routing_lv2_source(n) || reverse_from_effect);
       gboolean lv2_connection = to_lv2 || lv2_output || lv2_reverse_input;
       gboolean tx_input =
-         ((from_mic || (from_modem_tx && !graph_drag_channel)) &&
+         ((from_mic || from_osc || (from_modem_tx && !graph_drag_channel)) &&
             !strcmp(n->id, "tx.mix")) ||
          (from_tx_mix && (!strcmp(n->id, "src.client.dsp0") || (g_str_has_prefix(n->id, "modem") && g_str_has_suffix(n->id, ".tx"))));
       /* Audio and PTT are separate modem pins. Direct audio targets only
@@ -1986,6 +1995,10 @@ static gboolean routing_drag_target(double x, double y, gint *source_index, doub
             graph_drag_channel : 0;
       }
       gint source_channel = 0;
+      if(lv2_reverse_input && g_str_has_prefix(n->id,"osc.")) {
+         const double ny0=routing_node_y(n);
+         source_channel=fabs(y-ny0-79.)<fabs(y-ny0-60.)?1:0;
+      }
       if (lv2_reverse_input && reverse_from_effect && n->channels == 2) {
          double ny0 = routing_node_y(n);
          source_channel = fabs(y - ny0 - 79.) < fabs(y - ny0 - 60.) ? 1 : 0;
@@ -2018,6 +2031,9 @@ static gboolean routing_drag_target(double x, double y, gint *source_index, doub
       if (tx_input)
          graph_drag_tx_mix_channel = from_tx_mix ? graph_drag_channel : dest_channel;
 
+      if(from_osc && n->type==RR_AG_MIXER)
+         g_strlcpy(graph_drag_osc_bus,n->id,sizeof(graph_drag_osc_bus));
+      else graph_drag_osc_bus[0]=0;
       if (lv2_connection) {
          const rr_ag_view_node_t *effect = to_lv2 ? n : origin_node;
          graph_drag_lv2_output = lv2_output;
@@ -2039,6 +2055,7 @@ static gboolean routing_drag_target(double x, double y, gint *source_index, doub
 static gboolean routing_gain_supported(const rr_ag_view_node_t *n) {
    /* Modem RX/TX and rig TX ports do not have controllable mixer faders. In particular, showing +/- dB on a modem sink implies a working gain stage that does
     * not exist. */
+   if (g_str_has_prefix(n->id,"osc."))return FALSE;
    if (g_str_has_prefix(n->id, "modem") || !strcmp(n->id, "rig.sink") || (g_str_has_prefix(n->id, "rig.") && g_str_has_suffix(n->id, ".tx"))) {
       return FALSE;
    }
