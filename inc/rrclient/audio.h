@@ -33,12 +33,14 @@ bool rrclient_modem_ptt_send(const char *source, const char *rx_id, bool on);
 /* Native oscillator controls cross GTK/core domains; no implicit TX/PTT route. */
 #define RRCLIENT_AUDIO_OSC_REQUEST "client.audio.osc.request"
 typedef struct {
-   char action; /* A add/update, D delete, P patch one parameter */
+   char action; /* A add/update, D delete, P set parameter, C connect, U unplug */
    unsigned slot;
    rr_audio_osc_config_t config;
    char property[24]; /* P: frequency, level, waveform, route */
    double number;     /* P numeric parameter */
    char value[24];    /* P string enum value */
+   unsigned port;      /* C/U source pin: 0 = I, 1 = Q */
+   char target[64];    /* C/U sink: rx.mix, hq.mix, tx.mix, proc.lv2.N.in.L/R, modemN.rx */
 } rr_audio_osc_request_t;
 void audio_request_oscillator(const rr_audio_osc_request_t *request);
 extern bool audio_enabled;
