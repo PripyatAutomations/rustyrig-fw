@@ -276,6 +276,39 @@ static void script_files_selected(GtkWidget *browser,const char *relative,gpoint
    (void)browser;(void)relative;
    widget_changed(NULL,data);
 }
+/* Measure the actual colored Pango layout, including wide Unicode glyphs.
+ * Keep wrapping disabled, and fit width only (vertical scrolling is fine). */
+static void script_preview_fit(GtkWidget *scroller) {
+   GtkWidget *label=g_object_get_data(G_OBJECT(scroller),"rr-preview-label");
+   const char *markup=g_object_get_data(G_OBJECT(scroller),"rr-preview-markup");
+   if(!GTK_IS_LABEL(label)||!markup)return;
+   GtkWidget *child=gtk_bin_get_child(GTK_BIN(scroller));
+   int width=child?gtk_widget_get_allocated_width(child):gtk_widget_get_allocated_width(scroller);
+   width-=12;
+   if(width<8)return;
+   PangoLayout *layout=gtk_widget_create_pango_layout(label,NULL);
+   pango_layout_set_width(layout,-1);
+   int lo=PANGO_SCALE/4,hi=10*PANGO_SCALE;
+   while(lo<hi) {
+      int mid=lo+(hi-lo+1)/2;
+      char *scaled=g_strdup_printf("<span size=\"%d\">%s</span>",mid,markup);
+      pango_layout_set_markup(layout,scaled,-1);
+      g_free(scaled);
+      int pixels=0;
+      pango_layout_get_pixel_size(layout,&pixels,NULL);
+      if(pixels<=width)lo=mid;else hi=mid-1;
+   }
+   g_object_unref(layout);
+   if(GPOINTER_TO_INT(g_object_get_data(G_OBJECT(scroller),"rr-preview-size"))==lo)return;
+   g_object_set_data(G_OBJECT(scroller),"rr-preview-size",GINT_TO_POINTER(lo));
+   char *scaled=g_strdup_printf("<span size=\"%d\">%s</span>",lo,markup);
+   gtk_label_set_markup(GTK_LABEL(label),scaled);
+   g_free(scaled);
+}
+static void script_preview_resize(GtkWidget *widget,GtkAllocation *allocation,gpointer unused) {
+   (void)allocation;(void)unused;
+   script_preview_fit(widget);
+}
 static void script_preview_file(GtkWidget *scroller,const char *filename) {
    GtkWidget *label=g_object_get_data(G_OBJECT(scroller),"rr-preview-label");
    if(!GTK_IS_LABEL(label))return;
@@ -288,6 +321,8 @@ static void script_preview_file(GtkWidget *scroller,const char *filename) {
    if(!path || g_file_test(path,G_FILE_TEST_IS_SYMLINK) || g_stat(path,&file_stat)!=0 || file_stat.st_size<0 ||
       file_stat.st_size>128*1024 || !g_file_get_contents(path,&contents,&length,NULL) ||
       !g_utf8_validate(contents,length,NULL)) {
+      g_object_set_data(G_OBJECT(scroller),"rr-preview-markup",NULL);
+      g_object_set_data(G_OBJECT(scroller),"rr-preview-size",NULL);
       gtk_label_set_text(GTK_LABEL(label),"Select a .mac file to preview");
       g_free(contents);g_free(path);return;
    }
@@ -300,8 +335,10 @@ static void script_preview_file(GtkWidget *scroller,const char *filename) {
       g_free(rendered);
    }
    g_string_append(markup,"</span>");
-   gtk_label_set_markup(GTK_LABEL(label),markup->str);
-   g_string_free(markup,TRUE);g_strfreev(lines);
+   g_object_set_data_full(G_OBJECT(scroller),"rr-preview-markup",g_string_free(markup,FALSE),g_free);
+   g_object_set_data(G_OBJECT(scroller),"rr-preview-size",NULL);
+   script_preview_fit(scroller);
+   g_strfreev(lines);
    g_free(contents);g_free(path);
 }
 static void script_roomlist_fill(GtkComboBoxText *combo) {
@@ -495,11 +532,16 @@ static void script_gui_add(const rr_script_gui_command_t *cmd) {
       w=gtk_scrolled_window_new(NULL,NULL);
       GtkWidget *label=gtk_label_new("Select a .mac file to preview");
       gtk_label_set_selectable(GTK_LABEL(label),TRUE);
+      gtk_label_set_line_wrap(GTK_LABEL(label),FALSE);
+      gtk_label_set_ellipsize(GTK_LABEL(label),PANGO_ELLIPSIZE_NONE);
+      gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(w),GTK_POLICY_NEVER,GTK_POLICY_AUTOMATIC);
+      gtk_scrolled_window_set_propagate_natural_width(GTK_SCROLLED_WINDOW(w),FALSE);
       gtk_label_set_xalign(GTK_LABEL(label),0);
       gtk_label_set_yalign(GTK_LABEL(label),0);
       gtk_container_add(GTK_CONTAINER(w),label);
       gtk_widget_set_size_request(w,400,230);
       g_object_set_data(G_OBJECT(w),"rr-preview-label",label);
+      g_signal_connect(w,"size-allocate",G_CALLBACK(script_preview_resize),NULL);
    }
    else if(!strcmp(cmd->kind,"button"))w=gtk_button_new_with_label(cmd->text);
    else if(!strcmp(cmd->kind,"entry") || !strcmp(cmd->kind,"password")) {
