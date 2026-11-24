@@ -366,6 +366,38 @@ mixer bus at a time**, plus any explicitly configured LV2/modem inputs.
 `routing.disconnect("osc.1.I","all")` removes every consumer of one pin.
 Only existing and available processors/decoders accept connections.
 
+### Numeric override inputs
+
+Every oscillator exposes **three green number inputs** alongside its I/Q
+PCM output pins: `FREQ` (Hz), `LEVEL` (dBFS), and `WAVE` (0 sine,
+1 square, 2 triangle, 3 saw). These are control signals, **not audio**
+or PTT/Boolean wires. Properties opens the same editable settings used
+during creation, plus a source binding for each green input. The saved
+frequency/level/waveform are *fallbacks*: a connected source with a valid
+value overrides the associated property; disconnecting the wire immediately
+restores the fallback without resetting oscillator phase.
+
+Create a reusable persistent numeric source with **Routing → Add →
+Numeric Control…** and drag its green VALUE pin to an oscillator input.
+The core also supports transient script-controlled numeric sources:
+
+```c
+routing.block.create("oscillator", 1, 136.5, -18, "sine")
+routing.control.set("control.ctcss", 123.0)
+routing.connect("control.ctcss", "osc.1.frequency")
+routing.control.set("control.ctcss", 136.5)
+routing.disconnect("control.ctcss", "osc.1.frequency")
+```
+
+`routing.control.set` is intentionally transient (safe for modulation);
+creating or changing a Numeric Control in the GUI persists its value
+across restarts. An unbound numeric signal does not change an oscillator.
+Out-of-range numeric input values are ignored in favor of the corresponding
+saved default, and active 16 kHz consumers limit frequency to below 7200 Hz.
+A control can fan out to several oscillator input pins; an input has only
+one upstream source. Changes are currently applied at core control-event /
+20 ms audio-block boundaries, **not sample-timed 4FSK symbols**.
+
 The oscillator runs in a separate, non-running source bank independent of
 the sound card, with native on-demand interleaved I/Q S16 output. The
 producer dispatches 20 ms blocks **only when a destination is attached**.
