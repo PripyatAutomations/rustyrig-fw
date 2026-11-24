@@ -4001,6 +4001,9 @@ bool audio_init(void) {
             g_strlcpy(osc_control_bindings[slot-1][p],src,64);
          g_free(src);
       }
+      /* Persisted numeric sources win immediately after restart, without
+       * requiring a new script event or opening the Properties dialog. */
+      audio_osc_apply_controls(slot);
    }
    char *saved_mic = rrclient_database_setting_get("audio.tx.mic.target");
 
