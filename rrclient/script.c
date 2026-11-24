@@ -555,7 +555,22 @@ static rrs_value_t *native_routing_block(rrs_vm_t *vm,int argc,
                           const rrs_value_t *const args[],void *userdata) {
    int op=GPOINTER_TO_INT(userdata);
    rr_audio_osc_request_t req={0};
-   if(op==1) {
+   if(op==4 || op==5) {
+      /* routing.connect/disconnect("osc.N.I"|"osc.N.Q", destination). */
+      unsigned slot=0;char pin=0,tail=0;
+      if(argc!=2 || rrs_value_type(args[0])!=RRS_STRING ||
+         rrs_value_type(args[1])!=RRS_STRING ||
+         sscanf(rrs_value_string(args[0]),"osc.%u.%c%c",
+                &slot,&pin,&tail)!=2 ||
+         slot<1 || slot>RR_AUDIO_OSC_MAX || (pin!='I' && pin!='Q') ||
+         !*rrs_value_string(args[1]) ||
+         strlen(rrs_value_string(args[1]))>=sizeof(req.target)) {
+         rrs_vm_raise(vm,"routing.connect/disconnect(osc.N.I|Q, destination)");
+         return NULL;
+      }
+      req.action=op==4?'C':'U';req.slot=slot;req.port=pin=='Q';
+      g_strlcpy(req.target,rrs_value_string(args[1]),sizeof(req.target));
+   } else if(op==1) {
       /* routing.block.create("oscillator", slot, Hz, dBFS, waveform) */
       double slot=0,hz=0,db=0;
       unsigned wave=0;
@@ -620,6 +635,8 @@ static bool register_window_api(rrs_vm_t *vm) {
       rrs_vm_register_native(vm,"routing.block.create",native_routing_block,GINT_TO_POINTER(1)) &&
       rrs_vm_register_native(vm,"routing.block.set",native_routing_block,GINT_TO_POINTER(2)) &&
       rrs_vm_register_native(vm,"routing.block.remove",native_routing_block,GINT_TO_POINTER(3)) &&
+      rrs_vm_register_native(vm,"routing.connect",native_routing_block,GINT_TO_POINTER(4)) &&
+      rrs_vm_register_native(vm,"routing.disconnect",native_routing_block,GINT_TO_POINTER(5)) &&
       rrs_vm_register_native(vm,"window.find",native_window_find,NULL) &&
       rrs_vm_register_native(vm,"window.move",native_window_move,NULL) &&
       rrs_vm_register_native(vm,"window.zoom",native_window_percent,GINT_TO_POINTER(1)) &&
