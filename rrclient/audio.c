@@ -88,6 +88,26 @@ static rr_audio_engine_t *osc_engine;  /* Independent 16 kHz DSP source bank (no
 static rr_audio_engine_t *tx_engine;   /* Independent 16 kHz TX PCM mixer */
 
 static rr_audio_osc_config_t oscillator_configs[RR_AUDIO_OSC_MAX];
+/* One explicit mixer-bus destination per I/Q pin (0=unconnected,
+ * 1=RX 16k, 2=HQ 44.1/48k, 3=TX 16k). Effects/modems may tap the
+ * same source independently without changing its bus destination. */
+static unsigned char osc_bus[RR_AUDIO_OSC_MAX][2];
+static GSource *osc_pump_source;
+static gboolean audio_osc_patch(const rr_audio_osc_request_t *req);
+static gboolean audio_osc_pump(gpointer unused);
+static gboolean audio_osc_source_port(const char *name,unsigned *slot,unsigned *port) {
+   unsigned index=0;char side=0,extra=0;
+   if(!name || sscanf(name,"osc.%u.%c%c",&index,&side,&extra)!=2 ||
+      index<1 || index>RR_AUDIO_OSC_MAX || (side!='I' && side!='Q'))return FALSE;
+   if(slot)*slot=index;
+   if(port)*port=side=='Q';
+   return TRUE;
+}
+bool audio_oscillator_source_present(const char *name) {
+   unsigned slot=0;
+   return audio_osc_source_port(name,&slot,NULL) && oscillator_configs[slot-1].active;
+}
+
 /* Core-domain control of a disconnected, pull-driven native DSP source. */
 static void audio_osc_request(const rr_event_message_t *message,void *unused) {
    (void)unused;
@@ -98,7 +118,14 @@ static void audio_osc_request(const rr_event_message_t *message,void *unused) {
       for(unsigned i=0;i<RR_AUDIO_OSC_MAX;i++)
          if(!oscillator_configs[i].active){slot=i+1;break;}
    if(slot<1 || slot>RR_AUDIO_OSC_MAX ||
-      (req->action!='A' && req->action!='D' && req->action!='P'))return;
+      (req->action!='A' && req->action!='D' && req->action!='P' &&
+       req->action!='C' && req->action!='U'))return;
+   if(req->action=='C' || req->action=='U') {
+      if(!audio_osc_patch(req))
+         Log(LOG_WARN,"audio.osc","Rejected oscillator %u pin %u link to %.*s",
+             slot,req->port,(int)sizeof(req->target),req->target);
+      return;
+   }
    rr_audio_osc_config_t cfg=req->action=='P' ? oscillator_configs[slot-1] : req->config;
    if(req->action=='P') {
       if(!cfg.active || !memchr(req->property,0,sizeof(req->property)))return;
@@ -119,6 +146,13 @@ static void audio_osc_request(const rr_event_message_t *message,void *unused) {
       return;
    }
    oscillator_configs[slot-1]=cfg;
+   if(req->action=='D') {
+      for(unsigned port=0;port<2;port++) {
+         rr_audio_osc_request_t disconnect={.action='U',.slot=slot,.port=port};
+         g_strlcpy(disconnect.target,"all",sizeof(disconnect.target));
+         audio_osc_patch(&disconnect);
+      }
+   }
    char key[80],value[128];
    g_snprintf(key,sizeof(key),"audio.osc.%u",slot);
    g_snprintf(value,sizeof(value),"%.8f,%.2f,%u,%c",cfg.frequency_hz,cfg.level_db,cfg.waveform,cfg.route);
