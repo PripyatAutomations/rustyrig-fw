@@ -2642,6 +2642,19 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
       rr_audio_graph_add_channel_link(graph, "src.client.dsp0", "tx.mix",
                                      RR_AG_NORMAL, mic_channels);
    }
+   /* The native I/Q oscillator has two phase-locked audio outputs.
+    * The actual samples are mixed directly on the HQ audio clock. */
+   for(unsigned i=0;i<RR_AUDIO_OSC_MAX;i++) {
+      const rr_audio_osc_config_t *cfg=&oscillator_configs[i];
+      if(!cfg->active)continue;
+      char id[64];
+      g_snprintf(id,sizeof(id),"osc.%u",i+1);
+      if(!rr_audio_graph_add_node(graph,id,RR_AG_SOURCE))continue;
+      rr_audio_graph_set_health(graph,id,hq_engine?RR_AG_HEALTHY:RR_AG_FAILED);
+      rr_audio_graph_set_route(graph,id,cfg->route=='M'?'M':'S');
+      if(cfg->route!='M')rr_audio_graph_add_channel_link(graph,id,"hq.mix",
+         RR_AG_NORMAL,cfg->route=='S'?RR_AG_CHANNEL_STEREO:RR_AG_CHANNEL_LEFT);
+   }
    /* The playback source is always present, including while stopped. */
    rr_audio_graph_add_node(graph, RECORDING_PLAYBACK_ID, RR_AG_SOURCE);
    rr_audio_graph_add_node(graph, "legacy.speaker", RR_AG_SOURCE);
@@ -2950,6 +2963,19 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
          }
 
          if (node->type != RR_AG_SOURCE) {
+            continue;
+         }
+
+         if (g_str_has_prefix(node->id,"osc.")) {
+            unsigned slot=0;
+            if(sscanf(node->id,"osc.%u",&slot)==1 && slot>=1 && slot<=RR_AUDIO_OSC_MAX) {
+               const rr_audio_osc_config_t *cfg=&oscillator_configs[slot-1];
+               node->rate_hz=node->downstream_rate_hz=rr_audio_engine_sample_rate(hq_engine);
+               node->channels=2;
+               node->sample_format=RR_PCM_S16LE;
+               node->read_only=TRUE; /* Configuration handled by native oscillator dialog. */
+               g_snprintf(node->rig,sizeof(node->rig),"Native I/Q oscillator %u: %.1f Hz, %.1f dB (I=sin Q=cos)",slot,cfg->frequency_hz,cfg->level_db);
+            }
             continue;
          }
 
@@ -3513,6 +3539,7 @@ bool audio_init(void) {
       g_mutex_init(&lv2_effect_lock);
       lv2_effect_ready = TRUE;
    }
+   event_on_message_domain_token(RRCLIENT_AUDIO_OSC_REQUEST,audio_osc_request,NULL,"core");
    event_on_message_domain_token(RRCLIENT_AUDIO_EFFECT_REQUEST, audio_lv2_request, NULL, "core");
    event_on_message_domain_token(RRCLIENT_AUDIO_CONTROL_REQUEST, audio_control_request, NULL, "core");
    event_on_message_domain_token(RRCLIENT_AUDIO_SNAPSHOT_REQUEST, audio_snapshot_request, NULL, "core");
@@ -3551,6 +3578,18 @@ bool audio_init(void) {
    /* Start the final sound-card bus first. The 16 kHz radio/AF bus feeds a single stereo 16->HQ converter at its input. HQ demodulators are admitted directly
     * to this bus without first losing bandwidth at 16k. */
    hq_engine = rr_audio_engine_new_rate(audio_hq_output_rate(), rx_sink_output, NULL);
+   /* Restore saved generators before the audio clock begins running. */
+   if(hq_engine)for(unsigned slot=1;slot<=RR_AUDIO_OSC_MAX;slot++) {
+      char key[80];g_snprintf(key,sizeof(key),"audio.osc.%u",slot);
+      char *saved=rrclient_database_setting_get(key);
+      rr_audio_osc_config_t cfg={.active=true};
+      if(saved && sscanf(saved,"%lf,%lf,%u,%c",&cfg.frequency_hz,
+                        &cfg.level_db,&cfg.waveform,&cfg.route)==4 &&
+         rr_audio_engine_osc_set(hq_engine,slot,&cfg))
+         oscillator_configs[slot-1]=cfg;
+      else oscillator_configs[slot-1]=(rr_audio_osc_config_t){0};
+      g_free(saved);
+   }
    const rr_pcm_stream_format_t low_bus_format = {
       16000, 2, RR_PCM_S16LE
    };
