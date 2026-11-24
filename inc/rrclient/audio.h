@@ -43,6 +43,8 @@ typedef struct {
    char target[64];    /* C/U sink: rx.mix, hq.mix, tx.mix, proc.lv2.N.in.L/R, modemN.rx */
 } rr_audio_osc_request_t;
 void audio_request_oscillator(const rr_audio_osc_request_t *request);
+/* Core-domain source identity shared by modem and LV2 consumers. */
+bool audio_oscillator_source_present(const char *source);
 extern bool audio_enabled;
 /* Playback requests must cross the GTK -> core event boundary. */
 #define RR_AUDIO_RECORDING_CONTROL_REQUEST "client.audio.recording.control"
