@@ -2774,6 +2774,7 @@ static void routing_block_menu_items(GtkWidget *menu, const char *id, gboolean d
    }
 }
 
+static void routing_add_oscillator(GtkButton *button,gpointer unused);
 static gboolean routing_common_block_menu(GdkEventButton *event, double x, double y) {
    if (!graph_snapshot) {
       return FALSE;
@@ -2792,6 +2793,15 @@ static gboolean routing_common_block_menu(GdkEventButton *event, double x, doubl
       }
       GtkWidget *menu = gtk_menu_new();
       routing_block_menu_items(menu, n->id, n->type == RR_AG_SOURCE && !n->read_only);
+      if(g_str_has_prefix(n->id,"osc.")) {
+         unsigned slot=0;
+         if(sscanf(n->id,"osc.%u",&slot)==1 && slot>=1 && slot<=RR_AUDIO_OSC_MAX) {
+            GtkWidget *configure=gtk_menu_item_new_with_label("Configure I/Q oscillator…");
+            g_object_set_data(G_OBJECT(configure),"osc-slot",GUINT_TO_POINTER(slot));
+            g_signal_connect(configure,"activate",G_CALLBACK(routing_add_oscillator),NULL);
+            gtk_menu_shell_append(GTK_MENU_SHELL(menu),configure);
+         }
+      }
       g_signal_connect_swapped(menu, "selection-done", G_CALLBACK(gtk_widget_destroy), menu);
       gtk_widget_show_all(menu);
       gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *) event);
@@ -6513,6 +6523,9 @@ static void routing_add_oscillator(GtkButton *button,gpointer unused) {
    gtk_grid_set_column_spacing(GTK_GRID(grid),10);
    gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))),grid,TRUE,TRUE,0);
    GtkWidget *slot=gtk_spin_button_new_with_range(1,RR_AUDIO_OSC_MAX,1);
+   unsigned selected=button?GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(button),"osc-slot")):0;
+   if(selected>=1 && selected<=RR_AUDIO_OSC_MAX)
+      gtk_spin_button_set_value(GTK_SPIN_BUTTON(slot),selected);
    routing_osc_form_t form={
       .frequency=gtk_spin_button_new_with_range(0,16000,1),
       .level=gtk_spin_button_new_with_range(-90,0,.5),
