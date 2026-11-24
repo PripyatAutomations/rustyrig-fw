@@ -439,16 +439,30 @@ static gboolean chat_flush(gpointer unused) {
    chat_updated = stamp;
    chat_tokens = MIN(chat_tokens, (double)chat_burst());
    while(chat_queue && !g_queue_is_empty(chat_queue)) {
-      chat_pending_t *head=g_queue_peek_head(chat_queue);
-      /* All messages consume the same outgoing budget. Previously a script
-       * tag skipped this check, allowing artwork to outrun the client limit. */
-      if(chat_tokens<1.0)break;
-      if(head->script_tag) {
-         if(stamp<script_next_send_at)break;
-         script_next_send_at=stamp+(gint64)CLAMP(head->script_interval_ms,100u,10000u)*1000;
+      /* Interval zero explicitly selects caller-paced script playback.
+       * Ordinary chat and nonzero script intervals keep the shared budget.
+       * A blocked ordinary message must not stall caller-paced artwork. */
+      GList *selected=NULL;
+      for(GList *it=chat_queue->head;it;it=it->next) {
+         chat_pending_t *head=it->data;
+         if(head->script_tag && head->script_interval_ms==0) {
+            selected=it;
+            break;
+         }
+         if(it==chat_queue->head && chat_tokens>=1.0 &&
+            (!head->script_tag || stamp>=script_next_send_at)) {
+            selected=it;
+            break;
+         }
       }
-      chat_tokens-=1.0;
-      chat_pending_t *next=g_queue_pop_head(chat_queue);
+      if(!selected)break;
+      chat_pending_t *next=selected->data;
+      g_queue_delete_link(chat_queue,selected);
+      if(!next->script_tag || next->script_interval_ms!=0) {
+         chat_tokens-=1.0;
+         if(next->script_tag)
+            script_next_send_at=stamp+(gint64)CLAMP(next->script_interval_ms,100u,10000u)*1000;
+      }
       if (next->connection && next->profile && rrclient_connection_find(next->profile) == next->connection && next->connection->authenticated) {
          if (next->irc) {
             irc_send_dict(next->connection, next->message);
@@ -506,7 +520,7 @@ static bool chat_send_paced(rrconn_t *connection, dict *message, bool irc, const
    return true;
 }
 
-/* Script sends share the same bounded IRC/WS queue and flood tokens as chat. */
+/* Script sends share the bounded queue; interval zero opts into caller pacing. */
 bool rrclient_script_chat_send(const char *profile,const char *target,
                                const char *text,const char *tag,unsigned interval_ms) {
    if(!profile||!*profile||!target||!*target||!text||!*text ||
