@@ -1566,14 +1566,14 @@ backup_finished:
 
 /* Client-local callsign watch list; SQLite owns the persisted rules. No decoder or QSO-log matching occurs until contact logging is added. */
 enum {
-   WATCH_ID, WATCH_CALL, WATCH_MODE, WATCH_BAND, WATCH_AUTO, WATCH_WORKED, WATCH_COLUMNS
+   WATCH_ID, WATCH_CALL, WATCH_MODE, WATCH_BAND, WATCH_AUTO, WATCH_WORKED, WATCH_TYPE, WATCH_CQ, WATCH_COLUMNS
 };
 static void watched_calls_row(const rrclient_watched_call_t *entry, void *user) {
    GtkListStore *store = user;
    GtkTreeIter row;
    gtk_list_store_append(store, &row);
    gtk_list_store_set(store, &row, WATCH_ID, entry->id, WATCH_CALL, entry->callsign, WATCH_MODE, entry->mode, WATCH_BAND, entry->band, WATCH_AUTO, entry->
-      auto_mark_worked, WATCH_WORKED, entry->worked, -1);
+      auto_mark_worked, WATCH_WORKED, entry->worked, WATCH_TYPE, entry->match_type, WATCH_CQ, entry->cq_only, -1);
 }
 
 static void watched_calls_reload(GtkWidget *tree) {
@@ -1621,12 +1621,12 @@ static void watched_calls_edit(GtkWidget *button, gpointer user) {
       return;
    }
    gint id = 0;
-   gchar *old_call = NULL, *old_mode = NULL, *old_band = NULL;
-   gboolean old_auto = FALSE, old_worked = FALSE;
+   gchar *old_call = NULL, *old_mode = NULL, *old_band = NULL,*old_type=NULL;
+   gboolean old_auto = FALSE, old_worked = FALSE,old_cq=FALSE;
 
    if (editing) {
       gtk_tree_model_get(GTK_TREE_MODEL(store), &selected, WATCH_ID, &id, WATCH_CALL, &old_call, WATCH_MODE, &old_mode, WATCH_BAND, &old_band, WATCH_AUTO, &
-         old_auto, WATCH_WORKED, &old_worked, -1);
+         old_auto, WATCH_WORKED, &old_worked, WATCH_TYPE,&old_type,WATCH_CQ,&old_cq,-1);
    }
    GtkWidget *parent = gtk_widget_get_toplevel(tree);
    GtkWidget *dialog = gtk_dialog_new_with_buttons(editing ? "Edit Watched Call" : "Watch Callsign", GTK_IS_WINDOW(parent) ? GTK_WINDOW(parent) : NULL,
@@ -1638,8 +1638,8 @@ static void watched_calls_edit(GtkWidget *button, gpointer user) {
    gtk_grid_set_column_spacing(GTK_GRID(grid), 12);
    gtk_box_pack_start(GTK_BOX(area), grid, TRUE, TRUE, 0);
    GtkWidget *call = gtk_entry_new();
-   gtk_entry_set_max_length(GTK_ENTRY(call), 24);
-   gtk_entry_set_placeholder_text(GTK_ENTRY(call), "e.g. K1ABC");
+   gtk_entry_set_max_length(GTK_ENTRY(call), 256);
+   gtk_entry_set_placeholder_text(GTK_ENTRY(call), "K1ABC, VP9*, ^VP9.*$ or Bermuda");
 
    if (old_call) {
       gtk_entry_set_text(GTK_ENTRY(call), old_call);
@@ -1674,37 +1674,46 @@ static void watched_calls_edit(GtkWidget *button, gpointer user) {
       gtk_grid_attach(GTK_GRID(grid), fields[i], 1, i, 1, 1);
    }
 
-   gtk_grid_attach(GTK_GRID(grid), auto_mark, 1, 3, 1, 1);
-   gtk_grid_attach(GTK_GRID(grid), worked, 1, 4, 1, 1);
+   GtkWidget *type=gtk_combo_box_text_new();
+   const char *types[]={"Exact","Wildcard","Regex","Country"};
+   for(unsigned i=0;i<G_N_ELEMENTS(types);i++)
+      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(type),types[i],types[i]);
+   gtk_combo_box_set_active_id(GTK_COMBO_BOX(type),old_type?old_type:"Exact");
+   GtkWidget *cq=gtk_check_button_new_with_label("CQ only");
+   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(cq),old_cq);
+   gtk_grid_attach(GTK_GRID(grid),gtk_label_new("Match type"),0,3,1,1);
+   gtk_grid_attach(GTK_GRID(grid),type,1,3,1,1);
+   gtk_grid_attach(GTK_GRID(grid),cq,1,4,1,1);
+   gtk_grid_attach(GTK_GRID(grid),auto_mark,1,5,1,1);
+   gtk_grid_attach(GTK_GRID(grid), worked, 1, 6, 1, 1);
    gtk_widget_show_all(dialog);
    while (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
       gchar *raw = g_strdup(gtk_entry_get_text(GTK_ENTRY(call)));
       g_strstrip(raw);
-      gchar *normalized = g_ascii_strup(raw, -1);
+      const char *kind=gtk_combo_box_get_active_id(GTK_COMBO_BOX(type));
+      gchar *normalized=g_strdup(raw);
       g_free(raw);
-      const gchar *m = gtk_entry_get_text(GTK_ENTRY(gtk_bin_get_child(GTK_BIN(mode))));
-      const gchar *b = gtk_entry_get_text(GTK_ENTRY(gtk_bin_get_child(GTK_BIN(band))));
-      gboolean valid = *normalized && *m && *b && strlen(normalized) <= 24;
-      gboolean digit = FALSE;
-
-      for (const unsigned char *p = (const unsigned char *)normalized ; *p ; p++) {
-         if (g_ascii_isdigit(*p)) {
-            digit = TRUE;
+      const gchar *m=gtk_entry_get_text(GTK_ENTRY(gtk_bin_get_child(GTK_BIN(mode))));
+      const gchar *b=gtk_entry_get_text(GTK_ENTRY(gtk_bin_get_child(GTK_BIN(band))));
+      gboolean valid=*normalized&&*m&&*b&&kind;
+      if(valid&&!strcmp(kind,"Regex")) {
+         GRegex *regex=g_regex_new(normalized,G_REGEX_CASELESS,0,NULL);
+         valid=regex!=NULL;
+         if(regex)g_regex_unref(regex);
+      } else if(valid&&!strcmp(kind,"Exact")) {
+         gboolean digit=FALSE;
+         for(const char *p=normalized;*p;p++) {
+            digit|=g_ascii_isdigit(*p);
+            if(!g_ascii_isalnum(*p)&&*p!='/')valid=FALSE;
          }
-
-         if (!g_ascii_isalnum(*p) && *p != '/') {
-            valid = FALSE;
-         }
+         valid=valid&&digit&&strlen(normalized)<=24;
       }
-
-      if (!digit) {
-         valid = FALSE;
-      }
-
-      if (!valid) {
-         watched_calls_error(GTK_WIDGET(dialog), "Enter a valid callsign (letters, numbers, /), and a mode and band.");
-      } else if (rrclient_database_watched_call_save(id, normalized, m, b, gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(auto_mark)),
-         gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(worked)))) {
+      if(!valid) {
+         watched_calls_error(GTK_WIDGET(dialog),"Enter a valid match, mode and band (regex must compile).");
+      } else if(rrclient_database_watched_call_save(id,normalized,m,b,
+         gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(auto_mark)),
+         gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(worked)),kind,
+         gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(cq)))) {
          g_free(normalized);
          watched_calls_reload(tree);
          break;
@@ -1717,6 +1726,7 @@ static void watched_calls_edit(GtkWidget *button, gpointer user) {
    g_free(old_call);
    g_free(old_mode);
    g_free(old_band);
+   g_free(old_type);
 }
 
 static void watched_calls_remove(GtkButton *button, gpointer user) {
@@ -1768,19 +1778,19 @@ static GtkWidget *watched_calls_panel(void) {
    gtk_label_set_line_wrap(GTK_LABEL(note), TRUE);
    gtk_widget_set_halign(note, GTK_ALIGN_START);
    gtk_box_pack_start(GTK_BOX(panel), note, FALSE, FALSE, 0);
-   GtkListStore *store = gtk_list_store_new(WATCH_COLUMNS, G_TYPE_INT, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_BOOLEAN, G_TYPE_BOOLEAN);
+   GtkListStore *store = gtk_list_store_new(WATCH_COLUMNS, G_TYPE_INT, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_BOOLEAN, G_TYPE_BOOLEAN,G_TYPE_STRING,G_TYPE_BOOLEAN);
    GtkWidget *tree = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
    g_object_unref(store);
    const char *headers[] = {
-      "Callsign", "Mode", "Band", "Auto-mark worked", "Worked"
+      "Match", "Mode", "Band", "Type", "CQ only", "Auto-mark worked", "Worked"
    };
    const int columns[] = {
-      WATCH_CALL, WATCH_MODE, WATCH_BAND, WATCH_AUTO, WATCH_WORKED
+      WATCH_CALL, WATCH_MODE, WATCH_BAND, WATCH_TYPE,WATCH_CQ,WATCH_AUTO, WATCH_WORKED
    };
 
    for (unsigned i = 0 ; i < G_N_ELEMENTS(columns) ; i++) {
-      GtkCellRenderer *renderer = i < 3 ? gtk_cell_renderer_text_new() : gtk_cell_renderer_toggle_new();
-      GtkTreeViewColumn *col = gtk_tree_view_column_new_with_attributes(headers[i], renderer, i < 3 ? "text" : "active", columns[i], NULL);
+      GtkCellRenderer *renderer = i < 4 ? gtk_cell_renderer_text_new() : gtk_cell_renderer_toggle_new();
+      GtkTreeViewColumn *col = gtk_tree_view_column_new_with_attributes(headers[i], renderer, i < 4 ? "text" : "active", columns[i], NULL);
       gtk_tree_view_append_column(GTK_TREE_VIEW(tree), col);
    }
 
