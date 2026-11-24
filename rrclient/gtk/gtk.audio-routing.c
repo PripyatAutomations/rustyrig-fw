@@ -3794,6 +3794,7 @@ static void routing_compact_selector_sync(routing_compact_control_t *control) {
    control->updating = was_updating;
 }
 
+static void routing_compact_schedule_save(routing_compact_control_t *control);
 static void routing_compact_selector_changed(GtkComboBox *combo, gpointer data) {
    routing_compact_control_t *control = data;
    if (control->updating) return;
@@ -3802,7 +3803,7 @@ static void routing_compact_selector_changed(GtkComboBox *combo, gpointer data) 
    if (!strcmp(control->kind, "enum")) {
       if (strlen(id) >= sizeof(control->enum_value) || !strcmp(id, control->enum_value)) return;
       g_strlcpy(control->enum_value, id, sizeof(control->enum_value));
-      routing_compact_save(control);
+      routing_compact_schedule_save(control);
       if (control->effect_worker[0])
          audio_request_effect_string(control->effect_worker, control->effect_element,
             control->effect_property, control->enum_value);
@@ -3884,7 +3885,7 @@ static void routing_compact_sync(void) {
             }
          }
       }
-      gboolean enabled = found || (control->selector && !control->id[0] && !control->effect_worker[0]);
+      gboolean enabled = found || (!control->id[0] && !control->effect_worker[0]);
       gtk_widget_set_sensitive(control->value, enabled);
       if (control->selector) gtk_widget_set_sensitive(control->selector, enabled);
 
@@ -3905,9 +3906,19 @@ static void routing_compact_sync(void) {
 static gboolean routing_compact_flush_value(gpointer user) {
    routing_compact_control_t *control = user;
    control->save_source = 0;
-   routing_compact_save(control);
-
+   /* Only the changed value needs writing, not the full widget metadata. */
+   char key[128],value[G_ASCII_DTOSTR_BUF_SIZE];
+   gboolean enumeration=!strcmp(control->kind,"enum");
+   g_snprintf(key,sizeof(key),"audio.control.%s.%s",control->uuid,
+              enumeration?"selected-string":"value");
+   g_ascii_dtostr(value,sizeof(value),control->effect_value);
+   rrclient_database_setting_set(key,enumeration?control->enum_value:value);
    return G_SOURCE_REMOVE;
+}
+
+static void routing_compact_schedule_save(routing_compact_control_t *control) {
+   if(control->save_source)g_source_remove(control->save_source);
+   control->save_source=g_timeout_add(750,routing_compact_flush_value,control);
 }
 
 static void routing_compact_changed(GtkRange *range, gpointer user) {
@@ -3917,23 +3928,18 @@ static void routing_compact_changed(GtkRange *range, gpointer user) {
       return;
    }
    double db = gtk_range_get_value(range);
+   control->effect_value=db;
+   routing_compact_schedule_save(control);
    if (control->selector) routing_compact_selector_sync(control);
    if (!control->id[0] && !control->effect_worker[0]) {
       /* An unbound selector still owns a stable numeric state. The future
        * SWITCH/control input can consume the same stored value by UUID. */
-      control->effect_value = db;
-      routing_compact_save(control);
+      if(control->knob)gtk_widget_queue_draw(control->knob);
       graph_canvas_update_size();
       return;
    }
 
    if (control->effect_worker[0]) {
-      control->effect_value = db;
-
-      if (control->save_source) {
-         g_source_remove(control->save_source);
-      }
-      control->save_source = g_timeout_add(400, routing_compact_flush_value, control);
       audio_request_effect_parameter(control->effect_worker, control->effect_element, control->effect_property, db);
 
       if (control->knob) {
@@ -4566,7 +4572,7 @@ static void routing_compact_restore(void) {
                routing_compact_parse_number(value, &item->effect_value);
                item->effect_default = item->effect_value;
                routing_compact_parse_number(default_text, &item->effect_default);
-            } else if (!item->id[0] && !strcmp(item->kind, "selector")) {
+            } else if (!item->id[0]) {
                routing_compact_parse_number(value, &item->effect_value);
             }
             if (choices && strlen(choices) < sizeof(item->choices)) {
