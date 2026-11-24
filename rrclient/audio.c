@@ -97,7 +97,7 @@ static unsigned char osc_bus[RR_AUDIO_OSC_MAX][2];
  * Missing/stale controls never overwrite the configured fallback. */
 static gboolean audio_osc_has_low_consumer(unsigned slot);
 #define RR_OSC_CONTROL_SOURCES 64
-typedef struct { char id[64]; double value; gboolean valid; } rr_osc_numeric_t;
+typedef struct { char id[64]; double value; gboolean valid,persistent; } rr_osc_numeric_t;
 static rr_osc_numeric_t osc_numeric[RR_OSC_CONTROL_SOURCES];
 static char osc_control_bindings[RR_AUDIO_OSC_MAX][3][64];
 static gboolean audio_osc_control_property(const char *name,unsigned *property) {
@@ -122,6 +122,43 @@ static rr_osc_numeric_t *audio_osc_numeric_slot(const char *source,gboolean crea
    }
    if(free_slot)g_strlcpy(free_slot->id,source,sizeof(free_slot->id));
    return free_slot;
+}
+static void audio_osc_control_save_list(void) {
+   GString *list=g_string_new(NULL);
+   for(unsigned i=0;i<RR_OSC_CONTROL_SOURCES;i++) {
+      const rr_osc_numeric_t *control=&osc_numeric[i];
+      if(!control->id[0] || !control->persistent)continue;
+      if(list->len)g_string_append_c(list,',');
+      g_string_append(list,control->id);
+   }
+   rrclient_database_setting_set("audio.control.list",list->str);
+   g_string_free(list,TRUE);
+}
+static void audio_osc_control_restore(void) {
+   char *list=rrclient_database_setting_get("audio.control.list");
+   if(!list)return;
+   char **names=g_strsplit(list,",",RR_OSC_CONTROL_SOURCES+1);
+   for(unsigned i=0;names[i];i++) {
+      if(!audio_osc_control_source(names[i]))continue;
+      char key[96];
+      g_snprintf(key,sizeof(key),"audio.control.%s",names[i]);
+      char *saved=rrclient_database_setting_get(key);
+      if(saved) {
+         char *end=NULL;
+         double value=g_ascii_strtod(saved,&end);
+         if(end!=saved && !*end && isfinite(value)) {
+            rr_osc_numeric_t *control=audio_osc_numeric_slot(names[i],TRUE);
+            if(control) {
+               control->value=value;
+               control->valid=TRUE;
+               control->persistent=TRUE;
+            }
+         }
+      }
+      g_free(saved);
+   }
+   g_strfreev(names);
+   g_free(list);
 }
 static void audio_osc_apply_controls(unsigned slot) {
    if(!osc_engine || slot<1 || slot>RR_AUDIO_OSC_MAX ||
@@ -154,14 +191,45 @@ static void audio_osc_control_request(const rr_event_message_t *message,void *un
    if(!memchr(request.source,0,sizeof(request.source)) ||
       !memchr(request.property,0,sizeof(request.property)) ||
       !audio_osc_control_source(request.source))return;
-   if(request.action=='V') {
+   if(request.action=='V' || request.action=='S') {
       if(!isfinite(request.value))return;
       rr_osc_numeric_t *source=audio_osc_numeric_slot(request.source,TRUE);
       if(!source)return;
+      const gboolean new_source=!source->valid;
       source->value=request.value;
       source->valid=TRUE;
+      if(request.action=='S') {
+         source->persistent=TRUE;
+         char key[96],number[G_ASCII_DTOSTR_BUF_SIZE];
+         g_snprintf(key,sizeof(key),"audio.control.%s",source->id);
+         g_ascii_dtostr(number,sizeof(number),source->value);
+         rrclient_database_setting_set(key,number);
+         audio_osc_control_save_list();
+      }
       for(unsigned slot=1;slot<=RR_AUDIO_OSC_MAX;slot++)
          audio_osc_apply_controls(slot);
+      if(new_source || request.action=='S')event_emit("client.audio.route.changed",NULL,NULL);
+      return;
+   }
+   if(request.action=='D') {
+      rr_osc_numeric_t *source=audio_osc_numeric_slot(request.source,FALSE);
+      if(!source)return;
+      for(unsigned slot=0;slot<RR_AUDIO_OSC_MAX;slot++)
+         for(unsigned p=0;p<3;p++)
+            if(!strcmp(osc_control_bindings[slot][p],source->id)) {
+               char key[96];
+               g_snprintf(key,sizeof(key),"audio.osc.%u.control.%s",slot+1,
+                   p==0?"frequency":p==1?"level":"waveform");
+               osc_control_bindings[slot][p][0]=0;
+               rrclient_database_setting_set(key,"");
+               audio_osc_apply_controls(slot+1);
+            }
+      char key[96];
+      g_snprintf(key,sizeof(key),"audio.control.%s",source->id);
+      rrclient_database_setting_set(key,"");
+      memset(source,0,sizeof(*source));
+      audio_osc_control_save_list();
+      event_emit("client.audio.route.changed",NULL,NULL);
       return;
    }
    unsigned p=0;
@@ -3027,6 +3095,13 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
          rr_audio_graph_add_numeric_link(graph,source,id,input);
       }
    }
+   /* User-created numeric control sources can exist before any connection. */
+   for(unsigned i=0;i<RR_OSC_CONTROL_SOURCES;i++) {
+      if(!osc_numeric[i].id[0])continue;
+      rr_audio_graph_add_node(graph,osc_numeric[i].id,RR_AG_SOURCE);
+      rr_audio_graph_set_health(graph,osc_numeric[i].id,
+          osc_numeric[i].valid?RR_AG_HEALTHY:RR_AG_STOPPED);
+   }
    /* The playback source is always present, including while stopped. */
    rr_audio_graph_add_node(graph, RECORDING_PLAYBACK_ID, RR_AG_SOURCE);
    rr_audio_graph_add_node(graph, "legacy.speaker", RR_AG_SOURCE);
@@ -3902,6 +3977,7 @@ bool audio_init(void) {
    memset(oscillator_configs,0,sizeof(oscillator_configs));
    memset(osc_control_bindings,0,sizeof(osc_control_bindings));
    memset(osc_numeric,0,sizeof(osc_numeric));
+   audio_osc_control_restore();
    /* An independent source bank must not depend on speaker playback,
     * audio devices or an active TX pipeline. 16k is the initial modem rate. */
    if(!osc_engine)osc_engine=rr_audio_engine_new(NULL,NULL);
