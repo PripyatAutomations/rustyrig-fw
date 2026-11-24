@@ -10,7 +10,7 @@ a separately installed `librustyscript` shared library. `rrclient` and
 time. Without the development package, they build without script support.
 
 Install the current librustyaxe source tree with `make install`, or build
-the `librustyscript0` and `librustyscript-dev` Debian packages first.
+the `librustyscript1` and `librustyscript-dev` Debian packages first.
 
 For script-defined dialogs, floating panels, controls and portable event bindings,
 see [RustyScript UI model](RUSTYSCRIPT-UI.md). The API describes logical
