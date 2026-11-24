@@ -2697,6 +2697,7 @@ static void routing_modem_menu_action(GtkMenuItem *item, gpointer unused) {
 }
 
 static void graph_set_channel(guint source, gint channel, gboolean connect);
+static void routing_add_oscillator(GtkButton *button,gpointer unused);
 /* Shared actions on routing blocks; callbacks retain the stable ID rather than pointers into replaceable snapshots. */
 static void routing_block_action(GtkMenuItem *item, gpointer unused) {
    (void)unused;
@@ -2733,6 +2734,14 @@ static void routing_block_action(GtkMenuItem *item, gpointer unused) {
       return;
    }
 
+   if (action == 0 && g_str_has_prefix(id,"osc.")) {
+      unsigned slot=0;char tail=0;
+      if(sscanf(id,"osc.%u%c",&slot,&tail)==1 && slot>=1 && slot<=RR_AUDIO_OSC_MAX) {
+         g_object_set_data(G_OBJECT(item),"osc-slot",GUINT_TO_POINTER(slot));
+         routing_add_oscillator((GtkButton*)item,NULL);
+      }
+      return;
+   }
    if (action == 0) {
       gchar *details = NULL;
 
@@ -6556,6 +6565,7 @@ static void routing_touch_long_pressed(GtkGestureLongPress *gesture, gdouble x, 
 /* Native I/Q tone generator. No implicit TX routing, and new blocks start muted. */
 typedef struct {
    GtkWidget *frequency,*level,*wave;
+   GtkWidget *bindings[3];
 } routing_osc_form_t;
 static void routing_osc_load(GtkSpinButton *slot,gpointer data) {
    routing_osc_form_t *form=data;
@@ -6574,6 +6584,14 @@ static void routing_osc_load(GtkSpinButton *slot,gpointer data) {
    gtk_spin_button_set_value(GTK_SPIN_BUTTON(form->level),CLAMP(db,-90.,0.));
    gtk_combo_box_set_active(GTK_COMBO_BOX(form->wave),MIN(wave,3u));
    (void)route; /* Stored older monitor route ignored: output remains unpatched. */
+   const char *props[]={"frequency","level","waveform"};
+   for(unsigned p=0;p<3;p++) {
+      char key[96];
+      g_snprintf(key,sizeof(key),"audio.osc.%u.control.%s",index,props[p]);
+      char *value=rrclient_database_setting_get(key);
+      gtk_entry_set_text(GTK_ENTRY(form->bindings[p]),value?value:"");
+      g_free(value);
+   }
 }
 static void routing_add_oscillator(GtkButton *button,gpointer unused) {
    (void)unused;
@@ -6597,6 +6615,8 @@ static void routing_add_oscillator(GtkButton *button,gpointer unused) {
       .level=gtk_spin_button_new_with_range(-90,0,.5),
       .wave=gtk_combo_box_text_new()
    };
+   for(unsigned p=0;p<3;p++)
+      form.bindings[p]=gtk_entry_new();
    gtk_spin_button_set_digits(GTK_SPIN_BUTTON(form.frequency),1);
    gtk_spin_button_set_digits(GTK_SPIN_BUTTON(form.level),1);
    const char *names[]={"Sine","Square","Triangle","Sawtooth"};
@@ -6610,9 +6630,19 @@ static void routing_add_oscillator(GtkButton *button,gpointer unused) {
       gtk_grid_attach(GTK_GRID(grid),label,0,i,1,1);
       gtk_grid_attach(GTK_GRID(grid),widgets[i],1,i,1,1);
    }
-   GtkWidget *notice=gtk_label_new("I = sin(phase), Q = cos(phase). 16/44.1/48 kHz output follows downstream clock; outputs start disconnected.");
+   const char *binding_labels[]={"Frequency input (control.*)","Level input (control.*)",
+                                  "Waveform input (control.*)"};
+   for(unsigned p=0;p<3;p++) {
+      GtkWidget *label=gtk_label_new(binding_labels[p]);
+      gtk_widget_set_halign(label,GTK_ALIGN_START);
+      gtk_entry_set_placeholder_text(GTK_ENTRY(form.bindings[p]),
+         "Unconnected: use saved setting");
+      gtk_grid_attach(GTK_GRID(grid),label,0,4+p,1,1);
+      gtk_grid_attach(GTK_GRID(grid),form.bindings[p],1,4+p,1,1);
+   }
+   GtkWidget *notice=gtk_label_new("I = sin(phase), Q = cos(phase). Connected numeric inputs override saved values; disconnected inputs use defaults.");
    gtk_label_set_line_wrap(GTK_LABEL(notice),TRUE);
-   gtk_grid_attach(GTK_GRID(grid),notice,0,4,2,1);
+   gtk_grid_attach(GTK_GRID(grid),notice,0,7,2,1);
    g_signal_connect(slot,"value-changed",G_CALLBACK(routing_osc_load),&form);
    routing_osc_load(GTK_SPIN_BUTTON(slot),&form);
    gtk_widget_show_all(dialog);
@@ -6630,6 +6660,30 @@ static void routing_add_oscillator(GtkButton *button,gpointer unused) {
          };
       }
       audio_request_oscillator(&req);
+      if(req.action=='A') {
+         const char *names[]={"frequency","level","waveform"};
+         for(unsigned p=0;p<3;p++) {
+            char key[96];
+            g_snprintf(key,sizeof(key),"audio.osc.%u.control.%s",req.slot,names[p]);
+            char *old=rrclient_database_setting_get(key);
+            const char *new_source=gtk_entry_get_text(GTK_ENTRY(form.bindings[p]));
+            if(g_strcmp0(old?old:"",new_source)) {
+               if(old && *old) {
+                  rr_audio_osc_control_request_t detach={.action='U',.slot=req.slot};
+                  g_strlcpy(detach.property,names[p],sizeof(detach.property));
+                  g_strlcpy(detach.source,old,sizeof(detach.source));
+                  audio_request_oscillator_control(&detach);
+               }
+               if(*new_source) {
+                  rr_audio_osc_control_request_t attach={.action='B',.slot=req.slot};
+                  g_strlcpy(attach.property,names[p],sizeof(attach.property));
+                  g_strlcpy(attach.source,new_source,sizeof(attach.source));
+                  audio_request_oscillator_control(&attach);
+               }
+            }
+            g_free(old);
+         }
+      }
    }
    gtk_widget_destroy(dialog);
 }
