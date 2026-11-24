@@ -6502,7 +6502,7 @@ static void routing_osc_load(GtkSpinButton *slot,gpointer data) {
       hz=1200.;db=-18.;wave=0;route='M';
    }
    g_free(saved);
-   gtk_spin_button_set_value(GTK_SPIN_BUTTON(form->frequency),CLAMP(hz,0.,7000.));
+   gtk_spin_button_set_value(GTK_SPIN_BUTTON(form->frequency),CLAMP(hz,0.,21000.));
    gtk_spin_button_set_value(GTK_SPIN_BUTTON(form->level),CLAMP(db,-90.,0.));
    gtk_combo_box_set_active(GTK_COMBO_BOX(form->wave),MIN(wave,3u));
    (void)route; /* Stored older monitor route ignored: output remains unpatched. */
@@ -6525,7 +6525,7 @@ static void routing_add_oscillator(GtkButton *button,gpointer unused) {
    if(selected>=1 && selected<=RR_AUDIO_OSC_MAX)
       gtk_spin_button_set_value(GTK_SPIN_BUTTON(slot),selected);
    routing_osc_form_t form={
-      .frequency=gtk_spin_button_new_with_range(0,7000,1),
+      .frequency=gtk_spin_button_new_with_range(0,21000,1),
       .level=gtk_spin_button_new_with_range(-90,0,.5),
       .wave=gtk_combo_box_text_new()
    };
@@ -6542,7 +6542,7 @@ static void routing_add_oscillator(GtkButton *button,gpointer unused) {
       gtk_grid_attach(GTK_GRID(grid),label,0,i,1,1);
       gtk_grid_attach(GTK_GRID(grid),widgets[i],1,i,1,1);
    }
-   GtkWidget *notice=gtk_label_new("I = sin(phase), Q = cos(phase). Outputs start disconnected; no automatic speaker or TX path.");
+   GtkWidget *notice=gtk_label_new("I = sin(phase), Q = cos(phase). 16/44.1/48 kHz output follows downstream clock; outputs start disconnected.");
    gtk_label_set_line_wrap(GTK_LABEL(notice),TRUE);
    gtk_grid_attach(GTK_GRID(grid),notice,0,4,2,1);
    g_signal_connect(slot,"value-changed",G_CALLBACK(routing_osc_load),&form);
