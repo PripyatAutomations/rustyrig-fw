@@ -30,6 +30,17 @@ typedef struct {
 /* Core-only: send source-qualified modem PTT through the rig's server. */
 bool rrclient_modem_ptt_send(const char *source, const char *rx_id, bool on);
 
+/* Native oscillator controls cross GTK/core domains; no implicit TX/PTT route. */
+#define RRCLIENT_AUDIO_OSC_REQUEST "client.audio.osc.request"
+typedef struct {
+   char action; /* A add/update, D delete, P patch one parameter */
+   unsigned slot;
+   rr_audio_osc_config_t config;
+   char property[24]; /* P: frequency, level, waveform, route */
+   double number;     /* P numeric parameter */
+   char value[24];    /* P string enum value */
+} rr_audio_osc_request_t;
+void audio_request_oscillator(const rr_audio_osc_request_t *request);
 extern bool audio_enabled;
 /* Playback requests must cross the GTK -> core event boundary. */
 #define RR_AUDIO_RECORDING_CONTROL_REQUEST "client.audio.recording.control"
