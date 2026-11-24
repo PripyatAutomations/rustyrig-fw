@@ -1809,6 +1809,8 @@ static gboolean graph_drag_lv2_output;
 static gint graph_drag_lv2_dest_channel;
 static gint graph_drag_lv2_source_channel;
 static char graph_drag_osc_bus[16];
+static gint graph_drag_numeric_target=-1;
+static unsigned graph_drag_numeric_property;
 static double graph_drag_start_x, graph_drag_start_y, graph_drag_x, graph_drag_y;
 /* Locate a valid port on the opposite end of a patch cord. Use the same hit/clock-domain rules for live preview and final connection. */
 static gboolean routing_modem_slot(const rr_ag_view_node_t *n, unsigned *slot) {
@@ -1936,6 +1938,43 @@ static gboolean routing_drag_target(double x, double y, gint *source_index, doub
    graph_drag_lv2_dest_channel = 0;
    graph_drag_lv2_source_channel = 0;
    graph_drag_osc_bus[0]=0;
+   graph_drag_numeric_target=-1;
+
+   /* Numeric signal paths have separate green input pins, not PCM sockets. */
+   const gboolean from_numeric=!graph_drag_mixer &&
+       g_str_has_prefix(origin_node->id,"control.");
+   const gboolean reverse_numeric=graph_drag_mixer &&
+       g_str_has_prefix(origin_node->id,"osc.");
+   if(from_numeric || reverse_numeric) {
+      double closest=limit;
+      for(guint i=0;i<graph_snapshot->node_count;i++) {
+         const rr_ag_view_node_t *node=&graph_snapshot->nodes[i];
+         if(graph_missing_since[i] || (gint)i==origin)continue;
+         if(from_numeric && !g_str_has_prefix(node->id,"osc."))continue;
+         if(reverse_numeric && !g_str_has_prefix(node->id,"control."))continue;
+         const double px=routing_node_x(node)+(reverse_numeric?RR_GTK_GRAPH_NODE_W:0);
+         if(from_numeric) {
+            for(unsigned p=0;p<3;p++) {
+               const double py=routing_node_y(node)+55.+19.*p;
+               const double distance=hypot(x-px,y-py);
+               if(distance<closest) {
+                  closest=distance;graph_drag_numeric_target=(gint)i;
+                  graph_drag_numeric_property=p;
+                  *source_index=origin;*snap_x=px;*snap_y=py;
+               }
+            }
+         } else {
+            const double py=routing_node_y(node)+68.;
+            const double distance=hypot(x-px,y-py);
+            if(distance<closest) {
+               closest=distance;graph_drag_numeric_target=origin;
+               graph_drag_numeric_property=(unsigned)graph_drag_channel;
+               *source_index=(gint)i;*snap_x=px;*snap_y=py;
+            }
+         }
+      }
+      return graph_drag_numeric_target>=0;
+   }
 
    for (guint i = 0 ; i < graph_snapshot->node_count ; i++) {
       const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
@@ -5808,6 +5847,25 @@ static gboolean graph_port_at(double x, double y, gint *source, gint *channel, g
          }
       }
 
+      if(!graph_missing_since[i] &&
+         g_str_has_prefix(graph_snapshot->nodes[i].id,"osc.")) {
+         for(gint p=0;p<3;p++) {
+            const double px=routing_node_x(&graph_snapshot->nodes[i]);
+            const double py=routing_node_y(&graph_snapshot->nodes[i])+55.+19.*p;
+            if(hypot(x-px,y-py)<=radius) {
+               *source=-(gint)i-1;*channel=p;*mixer=TRUE;return TRUE;
+            }
+         }
+      }
+      if(!graph_missing_since[i] &&
+         g_str_has_prefix(graph_snapshot->nodes[i].id,"control.")) {
+         double px=routing_node_x(&graph_snapshot->nodes[i])+RR_GTK_GRAPH_NODE_W;
+         double py=routing_node_y(&graph_snapshot->nodes[i])+68.;
+         if(hypot(x-px,y-py)<=radius) {
+            *source=(gint)i;*channel=0;*mixer=FALSE;return TRUE;
+         }
+         continue;
+      }
       if (graph_snapshot->nodes[i].type != RR_AG_SOURCE) {
          continue;
       }
@@ -7582,7 +7640,23 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
    gboolean hit = graph_pointer(event->x, event->y, &gx, &gy) && routing_drag_target(gx, gy, &source_index, &snap_x, &snap_y);
 
    if (graph_drag_moved && hit && source_index >= 0) {
-      if (graph_drag_tx_mix) {
+      if(graph_drag_numeric_target>=0) {
+         const rr_ag_view_node_t *control=&graph_snapshot->nodes[source_index];
+         const rr_ag_view_node_t *target=&graph_snapshot->nodes[graph_drag_numeric_target];
+         unsigned slot=0;
+         if(g_str_has_prefix(control->id,"control.") &&
+            sscanf(target->id,"osc.%u",&slot)==1 &&
+            slot>=1 && slot<=RR_AUDIO_OSC_MAX) {
+            rr_audio_osc_control_request_t request={.action='B',.slot=slot};
+            g_strlcpy(request.source,control->id,sizeof(request.source));
+            g_strlcpy(request.property,
+                graph_drag_numeric_property==0?"frequency":
+                graph_drag_numeric_property==1?"level":"waveform",
+                sizeof(request.property));
+            audio_request_oscillator_control(&request);
+            routing_queue();
+         }
+      } else if (graph_drag_tx_mix) {
          const rr_ag_view_node_t *src = &graph_snapshot->nodes[source_index];
 
          if(g_str_has_prefix(src->id,"osc.")) {
@@ -7733,6 +7807,7 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
    graph_drag_lv2_dest_channel = 0;
    graph_drag_lv2_source_channel = 0;
    graph_drag_osc_bus[0]=0;
+   graph_drag_numeric_target=-1;
    graph_drag_mixer = graph_drag_moved = FALSE;
    graph_canvas_update_size();
 
