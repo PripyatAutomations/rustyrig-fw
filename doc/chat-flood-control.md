@@ -43,3 +43,5 @@ The client queue retains each message's original server and destination. Message
 Defaults are intentionally conservative to suit everyday chat, while preventing paste floods. Keep the client burst at or below the server burst for normal users. Inspect `ws.chat` warnings when diagnosing server shuns. Since independent IRC networks set their own limits, lower the client rate for stricter networks.
 
 Changes to config should be picked up when the relevant process reloads the updated configuration; restarting the client or server ensures that default and runtime values are refreshed.
+
+Artwork playback explicitly requests caller-managed pacing (script interval 0). Its sustained and burst settings replace the ordinary client token bucket for those messages only. The bounded queue and destination validation remain in effect. Server flood limits still apply.
