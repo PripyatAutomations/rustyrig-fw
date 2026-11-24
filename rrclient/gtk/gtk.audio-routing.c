@@ -2096,7 +2096,8 @@ static gboolean routing_drag_target(double x, double y, gint *source_index, doub
 static gboolean routing_gain_supported(const rr_ag_view_node_t *n) {
    /* Modem RX/TX and rig TX ports do not have controllable mixer faders. In particular, showing +/- dB on a modem sink implies a working gain stage that does
     * not exist. */
-   if (g_str_has_prefix(n->id,"osc."))return FALSE;
+   if (g_str_has_prefix(n->id,"osc.") ||
+       g_str_has_prefix(n->id,"control."))return FALSE;
    if (g_str_has_prefix(n->id, "modem") || !strcmp(n->id, "rig.sink") || (g_str_has_prefix(n->id, "rig.") && g_str_has_suffix(n->id, ".tx"))) {
       return FALSE;
    }
@@ -2188,7 +2189,11 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
       routing_rate_label(n->rate_hz, input, sizeof(input));
       routing_rate_label(n->downstream_rate_hz, output, sizeof(output));
 
-      if (n->rate_hz && n->downstream_rate_hz && n->resampling) {
+      if(g_str_has_prefix(n->id,"control.")) {
+         g_strlcpy(format_details[i],"Numeric signal",sizeof(format_details[i]));
+      } else if(g_str_has_prefix(n->id,"osc.")) {
+         g_strlcpy(format_details[i],"16 / 44.1 / 48 kHz",sizeof(format_details[i]));
+      } else if (n->rate_hz && n->downstream_rate_hz && n->resampling) {
          g_snprintf(format_details[i], sizeof(format_details[i]), "%s -> %s%s", input, output, n->rate_requested ? " requested" : " SRC");
       } else if (n->rate_hz) {
          g_snprintf(format_details[i], sizeof(format_details[i]), "%s %s%s", input, n->channels == 2 ? "stereo" : "mono", n->rate_requested ? " requested" : "")
@@ -2197,7 +2202,9 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
          g_strlcpy(format_details[i], "PCM format unknown", sizeof(format_details[i]));
       }
 
-      if (source && !n->read_only) {
+      if (source && !n->read_only &&
+          !g_str_has_prefix(n->id,"control.") &&
+          !g_str_has_prefix(n->id,"osc.")) {
          /* A mono RX stream is fanned out to two independently routable mixer ears. Show two destination pins, not a fake mono socket next to two unrelated
           * gain controls. */
          char *summary = g_strdup_printf("%s | %s%s", route, format_details[i], n->channels == 1 ? " -> L/R" : "");
@@ -2885,7 +2892,8 @@ static gboolean routing_common_block_menu(GdkEventButton *event, double x, doubl
          continue;
       }
       GtkWidget *menu = gtk_menu_new();
-      routing_block_menu_items(menu, n->id, n->type == RR_AG_SOURCE && !n->read_only);
+      routing_block_menu_items(menu,n->id,n->type==RR_AG_SOURCE &&
+         !n->read_only && !g_str_has_prefix(n->id,"control."));
       if(g_str_has_prefix(n->id,"osc.")) {
          unsigned slot=0;
          if(sscanf(n->id,"osc.%u",&slot)==1 && slot>=1 && slot<=RR_AUDIO_OSC_MAX) {
