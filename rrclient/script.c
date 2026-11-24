@@ -112,8 +112,8 @@ static rrs_value_t *native_script_chat(rrs_vm_t *vm,int argc,
       }
       double ms=rrs_value_type(argv[3])==RRS_INT?
          (double)rrs_value_int(argv[3]):rrs_value_float(argv[3]);
-      if(!isfinite(ms)||ms<100||ms>10000) {
-         rrs_vm_raise(vm,"Chat interval must be 100..10000 ms");
+      if(!isfinite(ms)||(ms!=0&&ms<100)||ms>10000) {
+         rrs_vm_raise(vm,"Chat interval must be zero (caller-paced) or 100..10000 ms");
          g_free(full_tag);return NULL;
       }
       interval_ms=(guint)ms;
