@@ -42,8 +42,10 @@ const char *rr_audio_graph_listen_bus(unsigned downstream_rate_hz,
 /* Resolve one selected input; NULL means muted/no usable route. The BYPASS input is only selected when the normal source is FAILED, never mixed with it. */
 const char *rr_audio_graph_input(const rr_audio_graph_t *graph, const char *dst);
 /* Value-copy topology for frontends. Indices are local to each snapshot. */
-#define RR_AUDIO_GRAPH_MAX_NODES 64
-#define RR_AUDIO_GRAPH_MAX_LINKS 96
+/* The eight native oscillator blocks and their per-port fan-out extend
+ * existing RX/modem/LV2 inventories; reserve bounded room for both. */
+#define RR_AUDIO_GRAPH_MAX_NODES 96
+#define RR_AUDIO_GRAPH_MAX_LINKS 192
 #define RRCLIENT_AUDIO_GRAPH_RESULT "client.audio.graph.result"
 typedef struct {
    char id[64];
