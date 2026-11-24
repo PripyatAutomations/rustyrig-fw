@@ -279,24 +279,48 @@ static void admin_user_edit(rrconn_t *client, dict *request) {
 
       return;
    }
+   /* Validate only supplied fields; unchanged legacy account data must not
+    * prevent a partial edit. Authorization checks above remain mandatory. */
+   const char *error = NULL;
    char *end;
-   errno = 0;
-   long maximum = strtol(sessions, &end, 10);
-   bool valid = *sessions && !*end && !errno && maximum >= 1 && maximum <= HTTP_MAX_SESSIONS;
-   errno = 0;
-   long long expires = *expiry ? strtoll(expiry, &end, 10) : 0;
-   valid = valid && (!*expiry || (!*end && !errno && expires >= 0));
-   valid = valid && strlen(email) <= USER_EMAIL_LEN && !strchr(email, '\n') && !strchr(email, '\r') &&
-      (!strcmp(enabled, "0") || !strcmp(enabled, "1")) && (!strcmp(required, "0") || !strcmp(required, "1")) && rrserver_user_privilege_list_valid(privs, true);
-
-   if (uid == client->user->uid && !strcmp(enabled, "0")) {
-      valid = false;
+   if (dict_get_type(fields, "maxsessions") != VAL_END) {
+      errno = 0;
+      long maximum = strtol(sessions, &end, 10);
+      if (!*sessions || *end || errno || maximum < 1 || maximum > HTTP_MAX_SESSIONS)
+         error = "Invalid maxsessions: must be 1..32";
    }
-
-   if (!valid) {
-      admin_user_error(client, "Invalid account fields or attempted self-lock (sessions must be 1..32; expiry is Unix seconds)");
+   if (!error && dict_get_type(fields, "password_expires") != VAL_END && *expiry) {
+      errno = 0;
+      long long expires = strtoll(expiry, &end, 10);
+      if (*end || errno || expires < 0)
+         error = "Invalid password expiry: enter Unix seconds or leave blank";
+   }
+   if (!error && dict_get_type(fields, "email") != VAL_END &&
+       (strlen(email) > USER_EMAIL_LEN || strchr(email, '\n') || strchr(email, '\r')))
+      error = "Invalid email address";
+   if (!error && dict_get_type(fields, "enabled") != VAL_END) {
+      if (strcmp(enabled, "0") && strcmp(enabled, "1"))
+         error = "Invalid enabled value: expected 0 or 1";
+      else if (uid == client->user->uid && !strcmp(enabled, "0"))
+         error = "Cannot disable your own account";
+   }
+   if (!error && dict_get_type(fields, "password_change_required") != VAL_END &&
+       strcmp(required, "0") && strcmp(required, "1"))
+      error = "Invalid password_change_required: expected 0 or 1";
+   if (!error && dict_get_type(fields, "permissions") != VAL_END) {
+      if (strlen(privs) > USER_PRIV_LEN) {
+         char message[128];
+         snprintf(message, sizeof(message), "Privilege list too long: %zu bytes (maximum %d)", strlen(privs), USER_PRIV_LEN);
+         admin_user_error(client, message);
+         dict_free(fields);
+         return;
+      }
+      if (!rrserver_user_privilege_list_valid(privs, true))
+         error = "Invalid privilege list: use comma-separated privilege names without spaces";
+   }
+   if (error) {
+      admin_user_error(client, error);
       dict_free(fields);
-
       return;
    }
    const char *rig_option = dict_get(fields, "full_rig_access", NULL);
