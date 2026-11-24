@@ -2686,7 +2686,7 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
       rr_audio_graph_set_health(graph,id,hq_engine?RR_AG_HEALTHY:RR_AG_FAILED);
       rr_audio_graph_set_route(graph,id,cfg->route=='M'?'M':'S');
       if(cfg->route!='M')rr_audio_graph_add_channel_link(graph,id,"hq.mix",
-         RR_AG_NORMAL,cfg->route=='S'?RR_AG_CHANNEL_STEREO:RR_AG_CHANNEL_LEFT);
+         RR_AG_NORMAL,RR_AG_CHANNEL_STEREO);
    }
    /* The playback source is always present, including while stopped. */
    rr_audio_graph_add_node(graph, RECORDING_PLAYBACK_ID, RR_AG_SOURCE);
