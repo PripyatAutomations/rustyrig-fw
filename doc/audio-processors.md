@@ -348,8 +348,10 @@ phase. The audio engine exposes
 `rr_audio_engine_osc_render(engine, slot, iq, frame_count)`, returning
 interleaved signed 16-bit I/Q samples **on demand** without ever mixing the
 signal into a speaker bus. The node's I and Q pins are displayed separately
-in Routing. The backend currently stores these oscillator instances on the
-local HQ audio engine and uses its sample-rate clock for pull requests.
+in Routing. The backend stores these oscillator instances in a **separate, non-running
+16 kHz source bank**, not in either the playback or transmit mixer. Consumers
+pull PCM with an explicit frame count. This avoids coupling modem/DDS work
+to the availability or configuration of the user's sound card.
 
 RustyScript can submit configuration changes without GTK:
 ```c
