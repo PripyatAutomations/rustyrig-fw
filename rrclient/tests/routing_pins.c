@@ -48,6 +48,21 @@ int main(void) {
    assert(rr_routing_pin_matches_link(g,&crossed,5,TRUE,1));
    assert(!rr_routing_pin_matches_link(g,&crossed,5,TRUE,0));
 
+   /* Distinct green numeric ports, including the third waveform input. */
+   strcpy(g->nodes[4].id,"control.ctcss");
+   strcpy(g->nodes[5].id,"osc.1");
+   rr_ag_view_link_t numeric={
+      .src=4,.dst=5,.kind=RR_AG_NUMBER,
+      .channels=RR_AG_CHANNEL_LEFT,
+      .src_channels=RR_AG_CHANNEL_LEFT,
+      .dst_channels=RR_AG_CHANNEL_LEFT,
+      .control_pin=2
+   };
+   assert(rr_routing_pin_matches_link(g,&numeric,4,FALSE,0));
+   assert(!rr_routing_pin_matches_link(g,&numeric,4,FALSE,1));
+   assert(rr_routing_pin_matches_link(g,&numeric,5,TRUE,2));
+   assert(!rr_routing_pin_matches_link(g,&numeric,5,TRUE,1));
+   assert(!rr_routing_pin_matches_link(g,&numeric,5,TRUE,0));
    g_free(g);
    puts("PASS: modem and rig PTT pins remain distinct from audio; stereo mixer pins match");
    return 0;
