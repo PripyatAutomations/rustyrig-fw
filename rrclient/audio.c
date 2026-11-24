@@ -85,6 +85,39 @@ static GSource *rx_maintenance_source;
 static rr_audio_engine_t *rx_engine;   /* 16 kHz legacy radio/AF bus */
 static rr_audio_engine_t *hq_engine;   /* 44.1/48 kHz final playback bus */
 static rr_audio_engine_t *tx_engine;   /* Independent 16 kHz TX PCM mixer */
+
+static rr_audio_osc_config_t oscillator_configs[RR_AUDIO_OSC_MAX];
+/* Core-domain control; oscillator samples are generated on the HQ mix clock. */
+static void audio_osc_request(const rr_event_message_t *message,void *unused) {
+   (void)unused;
+   if(!message || !message->payload || message->length!=sizeof(rr_audio_osc_request_t))return;
+   const rr_audio_osc_request_t *req=message->payload;
+   unsigned slot=req->slot;
+   if(req->action=='A' && !slot)
+      for(unsigned i=0;i<RR_AUDIO_OSC_MAX;i++)
+         if(!oscillator_configs[i].active){slot=i+1;break;}
+   if(slot<1 || slot>RR_AUDIO_OSC_MAX || (req->action!='A' && req->action!='D'))return;
+   rr_audio_osc_config_t cfg=req->config;
+   if(req->action=='D')cfg=(rr_audio_osc_config_t){0};
+   else cfg.active=true;
+   if(!hq_engine || !rr_audio_engine_osc_set(hq_engine,slot,&cfg)) {
+      Log(LOG_WARN,"audio.osc","Oscillator %u rejected: invalid parameters or HQ audio unavailable",slot);
+      return;
+   }
+   oscillator_configs[slot-1]=cfg;
+   char key[80],value[128];
+   g_snprintf(key,sizeof(key),"audio.osc.%u",slot);
+   g_snprintf(value,sizeof(value),"%.8f,%.2f,%u,%c",cfg.frequency_hz,cfg.level_db,cfg.waveform,cfg.route);
+   rrclient_database_setting_set(key,cfg.active?value:"");
+   event_emit("client.audio.route.changed",NULL,NULL);
+}
+void audio_request_oscillator(const rr_audio_osc_request_t *req) {
+   if(!req)return;
+   rr_event_message_t message={.name=RRCLIENT_AUDIO_OSC_REQUEST,
+                               .payload=req,.length=sizeof(*req)};
+   event_emit_message(&message);
+}
+
 static GAsyncQueue *tx_pcm_queue;
 static GSource *tx_drain_source;
 static volatile gint tx_pcm_queued;
