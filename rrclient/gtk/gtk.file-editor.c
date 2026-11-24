@@ -1568,6 +1568,11 @@ backup_finished:
 enum {
    WATCH_ID, WATCH_CALL, WATCH_MODE, WATCH_BAND, WATCH_AUTO, WATCH_WORKED, WATCH_TYPE, WATCH_CQ, WATCH_COLUMNS
 };
+static void watched_global_cq_changed(GtkToggleButton *button,gpointer unused) {
+   (void)unused;
+   rrclient_database_setting_set("watch.cq-only",
+      gtk_toggle_button_get_active(button)?"true":"false");
+}
 static void watched_calls_row(const rrclient_watched_call_t *entry, void *user) {
    GtkListStore *store = user;
    GtkTreeIter row;
@@ -1675,7 +1680,7 @@ static void watched_calls_edit(GtkWidget *button, gpointer user) {
    }
 
    GtkWidget *type=gtk_combo_box_text_new();
-   const char *types[]={"Exact","Wildcard","Regex","Country"};
+   const char *types[]={"Exact","Wildcard","Regex","Country","Continent","CQ zone","ITU zone","Grid"};
    for(unsigned i=0;i<G_N_ELEMENTS(types);i++)
       gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(type),types[i],types[i]);
    gtk_combo_box_set_active_id(GTK_COMBO_BOX(type),old_type?old_type:"Exact");
@@ -1806,6 +1811,13 @@ static GtkWidget *watched_calls_panel(void) {
    gtk_box_pack_start(GTK_BOX(toolbar), add, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(toolbar), edit, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(toolbar), remove, FALSE, FALSE, 0);
+   GtkWidget *global_cq=gtk_check_button_new_with_label("Global CQ only");
+   char *saved_cq=rrclient_database_setting_get("watch.cq-only");
+   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(global_cq),!g_strcmp0(saved_cq,"true"));
+   g_free(saved_cq);
+   g_signal_connect(global_cq,"toggled",G_CALLBACK(watched_global_cq_changed),NULL);
+   gtk_box_pack_end(GTK_BOX(toolbar),global_cq,FALSE,FALSE,0);
+
    g_object_set_data(G_OBJECT(edit), "watch-edit", GINT_TO_POINTER(1));
    g_object_set_data(G_OBJECT(edit), "watch-tree", tree);
    g_signal_connect(add, "clicked", G_CALLBACK(watched_calls_edit), tree);
