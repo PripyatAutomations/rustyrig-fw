@@ -583,12 +583,21 @@ bool rrclient_database_restore_sql(const char *sql, size_t length) {
 }
 
 /* GUI-owned deferred geometry snapshots; copied by ID, never retain widgets. */
-static GHashTable *window_pending;
+static GHashTable *window_pending,*geometry_pending;
 static guint window_save_timer;
 static bool database_window_write(const char *id,const rrclient_window_state_t *state);
 static gboolean database_window_flush(gpointer unused) {
    (void)unused;
    window_save_timer=0;
+   if(geometry_pending) {
+      GHashTable *pending=geometry_pending;
+      geometry_pending=NULL;
+      GHashTableIter settings;gpointer key,value;
+      g_hash_table_iter_init(&settings,pending);
+      while(g_hash_table_iter_next(&settings,&key,&value))
+         if(!rrclient_database_setting_set(key,value))g_warning("Unable to persist geometry: %s",(char*)key);
+      g_hash_table_destroy(pending);
+   }
    if(!window_pending)return G_SOURCE_REMOVE;
    GHashTableIter iter;
    gpointer key,value;
@@ -952,10 +961,23 @@ bool rrclient_database_config_overlay(void) {
 }
 
 /* Small persistent preferences; values are owned by the caller. */
+bool rrclient_database_setting_defer(const char *key,const char *value) {
+   if(!client_db||!key||!*key||!value)return false;
+   if(!geometry_pending)geometry_pending=g_hash_table_new_full(g_str_hash,g_str_equal,g_free,g_free);
+   const char *old=g_hash_table_lookup(geometry_pending,key);
+   if(old && !strcmp(old,value))return true;
+   g_hash_table_replace(geometry_pending,g_strdup(key),g_strdup(value));
+   if(window_save_timer)g_source_remove(window_save_timer);
+   window_save_timer=g_timeout_add(750,database_window_flush,NULL);
+   return true;
+}
+
 char *rrclient_database_setting_get(const char *key) {
    if (!client_db || !key || !*key) {
       return NULL;
    }
+   const char *pending=geometry_pending?g_hash_table_lookup(geometry_pending,key):NULL;
+   if(pending)return g_strdup(pending);
    sqlite3_stmt *stmt = NULL;
    char *value = NULL;
 
