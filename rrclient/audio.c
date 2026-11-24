@@ -3017,6 +3017,15 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
             bit,RR_AG_CHANNEL_STEREO);
       }
       rr_audio_graph_set_route(graph,id,mask==3?'S':mask==1?'L':mask==2?'R':'M');
+      for(unsigned input=0;input<3;input++) {
+         const char *source=osc_control_bindings[i][input];
+         if(!*source)continue;
+         rr_audio_graph_add_node(graph,source,RR_AG_SOURCE);
+         rr_osc_numeric_t *numeric=audio_osc_numeric_slot(source,FALSE);
+         rr_audio_graph_set_health(graph,source,
+            numeric && numeric->valid?RR_AG_HEALTHY:RR_AG_STOPPED);
+         rr_audio_graph_add_numeric_link(graph,source,id,input);
+      }
    }
    /* The playback source is always present, including while stopped. */
    rr_audio_graph_add_node(graph, RECORDING_PLAYBACK_ID, RR_AG_SOURCE);
@@ -3345,6 +3354,15 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
             continue;
          }
 
+         if(g_str_has_prefix(node->id,"control.")) {
+            node->channels=1; /* one numeric output, not PCM */
+            node->sample_format=0;
+            node->read_only=FALSE;
+            rr_osc_numeric_t *source=audio_osc_numeric_slot(node->id,FALSE);
+            g_snprintf(node->rig,sizeof(node->rig),"Numeric control: %s",
+                source && source->valid?"Live value":"Awaiting value");
+            continue;
+         }
          if (g_str_has_prefix(node->id,"osc.")) {
             unsigned slot=0;
             if(sscanf(node->id,"osc.%u",&slot)==1 && slot>=1 && slot<=RR_AUDIO_OSC_MAX) {
