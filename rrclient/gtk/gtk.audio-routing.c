@@ -6199,6 +6199,13 @@ static void routing_wire_remove(GtkMenuItem *item, gpointer unused) {
 }
 
 /* Reuse stable-ID disconnect operations for audio/boolean port fan-out. */
+static gint routing_source_pin_for_link(const rr_ag_view_link_t *link,gint clicked) {
+   if(!link || !graph_snapshot || link->src>=graph_snapshot->node_count)
+      return clicked;
+   if(g_str_has_prefix(graph_snapshot->nodes[link->src].id,"osc."))
+      return link->src_channels&RR_AG_CHANNEL_RIGHT?1:0;
+   return clicked;
+}
 static gboolean routing_audio_pin_disconnect(gint hit_source,gint channel,
                                              gboolean mixer,GdkEventButton *event) {
    if(!graph_snapshot || channel<0)return FALSE;
@@ -6218,7 +6225,8 @@ static gboolean routing_audio_pin_disconnect(gint hit_source,gint channel,
    }
    if(!count)return FALSE;
    if(count==1)return routing_disconnect_link(first,
-      graph_snapshot->links[first].kind==RR_AG_CONTROL ? 0 : channel);
+      graph_snapshot->links[first].kind==RR_AG_CONTROL ? 0 :
+      routing_source_pin_for_link(&graph_snapshot->links[first],channel));
    GtkWidget *menu=gtk_menu_new();
    for(guint i=0;i<graph_snapshot->link_count;i++) {
       const rr_ag_view_link_t *link=&graph_snapshot->links[i];
@@ -6236,7 +6244,8 @@ static gboolean routing_audio_pin_disconnect(gint hit_source,gint channel,
       g_object_set_data_full(G_OBJECT(item),"rr-wire-from",g_strdup(from),g_free);
       g_object_set_data_full(G_OBJECT(item),"rr-wire-to",g_strdup(to),g_free);
       g_object_set_data(G_OBJECT(item),"rr-wire-channel",
-         GINT_TO_POINTER(link->kind==RR_AG_CONTROL ? 0 : channel));
+         GINT_TO_POINTER(link->kind==RR_AG_CONTROL ? 0 :
+         routing_source_pin_for_link(link,channel)));
       g_object_set_data(G_OBJECT(item),"rr-wire-kind",GINT_TO_POINTER(link->kind));
       g_signal_connect(item,"activate",G_CALLBACK(routing_wire_remove),NULL);
       gtk_menu_shell_append(GTK_MENU_SHELL(menu),item);
