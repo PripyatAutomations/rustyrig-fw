@@ -86,7 +86,7 @@ Also inspect:
 ```sh
 dpkg-deb --contents ../rustyrig-*.deb
 dpkg-deb --info ../rustyrig-*.deb
-readelf -d debian/librrprotocol/usr/lib/*/librrprotocol.so.0 | grep SONAME
+readelf -d debian/librrprotocol/usr/lib/*/librrprotocol.so.1 | grep SONAME
 ```
 
 Test installation and removal on **Debian stable/testing and Devuan**,
