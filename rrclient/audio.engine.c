@@ -348,27 +348,17 @@ bool rr_audio_engine_osc_set(rr_audio_engine_t *e,unsigned slot,
  * chooses when/how many frames to request and where to connect the I/Q pins.
  * Returning interleaved I,Q allows independent downstream audio connections.
  */
-bool rr_audio_engine_osc_render_rate(rr_audio_engine_t *e,unsigned slot,
-                                uint32_t rate_hz,int16_t *iq,size_t frames) {
-   /* A consumer chooses the native clock. Do not change phase on rejection.
-    * A single graph scheduler must render once and fan out to any listeners. */
-   if(!e || !iq || !frames || frames>4096 || slot<1 || slot>RR_AUDIO_OSC_MAX ||
-      (rate_hz!=16000 && rate_hz!=44100 && rate_hz!=48000))return false;
-   g_mutex_lock(&e->lock);
-   oscillator_t *osc=&e->oscillators[slot-1];
-   const rr_audio_osc_config_t cfg=osc->config;
-   if(!cfg.active || cfg.frequency_hz>=rate_hz*.45) {
-      g_mutex_unlock(&e->lock);
-      return false;
-   }
-   double phase=osc->phase;
-   const double step=cfg.frequency_hz/(double)rate_hz;
-   const double amplitude=32767.*pow(10.,cfg.level_db/20.);
+/* Generate a time interval from an immutable starting phase.  Multiple
+ * sinks share the same oscillator timeline, never duplicate its advancement. */
+static void osc_render_samples(const rr_audio_osc_config_t *cfg,double phase,
+                               uint32_t rate,int16_t *iq,size_t frames) {
+   const double step=cfg->frequency_hz/(double)rate;
+   const double amplitude=32767.*pow(10.,cfg->level_db/20.);
    for(size_t j=0;j<frames;j++) {
       double qphase=phase+.25;
       if(qphase>=1.)qphase-=1.;
       double in,quad;
-      switch(cfg.waveform) {
+      switch(cfg->waveform) {
       case 1:in=phase<.5?1.:-1.;quad=qphase<.5?1.:-1.;break;
       case 2:in=1.-4.*fabs(phase-.5);quad=1.-4.*fabs(qphase-.5);break;
       case 3:in=2.*phase-1.;quad=2.*qphase-1.;break;
@@ -379,7 +369,40 @@ bool rr_audio_engine_osc_render_rate(rr_audio_engine_t *e,unsigned slot,
       phase+=step;
       if(phase>=1.)phase-=floor(phase);
    }
-   osc->phase=phase;
+}
+bool rr_audio_engine_osc_render_rate(rr_audio_engine_t *e,unsigned slot,
+                                     uint32_t rate_hz,int16_t *iq,size_t frames) {
+   if(!e || !iq || !frames || frames>4096 || slot<1 || slot>RR_AUDIO_OSC_MAX ||
+      (rate_hz!=16000 && rate_hz!=44100 && rate_hz!=48000))return false;
+   g_mutex_lock(&e->lock);
+   oscillator_t *osc=&e->oscillators[slot-1];
+   const rr_audio_osc_config_t cfg=osc->config;
+   if(!cfg.active || cfg.frequency_hz>=rate_hz*.45) {
+      g_mutex_unlock(&e->lock);
+      return false;
+   }
+   osc_render_samples(&cfg,osc->phase,rate_hz,iq,frames);
+   osc->phase=fmod(osc->phase+cfg.frequency_hz*((double)frames/(double)rate_hz),1.);
+   g_mutex_unlock(&e->lock);
+   return true;
+}
+/* One 20-ms phase interval for both 16k and HQ destinations. */
+bool rr_audio_engine_osc_render_dual(rr_audio_engine_t *e,unsigned slot,
+                                    int16_t *low,int16_t *high,uint32_t high_rate) {
+   if(!e || slot<1 || slot>RR_AUDIO_OSC_MAX || (!low && !high) ||
+      (high && high_rate!=44100 && high_rate!=48000))return false;
+   g_mutex_lock(&e->lock);
+   oscillator_t *osc=&e->oscillators[slot-1];
+   const rr_audio_osc_config_t cfg=osc->config;
+   if(!cfg.active || (low && cfg.frequency_hz>=16000.*.45) ||
+      (high && cfg.frequency_hz>=high_rate*.45)) {
+      g_mutex_unlock(&e->lock);
+      return false;
+   }
+   const double phase=osc->phase;
+   if(low)osc_render_samples(&cfg,phase,16000,low,320);
+   if(high)osc_render_samples(&cfg,phase,high_rate,high,high_rate/50);
+   osc->phase=fmod(phase+cfg.frequency_hz*.020,1.);
    g_mutex_unlock(&e->lock);
    return true;
 }
