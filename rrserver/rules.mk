@@ -175,7 +175,7 @@ RRSERVER_SCRIPT_LIBS := $(shell pkg-config --libs librustyscript)
 rrserver-rustyscript-link-check:
 	@printf '%s\n' 'extern void *rrs_vm_new(void); int main(void) { return !rrs_vm_new(); }' | \
 	   $(CC) $(CFLAGS) -x c - -x none $(RRSERVER_SCRIPT_LIBS) $(LDFLAGS) -o /dev/null || { \
-	   echo 'ERROR: librustyscript runtime link failed; reinstall rebuilt librustyscript0 and librustyscript-dev'; \
+	   echo 'ERROR: librustyscript runtime link failed; reinstall rebuilt librustyscript1 and librustyscript-dev'; \
 	   echo 'pkg-config libs:'; pkg-config --libs librustyscript; exit 1; }
 bin/rrserver: rrserver-rustyscript-link-check
 ${BUILD_DIR}/rrserver/rrscript/host.o: rrscript/host.c inc/rrscript/host.h ${BUILD_HEADERS}
