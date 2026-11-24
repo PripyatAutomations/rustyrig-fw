@@ -366,14 +366,17 @@ void rr_audio_engine_free(rr_audio_engine_t *e) {
 
 bool rr_audio_engine_osc_set(rr_audio_engine_t *e,unsigned slot,
                              const rr_audio_osc_config_t *cfg) {
-   if(!e || !cfg || slot<1 || slot>RR_AUDIO_OSC_MAX ||
+   if(!e || !cfg || slot<1 || slot>RR_AUDIO_OSC_MAX)return false;
+   /* Deleting a generator may supply a zeroed configuration. */
+   if(cfg->active && (
       !isfinite(cfg->frequency_hz) || cfg->frequency_hz<0. ||
       cfg->frequency_hz>=e->sample_rate_hz*.45 ||
       !isfinite(cfg->level_db) || cfg->level_db < -90. ||
       cfg->level_db>0. || cfg->waveform>3 ||
-      !strchr("MIQS",cfg->route) || !cfg->route)return false;
+      !strchr("MIQS",cfg->route) || !cfg->route))return false;
    g_mutex_lock(&e->lock);
    e->oscillators[slot-1].config=*cfg;
+   if(!cfg->active)e->oscillators[slot-1].phase=0.;
    g_mutex_unlock(&e->lock);
    return true;
 }
