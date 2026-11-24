@@ -88,7 +88,7 @@ static rr_audio_engine_t *osc_engine;  /* Independent 16 kHz DSP source bank (no
 static rr_audio_engine_t *tx_engine;   /* Independent 16 kHz TX PCM mixer */
 
 static rr_audio_osc_config_t oscillator_configs[RR_AUDIO_OSC_MAX];
-/* Core-domain control; oscillator samples are generated on the HQ mix clock. */
+/* Core-domain control of a disconnected, pull-driven native DSP source. */
 static void audio_osc_request(const rr_event_message_t *message,void *unused) {
    (void)unused;
    if(!message || !message->payload || message->length!=sizeof(rr_audio_osc_request_t))return;
