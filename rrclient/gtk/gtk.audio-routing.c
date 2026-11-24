@@ -1867,7 +1867,7 @@ static gboolean routing_same_source(const char *node_id, const char *real_id) {
    return actual && !strcmp(actual, real_id);
 }
 
-static void routing_modem_connect(unsigned slot, const char *source) {
+static void routing_modem_connect(unsigned slot, const char *source,unsigned pin) {
    const char *actual = routing_real_source(source);
 
    if (!actual) {
@@ -1876,7 +1876,9 @@ static void routing_modem_connect(unsigned slot, const char *source) {
    rr_local_modem_request_t req = {
       .action = RR_LOCAL_MODEM_ROUTE, .slot = slot
    };
-   g_strlcpy(req.source, actual, sizeof(req.source));
+   if(g_str_has_prefix(actual,"osc."))
+      g_snprintf(req.source,sizeof(req.source),"%s.%c",actual,pin?'Q':'I');
+   else g_strlcpy(req.source,actual,sizeof(req.source));
    rr_local_modem_request(&req);
    routing_queue();
 }
@@ -5973,6 +5975,17 @@ static void graph_set_channel(guint source, gint channel, gboolean connect) {
    if (node->read_only) {
       return;
    }
+   if(g_str_has_prefix(node->id,"osc.")) {
+      unsigned slot=0;char tail=0;
+      if(sscanf(node->id,"osc.%u%c",&slot,&tail)==1 && slot>=1 && slot<=RR_AUDIO_OSC_MAX) {
+         rr_audio_osc_request_t req={.action=connect?'C':'U',
+                                    .slot=slot,.port=(unsigned)!!channel};
+         g_strlcpy(req.target,connect?"rx.mix":"all",sizeof(req.target));
+         audio_request_oscillator(&req);
+         routing_queue();
+      }
+      return;
+   }
    unsigned bit = channel ? RR_AG_CHANNEL_RIGHT : RR_AG_CHANNEL_LEFT;
    unsigned mask = graph_route_mask(node->route);
    mask = connect ? mask | bit : mask & ~bit;
@@ -7470,7 +7483,15 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
       if (graph_drag_tx_mix) {
          const rr_ag_view_node_t *src = &graph_snapshot->nodes[source_index];
 
-         if (!strcmp(src->id, "src.client.dsp0")) {
+         if(g_str_has_prefix(src->id,"osc.")) {
+            unsigned slot=0;
+            if(sscanf(src->id,"osc.%u",&slot)==1 && slot>0 && slot<=RR_AUDIO_OSC_MAX) {
+               rr_audio_osc_request_t req={.action='C',.slot=slot,
+                     .port=(unsigned)graph_drag_channel};
+               g_strlcpy(req.target,"tx.mix",sizeof(req.target));
+               audio_request_oscillator(&req);
+            }
+         } else if (!strcmp(src->id, "src.client.dsp0")) {
             audio_request_mic_tx_channel((unsigned)graph_drag_tx_mix_channel, true);
          } else {
             unsigned slot = 0;
@@ -7496,7 +7517,10 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
             req.output = graph_drag_lv2_dest_channel ? 'R' : 'L';
          } else {
             const rr_ag_view_node_t *origin = &graph_snapshot->nodes[source_index];
-            if (g_str_has_prefix(origin->id, "proc.lv2.") && origin->channels == 2) {
+            if(g_str_has_prefix(origin->id,"osc.")) {
+               g_snprintf(req.source,sizeof(req.source),"%s.%c",origin->id,
+                  graph_drag_lv2_source_channel?'Q':'I');
+            } else if (g_str_has_prefix(origin->id, "proc.lv2.") && origin->channels == 2) {
                g_snprintf(req.source, sizeof(req.source), "%s.%c", origin->id,
                   graph_drag_lv2_source_channel ? 'R' : 'L');
             } else {
@@ -7580,9 +7604,21 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
             }
          }
       } else if (graph_drag_modem_target > 0) {
-         routing_modem_connect((unsigned)graph_drag_modem_target, graph_snapshot->nodes[source_index].id);
+         routing_modem_connect((unsigned)graph_drag_modem_target,
+            graph_snapshot->nodes[source_index].id,
+            (unsigned)(graph_drag_channel>=0?graph_drag_channel:0));
       } else {
-         graph_set_channel((guint) source_index, graph_drag_channel, TRUE);
+         const rr_ag_view_node_t *src=&graph_snapshot->nodes[source_index];
+         if(g_str_has_prefix(src->id,"osc.") && graph_drag_osc_bus[0]) {
+            unsigned slot=0;
+            if(sscanf(src->id,"osc.%u",&slot)==1 && slot>0 && slot<=RR_AUDIO_OSC_MAX) {
+               rr_audio_osc_request_t req={.action='C',.slot=slot,
+                     .port=(unsigned)graph_drag_channel};
+               g_strlcpy(req.target,graph_drag_osc_bus,sizeof(req.target));
+               audio_request_oscillator(&req);
+               routing_queue();
+            }
+         } else graph_set_channel((guint) source_index,graph_drag_channel,TRUE);
       }
    }
    /* Plain taps do not connect/disconnect. Double-click is reserved for removal. */
@@ -7594,6 +7630,7 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
    graph_drag_lv2_output = FALSE;
    graph_drag_lv2_dest_channel = 0;
    graph_drag_lv2_source_channel = 0;
+   graph_drag_osc_bus[0]=0;
    graph_drag_mixer = graph_drag_moved = FALSE;
    graph_canvas_update_size();
 
