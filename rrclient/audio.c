@@ -3015,11 +3015,14 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
             unsigned slot=0;
             if(sscanf(node->id,"osc.%u",&slot)==1 && slot>=1 && slot<=RR_AUDIO_OSC_MAX) {
                const rr_audio_osc_config_t *cfg=&oscillator_configs[slot-1];
-               node->rate_hz=node->downstream_rate_hz=rr_audio_engine_sample_rate(osc_engine);
+               /* Unconnected source: actual PCM rate is chosen by the consumer,
+                * not the oscillator bank's internal/default clock. */
+               node->rate_hz=0;
+               node->downstream_rate_hz=0;
                node->channels=2;
                node->sample_format=RR_PCM_S16LE;
                node->read_only=TRUE; /* Configuration handled by native oscillator dialog. */
-               g_snprintf(node->rig,sizeof(node->rig),"Native I/Q oscillator %u: %.1f Hz, %.1f dB (I=sin Q=cos)",slot,cfg->frequency_hz,cfg->level_db);
+               g_snprintf(node->rig,sizeof(node->rig),"Native I/Q oscillator %u: %.1f Hz, %.1f dB (16/44.1/48k)",slot,cfg->frequency_hz,cfg->level_db);
             }
             continue;
          }
