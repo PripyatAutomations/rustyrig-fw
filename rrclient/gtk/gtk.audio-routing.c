@@ -6279,8 +6279,9 @@ static void routing_wire_remove(GtkMenuItem *item, gpointer unused) {
 
       if (link->src >= graph_snapshot->node_count ||
          link->dst >= graph_snapshot->node_count || link->kind != kind ||
-         (link->kind != RR_AG_CONTROL &&
-         !(link->channels & (ch ? RR_AG_CHANNEL_RIGHT : RR_AG_CHANNEL_LEFT))) ||
+         (link->kind == RR_AG_NUMBER ? ch!=link->control_pin :
+          link->kind != RR_AG_CONTROL &&
+          !(link->channels & (ch ? RR_AG_CHANNEL_RIGHT : RR_AG_CHANNEL_LEFT))) ||
          strcmp(from, graph_snapshot->nodes[link->src].id) || strcmp(to, graph_snapshot->nodes[link->dst].id)) {
          continue;
       }
@@ -6332,6 +6333,8 @@ static gboolean routing_audio_pin_disconnect(gint hit_source,gint channel,
       const char *from=graph_snapshot->nodes[link->src].id;
       const char *to=graph_snapshot->nodes[link->dst].id;
       gchar *name=g_strdup_printf("%s → %s (%s)",from,to,
+         link->kind==RR_AG_NUMBER?
+             (link->control_pin==0?"Frequency":link->control_pin==1?"Level":"Waveform") :
          link->kind==RR_AG_CONTROL?"Boolean":channel?"R":"L");
       GtkWidget *item=gtk_menu_item_new_with_label(name);
       g_free(name);
