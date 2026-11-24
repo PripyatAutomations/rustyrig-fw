@@ -334,67 +334,54 @@ and AF analysis remain tapped from the 16 kHz bus; full-HQ recording is a
 separate follow-up.
 
 
-## Native I/Q oscillator (experimental)
+## Native I/Q oscillator
 
-Routing → Add → **Oscillator (I/Q)…** creates/edits up to eight persistent
-local oscillators (`osc.1` through `osc.8`). Right-click an existing
-block to configure it. Settings are frequency, level (dBFS), and waveform
-(sine, square, triangle, sawtooth). New sources are **unconnected** at
-1200 Hz / -18 dBFS. Remove deletes the selected generator.
+Routing → Add → **Oscillator (I/Q)…** creates and edits eight persistent
+local oscillator slots (`osc.1`…`osc.8`). Right-click any oscillator block
+to configure/remove it. Each has an **I** output (sine phase) and a **Q**
+output (cosine phase), driven by one continuous phase accumulator. Other
+waveform shapes include square, triangle and sawtooth; these are currently
+not band-limited, so sine is preferred for clean tones and FSK.
 
-The native DSP oscillator shares one continuous phase accumulator for its
-I and Q channels: I=sin(phase), Q=cos(phase). Frequency changes preserve
-phase. The audio engine exposes
-`rr_audio_engine_osc_render(engine, slot, iq, frame_count)`, returning
-interleaved signed 16-bit I/Q samples **on demand** without ever mixing the
-signal into a speaker bus. The node's I and Q pins are displayed separately
-in Routing. The backend stores these oscillator instances in a **separate, non-running
-source bank**, not in either the playback or transmit mixer. Each consumer
-requests PCM with an explicit frame count and rate via
-`rr_audio_engine_osc_render_rate(engine, slot, rate, iq, frames)`.
-The supported clock rates are **16, 44.1 and 48 kHz**. This avoids coupling
-modem/DDS work to the user's sound card or unnecessarily resampling a tone.
-The phase accumulator is independent of the selected rendering rate, and
-a frequency too high for a consumer's clock is rejected (less than 45% of
-the sample rate is required), without advancing phase.
+New oscillators start at 1200 Hz, -18 dBFS, **disconnected**. They never
+connect to a speaker, sound card, rig, or PTT by default. In Routing, drag
+I or Q output pins to a compatible input; the same links can be created
+from RustyScript:
 
-A real routing scheduler must render once per audio time interval and fan
-out the same I/Q buffers to all attached consumers; calling render separately
-for two consumers would advance the same oscillator twice. Consumers with
-different rates require a common graph clock plus a resampling boundary or
-separately time-aligned views, not independent phase advancement.
-
-RustyScript can submit configuration changes without GTK:
 ```c
-routing.block.create("oscillator", 1, 1200, -18, "sine")
-routing.block.set("osc.1", "frequency", 1300)
-routing.block.set("osc.1", "level", -24)
+routing.block.create("oscillator", 1, 136.5, -18, "sine")
+routing.connect("osc.1.I", "tx.mix")           // CTCSS-style TX injection, never keys PTT
+routing.connect("osc.1.Q", "proc.lv2.1.in.L")  // Feed an existing LV2 effect
+routing.connect("osc.1.I", "modem1.rx")        // Feed an existing decoder
+routing.block.set("osc.1", "frequency", 123.0)
+routing.disconnect("osc.1.I", "tx.mix")
 routing.block.remove("osc.1")
 ```
 
-The initial graph node is a **source skeleton**, not yet wired to arbitrary
-DSP targets. Consumers can use the native pull interface, but a typed graph
-connect/disconnect API, per-port routing and a consumer-driven render clock
-still need integration. In particular, adding this block does not transmit,
-key PTT, or produce audible audio. Do not model CTCSS or a modem by mixing
-this source directly into the playback endpoint.
+**Destination types:** `rx.mix` (16 kHz playback), `tx.mix` (16 kHz
+TX bus, still subject to TX interlocks/PTT), `hq.mix` (configured 44.1 or
+48 kHz playback), `proc.lv2.N.in.L`/`.R` (16 kHz DSP processor), and
+`modemN.rx` (16 kHz local modem RX). A single pin can attach to **one
+mixer bus at a time**, plus any explicitly configured LV2/modem inputs.
+`routing.disconnect("osc.1.I","all")` removes every consumer of one pin.
+Only existing and available processors/decoders accept connections.
 
-The square/saw/triangle waveforms are not band-limited and can alias. Sine
-is the appropriate starting waveform for clean 4FSK audio.
+The oscillator runs in a separate, non-running source bank independent of
+the sound card, with native on-demand interleaved I/Q S16 output. The
+producer dispatches 20 ms blocks **only when a destination is attached**.
+It can generate 16 kHz and 44.1/48 kHz views of the same interval with one
+phase advancement using
+`rr_audio_engine_osc_render_dual(engine, slot, low, high, hq_rate)`;
+the core feeds bounded TX/RX/HQ PCM queues, LV2 workers, and decoder input
+without automatically transmitting. A high-frequency tone invalid at 16 kHz
+(≥7200 Hz) cannot be connected to a 16 kHz sink. Source changes preserve
+phase, and disconnection leaves the generator silent.
 
-### Follow-on routing contract
-
-The graph should use stable source IDs such as `osc.1.I` and
-`osc.1.Q` with separate channel-typed ports. Script-created links should
-be validated by the same core-owned permission and format negotiation code as
-user-created wires: `routing.connect(src, dst)` and
-`routing.disconnect(src, dst)` **are proposed names**, not yet implemented.
-A consumer drives the oscillator at its negotiated sample rate; modems,
-PTT-protected TX mixers, CTCSS generators, and LV2 blocks must not acquire
-different oscillator-specific paths.
-
-Future server-side Si5351/AD9959/etc hardware DDS providers can implement
-the same frequency/phase/enable control object and metadata (while exposing
-their actual hardware output types instead of pretending to emit client PCM).
-Access control, frequency/level bounds, and transmitter interlocks remain
-server-owned for physical devices.
+The current producer uses the **core's 20 ms scheduling timer**. The PCM
+waveform itself has sample-accurate phase, but script-driven frequency
+changes are not yet timestamped to a *sample offset* inside that block;
+a high-speed 4FSK symbol encoder will need sample-timestamped control
+events. Likewise, LV2 input is currently 16 kHz regardless of whether
+the native oscillator could render 44.1/48 kHz. The future server-side
+RF/DDS backend must use explicit hardware output types, authorization and
+TX interlocks rather than pretending RF hardware is a client audio bus.
