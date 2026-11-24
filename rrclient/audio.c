@@ -3941,6 +3941,24 @@ bool audio_init(void) {
    audio_enabled = true;
    gst_active = true;
    audio_lv2_restore();
+   /* Restore only explicitly saved oscillator patches. Unpatched blocks
+    * remain silent, even if they were enabled at the previous shutdown. */
+   for(unsigned slot=1;slot<=RR_AUDIO_OSC_MAX;slot++) {
+      if(!oscillator_configs[slot-1].active)continue;
+      for(unsigned port=0;port<2;port++) {
+         char key[80];
+         g_snprintf(key,sizeof(key),"audio.osc.%u.%c.bus",slot,port?'Q':'I');
+         char *dest=rrclient_database_setting_get(key);
+         if(dest && *dest) {
+            rr_audio_osc_request_t req={.action='C',.slot=slot,.port=port};
+            g_strlcpy(req.target,dest,sizeof(req.target));
+            if(!audio_osc_patch(&req))
+               Log(LOG_WARN,"audio.osc","Could not restore oscillator %u.%c -> %s",
+                   slot,port?'Q':'I',dest);
+         }
+         g_free(dest);
+      }
+   }
    Log(LOG_INFO, "audio", "Client AF buses ready: RX 16 kHz -> HQ %u Hz -> sink.client.dsp0; mic device -> 16 kHz TX", rr_audio_engine_sample_rate(hq_engine));
 
    return false;
