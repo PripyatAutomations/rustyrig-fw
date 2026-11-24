@@ -167,42 +167,6 @@ static void tick(rr_audio_engine_t *e, int16_t *stereo, bool *active) {
       }
    }
 
-   /* DSP sources run on the mix clock: no GLib timer jitter, ring-buffer
-    * underruns, or extra subprocesses. Preserve phase even while muted.
-    * Parameter updates are atomic with respect to the mix block. */
-   for(unsigned slot=0;slot<RR_AUDIO_OSC_MAX;slot++) {
-      oscillator_t *osc=&e->oscillators[slot];
-      const rr_audio_osc_config_t *cfg=&osc->config;
-      if(!cfg->active)continue;
-      double phase=osc->phase;
-      const double step=cfg->frequency_hz/(double)e->sample_rate_hz;
-      const double amplitude=32767.0*pow(10.,cfg->level_db/20.);
-      if(cfg->route!='M')*active=true;
-      for(size_t i=0;i<block;i++) {
-         double qphase=phase+.25;
-         if(qphase>=1.)qphase-=1.;
-         double in=0.,quad=0.;
-         switch(cfg->waveform) {
-         case 1: in=phase<.5?1.:-1.;quad=qphase<.5?1.:-1.;break;
-         case 2: in=1.-4.*fabs(phase-.5);quad=1.-4.*fabs(qphase-.5);break;
-         case 3: in=2.*phase-1.;quad=2.*qphase-1.;break;
-         default: in=sin(2.*G_PI*phase);quad=sin(2.*G_PI*qphase);break;
-         }
-         phase+=step;
-         if(phase>=1.)phase-=floor(phase);
-         if(cfg->route=='M')continue;
-         const int32_t vi=(int32_t)lrint(amplitude*in);
-         const int32_t vq=(int32_t)lrint(amplitude*quad);
-         int32_t l=0,r=0;
-         if(cfg->route=='I')l=r=vi;
-         else if(cfg->route=='Q')l=r=vq;
-         else if(cfg->route=='S'){l=vi;r=vq;}
-         raw_accum[2*i]+=l;raw_accum[2*i+1]+=r;
-         accum[2*i]+=l;accum[2*i+1]+=r;
-      }
-      osc->phase=phase;
-   }
-
    e->stats.blocks++;
    int left = e->gain[0], right = e->gain[1];
    double mix_gain[2] = {
@@ -380,6 +344,40 @@ bool rr_audio_engine_osc_set(rr_audio_engine_t *e,unsigned slot,
    g_mutex_unlock(&e->lock);
    return true;
 }
+/* Pull-based oscillator source: no implicit playback, TX or PTT. A consumer
+ * chooses when/how many frames to request and where to connect the I/Q pins.
+ * Returning interleaved I,Q allows independent downstream audio connections.
+ */
+bool rr_audio_engine_osc_render(rr_audio_engine_t *e,unsigned slot,
+                                int16_t *iq,size_t frames) {
+   if(!e || !iq || !frames || slot<1 || slot>RR_AUDIO_OSC_MAX)return false;
+   g_mutex_lock(&e->lock);
+   oscillator_t *osc=&e->oscillators[slot-1];
+   const rr_audio_osc_config_t cfg=osc->config;
+   if(!cfg.active){g_mutex_unlock(&e->lock);return false;}
+   double phase=osc->phase;
+   const double step=cfg.frequency_hz/(double)e->sample_rate_hz;
+   const double amplitude=32767.*pow(10.,cfg.level_db/20.);
+   for(size_t j=0;j<frames;j++) {
+      double qphase=phase+.25;
+      if(qphase>=1.)qphase-=1.;
+      double in,quad;
+      switch(cfg.waveform) {
+      case 1:in=phase<.5?1.:-1.;quad=qphase<.5?1.:-1.;break;
+      case 2:in=1.-4.*fabs(phase-.5);quad=1.-4.*fabs(qphase-.5);break;
+      case 3:in=2.*phase-1.;quad=2.*qphase-1.;break;
+      default:in=sin(2.*G_PI*phase);quad=sin(2.*G_PI*qphase);break;
+      }
+      iq[2*j]=(int16_t)lrint(amplitude*in);
+      iq[2*j+1]=(int16_t)lrint(amplitude*quad);
+      phase+=step;
+      if(phase>=1.)phase-=floor(phase);
+   }
+   osc->phase=phase;
+   g_mutex_unlock(&e->lock);
+   return true;
+}
+
 bool rr_audio_engine_osc_get(rr_audio_engine_t *e,unsigned slot,
                              rr_audio_osc_config_t *cfg) {
    if(!e || !cfg || slot<1 || slot>RR_AUDIO_OSC_MAX)return false;
