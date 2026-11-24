@@ -2237,6 +2237,7 @@ static gboolean audio_osc_patch(const rr_audio_osc_request_t *req) {
          if(!rr_audio_engine_add_stream(dest,source))return FALSE;
          rr_audio_engine_route(dest,source,'S');
       }
+      if(!connect && bus && old!=bus)return FALSE;
       if(old)rr_audio_engine_remove_stream(audio_osc_bus_engine(old),source);
       osc_bus[slot-1][port]=connect?bus:0;
       char key[80];g_snprintf(key,sizeof(key),"audio.osc.%u.%c.bus",slot,port?'Q':'I');
@@ -3772,6 +3773,8 @@ void audio_request_rx_stream_route(const char *id, char output) {
 }
 
 bool audio_init(void) {
+   memset(osc_bus,0,sizeof(osc_bus));
+   memset(oscillator_configs,0,sizeof(oscillator_configs));
    /* An independent source bank must not depend on speaker playback,
     * audio devices or an active TX pipeline. 16k is the initial modem rate. */
    if(!osc_engine)osc_engine=rr_audio_engine_new(NULL,NULL);
