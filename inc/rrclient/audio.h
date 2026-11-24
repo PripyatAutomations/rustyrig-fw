@@ -47,7 +47,7 @@ void audio_request_oscillator(const rr_audio_osc_request_t *request);
  * property while connected; saved defaults remain unchanged. */
 #define RRCLIENT_AUDIO_OSC_CONTROL_REQUEST "client.audio.osc.control.request"
 typedef struct {
-   char action; /* B bind input, U unbind input, V update numeric source */
+   char action; /* B bind, U unbind, V live value, S save value, D delete source */
    unsigned slot;
    char property[24]; /* frequency, level, waveform */
    char source[64];   /* control source ID (e.g. control.ctcss) */
