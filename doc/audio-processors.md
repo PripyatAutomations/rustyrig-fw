@@ -337,23 +337,51 @@ separate follow-up.
 ## Native I/Q oscillator (experimental)
 
 Routing → Add → **Oscillator (I/Q)…** creates/edits up to eight persistent
-local oscillators (`osc.1` through `osc.8`). Right-click an existing block
-to configure it. Settings: frequency, level in dBFS, waveform (sine, square,
-triangle, sawtooth), and monitor routing. New slots default to **muted**
-at 1200 Hz / -18 dBFS. The Remove action deletes the selected slot.
+local oscillators (`osc.1` through `osc.8`). Right-click an existing
+block to configure it. Settings are frequency, level (dBFS), and waveform
+(sine, square, triangle, sawtooth). New sources are **unconnected** at
+1200 Hz / -18 dBFS. Remove deletes the selected generator.
 
-The oscillator is a native generator inside the 44.1/48 kHz client PCM mixer,
-not an LV2 instance or a separate process. A single continuous phase
-accumulator produces I=sin(phase) and Q=cos(phase), with the alternative
-waveforms calculated from the same phase. Frequency changes preserve phase
-but currently take effect at mixer block boundaries. Its two output pins
-are labeled I and Q. Monitoring choices are muted, I to both ears, Q to
-both ears, and I-left/Q-right. The output also feeds the normal pre-gain
-recording/analysis tap. This first version has **no automatic TX/PTT
-path**, and its output is not yet a general-purpose source for arbitrary
-LV2/modem connections. It is not an RF oscillator.
+The native DSP oscillator shares one continuous phase accumulator for its
+I and Q channels: I=sin(phase), Q=cos(phase). Frequency changes preserve
+phase. The audio engine exposes
+`rr_audio_engine_osc_render(engine, slot, iq, frame_count)`, returning
+interleaved signed 16-bit I/Q samples **on demand** without ever mixing the
+signal into a speaker bus. The node's I and Q pins are displayed separately
+in Routing. The backend currently stores these oscillator instances on the
+local HQ audio engine and uses its sample-rate clock for pull requests.
 
-The non-sinusoidal shapes are currently naive waveforms, **not band-limited**;
-higher frequencies may alias. Use sine for clean FSK audio. Graph-wide
-script construction, symbol-rate frequency-control inputs, and generic
-patching of either output to processors are follow-on work.
+RustyScript can submit configuration changes without GTK:
+```c
+routing.block.create("oscillator", 1, 1200, -18, "sine")
+routing.block.set("osc.1", "frequency", 1300)
+routing.block.set("osc.1", "level", -24)
+routing.block.remove("osc.1")
+```
+
+The initial graph node is a **source skeleton**, not yet wired to arbitrary
+DSP targets. Consumers can use the native pull interface, but a typed graph
+connect/disconnect API, per-port routing and a consumer-driven render clock
+still need integration. In particular, adding this block does not transmit,
+key PTT, or produce audible audio. Do not model CTCSS or a modem by mixing
+this source directly into the playback endpoint.
+
+The square/saw/triangle waveforms are not band-limited and can alias. Sine
+is the appropriate starting waveform for clean 4FSK audio.
+
+### Follow-on routing contract
+
+The graph should use stable source IDs such as `osc.1.I` and
+`osc.1.Q` with separate channel-typed ports. Script-created links should
+be validated by the same core-owned permission and format negotiation code as
+user-created wires: `routing.connect(src, dst)` and
+`routing.disconnect(src, dst)` **are proposed names**, not yet implemented.
+A consumer drives the oscillator at its negotiated sample rate; modems,
+PTT-protected TX mixers, CTCSS generators, and LV2 blocks must not acquire
+different oscillator-specific paths.
+
+Future server-side Si5351/AD9959/etc hardware DDS providers can implement
+the same frequency/phase/enable control object and metadata (while exposing
+their actual hardware output types instead of pretending to emit client PCM).
+Access control, frequency/level bounds, and transmitter interlocks remain
+server-owned for physical devices.
