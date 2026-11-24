@@ -2747,6 +2747,7 @@ static void routing_modem_menu_action(GtkMenuItem *item, gpointer unused) {
 
 static void graph_set_channel(guint source, gint channel, gboolean connect);
 static void routing_add_oscillator(GtkButton *button,gpointer unused);
+static void routing_add_numeric_control(GtkButton *button,gpointer unused);
 /* Shared actions on routing blocks; callbacks retain the stable ID rather than pointers into replaceable snapshots. */
 static void routing_block_action(GtkMenuItem *item, gpointer unused) {
    (void)unused;
@@ -2783,6 +2784,11 @@ static void routing_block_action(GtkMenuItem *item, gpointer unused) {
       return;
    }
 
+   if(action==0 && g_str_has_prefix(id,"control.")) {
+      g_object_set_data_full(G_OBJECT(item),"numeric-id",g_strdup(id),g_free);
+      routing_add_numeric_control((GtkButton*)item,NULL);
+      return;
+   }
    if (action == 0 && g_str_has_prefix(id,"osc.")) {
       unsigned slot=0;char tail=0;
       if(sscanf(id,"osc.%u%c",&slot,&tail)==1 && slot>=1 && slot<=RR_AUDIO_OSC_MAX) {
@@ -6777,6 +6783,69 @@ static void routing_add_oscillator(GtkButton *button,gpointer unused) {
    }
    gtk_widget_destroy(dialog);
 }
+/* Reusable numeric control output, available to oscillator parameter pins.
+ * Saved values are fallback; scripts can replace them live without a GUI. */
+static void routing_add_numeric_control(GtkButton *button,gpointer unused) {
+   (void)unused;
+   const char *old_id=button?
+      g_object_get_data(G_OBJECT(button),"numeric-id"):NULL;
+   GtkWidget *parent=graph_canvas?gtk_widget_get_toplevel(graph_canvas):NULL;
+   GtkWidget *dlg=gtk_dialog_new_with_buttons("Numeric Control Source",
+      GTK_IS_WINDOW(parent)?GTK_WINDOW(parent):NULL,
+      GTK_DIALOG_MODAL|GTK_DIALOG_DESTROY_WITH_PARENT,
+      "_Cancel",GTK_RESPONSE_CANCEL,"_Remove",GTK_RESPONSE_REJECT,
+      "_Save",GTK_RESPONSE_ACCEPT,NULL);
+   GtkWidget *grid=gtk_grid_new();
+   gtk_container_set_border_width(GTK_CONTAINER(grid),12);
+   gtk_grid_set_column_spacing(GTK_GRID(grid),10);
+   gtk_grid_set_row_spacing(GTK_GRID(grid),9);
+   gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dlg))),
+                      grid,TRUE,TRUE,0);
+   GtkWidget *name=gtk_entry_new();
+   GtkWidget *value=gtk_spin_button_new_with_range(-1000000000.,1000000000.,.1);
+   gtk_spin_button_set_digits(GTK_SPIN_BUTTON(value),3);
+   gtk_entry_set_placeholder_text(GTK_ENTRY(name),"control.ctcss");
+   if(old_id) {
+      gtk_entry_set_text(GTK_ENTRY(name),old_id);
+      gtk_editable_set_editable(GTK_EDITABLE(name),FALSE);
+      char key[96];
+      g_snprintf(key,sizeof(key),"audio.control.%s",old_id);
+      char *saved=rrclient_database_setting_get(key);
+      if(saved) {
+         char *end=NULL;
+         double number=g_ascii_strtod(saved,&end);
+         if(end!=saved && !*end && isfinite(number))
+            gtk_spin_button_set_value(GTK_SPIN_BUTTON(value),
+               CLAMP(number,-1000000000.,1000000000.));
+      }
+      g_free(saved);
+   }
+   GtkWidget *label=gtk_label_new("Source ID");
+   gtk_widget_set_halign(label,GTK_ALIGN_START);
+   gtk_grid_attach(GTK_GRID(grid),label,0,0,1,1);
+   gtk_grid_attach(GTK_GRID(grid),name,1,0,1,1);
+   label=gtk_label_new("Value");
+   gtk_widget_set_halign(label,GTK_ALIGN_START);
+   gtk_grid_attach(GTK_GRID(grid),label,0,1,1,1);
+   gtk_grid_attach(GTK_GRID(grid),value,1,1,1,1);
+   label=gtk_label_new("Attach the green VALUE output to an oscillator parameter input.");
+   gtk_label_set_line_wrap(GTK_LABEL(label),TRUE);
+   gtk_grid_attach(GTK_GRID(grid),label,0,2,2,1);
+   gtk_widget_show_all(dlg);
+   int response=gtk_dialog_run(GTK_DIALOG(dlg));
+   if(response==GTK_RESPONSE_ACCEPT || response==GTK_RESPONSE_REJECT) {
+      const char *id=gtk_entry_get_text(GTK_ENTRY(name));
+      if(g_str_has_prefix(id,"control.") && strlen(id)>8 && strlen(id)<64) {
+         rr_audio_osc_control_request_t req={
+            .action=response==GTK_RESPONSE_ACCEPT?'S':'D',
+            .value=gtk_spin_button_get_value(GTK_SPIN_BUTTON(value))
+         };
+         g_strlcpy(req.source,id,sizeof(req.source));
+         audio_request_oscillator_control(&req);
+      }
+   }
+   gtk_widget_destroy(dlg);
+}
 static void routing_canvas_add_action(GtkMenuItem *item,gpointer unused) {
    (void)unused;
    const char *kind=g_object_get_data(G_OBJECT(item),"routing-create");
@@ -6788,6 +6857,8 @@ static void routing_canvas_add_action(GtkMenuItem *item,gpointer unused) {
       routing_add_effect((GtkButton *)item,NULL);
    } else if(!strcmp(kind,"oscillator")) {
       routing_add_oscillator((GtkButton *)item,NULL);
+   } else if(!strcmp(kind,"numeric")) {
+      routing_add_numeric_control((GtkButton *)item,NULL);
    } else if(!strcmp(kind,"modem")) {
       routing_new_modem((GtkButton *)item,NULL);
    } else if(!strcmp(kind,"true") || !strcmp(kind,"false")) {
@@ -6846,6 +6917,7 @@ static GtkWidget *routing_add_menu_items(void) {
    gtk_menu_shell_append(GTK_MENU_SHELL(menu),controls);
    routing_add_subitem(menu,"Effect…","effect");
    routing_add_subitem(menu,"Oscillator (I/Q)…","oscillator");
+   routing_add_subitem(menu,"Numeric Control…","numeric");
    routing_add_subitem(menu,"Modem…","modem");
    GtkWidget *gate_item=gtk_menu_item_new_with_label("Gate");
    GtkWidget *gate_menu=gtk_menu_new();
