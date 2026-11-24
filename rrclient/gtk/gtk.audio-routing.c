@@ -6475,6 +6475,88 @@ static void routing_touch_long_pressed(GtkGestureLongPress *gesture, gdouble x, 
    graph_pan_dragging = FALSE;
 }
 
+/* Native I/Q tone generator. No implicit TX routing, and new blocks start muted. */
+typedef struct {
+   GtkWidget *frequency,*level,*wave,*route;
+} routing_osc_form_t;
+static void routing_osc_load(GtkSpinButton *slot,gpointer data) {
+   routing_osc_form_t *form=data;
+   unsigned index=(unsigned)gtk_spin_button_get_value_as_int(slot);
+   char key[80];
+   g_snprintf(key,sizeof(key),"audio.osc.%u",index);
+   char *saved=rrclient_database_setting_get(key);
+   double hz=1200.,db=-18.;
+   unsigned wave=0;
+   char route='M';
+   if(!saved || sscanf(saved,"%lf,%lf,%u,%c",&hz,&db,&wave,&route)!=4) {
+      hz=1200.;db=-18.;wave=0;route='M';
+   }
+   g_free(saved);
+   gtk_spin_button_set_value(GTK_SPIN_BUTTON(form->frequency),CLAMP(hz,0.,16000.));
+   gtk_spin_button_set_value(GTK_SPIN_BUTTON(form->level),CLAMP(db,-90.,0.));
+   gtk_combo_box_set_active(GTK_COMBO_BOX(form->wave),MIN(wave,3u));
+   const char *routes="MIQS";
+   const char *found=strchr(routes,route);
+   gtk_combo_box_set_active(GTK_COMBO_BOX(form->route),found?(int)(found-routes):0);
+}
+static void routing_add_oscillator(GtkButton *button,gpointer unused) {
+   (void)unused;
+   GtkWidget *parent=graph_canvas?gtk_widget_get_toplevel(graph_canvas):NULL;
+   GtkWidget *dialog=gtk_dialog_new_with_buttons("Native I/Q Oscillator",
+      GTK_IS_WINDOW(parent)?GTK_WINDOW(parent):NULL,
+      GTK_DIALOG_MODAL|GTK_DIALOG_DESTROY_WITH_PARENT,
+      "_Cancel",GTK_RESPONSE_CANCEL,"_Remove",GTK_RESPONSE_REJECT,
+      "_Save",GTK_RESPONSE_ACCEPT,NULL);
+   GtkWidget *grid=gtk_grid_new();
+   gtk_container_set_border_width(GTK_CONTAINER(grid),12);
+   gtk_grid_set_row_spacing(GTK_GRID(grid),8);
+   gtk_grid_set_column_spacing(GTK_GRID(grid),10);
+   gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))),grid,TRUE,TRUE,0);
+   GtkWidget *slot=gtk_spin_button_new_with_range(1,RR_AUDIO_OSC_MAX,1);
+   routing_osc_form_t form={
+      .frequency=gtk_spin_button_new_with_range(0,16000,1),
+      .level=gtk_spin_button_new_with_range(-90,0,.5),
+      .wave=gtk_combo_box_text_new(),
+      .route=gtk_combo_box_text_new()
+   };
+   gtk_spin_button_set_digits(GTK_SPIN_BUTTON(form.frequency),1);
+   gtk_spin_button_set_digits(GTK_SPIN_BUTTON(form.level),1);
+   const char *names[]={"Sine","Square","Triangle","Sawtooth"};
+   for(unsigned i=0;i<G_N_ELEMENTS(names);i++)
+      gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(form.wave),names[i]);
+   const char *routes[]={"Muted (no audio)","I only (both ears)","Q only (both ears)","I left / Q right"};
+   for(unsigned i=0;i<G_N_ELEMENTS(routes);i++)
+      gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(form.route),routes[i]);
+   GtkWidget *widgets[]={slot,form.frequency,form.level,form.wave,form.route};
+   const char *labels[]={"Slot (1–8)","Frequency (Hz)","Level (dBFS)","Waveform","Monitor routing"};
+   for(unsigned i=0;i<G_N_ELEMENTS(widgets);i++) {
+      GtkWidget *label=gtk_label_new(labels[i]);
+      gtk_widget_set_halign(label,GTK_ALIGN_START);
+      gtk_grid_attach(GTK_GRID(grid),label,0,i,1,1);
+      gtk_grid_attach(GTK_GRID(grid),widgets[i],1,i,1,1);
+   }
+   GtkWidget *notice=gtk_label_new("I = sin(phase), Q = cos(phase). No PTT or TX connection.");
+   gtk_grid_attach(GTK_GRID(grid),notice,0,5,2,1);
+   g_signal_connect(slot,"value-changed",G_CALLBACK(routing_osc_load),&form);
+   routing_osc_load(GTK_SPIN_BUTTON(slot),&form);
+   gtk_widget_show_all(dialog);
+   int response=gtk_dialog_run(GTK_DIALOG(dialog));
+   if(response==GTK_RESPONSE_ACCEPT || response==GTK_RESPONSE_REJECT) {
+      rr_audio_osc_request_t req={.action=response==GTK_RESPONSE_ACCEPT?'A':'D',
+         .slot=(unsigned)gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(slot))};
+      if(req.action=='A') {
+         req.config=(rr_audio_osc_config_t){
+            .active=true,
+            .frequency_hz=gtk_spin_button_get_value(GTK_SPIN_BUTTON(form.frequency)),
+            .level_db=gtk_spin_button_get_value(GTK_SPIN_BUTTON(form.level)),
+            .waveform=(unsigned)gtk_combo_box_get_active(GTK_COMBO_BOX(form.wave)),
+            .route="MIQS"[MAX(0,gtk_combo_box_get_active(GTK_COMBO_BOX(form.route)))]
+         };
+      }
+      audio_request_oscillator(&req);
+   }
+   gtk_widget_destroy(dialog);
+}
 static void routing_canvas_add_action(GtkMenuItem *item,gpointer unused) {
    (void)unused;
    const char *kind=g_object_get_data(G_OBJECT(item),"routing-create");
@@ -6484,6 +6566,8 @@ static void routing_canvas_add_action(GtkMenuItem *item,gpointer unused) {
       routing_compact_create((GtkButton *)item,NULL);
    } else if(!strcmp(kind,"effect")) {
       routing_add_effect((GtkButton *)item,NULL);
+   } else if(!strcmp(kind,"oscillator")) {
+      routing_add_oscillator((GtkButton *)item,NULL);
    } else if(!strcmp(kind,"modem")) {
       routing_new_modem((GtkButton *)item,NULL);
    } else if(!strcmp(kind,"true") || !strcmp(kind,"false")) {
@@ -6541,6 +6625,7 @@ static GtkWidget *routing_add_menu_items(void) {
    gtk_menu_item_set_submenu(GTK_MENU_ITEM(controls),control_menu);
    gtk_menu_shell_append(GTK_MENU_SHELL(menu),controls);
    routing_add_subitem(menu,"Effect…","effect");
+   routing_add_subitem(menu,"Oscillator (I/Q)…","oscillator");
    routing_add_subitem(menu,"Modem…","modem");
    GtkWidget *gate_item=gtk_menu_item_new_with_label("Gate");
    GtkWidget *gate_menu=gtk_menu_new();
