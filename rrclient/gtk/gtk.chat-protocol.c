@@ -138,8 +138,6 @@ static void frontend_gtk_chat_protocol_free(gpointer opaque) {
 }
 
 static void frontend_gtk_chat_protocol_capture(const char *event, const char *data, rrconn_t *connection, void *gtk_context) {
-   (void)connection;
-
    if (dying || !data) {
       return;
    }
@@ -158,6 +156,11 @@ static void frontend_gtk_chat_protocol_capture(const char *event, const char *da
    }
    GtkChatProtocol *pending = g_new0(GtkChatProtocol, 1);
    gtk_chat_context_capture(&pending->context, room);
+   if (connection && !connection->is_ws) {
+      pending->context.irc = true;
+      g_free(pending->context.nickname);
+      pending->context.nickname = g_strdup(connection->nick);
+   }
    pending->event = g_strdup(event);
    pending->data = g_strdup(data);
    dict_free(d);
