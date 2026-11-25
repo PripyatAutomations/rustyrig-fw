@@ -77,7 +77,7 @@ endif
 	install -Dm755 bin/rrserver-gpsd.so debian/rustyrig-server-gpsd$(MODULEDIR)/rrserver/rrserver-gpsd.so
 	install -Dm755 bin/rrclient debian/rustyrig-client$(BINDIR)/rrclient
 	install -d debian/rustyrig-client/usr/share/rustyrig/scripts/client/ui
-	install -m644 doc/examples/scripts/ui/*.rrs debian/rustyrig-client/usr/share/rustyrig/scripts/client/ui/
+	install -m644 doc/examples/scripts/ui/*.rrs doc/examples/scripts/ui/default.theme debian/rustyrig-client/usr/share/rustyrig/scripts/client/ui/
 	install -d debian/rustyrig-client$(CONF_DIR)/scripts/client/ui
 	install -Dm644 doc/examples/scripts/ui/README.md debian/rustyrig-client$(CONF_DIR)/scripts/README.md
 	install -Dm755 bin/rrclient-gtk.so debian/rustyrig-client-gtk$(MODULEDIR)/rrclient/rrclient-gtk.so

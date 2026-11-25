@@ -2,6 +2,8 @@
 #include <librustyaxe/core.h>
 #include <librustyui/tui.workspace.h>
 #include <librustyui/tui.h>
+#include <librustyui/theme.h>
+#include <sys/stat.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/ui.h>
 #include <rrclient/ui.layout.h>
@@ -107,7 +109,24 @@ static void refresh(void){
 void rrclient_tui_workspace_refresh(void){
    tui_render_lock();refresh();tui_render_unlock();
 }
+static void load_theme(void){
+   char *paths[]={g_build_filename(g_get_user_config_dir(),"rustyrig","scripts","client","ui","default.theme",NULL),
+      g_strdup("/etc/rustyrig/scripts/client/ui/default.theme"),
+      g_strdup("/usr/share/rustyrig/scripts/client/ui/default.theme")};
+   rrui_theme_t theme;rrui_theme_default(&theme);
+   for(unsigned i=0;i<G_N_ELEMENTS(paths);i++){
+      struct stat st;
+      if(stat(paths[i],&st))continue;
+      if(S_ISREG(st.st_mode)&&st.st_size>=0&&st.st_size<=65536&&rrui_theme_load(&theme,paths[i])){
+         Log(LOG_INFO,"ui.theme","Loaded %s",paths[i]);break;
+      }
+      Log(LOG_WARN,"ui.theme","Rejected %s; trying next location",paths[i]);
+   }
+   for(unsigned i=0;i<G_N_ELEMENTS(paths);i++)g_free(paths[i]);
+   tui_render_lock();rrui_tui_theme_set(&theme);tui_render_unlock();
+}
 void rrclient_tui_workspace_init(void){
+   load_theme();
    const rrclient_ui_required_t users[]={{"roster",RRUI_LIST,false}};
    const rrclient_ui_required_t rig[]={{"readback",RRUI_LABEL,false},{"mode",RRUI_LABEL,false},
       {"frequency",RRUI_ENTRY,false},{"switch",RRUI_BUTTON,false}};

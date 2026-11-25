@@ -81,7 +81,7 @@ install-dev: install-libs
 
 install-assets:
 	install -d "$(DESTDIR)$(UI_SCRIPT_DIR)"
-	install -m644 doc/examples/scripts/ui/*.rrs "$(DESTDIR)$(UI_SCRIPT_DIR)/"
+	install -m644 doc/examples/scripts/ui/*.rrs doc/examples/scripts/ui/default.theme "$(DESTDIR)$(UI_SCRIPT_DIR)/"
 	install -d "$(DESTDIR)$(CONF_DIR)/scripts/client/ui"
 	@test -e "$(DESTDIR)$(CONF_DIR)/scripts/README.md" || install -m644 doc/examples/scripts/ui/README.md "$(DESTDIR)$(CONF_DIR)/scripts/README.md"
 	# Generated from the built-in stylesheet. Reference only; never loaded by GTK.
@@ -153,7 +153,7 @@ uninstall:
 		rm -f "$(DESTDIR)$(LIBDIR)/$$(basename "$$src")" "$(DESTDIR)$(LIBDIR)/$$(basename "$$src").0"; \
 	done
 	@set -e; for src in $(LOG_TOOLS); do rm -f "$(DESTDIR)$(BINDIR)/$$(basename "$$src")"; done
-	@for src in doc/examples/scripts/ui/*.rrs; do rm -f "$(DESTDIR)$(UI_SCRIPT_DIR)/${src##*/}"; done
+	@for src in doc/examples/scripts/ui/*.rrs doc/examples/scripts/ui/default.theme; do rm -f "$(DESTDIR)$(UI_SCRIPT_DIR)/${src##*/}"; done
 	rm -f "$(DESTDIR)$(CONF_DIR)/rrclient.css"
 	rm -f "$(DESTDIR)$(PREFIX)/lib/rustyrig/rrhashpass"
 	rm -f "$(DESTDIR)$(PREFIX)/share/icons/hicolor/48x48/apps/rustyrig.png"

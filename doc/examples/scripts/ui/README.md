@@ -44,3 +44,13 @@ These are restricted layout scripts, not ordinary user/autoload RustyScripts.
 They run in a separate layout VM with UI creation and capability functions;
 normal script-manager/autoload rules are separate. GTK does not consume these
 layouts yet.
+
+## Themes
+
+`default.theme` is a shared semantic RGB palette in GLib keyfile format.
+Copy it to the same user or administrator override directory as a UI layout.
+Set `[theme]` properties to `#RRGGBB` values. Missing properties use built-in
+colors; invalid recognized values reject that file and try the next location.
+Restart the TUI to apply changes. The `ui.theme` log identifies the loaded
+file. Terminal rendering selects truecolor, 256-color or 16-color output;
+explicit IRC formatting remains separate. GTK3 does not use this palette yet.
