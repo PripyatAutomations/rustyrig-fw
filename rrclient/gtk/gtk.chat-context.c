@@ -16,7 +16,8 @@ void gtk_chat_context_capture(GtkChatContext *snapshot, const char *room) {
    snapshot->window = g_strdup(rrclient_window_name(room));
    snapshot->nickname = g_strdup(login_user);
    snapshot->session = g_strdup(session_token);
-   snapshot->irc = rrclient_active_connection() && !rrclient_active_connection()->is_ws;
+   rrconn_t *connection = rrclient_connection_context();
+   snapshot->irc = connection && !connection->is_ws;
    snapshot->selected = rrclient_present_context();
 }
 
