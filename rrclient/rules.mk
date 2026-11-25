@@ -1,3 +1,12 @@
+# The terminal renderer belongs to RustyUI, not RustyAxe.
+RUSTYUI_PKG_CONFIG ?= pkg-config
+ifeq ($(filter clean distclean uninstall gmatrix-clean,$(MAKECMDGOALS)),)
+ifneq ($(shell $(RUSTYUI_PKG_CONFIG) --exists librustyui && echo yes),yes)
+$(error Installed librustyui development headers/library required for rrclient)
+endif
+endif
+CFLAGS_RRCLI += $(shell $(RUSTYUI_PKG_CONFIG) --cflags librustyui 2>/dev/null)
+RRCLIENT_UI_LIBS := $(shell $(RUSTYUI_PKG_CONFIG) --libs librustyui 2>/dev/null)
 rrclient_headers += $(wildcard rrclient/*.h)
 rrclient_src = $(patsubst %.o,%.c,$(filter-out rrscript/host.o,$(rrclient_objs)))
 gtk_headers := $(wildcard rrclient/gtk/*.h)
@@ -323,7 +332,7 @@ endif
 
 bin/rrclient: ${BUILD_HEADERS} ${libmongoose} ${rrclient_real_objs} ${libfwdspmgr}
 	@echo "[link] $@ from $(words ${rrclient_real_objs}) objects"
-	@${CC} ${LDFLAGS_RRCLI} $(CLIENT_EXPORT_FLAGS) -o $@ ${rrclient_real_objs} ${rrclient_curl_libs} ${recording_codec_libs} $(RRCLIENT_SCRIPT_LIBS) -lrustyaxe -lrrprotocol -lrustyirc -lcrypto -larchive $(RRCLIENT_AS_NEEDED_OFF) -lfwdspmgr $(RRCLIENT_AS_NEEDED_ON) -lm ${LDFLAGS} $(if $(filter true,$(USE_MONGOOSE)),-lmongoose,) || exit 2
+	@${CC} ${LDFLAGS_RRCLI} $(CLIENT_EXPORT_FLAGS) -o $@ ${rrclient_real_objs} ${rrclient_curl_libs} ${recording_codec_libs} $(RRCLIENT_SCRIPT_LIBS) $(RRCLIENT_UI_LIBS) -lrustyaxe -lrrprotocol -lrustyirc -lcrypto -larchive $(RRCLIENT_AS_NEEDED_OFF) -lfwdspmgr $(RRCLIENT_AS_NEEDED_ON) -lm ${LDFLAGS} $(if $(filter true,$(USE_MONGOOSE)),-lmongoose,) || exit 2
 	@ls -a1ls $@
 	@file $@
 	@size $@

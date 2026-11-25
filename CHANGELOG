@@ -7,6 +7,8 @@ rustyrig-fw (1.0.4) testing; urgency=medium
     - Old backend.hamlib optionally available as legacy-hamlib
 
   -- Full Changes --
+  * Consume the extracted RustyUI terminal library instead of linking
+    the terminal renderer from librustyaxe. Retain the GTK3 frontend.
   * Exercise granular destination-side remote file operation permissions and
     overflow-safe upload bounds; support explicit wildcard file-share grants
     with per-share deny precedence.

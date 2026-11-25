@@ -11,6 +11,7 @@
 #include <librustyaxe/config.h>
 #include <librustyaxe/struct.h>
 #include <librustyaxe/event-bus.h>
+#include <librustyui/tui.h>
 
 typedef struct client_cmd {
    const char *cmd;

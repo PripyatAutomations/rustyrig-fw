@@ -8,6 +8,7 @@
 #if     !defined(__rrclient_ui_h)
 #define __rrclient_ui_h
 #include <librustyaxe/config.h>
+#include <librustyaxe/struct.h>
 
 // TUI statusbar refreshers (tui_refresh_sb_vfo reads the central VFO state
 // in rrclient/vfo.c via vfo_state_get_*())
