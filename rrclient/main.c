@@ -1593,6 +1593,8 @@ static bool tui_server_picker_mouse(tui_window_t *w, int row, int col, int butto
    return false;
 }
 
+extern bool rrclient_tui_script_picker_toggle(void);
+extern void rrclient_tui_script_picker_shutdown(void);
 void rrclient_tui_server_picker_toggle(void) {
    if (ui_mode != UI_MODE_TUI) {
       return;
@@ -1603,6 +1605,7 @@ void rrclient_tui_server_picker_toggle(void) {
 
       return;
    }
+   if (rrclient_tui_script_picker_toggle()) return;
    tui_server_selected = tui_server_scroll = 0;
    tui_server_button_focus = -1;
    tui_server_notice[0] = 0;
@@ -2304,6 +2307,7 @@ bool rrclient_cleanup(void) {
    cfg_fini();
 
    if (ui_mode == UI_MODE_TUI) {
+      rrclient_tui_script_picker_shutdown();
       tui_fini();
    }
 

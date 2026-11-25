@@ -1,0 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-only
+ui.add(dict { kind="dialog"; id="editor"; label="Server Profile"; });
+ui.add(dict { kind="entry"; id="name"; parent="editor"; label="Profile name (new profiles only)"; max_length=127; });
+ui.add(dict { kind="entry"; id="url"; parent="editor"; label="Server URL (wss:// or ircs://)"; max_length=1024; width_chars=70; });
+ui.add(dict { kind="entry"; id="user"; parent="editor"; label="Username"; max_length=255; });
+ui.add(dict { kind="entry"; id="password"; parent="editor"; label="Password"; masked=true; max_length=1024; });
+ui.add(dict { kind="button"; id="save"; parent="editor"; label="Save"; action="save"; });
+ui.add(dict { kind="button"; id="cancel"; parent="editor"; label="Cancel"; action="cancel"; });

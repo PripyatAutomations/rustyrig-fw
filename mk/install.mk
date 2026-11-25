@@ -80,6 +80,8 @@ install-dev: install-libs
 	done
 
 install-assets:
+	install -d "$(DESTDIR)$(DATADIR)/scripts/client/ui"
+	install -m644 doc/examples/scripts/ui/*.rrs "$(DESTDIR)$(DATADIR)/scripts/client/ui/"
 	# Generated from the built-in stylesheet. Reference only; never loaded by GTK.
 	install -d "$(DESTDIR)$(CONF_DIR)"
 	perl tools/releng-dump-css.pl --css > "$(DESTDIR)$(CONF_DIR)/rrclient.css"

@@ -7,6 +7,8 @@ rustyrig-fw (1.0.4) testing; urgency=medium
     - Old backend.hamlib optionally available as legacy-hamlib
 
   -- Full Changes --
+  * Use overridable RustyScript layouts for the TUI server picker and basic
+    profile editor, retaining the legacy picker as a fallback.
   * Consume the extracted RustyUI terminal library instead of linking
     the terminal renderer from librustyaxe. Retain the GTK3 frontend.
   * Exercise granular destination-side remote file operation permissions and
@@ -97,7 +99,7 @@ rustyrig-fw (1.0.4) testing; urgency=medium
   * Require an explicit guest password during Debian provisioning, instead of
     enabling an account with a predictable shared default credential.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sun, 22 Nov 2026 08:17:48 -0500
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Tue, 24 Nov 2026 23:20:00 -0500
 
 rustyrig-fw (1.0.3) testing; urgency=medium
 
