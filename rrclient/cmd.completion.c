@@ -276,7 +276,8 @@ char **client_cmd_completions(const char *line, const char *word) {
    bool action_text = !strncasecmp(line, "/me", 3) && (line[3] == ' ' || line[3] == '\t');
 
    if (*line != '/' || action_text) {
-      const char *room = rrclient_current_room();
+      /* Complete against the visible chat, not the rig/control room. */
+      const char *room = ui_active_window_name();
 
       if (!room || (room[0] != '#' && room[0] != '&') || !*word) {
          return NULL;
