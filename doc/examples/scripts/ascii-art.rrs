@@ -125,16 +125,19 @@ script("/artwork", {
     ui.add("artwork_room_row", "label", "artwork_room_label", "Send to:")
     ui.add("artwork_room_row", "roomlist", "artwork_target", "Open chat tabs")
     ui.add("artwork_room_row", "button", "artwork_rooms_refresh", "Refresh")
-    ui.add("artwork_layout", "row", "artwork_rate_row", "")
-    ui.add("artwork_rate_row", "label", "artwork_rate_label", "Sustained: lines / seconds")
-    ui.add("artwork_rate_row", "spin", "artwork_rate_lines", "Lines", "1:20:1:1")
-    ui.add("artwork_rate_row", "spin", "artwork_rate_seconds", "Seconds", "1:60:1:2")
     ui.add("artwork_layout", "row", "artwork_burst_row", "")
-    ui.add("artwork_burst_row", "label", "artwork_burst_label", "Burst: lines / seconds, up to lines")
+    ui.add("artwork_burst_row", "label", "artwork_burst_label", "Burst first: lines / seconds, up to lines")
     ui.add("artwork_burst_row", "spin", "artwork_burst_lines", "Lines", "1:20:1:2")
     ui.add("artwork_burst_row", "spin", "artwork_burst_seconds", "Seconds", "1:60:1:2")
     ui.add("artwork_burst_row", "spin", "artwork_burst_max", "Max lines (0 disables)", "0:100:1:3")
-    ui.add("artwork_burst_row", "button", "artwork_save_rate", "Remember")
+    ui.add("artwork_burst_row", "label", "artwork_burst_speed", "1 lines/s")
+    ui.add("artwork_layout", "row", "artwork_rate_row", "")
+    ui.add("artwork_rate_row", "label", "artwork_rate_label", "Then sustained: lines / seconds")
+    ui.add("artwork_rate_row", "spin", "artwork_rate_lines", "Lines", "1:20:1:1")
+    ui.add("artwork_rate_row", "spin", "artwork_rate_seconds", "Seconds", "1:60:1:2")
+    ui.add("artwork_rate_row", "label", "artwork_rate_speed", "0.5 lines/s")
+    ui.add("artwork_rate_row", "button", "artwork_save_rate", "Remember")
+    ui.add("artwork_layout", "label", "artwork_rate_warning", "")
     ui.add("artwork_layout", "row", "artwork_actions", "")
     ui.add("artwork_actions", "button", "artwork_send", "Send")
     ui.add("artwork_actions", "button", "artwork_stop", "Stop")
@@ -152,7 +155,43 @@ script("/artwork", {
     ui.show("artwork")
 })
 
+// UI values are cached asynchronously; wait until all five controls exist.
+void artwork_update_rates() {
+    int bl = ui.val("artwork_burst_lines")
+    int bs = ui.val("artwork_burst_seconds")
+    int bm = ui.val("artwork_burst_max")
+    int sl = ui.val("artwork_rate_lines")
+    int ss = ui.val("artwork_rate_seconds")
+    if (bl > 0 && bs > 0 && sl > 0 && ss > 0) {
+        // Playback is limited to one line per 100 ms timer tick.
+        int bgap = 1000 * bs / bl
+        int sgap = 1000 * ss / sl
+        if (bgap < 100) { bgap = 100 }
+        if (sgap < 100) { sgap = 100 }
+        // Round up to the next timer tick, matching the nominal playback cadence.
+        int bticks = (bgap + 99) / 100
+        int sticks = (sgap + 99) / 100
+        ui.set("artwork_rate_speed", string.str(10.0 / sticks) + " lines/s")
+        if (bm == 0) {
+            ui.set("artwork_burst_speed", "Disabled")
+            ui.set("artwork_rate_warning", "")
+        } else {
+            ui.set("artwork_burst_speed", string.str(10.0 / bticks) + " lines/s")
+            if (bticks > sticks) {
+                ui.set("artwork_rate_warning", "Warning: burst is slower than sustained; playback will speed up.")
+            } else {
+                ui.set("artwork_rate_warning", "")
+            }
+        }
+    }
+}
+
 event ui.change {
+    if (event.id == "artwork_burst_lines" || event.id == "artwork_burst_seconds" ||
+        event.id == "artwork_burst_max" || event.id == "artwork_rate_lines" ||
+        event.id == "artwork_rate_seconds") {
+        artwork_update_rates()
+    }
     if (event.id == "artwork_files") {
         ui.set("artwork_preview", env.data_dir() + "/rustyrig/artwork/" + event.value)
         ui.set("artwork_status", event.value)
