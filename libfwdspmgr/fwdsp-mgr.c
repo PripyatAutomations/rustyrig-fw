@@ -872,7 +872,7 @@ bool fwdsp_init(void) {
 
    // did we OOM?
    if (!fwdsp_subprocs) {
-      fprintf(stderr, "OOM in fwdsp_init\n");
+      Log(LOG_CRIT, "fwdsp", "OOM in fwdsp_init");
       exit(1);
    }
    // Setup signal handling for SIGCHLD. We only record the reaping request
@@ -1507,7 +1507,7 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
 
       if (pipe(in_pipe) || pipe(out_pipe) || pipe(err_pipe) || pipe(control_pipe)) {
 #endif
-         perror("pipe");
+         Log(LOG_WARN, "fwdsp", "Unable to create worker sockets: %s", strerror(errno));
 
          goto failed;
       }

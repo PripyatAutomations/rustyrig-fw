@@ -42,7 +42,9 @@
 
 
 typedef struct bridge_instance {
-   int control, media, spectrum;
+   int control, media, spectrum, diagnostic_fd;
+   size_t diagnostic_len;
+   char diagnostic[1024];
    pid_t pid;
    subproc_t process;
    guint timer, kill_timer;
@@ -989,6 +991,34 @@ static void bridge_directory_open(int argc, char **argv, const char *driver) {
    g_free(url);
 }
 
+/* Raw child diagnostics (including startup/exec failures) are not IPC.
+ * Bound work per tick and retain partial lines across reads. */
+static void bridge_diagnostic_emit(bridge_instance *b) {
+   if (!b->diagnostic_len) return;
+   b->diagnostic[b->diagnostic_len]=0;
+   Log(LOG_INFO,"local.bridge.stdio","%s: %s",b->stream,b->diagnostic);
+   b->diagnostic_len=0;
+}
+static void bridge_diagnostic_drain(bridge_instance *b) {
+   if (b->diagnostic_fd<0) return;
+   char buf[4096];
+   for (unsigned n=0;n<4;n++) {
+      ssize_t count=read(b->diagnostic_fd,buf,sizeof(buf));
+      if(count<0&&(errno==EAGAIN||errno==EWOULDBLOCK||errno==EINTR))return;
+      if(count<=0){
+         bridge_diagnostic_emit(b);
+         close(b->diagnostic_fd);b->diagnostic_fd=-1;return;
+      }
+      for(ssize_t i=0;i<count;i++){
+         unsigned char c=buf[i];
+         if(c=='\n'){bridge_diagnostic_emit(b);continue;}
+         if(c=='\r')continue;
+         if(c<32||c==127)c=' ';
+         b->diagnostic[b->diagnostic_len++]=c;
+         if(b->diagnostic_len==sizeof(b->diagnostic)-1)bridge_diagnostic_emit(b);
+      }
+   }
+}
 static void bridge_stop(bridge_instance *b);
 bool rrclient_local_bridge_cli(int argc, char **argv) {
    if (argc < 3) {
@@ -1246,6 +1276,10 @@ static void local_child_exited(GPid pid, gint status, gpointer user) {
    }
 
    if (b) {
+      bridge_diagnostic_drain(b);
+      bridge_diagnostic_emit(b);
+      if(b->diagnostic_fd>=0)close(b->diagnostic_fd);
+      b->diagnostic_fd=-1;
       if (b->kill_timer) {
          bridge_core_remove_source(b->kill_timer);
          b->kill_timer = 0;
@@ -1311,6 +1345,7 @@ static gboolean poll_local(gpointer unused) {
    if (b->pid <= 0) {
       return G_SOURCE_REMOVE;
    }
+   bridge_diagnostic_drain(b);
 
    for (unsigned n = 0 ; n < 16 ; n++) {
       rrp_bridge_ipc_message_t m;
@@ -1401,8 +1436,8 @@ static gboolean poll_local(gpointer unused) {
             b->stats.wire_tx = b->traffic_tx;
          }
       } else if (m.type == RRP_BRIDGE_IPC_LOG) {
-         Log(LOG_INFO, "local.bridge", "%s", m.metadata_value);
-         ui_print("&local-sdr", "%s: %s", b->stream, m.metadata_value);
+         if (memchr(m.metadata_value,0,sizeof(m.metadata_value)))
+            Log(LOG_INFO, "local.bridge", "%s: %s", b->stream, m.metadata_value);
       }
    }
 
@@ -1576,7 +1611,7 @@ bool rrclient_local_bridge_connect_driver(const char *url, const char *driver) {
    bridge_instance *b = g_new0(bridge_instance, 1);
    b->slot = slot;
    g_strlcpy(b->driver, driver, sizeof(b->driver));
-   b->control = b->media = b->spectrum = -1;
+   b->control = b->media = b->spectrum = b->diagnostic_fd = -1;
    b->process = (subproc_t) SUBPROC_INIT;
    g_snprintf(b->stream, sizeof(b->stream), "local.sdr.%c", 'A' + slot);
    g_snprintf(b->resampler, sizeof(b->resampler), "proc.local.sdr.%c", 'A' + slot);
@@ -1651,6 +1686,22 @@ bool rrclient_local_bridge_connect_driver(const char *url, const char *driver) {
 
       return false;
    }
+   int diagnostic[2];
+   if(socketpair(AF_UNIX,SOCK_STREAM|SOCK_CLOEXEC,0,diagnostic)<0){
+      close(control[0]);close(control[1]);close(media[0]);close(media[1]);
+      close(spectrum[0]);close(spectrum[1]);
+      g_unlink(config);g_free(config);g_free(program);
+      bridge_stop(b);g_free(b);return false;
+   }
+   int flags=fcntl(diagnostic[0],F_GETFL,0);
+   if(flags<0||fcntl(diagnostic[0],F_SETFL,flags|O_NONBLOCK)<0){
+      close(diagnostic[0]);close(diagnostic[1]);
+      close(control[0]);close(control[1]);close(media[0]);close(media[1]);
+      close(spectrum[0]);close(spectrum[1]);
+      g_unlink(config);g_free(config);g_free(program);
+      bridge_stop(b);g_free(b);return false;
+   }
+   b->diagnostic_fd=diagnostic[0];
    const char *const argv[] = {
       program, "--config", config, "--bridge", "local", NULL
    };
@@ -1663,10 +1714,10 @@ bool rrclient_local_bridge_connect_driver(const char *url, const char *driver) {
       },
       {
          spectrum[1], RR_BRIDGE_SPECTRUM_FD
-      }
+      }, {diagnostic[1],STDOUT_FILENO}, {diagnostic[1],STDERR_FILENO}
    };
    int closes[] = {
-      control[0], media[0], spectrum[0], control[1], media[1], spectrum[1]
+      control[0], media[0], spectrum[0], control[1], media[1], spectrum[1], diagnostic[0], diagnostic[1]
    };
    const char *profile = cfg_get("scheduler.rrbridge.profile");
 
@@ -1677,9 +1728,11 @@ bool rrclient_local_bridge_connect_driver(const char *url, const char *driver) {
    close(control[1]);
    close(media[1]);
    close(spectrum[1]);
+   close(diagnostic[1]);
    g_free(program);
 
    if (!spawned) {
+      close(b->diagnostic_fd);b->diagnostic_fd=-1;
       close(control[0]);
       close(media[0]);
       close(spectrum[0]);
