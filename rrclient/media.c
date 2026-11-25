@@ -21,7 +21,7 @@
 #include <glib.h>
 #include <librustyaxe/core.h>
 #include <librustyaxe/transport.h>
-#include <librustyaxe/tui.h>
+#include <librustyui/tui.h>
 #include <rrclient/media.direct.h>
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/ws.serial.h>

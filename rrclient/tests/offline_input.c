@@ -4,7 +4,7 @@
 #include <assert.h>
 #include <string.h>
 #include <librustyaxe/core.h>
-#include <librustyaxe/tui.h>
+#include <librustyui/tui.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/rooms.h>
 #include <rrclient/frontend.h>

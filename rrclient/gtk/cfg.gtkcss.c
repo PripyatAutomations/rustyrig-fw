@@ -20,7 +20,7 @@
 #include <errno.h>
 #include <librustyaxe/core.h>
 #include <librustyaxe/config.h>
-#include <librustyaxe/tui.h>
+#include <librustyui/tui.h>
 #include <rrclient/ui.h>
 
 extern const char *config_file; // librustyaxe/config.c

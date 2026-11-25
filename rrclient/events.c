@@ -15,7 +15,7 @@
 #include <stdio.h>
 #include <glib.h>
 #include <librustyaxe/core.h>
-#include <librustyaxe/tui.h>
+#include <librustyui/tui.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/connman.h>
 #include <rrclient/files.h>

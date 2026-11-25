@@ -24,7 +24,7 @@
 #include <sys/socket.h>
 #include <sys/wait.h>
 #include <librustyaxe/core.h>
-#include <librustyaxe/tui.h>
+#include <librustyui/tui.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/connman.h>
 #include <rrclient/audio.h>
