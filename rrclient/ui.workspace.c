@@ -8,6 +8,7 @@
 #include <rrclient/connman.h>
 #include <rrclient/rooms.h>
 #include <rrclient/userlist.h>
+#include <rrclient/nick.color.h>
 #include <rrclient/vfo.h>
 #include <glib.h>
 #include <errno.h>
@@ -65,15 +66,16 @@ static void refresh(void){
       for(struct rr_user *u=global_userlist;room&&*room&&u;u=u->next){
          if(g_ascii_strcasecmp(u->room,room))continue;
          char name[256];userlist_display_name(u,name,sizeof(name));
-         g_string_append_printf(snapshot,"%s\t%s%s %s\n",u->name,u->is_ptt?"TX ":"",u->is_muted?"M":"",name);
+         g_string_append_printf(snapshot,"%s\t%s%s%s%s %s\n",u->name, !strncmp(u->privs,"irc:",4)?"":select_user_icon(u),u->is_ptt?"🎤":"",u->is_muted?"🙊":"",select_elmernoob_icon(u),name);
       }
       if(changed||g_strcmp0(roster_seen,snapshot->str)){
          rrui_form_list_clear(roster,"roster");
          for(struct rr_user *u=global_userlist;room&&*room&&u;u=u->next){
             if(g_ascii_strcasecmp(u->room,room))continue;
             char name[256];userlist_display_name(u,name,sizeof(name));
-            char *text=g_strdup_printf("%s%s %s",u->is_ptt?"TX ":"",u->is_muted?"M":"",name);
-            rrui_form_list_append(roster,"roster",u->name,text);g_free(text);
+            char *text=g_strdup_printf("%s%s%s%s %s",!strncmp(u->privs,"irc:",4)?"":select_user_icon(u),u->is_ptt?"🎤":"",u->is_muted?"🙊":"",select_elmernoob_icon(u),name);
+            uint32_t rgb=(uint32_t)strtoul(rr_nick_color(u->name).hex+1,NULL,16);
+            rrui_form_list_append_color(roster,"roster",u->name,text,rgb);g_free(text);
          }
          g_free(roster_seen);roster_seen=g_strdup(snapshot->str);redraw=true;
       }

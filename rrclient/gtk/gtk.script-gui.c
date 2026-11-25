@@ -15,7 +15,7 @@
 #include <stdio.h>
 #include <math.h>
 
-extern GtkWidget *main_window, *main_notebook;
+extern GtkWidget *main_window, *main_notebook, *config_tab;
 typedef struct {
    char owner[32], id[64], kind[24];
    GtkWidget *widget;
@@ -264,7 +264,7 @@ static void script_gui_remove_owner(const char *owner) {
    /* Close top-level windows first; their descendant weak refs become NULL. */
    for(guint i=0;i<owned->len;i++) {
       script_widget_t *entry=g_hash_table_lookup(script_widgets,g_ptr_array_index(owned,i));
-      if(entry && (!strcmp(entry->kind,"panel")||!strcmp(entry->kind,"dialog")||!strcmp(entry->kind,"message")))
+      if(entry && (!strcmp(entry->kind,"panel")||!strcmp(entry->kind,"dialog")||!strcmp(entry->kind,"message")||!strcmp(entry->kind,"tab")))
          widget_close(entry);
    }
    for(guint i=0;i<owned->len;i++)
@@ -481,6 +481,7 @@ static void script_gui_add(const rr_script_gui_command_t *cmd) {
    GtkWidget *packing=NULL;
    if(!strcmp(cmd->kind,"row"))w=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,6);
    else if(!strcmp(cmd->kind,"column"))w=gtk_box_new(GTK_ORIENTATION_VERTICAL,6);
+   else if(!strcmp(cmd->kind,"tabstrip"))w=gtk_notebook_new();
    else if(!strcmp(cmd->kind,"label"))w=gtk_label_new(cmd->text);
    else if(!strcmp(cmd->kind,"frame")) {
       w=gtk_box_new(GTK_ORIENTATION_VERTICAL,4);
@@ -743,6 +744,21 @@ static void script_gui_command(const rr_event_message_t *message,void *unused) {
          g_signal_connect(dialog,"response",G_CALLBACK(dialog_response),record);
          gtk_widget_show_all(dialog);
       }
+      return;
+   }
+   if(cmd.action==RR_GUI_TAB){
+      if(entry)return;
+      GtkWidget *book=NULL;
+      script_widget_t *parent=widget_find(cmd.owner,cmd.parent);
+      if(parent&&GTK_IS_NOTEBOOK(parent->widget))book=parent->widget;
+      else if(!strcmp(cmd.parent,"config")&&GTK_IS_NOTEBOOK(config_tab))book=config_tab;
+      if(!book)return;
+      GtkWidget *page=gtk_box_new(GTK_ORIENTATION_VERTICAL,6);
+      gtk_container_set_border_width(GTK_CONTAINER(page),6);
+      script_widget_t *record=widget_track(cmd.owner,cmd.id,"tab",page,NULL);
+      if(!record){gtk_widget_destroy(page);return;}
+      gtk_notebook_append_page(GTK_NOTEBOOK(book),page,gtk_label_new(cmd.text));
+      gtk_widget_show_all(page);
       return;
    }
    if(cmd.action==RR_GUI_ADD){script_gui_add(&cmd);return;}

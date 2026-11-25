@@ -374,7 +374,7 @@ static rrs_value_t *script_gui_native(rrs_vm_t *vm,int argc,
     * the portable standard message/confirmation dialog instead. */
    if(action==RR_GUI_DIALOG && argc>=3)action=RR_GUI_MESSAGE;
    int wanted=(action==RR_GUI_PANEL||action==RR_GUI_DIALOG||action==RR_GUI_UTILITY)?2:
-              action==RR_GUI_MESSAGE?3:
+              (action==RR_GUI_MESSAGE||action==RR_GUI_TAB)?3:
               action==RR_GUI_ADD?4:(action==RR_GUI_SET||action==RR_GUI_BIND)?2:1;
    if(argc!=wanted && !(action==RR_GUI_ADD && argc==5) &&
       !(action==RR_GUI_MESSAGE && argc==4)) {
@@ -400,8 +400,8 @@ static rrs_value_t *script_gui_native(rrs_vm_t *vm,int argc,
    if(!script_gui_owner(command.owner,vm)) {
       rrs_vm_raise(vm,"Script has no active UI owner");return NULL;
    }
-   const char *id=action==RR_GUI_EDIT?"editor":rrs_value_string(argv[action==RR_GUI_ADD?2:0]);
-   if(!script_gui_identifier(id) || (action==RR_GUI_ADD && !script_gui_identifier(rrs_value_string(argv[0])))) {
+   const char *id=action==RR_GUI_EDIT?"editor":rrs_value_string(argv[action==RR_GUI_ADD?2:action==RR_GUI_TAB?1:0]);
+   if(!script_gui_identifier(id) || ((action==RR_GUI_ADD||action==RR_GUI_TAB) && !script_gui_identifier(rrs_value_string(argv[0])))) {
       rrs_vm_raise(vm,"GUI IDs must be 1..63 ASCII alphanumeric, underscore, dash, or period");
       return NULL;
    }
@@ -414,6 +414,9 @@ static rrs_value_t *script_gui_native(rrs_vm_t *vm,int argc,
        g_strlcpy(command.value,path,sizeof(command.value));
    } else if(action==RR_GUI_PANEL||action==RR_GUI_DIALOG||action==RR_GUI_UTILITY) {
       g_strlcpy(command.text,rrs_value_string(argv[1]),sizeof(command.text));
+   } else if(action==RR_GUI_TAB) {
+      g_strlcpy(command.parent,rrs_value_string(argv[0]),sizeof(command.parent));
+      g_strlcpy(command.text,rrs_value_string(argv[2]),sizeof(command.text));
    } else if(action==RR_GUI_MESSAGE) {
       const char *buttons=argc==4?rrs_value_string(argv[3]):"ok";
       bool yesno=!g_ascii_strcasecmp(buttons,"yesno") ||
