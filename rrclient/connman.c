@@ -2437,7 +2437,11 @@ void connman_autoconnect(void) {
    }
 }
 
+/* /quit supplies the reason before the common shutdown path runs. */
+static bool quit_started;
 void rrclient_quit_servers(const char *reason) {
+   if (quit_started) return;
+   quit_started = true;
 #ifdef USE_MONGOOSE
 
    for (client_server_t *s = servers ; s ; s = s->next) {
@@ -2472,7 +2476,10 @@ void rrclient_quit_servers(const char *reason) {
       if (s->native && s->native->transport) {
          if (s->native->irc) {
             if (s->connection && s->connection->sent_login) {
-               irc_send(s->connection, "QUIT :%s", reason ? reason : "Client exiting");
+               if (!irc_send(s->connection, "QUIT :%s", reason ? reason : "Client exiting")) {
+                  if (!irc_send(s->connection, "QUIT :Client exiting"))
+                     Log(LOG_WARN, "connman", "Unable to queue IRC QUIT for %s", s->name);
+               }
             }
          } else if (s->connection && s->connection->authenticated) {
             dict *request = dict_new();
@@ -2485,7 +2492,8 @@ void rrclient_quit_servers(const char *reason) {
                dict_free(request);
             }
          }
-         rr_transport_close(s->native->transport);
+         /* Native TCP close discards queued writes. Leave it open until
+          * flush_quit has driven the transport and drained its output. */
       }
    }
 
@@ -2495,20 +2503,37 @@ void rrclient_quit_servers(const char *reason) {
 void rrclient_flush_quit(void) {
 #ifndef USE_MONGOOSE
 
-   for (unsigned i = 0 ; i < 20 ; i++) {
+   gint64 deadline = g_get_monotonic_time() + G_TIME_SPAN_SECOND;
+   do {
       bool pending = false;
-
       for (client_server_t *s = servers ; s ; s = s->next) {
-         if (s->native && s->native->transport) {
-            rr_transport_poll(s->native->transport, 0);
-            pending = pending || rr_transport_state(s->native->transport) != RR_TRANSPORT_CLOSED;
+         if (!s->native || !s->native->transport) continue;
+         rr_transport_t *t = s->native->transport;
+         if (rr_transport_state(t) == RR_TRANSPORT_OPEN) {
+            rr_transport_poll(t, 0);
+            if (rr_transport_state(t) == RR_TRANSPORT_OPEN &&
+                !rr_transport_queued_bytes(t))
+               rr_transport_close(t);
+         } else if (rr_transport_state(t) != RR_TRANSPORT_CLOSED) {
+            rr_transport_close(t);
+         }
+         if (rr_transport_state(t) != RR_TRANSPORT_CLOSED) {
+            rr_transport_poll(t, 0);
+            pending = pending || rr_transport_state(t) != RR_TRANSPORT_CLOSED;
          }
       }
-
-      if (!pending) {
-         break;
-      }
+      if (!pending) break;
       g_usleep(10000);
+   } while (g_get_monotonic_time() < deadline);
+   for (client_server_t *s = servers ; s ; s = s->next) {
+      if (!s->native || !s->native->transport) continue;
+      rr_transport_t *t = s->native->transport;
+      if (rr_transport_state(t) != RR_TRANSPORT_CLOSED) {
+         if (rr_transport_queued_bytes(t))
+            Log(LOG_WARN, "connman", "QUIT drain timed out for %s", s->name);
+         rr_transport_close(t);
+         rr_transport_poll(t, 0);
+      }
    }
 
 #else
@@ -2578,7 +2603,10 @@ void connman_shutdown(void) {
             rr_transport_poll(servers->native->transport, 0);
 
             if (rr_transport_state(servers->native->transport) == RR_TRANSPORT_CLOSED) {
-               rr_transport_wss_release(servers->native->transport);
+               if (servers->native->irc)
+                  rr_transport_tcp_release(servers->native->transport);
+               else
+                  rr_transport_wss_release(servers->native->transport);
             }
          }
          free(servers->native);
