@@ -153,7 +153,8 @@ bool ui_vprint(const char *window, const char *fmt, va_list ap) {
    }
    vsnprintf(message, (size_t)length + 1, fmt, ap);
 
-   if ((!window || !*window || rrclient_window_is_shared(window)) && server_name && *server_name) {
+   if ((!window || !*window || rrclient_window_is_shared(window)) &&
+       (!window || strcasecmp(window, "client log")) && server_name && *server_name) {
       ui_output(window, "|%s| %s", server_name, message);
    } else {
       ui_output(window, "%s", message);
