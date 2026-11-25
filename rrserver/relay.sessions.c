@@ -10,6 +10,7 @@
 #include <string.h>
 #include <glib.h>
 #include <librrprotocol/rrprotocol.h>
+#include <rrserver/srv.send.h>
 #include <librrprotocol/ws.mediachan.h>
 #include <librrprotocol/media.health.h>
 #include <librrprotocol/server.events.h>
@@ -223,7 +224,7 @@ void rr_relay_rejoin_owned_room(const char *owner, const char *room) {
          local->retry_at = 0;
       }
       ws_client_part_room(client, room);
-      ws_send_notice(client, wanted ? "Room %s belongs to a linked server; rejoining through its owner" :
+      rrserver_send_target_notice(client, room, wanted ? "Room %s belongs to a linked server; rejoining through its owner" :
          "Room %s belongs to a linked server; use /join to join its owner", room);
    }
 
@@ -1012,15 +1013,15 @@ void rr_relay_execute(const char *origin, const char *id, const char *username, 
       /* The protocol handler already sends its generic failure. Add the reason that distinguishes a stale catalog from an authorization or room-initialization
        * problem on the actual owning server. */
       if (rig_base && !configured) {
-         ws_send_error(&r->client, "JOIN %s: owning server has no configured rig room (stale catalog or rig unavailable)", room);
+         rrserver_send_target_error(&r->client, room, "JOIN %s: owning server has no configured rig room (stale catalog or rig unavailable)", room);
       } else if (rig_base && !metadata) {
-         ws_send_error(&r->client, "JOIN %s: owning server has no active rig-room metadata", room);
+         rrserver_send_target_error(&r->client, room, "JOIN %s: owning server has no active rig-room metadata", room);
       } else if (!db_ok) {
-         ws_send_error(&r->client, "JOIN %s: owning server could not read room database status", room ? room : "");
+         rrserver_send_target_error(&r->client, room, "JOIN %s: owning server could not read room database status", room ? room : "");
       } else if (deleted) {
-         ws_send_error(&r->client, "JOIN %s: room is marked deleted on owning server", room);
+         rrserver_send_target_error(&r->client, room, "JOIN %s: room is marked deleted on owning server", room);
       } else {
-         ws_send_error(&r->client, "JOIN %s: owning server rejected room membership; check relay.join and room logs", room ? room : "");
+         rrserver_send_target_error(&r->client, room, "JOIN %s: owning server rejected room membership; check relay.join and room logs", room ? room : "");
       }
    }
 
