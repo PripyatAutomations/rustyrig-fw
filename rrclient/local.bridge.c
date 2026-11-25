@@ -131,6 +131,18 @@ static void kiwi_settings_restore_controls(bridge_instance *b) {
 
 /* One persistent frequency per plugin, never per receiver URL or slot. */
 #define KIWI_LAST_FREQUENCY_KEY "sdr.plugin.kiwi.last_frequency_hz"
+#define KIWI_LAST_MODE_KEY "sdr.plugin.kiwi.last_mode"
+static const char *kiwi_valid_mode(const char *mode){
+   static const char *modes[]={"USB","LSB","AM","CW"};
+   for(size_t i=0;mode&&i<G_N_ELEMENTS(modes);i++)if(!g_ascii_strcasecmp(mode,modes[i]))return modes[i];
+   return NULL;
+}
+static const char *bridge_plugin_initial_mode(const char *driver){
+   if(strcmp(driver,"kiwi"))return "USB";
+   char *saved=rrclient_database_setting_get(KIWI_LAST_MODE_KEY);
+   const char *mode=kiwi_valid_mode(saved);
+   g_free(saved);return mode?mode:"USB";
+}
 #define KIWI_FIRST_FREQUENCY_HZ UINT64_C(7100000)
 static uint64_t bridge_plugin_initial_frequency(const char *driver) {
    if (g_strcmp0(driver,"kiwi")) return KIWI_FIRST_FREQUENCY_HZ;
@@ -1387,6 +1399,8 @@ static gboolean poll_local(gpointer unused) {
                char value[32];
                g_snprintf(value,sizeof(value),"%" G_GUINT64_FORMAT,b->pending_hz);
                rrclient_database_setting_set(KIWI_LAST_FREQUENCY_KEY,value);
+               const char *mode=kiwi_valid_mode(b->pending_mode);
+               if(mode)rrclient_database_setting_set(KIWI_LAST_MODE_KEY,mode);
             }
 
             if (b->queued_tune) {
@@ -1632,7 +1646,7 @@ bool rrclient_local_bridge_connect_driver(const char *url, const char *driver) {
       kiwi_settings_for(url,FALSE):NULL;
    uint64_t start_hz=prior && prior->hz ? prior->hz:
       bridge_plugin_initial_frequency(driver);
-   const char *start_mode=prior && *prior->mode?prior->mode:"USB";
+   const char *start_mode=prior && *prior->mode?prior->mode:bridge_plugin_initial_mode(driver);
    char *text =
       g_strdup_printf("[bridge]\nmodules = auto\n[bridge:local]\ndriver=%s\nhost=%s\nport=%d\nsecure=%s\nwaterfall=true\nfrequency=%" G_GUINT64_FORMAT "\nmode=%s\n", driver
       , host, port, tls ? "true" : "false", start_hz,start_mode);

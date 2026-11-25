@@ -21,6 +21,8 @@
 #include <arpa/inet.h>
 
 #define KIWI_QUEUE_MAX 16384
+#define KIWI_WF_TIMEOUT_US UINT64_C(15000000)
+#define KIWI_WF_MAX_ATTEMPTS 4
 struct kiwi_instance {
    rrp_sdr_host_t host;
    rr_transport_t *connection;
@@ -30,7 +32,9 @@ struct kiwi_instance {
    uint64_t wf_stats_at, wf_received, wf_throttled, wf_ipc_dropped, wf_invalid, wf_sent;
    uint64_t traffic_rx, traffic_tx, traffic_report_at;
    uint64_t snd_last_rx, snd_last_tx, wf_last_rx, wf_last_tx;
-   unsigned waterfall_zoom;
+   unsigned waterfall_zoom, waterfall_failures;
+   uint64_t waterfall_deadline;
+   bool waterfall_gave_up;
    int agc, hang, thresh, slope, decay, man_gain, squelch, squelch_max;
    int nb, nb_gate, nb_thresh, nb_click, de_emp;
    uint64_t waterfall_center_hz;
@@ -44,6 +48,21 @@ struct kiwi_instance {
 };
 /* Native socket, DNS, TLS and WebSocket state belong to RustyAxe. */
 static void waterfall_center(struct kiwi_instance *k);
+static void note(struct kiwi_instance *k,const char *text);
+static void waterfall_failed(struct kiwi_instance *k) {
+   k->waterfall_deadline=0;
+   if(!k->waterfall_enabled||!k->online||k->closing)return;
+   if(++k->waterfall_failures>=KIWI_WF_MAX_ATTEMPTS){
+      k->waterfall_gave_up=true;
+      note(k,"Kiwi W/F unavailable after 4 attempts; audio continues");
+   }else{
+      unsigned delay=1u<<k->waterfall_failures;
+      k->waterfall_retry=mono_us()+(uint64_t)delay*1000000;
+      char msg[128];
+      snprintf(msg,sizeof(msg),"Kiwi W/F failed (%u/%u); retrying in %u seconds",k->waterfall_failures,KIWI_WF_MAX_ATTEMPTS,delay);
+      note(k,msg);
+   }
+}
 static void kiwi_traffic(struct kiwi_instance *k, rr_transport_t *transport, bool waterfall);
 static bool kiwi_noise_blanker(struct kiwi_instance *k);
 static const char *setting(struct kiwi_instance *k, const char *key) {
@@ -64,6 +83,8 @@ static void note(struct kiwi_instance *k, const char *text) {
 }
 
 static void unavailable(struct kiwi_instance *k) {
+   k->online=false;
+   k->waterfall_failures=0;k->waterfall_gave_up=false;k->waterfall_retry=0;
    if (k->waterfall) {
       rr_transport_close(k->waterfall);
    }
@@ -569,6 +590,7 @@ static void waterfall_ws(rr_transport_t *t, enum rr_transport_event event, rr_tr
    if (event == RR_TRANSPORT_EVENT_OPEN) {
       note(k, "Kiwi RF waterfall websocket opened");
       k->waterfall_keepalive = mono_us();
+      k->waterfall_deadline=k->waterfall_keepalive+KIWI_WF_TIMEOUT_US;
       const char *password = setting(k, "password");
 
       if (!password) {
@@ -642,6 +664,8 @@ static void waterfall_ws(rr_transport_t *t, enum rr_transport_event event, rr_tr
          if (m->data.len == 1040) {
             /* Drop surplus W/F rows before IPC to protect the audio pipeline. Keep audio WebSocket and watchdog handling independent. */
             uint64_t now = mono_us();
+            k->waterfall_deadline=now+KIWI_WF_TIMEOUT_US;
+            k->waterfall_failures=0;
 
             if (k->waterfall_last_sent && now - k->waterfall_last_sent < 100000) {
                k->wf_throttled++;
@@ -680,7 +704,7 @@ static void waterfall_ws(rr_transport_t *t, enum rr_transport_event event, rr_tr
       k->waterfall_ready = false;
       k->waterfall_first_frame_logged = false;
       k->waterfall_setup_logged = false;
-      k->waterfall_retry = mono_us() + UINT64_C(10000000);
+      waterfall_failed(k);
    }
 }
 
@@ -860,7 +884,7 @@ static void kiwi_poll(void *instance) {
    }
 
    /* Waterfall is optional and independently retried. Never block audio. */
-   if (k->waterfall_enabled && k->online && !k->waterfall && current >= k->waterfall_retry) {
+   if (k->waterfall_enabled && k->online && !k->waterfall_gave_up && !k->waterfall && current >= k->waterfall_retry) {
       char wf_url[512];
       snprintf(wf_url, sizeof(wf_url), "%s", k->url);
       char *snd = strstr(wf_url, "/SND");
@@ -887,7 +911,8 @@ static void kiwi_poll(void *instance) {
             k->wf_last_rx = k->wf_last_tx = 0;
          }
       }
-      k->waterfall_retry = current + UINT64_C(10000000);
+      if(k->waterfall)k->waterfall_deadline=current+KIWI_WF_TIMEOUT_US;
+      else waterfall_failed(k);
    }
 
    if (k->connection) {
@@ -910,6 +935,11 @@ static void kiwi_poll(void *instance) {
       }
    }
    current = mono_us();
+   if(k->waterfall&&k->waterfall_deadline&&current>=k->waterfall_deadline){
+      k->waterfall_deadline=0;
+      note(k,"Kiwi W/F timed out waiting for valid spectrum rows");
+      rr_transport_close(k->waterfall);
+   }
 
    /* One cumulative IPC sample per second; the parent computes rates. This is not PCM/media IPC traffic and must not be counted twice. */
    if ((!k->traffic_report_at || current - k->traffic_report_at >= UINT64_C(1000000)) && k->host.metadata) {
@@ -927,7 +957,7 @@ static void kiwi_poll(void *instance) {
    }
 
    if (current - k->wf_stats_at >= UINT64_C(10000000)) {
-      if (k->waterfall_enabled && k->online && !k->wf_received && !k->wf_sent) {
+      if (k->waterfall_enabled && k->online && !k->waterfall_gave_up && !k->wf_received && !k->wf_sent) {
          char detail[256];
          snprintf(detail, sizeof(detail), "Kiwi RF waterfall/10s no frames: socket=%s ready=%s max_hz=%" PRIu64 " zoom=%u", !k->waterfall ? "disconnected" :
             rr_transport_state(k->waterfall) == RR_TRANSPORT_OPEN ? "open" : "connecting/closing", k->waterfall_ready ? "yes" : "no", k->max_hz, k->
@@ -1030,16 +1060,19 @@ static bool kiwi_set_waterfall(void *instance, bool enabled, unsigned zoom, uint
    }
    k->waterfall_zoom = zoom;
    k->waterfall_center_hz = center_hz;
+   bool was_enabled=k->waterfall_enabled;
    k->waterfall_enabled = enabled;
    k->waterfall_last_sent = 0;
+   if(!enabled||!was_enabled){
+      k->waterfall_failures=0;k->waterfall_gave_up=false;k->waterfall_retry=0;
+      if(!enabled)k->waterfall_deadline=0;
+   }
 
    if (!enabled && k->waterfall) {
       rr_transport_close(k->waterfall);
       k->waterfall_retry = 0;
    } else if (enabled && k->waterfall && rr_transport_state(k->waterfall) == RR_TRANSPORT_OPEN) {
       waterfall_center(k);
-   } else if (enabled) {
-      k->waterfall_retry = 0;
    }
 
    return true;
