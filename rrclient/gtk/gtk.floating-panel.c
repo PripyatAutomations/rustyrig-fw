@@ -82,6 +82,7 @@ typedef struct rr_chat_docks {
    gint extent[RR_DOCK_COUNT];
    gboolean collapsed[RR_DOCK_COUNT], user_collapsed[RR_DOCK_COUNT];
    guint width_bucket;
+   char *scope;
 } RRChatDocks;
 static RRChatDocks *active_chat_docks;
 static char *active_chat_room, *active_chat_server;
@@ -130,12 +131,38 @@ static const char *dock_width_name(guint bucket) {
    return bucket == 1 ? "compact" : bucket == 2 ? "half" : "wide";
 }
 
-static char *dock_extent_key(guint edge, guint bucket) {
+/* Stable profile + conversation identity; names may contain separators. */
+static char *dock_scope(const char *server, const char *room) {
+   if (!server || !room || !*room) return NULL;
+   char *identity = g_strdup_printf("%zu:%s%s", strlen(server), server, room);
+   char *scope = g_compute_checksum_for_string(G_CHECKSUM_SHA256, identity, -1);
+   g_free(identity);
+   return scope;
+}
+
+static char *dock_extent_key(const RRChatDocks *d, guint edge, guint bucket) {
+   if (d && d->scope)
+      return g_strdup_printf("ui.chat.workspace.%s.%s.%s.size", d->scope, dock_edge_name(edge), dock_width_name(bucket));
    return g_strdup_printf("ui.chat.dock.%s.%s.size", dock_edge_name(edge), dock_width_name(bucket));
 }
 
-static char *dock_collapsed_key(guint edge, guint bucket) {
+static char *dock_collapsed_key(const RRChatDocks *d, guint edge, guint bucket) {
+   if (d && d->scope)
+      return g_strdup_printf("ui.chat.workspace.%s.%s.%s.collapsed", d->scope, dock_edge_name(edge), dock_width_name(bucket));
    return g_strdup_printf("ui.chat.dock.%s.%s.collapsed", dock_edge_name(edge), dock_width_name(bucket));
+}
+
+/* Older global arrangements are defaults, not overwritten by tab edits. */
+static char *dock_read(const RRChatDocks *d, guint edge, guint bucket, gboolean collapse) {
+   char *key = collapse ? dock_collapsed_key(d, edge, bucket) : dock_extent_key(d, edge, bucket);
+   char *value = rrclient_database_setting_get(key);
+   g_free(key);
+   if (!value && d && d->scope) {
+      key = collapse ? dock_collapsed_key(NULL, edge, bucket) : dock_extent_key(NULL, edge, bucket);
+      value = rrclient_database_setting_get(key);
+      g_free(key);
+   }
+   return value;
 }
 
 static void dock_edge_set_extent(RRChatDocks *d, guint edge, gint extent) {
@@ -198,7 +225,7 @@ static gboolean dock_edge_line_press(GtkWidget *widget, GdkEventButton *event, g
       return FALSE;
    }
    d->user_collapsed[edge] = !d->user_collapsed[edge];
-   char *key = dock_collapsed_key(edge, d->width_bucket ? d->width_bucket : 2);
+   char *key = dock_collapsed_key(d, edge, d->width_bucket ? d->width_bucket : 2);
    rrclient_database_setting_set(key, d->user_collapsed[edge] ? "true" : "false");
    g_free(key);
    dock_edge_refresh(d, edge);
@@ -239,19 +266,17 @@ static void dock_workspace_allocation(GtkWidget *widget, GtkAllocation *allocati
    d->width_bucket = next;
 
    for (guint edge = 0 ; edge < RR_DOCK_COUNT ; edge++) {
-      char *key = dock_extent_key(edge, next);
-      char *saved = rrclient_database_setting_get(key);
-
-      if (saved && *saved) {
-         d->extent[edge] = CLAMP(atoi(saved), 40, 1400);
+      char *saved = dock_read(d, edge, next, FALSE);
+      if (!saved) {
+         char *legacy = g_strdup_printf("ui.chat.dock.%s.size", dock_edge_name(edge));
+         saved = rrclient_database_setting_get(legacy);
+         g_free(legacy);
       }
+      d->extent[edge] = saved && *saved ? CLAMP(atoi(saved), 40, 1400) : (edge < 2 ? 230 : 108);
       g_free(saved);
-      g_free(key);
-      key = dock_collapsed_key(edge, next);
-      saved = rrclient_database_setting_get(key);
+      saved = dock_read(d, edge, next, TRUE);
       d->user_collapsed[edge] = saved && !strcmp(saved, "true");
       g_free(saved);
-      g_free(key);
       g_object_set_data(G_OBJECT(d->pane[edge]), "rr-dock-sized", NULL);
       dock_edge_refresh(d, edge);
    }
@@ -274,7 +299,7 @@ static gboolean dock_edge_resize_release(GtkWidget *widget, GdkEventButton *even
    d->extent[edge] = (edge == RR_DOCK_LEFT || edge == RR_DOCK_TOP) ? pos : size - pos;
 
    if (d->extent[edge] > 12) {
-      char *key = dock_extent_key(edge, d->width_bucket ? d->width_bucket : 2);
+      char *key = dock_extent_key(d, edge, d->width_bucket ? d->width_bucket : 2);
       char *val = g_strdup_printf("%d", d->extent[edge]);
       rrclient_database_setting_defer(key, val);
       g_free(val);
@@ -455,11 +480,19 @@ static void dock_workspace_destroy(GtkWidget *widget, gpointer data) {
    }
 }
 
+static void dock_workspace_free(gpointer data) {
+   RRChatDocks *d = data;
+   g_free(d->scope);
+   g_free(d);
+}
+
 GtkWidget *rr_floating_panel_chat_workspace(GtkWidget *chat, GtkWidget *page) {
    if (!GTK_IS_WIDGET(chat) || !GTK_IS_WIDGET(page)) {
       return chat;
    }
    RRChatDocks *d = g_new0(RRChatDocks, 1);
+   d->scope = dock_scope(g_object_get_data(G_OBJECT(page), "rr-chat-server"),
+                         g_object_get_data(G_OBJECT(page), "rr-chat-name"));
    dock_edge_style();
 
    for (guint edge = 0 ; edge < RR_DOCK_COUNT ; edge++) {
@@ -498,7 +531,7 @@ GtkWidget *rr_floating_panel_chat_workspace(GtkWidget *chat, GtkWidget *page) {
       g_signal_connect(pane, "size-allocate", G_CALLBACK(dock_pane_initial_allocation), NULL);
    }
 
-   g_object_set_data_full(G_OBJECT(page), "rr-chat-docks", d, g_free);
+   g_object_set_data_full(G_OBJECT(page), "rr-chat-docks", d, dock_workspace_free);
    g_signal_connect(page, "destroy", G_CALLBACK(dock_workspace_destroy), d);
 
    return left;
@@ -710,7 +743,7 @@ static void dock_reveal_panel(RRFloatPanel *p) {
    guint edge = p->dock_edge;
    d->collapsed[edge] = FALSE;
    d->user_collapsed[edge] = FALSE;
-   char *key = dock_collapsed_key(edge, d->width_bucket ? d->width_bucket : 2);
+   char *key = dock_collapsed_key(d, edge, d->width_bucket ? d->width_bucket : 2);
    rrclient_database_setting_set(key, "false");
    g_free(key);
    gtk_widget_show(d->scroll[edge]);
