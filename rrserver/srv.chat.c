@@ -24,6 +24,7 @@
 #include <sys/wait.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
+#include <rrserver/srv.send.h>
 #include <librrprotocol/server.events.h>
 #include <rrserver/srv.chat.internal.h>
 
@@ -1481,14 +1482,14 @@ bool ws_handle_chat_msg(rrconn_t *cptr, dict *d) {
          const char *requested = target ? target : channel;
 
          if (!requested || (requested[0] != '#' && requested[0] != '&')) {
-            ws_send_error(cptr, "Invalid room name: %s (room names must start with # or &)", requested ? requested : "(none)");
+            rrserver_send_target_error(cptr, requested, "Invalid room name: %s (room names must start with # or &)", requested ? requested : "(none)");
 
             return false;
          }
          requested = room_canonical(requested);
 
          if (!ws_client_in_room(cptr, requested) && !has_priv(cptr->user->uid, "admin|owner")) {
-            ws_send_error(cptr, "You are not joined to room %s", requested);
+            rrserver_send_target_error(cptr, requested, "You are not joined to room %s", requested);
 
             return false;
          }
@@ -1498,19 +1499,19 @@ bool ws_handle_chat_msg(rrconn_t *cptr, dict *d) {
          }
 
          if (strlen(data) > 512) {
-            ws_send_error(cptr, "Topic is too long (maximum 512 characters)");
+            rrserver_send_target_error(cptr, requested, "Topic is too long (maximum 512 characters)");
 
             return false;
          }
 
          if (*data && cptr->user->is_muted) {
-            ws_send_error(cptr, "You are muted and cannot change room topics");
+            rrserver_send_target_error(cptr, requested, "You are muted and cannot change room topics");
 
             return false;
          }
 
          if (*data && !ws_chat_has_authority(cptr, requested, cmd)) {
-            ws_send_error(cptr, "You do not have CHAT privilege.");
+            rrserver_send_target_error(cptr, requested, "You do not have CHAT privilege.");
 
             return false;
          }
@@ -1531,14 +1532,14 @@ bool ws_handle_chat_msg(rrconn_t *cptr, dict *d) {
          bool joining = strcasecmp(cmd, "join") == 0;
 
          if (requested && *requested && requested[0] != '#' && requested[0] != '&') {
-            ws_send_error(cptr, "Invalid room name: %s (room names must start with # or &)", requested);
+            rrserver_send_target_error(cptr, requested, "Invalid room name: %s (room names must start with # or &)", requested);
 
             return false;
          }
          bool room_ok = joining ? ws_client_join_room(cptr, requested) : ws_client_part_room(cptr, requested);
 
          if (!room_ok) {
-            ws_send_error(cptr, "%s failed for room %s", joining ? "JOIN" : "PART", requested ? requested : "(none)");
+            rrserver_send_target_error(cptr, requested, "%s failed for room %s", joining ? "JOIN" : "PART", requested ? requested : "(none)");
 
             return false;
          }
@@ -1580,38 +1581,38 @@ bool ws_handle_chat_msg(rrconn_t *cptr, dict *d) {
          const char *state = dict_get(d, "talk.typing", "");
 
          if (!target || (*target != '#' && *target != '&') || !ws_room_name_valid(target)) {
-            ws_send_error(cptr, "Cannot update typing status: specify a valid chat room (talk.target)");
+            rrserver_send_target_error(cptr, target, "Cannot update typing status: specify a valid chat room (talk.target)");
 
             return false;
          }
 
          if (!ws_client_in_room(cptr, target)) {
-            ws_send_error(cptr, "Cannot update typing status in %s: join the room first", target);
+            rrserver_send_target_error(cptr, target, "Cannot update typing status in %s: join the room first", target);
 
             return false;
          }
 
          if (!ws_chat_has_authority(cptr, target, "typing")) {
-            ws_send_error(cptr, "Cannot update typing status in %s: chat permission is required", target);
+            rrserver_send_target_error(cptr, target, "Cannot update typing status in %s: chat permission is required", target);
 
             return false;
          }
 
          if (strcmp(state, "started") && strcmp(state, "active") && strcmp(state, "paused") && strcmp(state, "idle")) {
-            ws_send_error(cptr, "Invalid typing status for %s: expected started, active, paused or idle", target);
+            rrserver_send_target_error(cptr, target, "Invalid typing status for %s: expected started, active, paused or idle", target);
 
             return false;
          }
 
          if (cptr->user->is_muted && strcmp(state, "idle")) {
-            ws_send_error(cptr, "Cannot show typing status in %s: your account is muted", target);
+            rrserver_send_target_error(cptr, target, "Cannot show typing status in %s: your account is muted", target);
 
             return false;
          }
          dict *presence = dict_new();
 
          if (!presence) {
-            ws_send_error(cptr, "Cannot update typing status in %s: server is out of memory", target);
+            rrserver_send_target_error(cptr, target, "Cannot update typing status in %s: server is out of memory", target);
 
             return false;
          }
@@ -1627,7 +1628,7 @@ bool ws_handle_chat_msg(rrconn_t *cptr, dict *d) {
          return true;
       } else if (strcasecmp(cmd, "msg") == 0) {
          if (cptr->user->is_muted) {
-            ws_send_error(cptr, "You are muted and cannot send messages");
+            rrserver_send_target_error(cptr, channel, "You are muted and cannot send messages");
 
             return false;
          }
@@ -1650,13 +1651,13 @@ bool ws_handle_chat_msg(rrconn_t *cptr, dict *d) {
 
             // XXX: Alert the user that their message was NOT delivered
             // because they aren't allowed to send it.
-            ws_send_error(cptr, "You do not have CHAT privilege.");
+            rrserver_send_target_error(cptr, channel, "You do not have CHAT privilege.");
 
             return false;
          }
 
          if (channel && (channel[0] == '#' || channel[0] == '&') && !ws_client_in_room(cptr, channel)) {
-            ws_send_error(cptr, "You are not joined to room %s", channel);
+            rrserver_send_target_error(cptr, channel, "You are not joined to room %s", channel);
 
             return false;
          }
@@ -1754,25 +1755,25 @@ bool ws_handle_chat_msg(rrconn_t *cptr, dict *d) {
                            // sent unescaped so both the C client and the
                            // webui can display them as-is. (PARITY:
                            // rustyrig-www/js/webui notice rendering)
-                           ws_send_notice(cptr, "***SERVER***");
-                           ws_send_notice(cptr, "*** !help for VFO commands ***");
-                           ws_send_notice(cptr, "  !freq <freq> - Set frequency to <freq> - can be 7200 7.2m 7200000 etc form");
-                           ws_send_notice(cptr, "  !mode <mode> - Set mode to CW|AM|LSB|USB|FM|DL|DU");
-                           ws_send_notice(cptr, "  !power <power> - Set power in watts (e.g. !power 25)");
-                           ws_send_notice(cptr, "  !vfo <vfo> - Switch VFOs (A|B|C)");
-                           ws_send_notice(cptr, "  !width <width> - Set passband width (narrow|normal|wide)");
+                           rrserver_send_target_notice(cptr, channel, "***SERVER***");
+                           rrserver_send_target_notice(cptr, channel, "*** !help for VFO commands ***");
+                           rrserver_send_target_notice(cptr, channel, "  !freq <freq> - Set frequency to <freq> - can be 7200 7.2m 7200000 etc form");
+                           rrserver_send_target_notice(cptr, channel, "  !mode <mode> - Set mode to CW|AM|LSB|USB|FM|DL|DU");
+                           rrserver_send_target_notice(cptr, channel, "  !power <power> - Set power in watts (e.g. !power 25)");
+                           rrserver_send_target_notice(cptr, channel, "  !vfo <vfo> - Switch VFOs (A|B|C)");
+                           rrserver_send_target_notice(cptr, channel, "  !width <width> - Set passband width (narrow|normal|wide)");
 
                            return true;
 
                         } else if (strcasecmp(cmd, "vfo") == 0) {
                            if (!ws_client_in_room(cptr, channel) || !ws_room_has_vfos(channel)) {
-                              ws_send_error(cptr, "Select a VFO from a joined rig room");
+                              rrserver_send_target_error(cptr, channel, "Select a VFO from a joined rig room");
 
                               return false;
                            }
 
                            if (*arg == '\0') {
-                              ws_send_error(cptr, "!vfo requires a vfo argument (A|B|C...)");
+                              rrserver_send_target_error(cptr, channel, "!vfo requires a vfo argument (A|B|C...)");
 
                               return false;
                            }
@@ -1782,19 +1783,19 @@ bool ws_handle_chat_msg(rrconn_t *cptr, dict *d) {
                            rr_vfo_t new_vfo = vfo_lookup(toupper(arg[0]));
 
                            if (new_vfo < 0 || new_vfo >= MAX_VFOS) {
-                              ws_send_error(cptr, "Unknown VFO: !vfo %s (try A-Z)", arg);
+                              rrserver_send_target_error(cptr, channel, "Unknown VFO: !vfo %s (try A-Z)", arg);
 
                               return false;
                            }
 
                            if (!(ws_room_vfo_mask(channel) & (UINT32_C(1) << new_vfo))) {
-                              ws_send_error(cptr, "VFO %s is not mapped to room %s", vfo_name(new_vfo), channel);
+                              rrserver_send_target_error(cptr, channel, "VFO %s is not mapped to room %s", vfo_name(new_vfo), channel);
 
                               return false;
                            }
 
                            if (cptr->is_ptt) {
-                              ws_send_error(cptr, "Cannot select VFO %s in room %s while transmitting on VFO %c in room %s; release PTT "
+                              rrserver_send_target_error(cptr, channel, "Cannot select VFO %s in room %s while transmitting on VFO %c in room %s; release PTT "
                                  "first", vfo_name(new_vfo), channel, cptr->ptt_vfo, cptr->ptt_room);
 
                               return false;
@@ -1826,7 +1827,7 @@ bool ws_handle_chat_msg(rrconn_t *cptr, dict *d) {
 
                         } else {
                            Log(LOG_WARN, "ws.chat", "Unknown command: %s", cmd);
-                           ws_send_error(cptr, "Unknown command: !%s - try !help", cmd);
+                           rrserver_send_target_error(cptr, channel, "Unknown command: !%s - try !help", cmd);
 
                            return false;
                         }
@@ -1846,7 +1847,7 @@ bool ws_handle_chat_msg(rrconn_t *cptr, dict *d) {
                bool private_msg = strcasecmp(msg_type, "priv") == 0 || strcasecmp(msg_type, "privmsg") == 0;
 
                if (private_msg && (!channel || (channel[0] == '#' || channel[0] == '&'))) {
-                  ws_send_error(cptr, "Private message target must be a username");
+                  rrserver_send_target_error(cptr, channel, "Private message target must be a username");
 
                   return false;
                }
