@@ -6,6 +6,7 @@ MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH 2>/dev/null || gcc -
 LIBDIR ?= $(PREFIX)/lib/$(MULTIARCH)
 MODULEDIR ?= $(PREFIX)/lib/rustyrig/modules
 DATADIR ?= /var/lib/rustyrig
+UI_SCRIPT_DIR ?= $(PREFIX)/share/rustyrig/scripts/client/ui
 WEB_ROOT ?= $(DATADIR)/www
 HELP_ROOT ?= $(DATADIR)/help
 SYSCONFDIR ?= /etc/rustyrig

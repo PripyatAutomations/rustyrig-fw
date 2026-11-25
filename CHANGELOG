@@ -7,6 +7,9 @@ rustyrig-fw (1.0.4) testing; urgency=medium
     - Old backend.hamlib optionally available as legacy-hamlib
 
   -- Full Changes --
+  * Centralize UI layout lookup with user/admin/distribution precedence,
+    log selected layout paths, install override documentation and align
+    source and Debian layout destinations.
   * Add default TUI main pane with a 2:1 room roster/VFO side column,
     RustyScript layouts, room-scoped readback and frequency tuning.
   * Use overridable RustyScript layouts for the TUI server picker and basic

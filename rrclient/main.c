@@ -2720,7 +2720,6 @@ int main(int argc, char *argv[]) {
       // One shared tab per system output type, independent of server count.
       tui_window_create("host log");
       tui_window_create("client log");
-      rrclient_tui_workspace_init();
       tui_window_t *sdr_tab = tui_window_create("SDR Directory");
 
       if (sdr_tab) {
@@ -2731,6 +2730,8 @@ int main(int argc, char *argv[]) {
       }
       event_on_binary("media.frame.log", rrclient_tui_host_log_frame, NULL);
       log_add_callback(rrclient_tui_log_print_va, LOG_CALLBACK_FILTERED);
+      rrclient_tui_workspace_init();
+      tui_redraw_request();
 
       // 1hz TUI clock (statusbar/clock refresh, shutdown check)
       g_timeout_add(1000, tui_clock_cb_real, NULL);

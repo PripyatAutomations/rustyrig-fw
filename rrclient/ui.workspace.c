@@ -4,6 +4,7 @@
 #include <librustyui/tui.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/ui.h>
+#include <rrclient/ui.layout.h>
 #include <rrclient/connman.h>
 #include <rrclient/rooms.h>
 #include <rrclient/userlist.h>
@@ -25,6 +26,7 @@ static void vfo_action(rrui_form_t *f,const char *id,const char *action,void *da
    const char *room=rrclient_active_room();
    rrconn_t *conn=rrclient_active_connection();
    if(!room||!*room||!conn||!conn->is_ws||rrclient_room_offline(room))return;
+   if(g_strcmp0(room_seen,room)||g_strcmp0(server_seen,rrclient_selected_server())||active_seen!=vfo_state_get_active()){refresh();return;}
    const char *letters=rrclient_room_vfos(room);
    char active=vfo_state_get_active();
    if(!letters||!strchr(letters,active))return;
@@ -41,22 +43,6 @@ static void vfo_action(rrui_form_t *f,const char *id,const char *action,void *da
       if(!ws_send_freq_cmd_in_room(conn,(char[]){active,0},hz,room))
          Log(LOG_WARN,"ui.workspace","Unable to tune VFO in selected room");
    }
-}
-static rrui_form_t *load_tile(const char *file,rrui_action_fn action) {
-   char *paths[]={g_build_filename(g_get_user_config_dir(),"rustyrig","scripts","client","ui",file,NULL),
-      g_build_filename("/etc/rustyrig/scripts/client/ui",file,NULL),
-      g_build_filename("/usr/share/rustyrig/scripts/client/ui",file,NULL)};
-   rrui_form_t *out=NULL;
-   for(unsigned i=0;i<G_N_ELEMENTS(paths)&&!out;i++){
-      char *s=NULL;gsize n=0;
-      if(!g_file_get_contents(paths[i],&s,&n,NULL))continue;
-      rrui_layout_t *l=rrui_layout_new(RRUI_TUI);
-      if(n<=65536&&strlen(s)==n&&rrui_layout_load(l,s))out=rrui_form_new(l,action,NULL);
-      if(!out)Log(LOG_WARN,"ui.workspace","Rejected layout %s",paths[i]);
-      g_free(s);rrui_layout_free(l);
-   }
-   for(unsigned i=0;i<G_N_ELEMENTS(paths);i++)g_free(paths[i]);
-   return out;
 }
 static bool label(rrui_form_t *f,const char *id,const char *value){
    const char *old=rrui_form_value(f,id);
@@ -117,7 +103,11 @@ void rrclient_tui_workspace_refresh(void){
    tui_render_lock();refresh();tui_render_unlock();
 }
 void rrclient_tui_workspace_init(void){
-   roster=load_tile("userlist.rrs",NULL);vfo=load_tile("vfo.rrs",vfo_action);
+   const rrclient_ui_required_t users[]={{"roster",RRUI_LIST,false}};
+   const rrclient_ui_required_t rig[]={{"readback",RRUI_LABEL,false},{"mode",RRUI_LABEL,false},
+      {"frequency",RRUI_ENTRY,false},{"switch",RRUI_BUTTON,false}};
+   roster=rrclient_ui_layout_load("userlist.rrs",RRUI_PANEL,users,G_N_ELEMENTS(users),NULL);
+   vfo=rrclient_ui_layout_load("vfo.rrs",RRUI_PANEL,rig,G_N_ELEMENTS(rig),vfo_action);
    if(roster&&!rrui_tui_tile_open(roster,6,2)){rrui_form_free(roster);roster=NULL;}
    if(vfo&&!rrui_tui_tile_open(vfo,8,1)){rrui_form_free(vfo);vfo=NULL;}
    rrclient_tui_workspace_refresh();

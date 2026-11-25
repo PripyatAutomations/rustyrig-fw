@@ -7,6 +7,7 @@
 #include <rrclient/connman.h>
 #include <rrclient/database.h>
 #include <rrclient/ui.h>
+#include <rrclient/ui.layout.h>
 #include <glib.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -41,35 +42,11 @@ static const char *property(const char *name,const char *prop) {
    return v?v:"";
 }
 static rrui_form_t *load_form(const char *file,bool editor) {
-   char *user=g_build_filename(g_get_user_config_dir(),"rustyrig","scripts","client","ui",file,NULL);
-   char *admin=g_build_filename("/etc/rustyrig/scripts/client/ui",file,NULL);
-   char *system=g_build_filename("/usr/share/rustyrig/scripts/client/ui",file,NULL);
-   const char *paths[]={user,admin,system};
-   rrui_form_t *out=NULL;
-   for(unsigned i=0;i<G_N_ELEMENTS(paths)&&!out;i++){
-      struct stat st;
-      if(stat(paths[i],&st)||!S_ISREG(st.st_mode)||st.st_size>65536)continue;
-      char *source=NULL;gsize length=0;
-      if(!g_file_get_contents(paths[i],&source,&length,NULL))continue;
-      rrui_layout_t *l=rrui_layout_new(RRUI_TUI);
-      if(length<=65536&&strlen(source)==length&&rrui_layout_load(l,source)){
-         const char *required_picker[]={"profiles"};
-         const char *required_editor[]={"name","url","user","password"};
-         const char *const *required=editor?required_editor:required_picker;
-         size_t n=editor?G_N_ELEMENTS(required_editor):G_N_ELEMENTS(required_picker);
-         bool ok=true;
-         for(size_t k=0;k<n;k++){
-            const rrui_widget_t *w=rrui_layout_find(l,required[k]);
-            if(!w||w->kind!=(editor?RRUI_ENTRY:RRUI_LIST)||
-               (editor&&!strcmp(required[k],"password")&&!w->masked))ok=false;
-         }
-         if(ok)out=rrui_form_new(l,action,NULL);
-      }
-      if(!out)Log(LOG_WARN,"ui.serverpicker","Rejected layout %s: %s",paths[i],rrui_layout_error(l));
-      rrui_layout_free(l);g_free(source);
-   }
-   g_free(user);g_free(admin);g_free(system);
-   return out;
+   const rrclient_ui_required_t picker[]={{"profiles",RRUI_LIST,false}};
+   const rrclient_ui_required_t fields[]={{"name",RRUI_ENTRY,false},{"url",RRUI_ENTRY,false},
+      {"user",RRUI_ENTRY,false},{"password",RRUI_ENTRY,true}};
+   return rrclient_ui_layout_load(file,RRUI_DIALOG,editor?fields:picker,
+      editor?G_N_ELEMENTS(fields):G_N_ELEMENTS(picker),action);
 }
 static gint compare_names(gconstpointer a,gconstpointer b) {
    return g_ascii_strcasecmp(*(char *const *)a,*(char *const *)b);
