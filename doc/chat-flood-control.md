@@ -19,7 +19,7 @@ chat.flood.shun-seconds=10
 
 Limits are per authenticated account, shared across rooms. On excess, the server blocks further ordinary chat until the shun expires and sends a notice. Shunning does **not** disconnect the user or prevent CAT/audio traffic. File chunks are not counted as regular chat; other command traffic is not yet covered. Limits are currently clamped to the ranges above; no rate-limit disable switch is implemented.
 
-An account with the global `chat-flood` permission bypasses the server check. A room-scoped `chat-flood` resource grant exempts messages directed to that room, using the existing privilege system. Avoid granting this exemption widely.
+An account with the global `chat.flood` permission (or legacy `chat-flood`) bypasses the server check. A room-scoped `chat-flood` resource grant exempts messages directed to that room, using the existing privilege system. Avoid granting this exemption widely.
 
 ## Client settings
 
