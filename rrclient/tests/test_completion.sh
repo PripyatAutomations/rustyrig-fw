@@ -6,5 +6,5 @@ trap 'rm -rf "$work"' EXIT
 source rrclient/tests/irc-adapter.sh
 ${CC:-cc} -I. -Iinc -Ibuild/${PROFILE:-radio} -ffunction-sections -fdata-sections \
    rrclient/tests/completion.c rrclient/tests/client_stubs.c -Wl,--gc-sections -L. -Wl,-rpath,"$PWD" \
-   -lrustyaxe $(pkg-config --cflags --libs glib-2.0) -lrrprotocol ${LDFLAGS:-} -o "$work/completion"
+   -lrustyui -lrustyaxe $(pkg-config --cflags --libs glib-2.0) -lrrprotocol ${LDFLAGS:-} -o "$work/completion"
 "$work/completion"
