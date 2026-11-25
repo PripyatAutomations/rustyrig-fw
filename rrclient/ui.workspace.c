@@ -27,13 +27,16 @@ static void vfo_action(rrui_form_t *f,const char *id,const char *action,void *da
    rrconn_t *conn=rrclient_active_connection();
    if(!room||!*room||!conn||!conn->is_ws||rrclient_room_offline(room))return;
    if(g_strcmp0(room_seen,room)||g_strcmp0(server_seen,rrclient_selected_server())||active_seen!=vfo_state_get_active()){refresh();return;}
-   const char *letters=rrclient_room_vfos(room);
+   uint32_t mask=rrclient_room_vfo_mask(room);
    char active=vfo_state_get_active();
-   if(!letters||!strchr(letters,active))return;
+   if(active<'A'||active>'Z'||!(mask&(UINT32_C(1)<<(active-'A'))))return;
    if(!strcmp(action,"next")){
-      const char *p=strchr(letters,active);
-      char next=p[1]?p[1]:letters[0];
-      if(next>='A'&&next<='Z'){vfo_state_set_active((char[]){next,0});refresh();}
+      for(unsigned offset=1;offset<26;offset++){
+         unsigned index=((unsigned)(active-'A')+offset)%26;
+         if(mask&(UINT32_C(1)<<index)){
+            vfo_state_set_active((char[]){(char)('A'+index),0});refresh();break;
+         }
+      }
    }else if(!strcmp(action,"tune")){
       if(!rrclient_room_tx_control(room)&&!rrclient_room_rx_tunable(room))return;
       const char *s=rrui_form_value(f,"frequency");
@@ -78,8 +81,8 @@ static void refresh(void){
    }
    if(vfo){
       char a=vfo_state_get_active(),id[2]={a,0};
-      const char *letters=room?rrclient_room_vfos(room):NULL;
-      bool valid=room&&*room&&letters&&strchr(letters,a)&&!rrclient_room_offline(room);
+      uint32_t mask=room&&*room?rrclient_room_vfo_mask(room):0;
+      bool valid=a>='A'&&a<='Z'&&(mask&(UINT32_C(1)<<(a-'A')))&&!rrclient_room_offline(room);
       long hz=valid?vfo_state_get_long(id,"cat.state.freq",-1):-1;
       long width=valid?vfo_state_get_long(id,"cat.state.width",-1):-1;
       const char *mode=valid?vfo_state_get(id,"cat.state.mode","--"):"--";
