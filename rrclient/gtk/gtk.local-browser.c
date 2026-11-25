@@ -7,7 +7,8 @@
 enum { COL_PATH, COL_STATE, COL_COUNT };
 typedef struct {
    char *root, *suffix;
-   GtkWidget *view, *message;
+   GtkWidget *view, *message, *search;
+   GtkTreeModelFilter *filter;
    GtkListStore *store;
    GPtrArray *buttons;
    rr_local_browser_action_t *actions;
@@ -32,6 +33,29 @@ char *rr_local_browser_selected(GtkWidget *widget) {
    if (gtk_tree_selection_get_selected(sel, &model, &iter))
       gtk_tree_model_get(model, &iter, COL_PATH, &name, -1);
    return name;
+}
+
+static gboolean browser_visible(GtkTreeModel *model, GtkTreeIter *iter, gpointer data) {
+   local_browser_t *b = data;
+   const char *query = gtk_entry_get_text(GTK_ENTRY(b->search));
+   if (!*query) return TRUE;
+   char *name = NULL;
+   gtk_tree_model_get(model, iter, COL_PATH, &name, -1);
+   char *valid = g_utf8_make_valid(name ? name : "", -1);
+   char *folded = g_utf8_casefold(valid, -1);
+   char *needle = g_utf8_casefold(query, -1);
+   gboolean visible = strstr(folded, needle) != NULL;
+   g_free(needle);
+   g_free(folded);
+   g_free(valid);
+   g_free(name);
+   return visible;
+}
+
+static void browser_search_changed(GtkEditable *entry, gpointer data) {
+   (void)entry;
+   local_browser_t *b = data;
+   gtk_tree_model_filter_refilter(b->filter);
 }
 
 static void refresh_buttons(GtkWidget *widget) {
@@ -117,8 +141,11 @@ void rr_local_browser_refresh(GtkWidget *widget) {
       gtk_list_store_append(b->store, &iter);
       gtk_list_store_set(b->store, &iter, COL_PATH, name, COL_STATE,
                          b->state ? b->state(name, b->user) : "", -1);
-      if (selected && !strcmp(selected, name))
-         gtk_tree_selection_select_iter(selection, &iter);
+      if (selected && !strcmp(selected, name)) {
+         GtkTreeIter visible;
+         if (gtk_tree_model_filter_convert_child_iter_to_iter(b->filter, &visible, &iter))
+            gtk_tree_selection_select_iter(selection, &visible);
+      }
    }
    g_ptr_array_unref(files);
    g_free(selected);
@@ -197,8 +224,14 @@ GtkWidget *rr_local_browser_new(const char *directory, const char *suffix,
    gtk_widget_set_hexpand(scroll, TRUE);
    gtk_widget_set_vexpand(scroll, TRUE);
    b->store = gtk_list_store_new(COL_COUNT, G_TYPE_STRING, G_TYPE_STRING);
-   b->view = gtk_tree_view_new_with_model(GTK_TREE_MODEL(b->store));
+   b->search = gtk_search_entry_new();
+   gtk_entry_set_placeholder_text(GTK_ENTRY(b->search), "Filter filenames");
+   b->filter = GTK_TREE_MODEL_FILTER(gtk_tree_model_filter_new(GTK_TREE_MODEL(b->store), NULL));
+   gtk_tree_model_filter_set_visible_func(b->filter, browser_visible, b, NULL);
+   b->view = gtk_tree_view_new_with_model(GTK_TREE_MODEL(b->filter));
+   g_object_unref(b->filter);
    g_object_unref(b->store);
+   g_signal_connect(b->search, "changed", G_CALLBACK(browser_search_changed), b);
    gtk_tree_view_set_headers_visible(GTK_TREE_VIEW(b->view), TRUE);
    GtkCellRenderer *cell = gtk_cell_renderer_text_new();
    gtk_tree_view_insert_column_with_attributes(GTK_TREE_VIEW(b->view), -1, "File",
@@ -208,7 +241,10 @@ GtkWidget *rr_local_browser_new(const char *directory, const char *suffix,
                                                 cell, "text", COL_STATE, NULL);
    gtk_tree_view_column_set_expand(gtk_tree_view_get_column(GTK_TREE_VIEW(b->view), 0), TRUE);
    gtk_container_add(GTK_CONTAINER(scroll), b->view);
-   gtk_box_pack_start(GTK_BOX(content), scroll, TRUE, TRUE, 0);
+   GtkWidget *list = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
+   gtk_box_pack_start(GTK_BOX(list), b->search, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(list), scroll, TRUE, TRUE, 0);
+   gtk_box_pack_start(GTK_BOX(content), list, TRUE, TRUE, 0);
    GtkTreeSelection *selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(b->view));
    gtk_tree_selection_set_mode(selection, GTK_SELECTION_SINGLE);
    g_signal_connect(selection, "changed", G_CALLBACK(selection_changed), box);
