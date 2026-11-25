@@ -704,6 +704,7 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
       // display it in chat but do NOT drop the connection
       const char *err = NULL;
       const char *from = NULL;
+      const char *output = "status";
 
       if (data) {
          dict *d = json2dict(data);
@@ -713,10 +714,15 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
             const char *src = dict_get(d, "error.from", NULL);
             err = (msg ? strdup(msg) : NULL);
             from = (src ? strdup(src) : NULL);
+            const char *target = dict_get(d, "error.target", "");
+            if (*target && cptr) {
+               const char *window = rrclient_window_find_for_connection(cptr, target);
+               if (window) output = window;
+            }
             dict_free(d);
          }
       }
-      ui_print(ui_active_window_name(), "%s\00304*** ERROR%s%s:\017 %s", get_chat_ts(now), (from ? " from " : ""), (from ? from : ""), (err ? err :
+      ui_print(output, "%s\00304*** ERROR%s%s:\017 %s", get_chat_ts(now), (from ? " from " : ""), (from ? from : ""), (err ? err :
          "unknown error"));
       free((void *)err);
       free((void *)from);
