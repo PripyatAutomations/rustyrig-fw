@@ -22,11 +22,12 @@
 #include <librrprotocol/server.events.h>
 #include <librrprotocol/wire.h>
 #include <librrprotocol/latency.h>
+#include <rrserver/srv.send.h>
 
 extern time_t now;
 
 /* Server-owned protocol replies, independent of the selected transport. */
-static bool ws_send_formatted(rrconn_t *client, const char *type, const char *field, const char *format, va_list args) {
+static bool ws_send_formatted(rrconn_t *client, const char *type, const char *field, const char *target, const char *format, va_list args) {
    if (!client || !format) {
       return false;
    }
@@ -39,6 +40,9 @@ static bool ws_send_formatted(rrconn_t *client, const char *type, const char *fi
    }
    dict_add(reply, "msg.type", type);
    dict_add(reply, field, message);
+   if (target && *target) {
+      dict_add(reply, !strcmp(type, "error") ? "error.target" : "notice.target", target);
+   }
    dict_add_ulong(reply, "msg.ts", now);
    bool sent = ws_send_dict(NULL, client, reply, WEBSOCKET_OP_TEXT);
    dict_free(reply);
@@ -49,7 +53,7 @@ static bool ws_send_formatted(rrconn_t *client, const char *type, const char *fi
 bool ws_send_error(rrconn_t *client, const char *format, ...) {
    va_list args;
    va_start(args, format);
-   bool sent = ws_send_formatted(client, "error", "error.msg", format, args);
+   bool sent = ws_send_formatted(client, "error", "error.msg", NULL, format, args);
    va_end(args);
 
    return sent;
@@ -58,9 +62,25 @@ bool ws_send_error(rrconn_t *client, const char *format, ...) {
 bool ws_send_notice(rrconn_t *client, const char *format, ...) {
    va_list args;
    va_start(args, format);
-   bool sent = ws_send_formatted(client, "notice", "notice.msg", format, args);
+   bool sent = ws_send_formatted(client, "notice", "notice.msg", NULL, format, args);
    va_end(args);
 
+   return sent;
+}
+
+bool rrserver_send_target_error(rrconn_t *client, const char *target, const char *format, ...) {
+   va_list args;
+   va_start(args, format);
+   bool sent = ws_send_formatted(client, "error", "error.msg", target, format, args);
+   va_end(args);
+   return sent;
+}
+
+bool rrserver_send_target_notice(rrconn_t *client, const char *target, const char *format, ...) {
+   va_list args;
+   va_start(args, format);
+   bool sent = ws_send_formatted(client, "notice", "notice.msg", target, format, args);
+   va_end(args);
    return sent;
 }
 
