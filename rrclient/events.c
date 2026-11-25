@@ -1620,7 +1620,13 @@ static void rrclient_handle_notice(const char *event, const char *data, rrconn_t
 
    time_t msg_ts = dict_get_time_t(d, "msg.ts", now);
    const char *msg = dict_get(d, "notice.msg", NULL);
+   const char *target = dict_get(d, "notice.target", "");
    const char *output = ui_active_window_name();
+   /* PARITY: rustyrig-www/js/webui.js notice rendering. */
+   if (*target) {
+      const char *window = cptr ? rrclient_window_find_for_connection(cptr, target) : NULL;
+      output = window ? window : "status";
+   }
 
    if (msg) {
       /* This notice is a bearer credential. Deliver a copy to GTK through its event domain, but avoid JSON serialization or general logging. */
