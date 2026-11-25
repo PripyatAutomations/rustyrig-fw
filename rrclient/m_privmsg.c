@@ -827,6 +827,7 @@ static void rrclient_irc_message(const char *event, const char *data, rrconn_t *
       /* Scriptable transport-specific message event; the existing talk.msg
        * event remains the transport-neutral chat notification. */
       if (!strcasecmp(cmd, "PRIVMSG")) {
+         dict_add_bool(d, "talk.self", *from && !strcasecmp(from, cptr->nick));
          event_emit_dict("irc.privmsg", cptr, d);
       }
       event_emit_dict("talk.msg", cptr, d);
