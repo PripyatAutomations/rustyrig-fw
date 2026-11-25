@@ -1,0 +1,3 @@
+// SPDX-License-Identifier: GPL-2.0-only
+ui.add(dict { kind="panel"; id="users"; label="Users"; });
+ui.add(dict { kind="list"; id="roster"; parent="users"; label="Flags / Username"; expand_y=true; });

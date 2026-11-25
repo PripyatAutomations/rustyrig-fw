@@ -1594,6 +1594,9 @@ static bool tui_server_picker_mouse(tui_window_t *w, int row, int col, int butto
 }
 
 extern bool rrclient_tui_script_picker_toggle(void);
+extern void rrclient_tui_workspace_init(void);
+extern void rrclient_tui_workspace_refresh(void);
+extern void rrclient_tui_workspace_shutdown(void);
 extern void rrclient_tui_script_picker_shutdown(void);
 void rrclient_tui_server_picker_toggle(void) {
    if (ui_mode != UI_MODE_TUI) {
@@ -2097,6 +2100,7 @@ static gboolean tui_clock_cb_real(gpointer user_data) {
       return G_SOURCE_REMOVE;
    }
 
+   rrclient_tui_workspace_refresh();
    // Over SSH: repaint only when the minute turns over (or on first tick)
    static time_t last_repaint = 0;
 
@@ -2307,6 +2311,7 @@ bool rrclient_cleanup(void) {
    cfg_fini();
 
    if (ui_mode == UI_MODE_TUI) {
+      rrclient_tui_workspace_shutdown();
       rrclient_tui_script_picker_shutdown();
       tui_fini();
    }
@@ -2715,6 +2720,7 @@ int main(int argc, char *argv[]) {
       // One shared tab per system output type, independent of server count.
       tui_window_create("host log");
       tui_window_create("client log");
+      rrclient_tui_workspace_init();
       tui_window_t *sdr_tab = tui_window_create("SDR Directory");
 
       if (sdr_tab) {
