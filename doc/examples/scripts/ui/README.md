@@ -54,3 +54,12 @@ colors; invalid recognized values reject that file and try the next location.
 Restart the TUI to apply changes. The `ui.theme` log identifies the loaded
 file. Terminal rendering selects truecolor, 256-color or 16-color output;
 explicit IRC formatting remains separate. GTK3 does not use this palette yet.
+
+## IRC tools and workspace sizing
+
+The Tools tile replaces VFO on IRC connections. Override `tools.rrs` to add
+buttons with `action="/command arguments"`; commands use the normal client
+parser and permissions. Load any addon defining custom commands separately.
+Radio and IRC divider width and tile weights are saved independently in
+client.db under `ui.tui.radio.*` and `ui.tui.irc.*`. The active titlebar
+background is `panel.header.active` in the theme.

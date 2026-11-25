@@ -1,0 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// Actions beginning with / dispatch through the normal client command parser.
+ui.add(dict { kind="panel"; id="tools"; label="Tools"; });
+ui.add(dict { kind="button"; id="scripts"; parent="tools"; label="Script manager"; action="/script"; });
+ui.add(dict { kind="button"; id="help"; parent="tools"; label="Help"; action="/help"; });

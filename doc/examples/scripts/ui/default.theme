@@ -11,3 +11,4 @@ selection.background=#385666
 status.success=#93ce9b
 status.warning=#e4c477
 status.tx=#f07878
+panel.header.active=#91d5da
