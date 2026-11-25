@@ -18,6 +18,7 @@
 
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
+#include <rrserver/srv.send.h>
 #include <librrprotocol/ws.mediachan.h>
 #include <librrprotocol/auth.h>
 #include <librrprotocol/objects.h>
@@ -168,7 +169,7 @@ static void rrserver_handle_room_topic(const char *event, const char *data, rrco
 #ifdef USE_SQLITE
 
    if (!room) {
-      ws_send_error(cptr, "No room selected for TOPIC");
+      rrserver_send_target_error(cptr, room, "No room selected for TOPIC");
       dict_free(d);
 
       return;
@@ -185,7 +186,7 @@ static void rrserver_handle_room_topic(const char *event, const char *data, rrco
    }
 
    if (!db_room_set_topic(masterdb, room, topic)) {
-      ws_send_error(cptr, "Unable to set topic for room %s", room);
+      rrserver_send_target_error(cptr, room, "Unable to set topic for room %s", room);
       dict_free(d);
 
       return;
@@ -193,7 +194,7 @@ static void rrserver_handle_room_topic(const char *event, const char *data, rrco
 #else
 
    if (!query) {
-      ws_send_error(cptr, "Room topics require database support");
+      rrserver_send_target_error(cptr, room, "Room topics require database support");
       dict_free(d);
 
       return;
@@ -271,14 +272,14 @@ static void rrserver_handle_room_add(const char *event, const char *data, rrconn
    }
 
    if (!ws_room_name_valid(room) || (ws_room_station_scoped(room) && !sdr_room && !has_priv(cptr->user->uid, "admin|owner"))) {
-      ws_send_error(cptr, "Station-scoped room creation requires admin or owner");
+      rrserver_send_target_error(cptr, room, "Station-scoped room creation requires admin or owner");
       dict_free(d);
 
       return;
    }
 
    if (ws_room_rig_base(room)) {
-      ws_send_error(cptr, "Base rig rooms are server-owned");
+      rrserver_send_target_error(cptr, room, "Base rig rooms are server-owned");
       dict_free(d);
 
       return;
@@ -288,27 +289,27 @@ static void rrserver_handle_room_add(const char *event, const char *data, rrconn
    bool exists = false, deleted = false;
 
    if (!db_room_status(masterdb, room, &exists, &deleted)) {
-      ws_send_error(cptr, "Unable to inspect room");
+      rrserver_send_target_error(cptr, room, "Unable to inspect room");
       dict_free(d);
 
       return;
    }
 
    if (deleted && !has_priv(cptr->user->uid, "admin|owner")) {
-      ws_send_error(cptr, "Room restoration requires admin or owner");
+      rrserver_send_target_error(cptr, room, "Room restoration requires admin or owner");
       dict_free(d);
 
       return;
    }
 
    if (!db_room_restore(masterdb, room, cptr->chatname) || (!exists && !db_room_ensure(masterdb, room, false, 0, cptr->chatname))) {
-      ws_send_error(cptr, "Unable to add room %s", room ? room : "(none)");
+      rrserver_send_target_error(cptr, room, "Unable to add room %s", room ? room : "(none)");
       dict_free(d);
 
       return;
    }
 #else
-   ws_send_error(cptr, "Room management requires database support");
+   rrserver_send_target_error(cptr, room, "Room management requires database support");
    dict_free(d);
 
    return;
@@ -336,7 +337,7 @@ static void rrserver_handle_room_add(const char *event, const char *data, rrconn
       }
    }
 #endif
-   ws_send_notice(cptr, "Room %s added", room);
+   rrserver_send_target_notice(cptr, room, "Room %s added", room);
    dict_free(d);
 }
 
@@ -400,14 +401,14 @@ static void rrserver_handle_room_vfo(const char *event, const char *data, rrconn
    const char *action = dict_get(d, "talk.action", NULL);
 
    if (!ws_room_name_valid(room)) {
-      ws_send_error(cptr, "Invalid room name for VFO attachment");
+      rrserver_send_target_error(cptr, room, "Invalid room name for VFO attachment");
       dict_free(d);
 
       return;
    }
 
    if (rrserver_rig_room_configured(room)) {
-      ws_send_error(cptr, "Rig room VFO bindings are managed by rig configuration");
+      rrserver_send_target_error(cptr, room, "Rig room VFO bindings are managed by rig configuration");
       dict_free(d);
 
       return;
@@ -438,7 +439,7 @@ static void rrserver_handle_room_vfo(const char *event, const char *data, rrconn
    }
 
    if (!vfo) {
-      ws_send_error(cptr, "Unknown VFO binding");
+      rrserver_send_target_error(cptr, room, "Unknown VFO binding");
       dict_free(d);
 
       return;
@@ -457,7 +458,7 @@ static void rrserver_handle_room_vfo(const char *event, const char *data, rrconn
       }
 
       if (!ok) {
-         ws_send_error(cptr, "Unable to %s VFO %s for room %s", action ? action : "update", binding ? binding : "(none)", room ? room : "(none)");
+         rrserver_send_target_error(cptr, room, "Unable to %s VFO %s for room %s", action ? action : "update", binding ? binding : "(none)", room ? room : "(none)");
          dict_free(d);
 
          return;
@@ -497,13 +498,13 @@ static void rrserver_handle_room_vfo(const char *event, const char *data, rrconn
       }
 
       char *controller = db_room_vfo_controller(masterdb, binding);
-      ws_send_notice(cptr, "Room %s VFO %s %s (tuning controller: %s)", room, binding, strcasecmp(action, "add") == 0 ? "added" : "removed", controller ?
+      rrserver_send_target_notice(cptr, room, "Room %s VFO %s %s (tuning controller: %s)", room, binding, strcasecmp(action, "add") == 0 ? "added" : "removed", controller ?
          controller : "none");
       free(controller);
       free(vfos);
    }
 #else
-   ws_send_error(cptr, "Room VFO mappings require database support");
+   rrserver_send_target_error(cptr, room, "Room VFO mappings require database support");
 #endif
    dict_free(d);
 }
@@ -577,7 +578,7 @@ void rrserver_handle_room_delete(const char *event, const char *data, rrconn_t *
    const char *room = dict_get(d, "talk.room", NULL);
 
    if (room && (!strcasecmp(room, ws_site_room()) || rrserver_rig_room_configured(room))) {
-      ws_send_error(cptr, "Site and configured rig rooms cannot be removed");
+      rrserver_send_target_error(cptr, room, "Site and configured rig rooms cannot be removed");
       dict_free(d);
 
       return;
@@ -591,7 +592,7 @@ void rrserver_handle_room_delete(const char *event, const char *data, rrconn_t *
    if (!cptr || !cptr->authenticated || !cptr->user || !has_priv(cptr->user->uid, "admin|owner") || !room ||
       strlen(room) >= sizeof(room_confirmations[0].room) ||
       !db_room_status(masterdb, room, &exists, &deleted) || !exists || (deleted && !force) || (history && !force)) {
-      ws_send_error(cptr, "Room is unavailable for removal");
+      rrserver_send_target_error(cptr, room, "Room is unavailable for removal");
       dict_free(d);
 
       return;
@@ -622,7 +623,7 @@ void rrserver_handle_room_delete(const char *event, const char *data, rrconn_t *
       }
 
       if (!challenge) {
-         ws_send_error(cptr, "Unable to issue room removal confirmation");
+         rrserver_send_target_error(cptr, room, "Unable to issue room removal confirmation");
       } else {
          challenge->client = cptr;
          snprintf(challenge->session, sizeof(challenge->session), "%s", cptr->token);
@@ -643,7 +644,7 @@ void rrserver_handle_room_delete(const char *event, const char *data, rrconn_t *
                dict_free(row);
             }
          } else {
-            ws_send_notice(cptr, "To confirm, please use /room remove %s%s%s %s", room, force ? " --force" : "", history ? " --history" : "", challenge->token);
+            rrserver_send_target_notice(cptr, room, "To confirm, please use /room remove %s%s%s %s", room, force ? " --force" : "", history ? " --history" : "", challenge->token);
          }
       }
       dict_free(d);
@@ -653,7 +654,7 @@ void rrserver_handle_room_delete(const char *event, const char *data, rrconn_t *
 
    if (!challenge || strcmp(challenge->session, cptr->token) || strcmp(challenge->room, room) ||
       strcmp(challenge->token, token) || challenge->force != force || challenge->history != history) {
-      ws_send_error(cptr, "Invalid or expired confirmation; use /room remove %s again", room);
+      rrserver_send_target_error(cptr, room, "Invalid or expired confirmation; use /room remove %s again", room);
       dict_free(d);
 
       return;
@@ -663,13 +664,13 @@ void rrserver_handle_room_delete(const char *event, const char *data, rrconn_t *
 
    if (!db_room_delete(masterdb, room, cptr->chatname, force, history)) {
       Log(LOG_WARN, "db", "failed to delete room metadata %s", room);
-      ws_send_error(cptr, "Unable to remove room %s", room);
+      rrserver_send_target_error(cptr, room, "Unable to remove room %s", room);
       dict_free(d);
 
       return;
    }
 #else
-   ws_send_error(cptr, "Room removal requires database support");
+   rrserver_send_target_error(cptr, room, "Room removal requires database support");
    dict_free(d);
 
    return;
@@ -682,7 +683,7 @@ void rrserver_handle_room_delete(const char *event, const char *data, rrconn_t *
       /* Never trust a client-supplied actor name for the removal event. */
       dict_del(d, "talk.user");
       dict_add(d, "talk.user", cptr->chatname);
-      ws_send_notice(cptr, "Room %s removed by %s", room, cptr->chatname);
+      rrserver_send_target_notice(cptr, room, "Room %s removed by %s", room, cptr->chatname);
       ws_broadcast_room_dict(NULL, d, room);
 
       for (rrconn_t *cur = http_client_list ; cur ; cur = cur->next) {
