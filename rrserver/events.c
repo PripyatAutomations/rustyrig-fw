@@ -19,6 +19,7 @@
 
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
+#include <rrserver/srv.send.h>
 #include <librrprotocol/ws.mediachan.h>
 #include <librrprotocol/auth.h>
 #include <librrprotocol/server.events.h>
@@ -212,19 +213,7 @@ static bool rr_chat_flood_blocked(rrconn_t *client, const char *room) {
    state->shunned_until = stamp + (uint64_t) penalty * 1000000;
 
    if (stamp - state->warned > 1000000) {
-      dict *notice = dict_new();
-      if (notice) {
-         char message[128];
-         snprintf(message, sizeof(message), "Chat flood: messages blocked for %d seconds; slow down.", penalty);
-         dict_add(notice, "msg.type", "notice");
-         dict_add_long(notice, "msg.ts", time(NULL));
-         dict_add(notice, "notice.msg", message);
-         if (room && *room) {
-            dict_add(notice, "notice.target", room);
-         }
-         ws_send_dict(NULL, client, notice, WEBSOCKET_OP_TEXT);
-         dict_free(notice);
-      }
+      rrserver_send_target_notice(client, room, "Chat flood: messages blocked for %d seconds; slow down.", penalty);
       Log(LOG_WARN, "ws.chat", "Chat flood shun for %s (%ds)", client->chatname, penalty);
       state->warned = stamp;
    }
@@ -389,7 +378,7 @@ static void rrserver_handle_talkmsg(const char *event, const char *data, rrconn_
       rrconn_t *target = target_name ? http_find_client_by_name(target_name) : NULL;
 
       if (!target) {
-         ws_send_error(cptr, "No such user: %s", target_name ? target_name : "(none)");
+         rrserver_send_target_error(cptr, channel, "No such user: %s", target_name ? target_name : "(none)");
          dict_free(d);
 
          return;
