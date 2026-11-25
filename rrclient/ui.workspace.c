@@ -20,9 +20,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-static rrui_form_t *roster,*vfo,*tools;
+static rrui_form_t *roster,*vfo,*tools,*rig_tools;
+static bool rig_tools_enabled;
 static int layout_mode=-1;
-static int saved_width=-1,saved_roster=-1,saved_lower=-1;
+static int saved_width=-1,saved_roster=-1,saved_lower=-1,saved_rig_tools=-1;
 static char *room_seen,*server_seen,*roster_seen;
 static char active_seen;
 static long freq_seen=-1;
@@ -44,6 +45,10 @@ static void save_layout(void){
    int values[]={rrui_tui_tile_width_get(),rrui_tui_tile_weight_get(roster),
       rrui_tui_tile_weight_get(layout_mode?tools:vfo)};
    int *previous[]={&saved_width,&saved_roster,&saved_lower};
+   if(!layout_mode&&rig_tools_enabled){
+      int w=rrui_tui_tile_weight_get(rig_tools);
+      if(w>0&&w!=saved_rig_tools){char s[16];g_snprintf(s,sizeof(s),"%d",w);if(rrclient_database_setting_set("ui.tui.radio.tools",s))saved_rig_tools=w;}
+   }
    for(int i=0;i<3;i++)if(values[i]>0&&values[i]!=*previous[i]){
       char s[16];g_snprintf(s,sizeof(s),"%d",values[i]);
       if(rrclient_database_setting_set(layout_key(layout_mode,i),s))*previous[i]=values[i];
@@ -58,8 +63,10 @@ static void select_layout(int mode){
    rrui_tui_tile_width(saved_width);
    rrui_tui_tile_weight_set(roster,saved_roster);
    rrui_tui_tile_weight_set(mode?tools:vfo,saved_lower);
+   if(!mode){saved_rig_tools=load_setting("ui.tui.radio.tools",1,1);rrui_tui_tile_weight_set(rig_tools,saved_rig_tools);}
    rrui_tui_tile_visible(vfo,!mode);
    rrui_tui_tile_visible(tools,mode);
+   rrui_tui_tile_visible(rig_tools,!mode&&rig_tools_enabled);
 }
 static void tools_action(rrui_form_t *f,const char *id,const char *action,void *data){
    (void)f;(void)id;(void)data;
@@ -178,16 +185,21 @@ void rrclient_tui_workspace_init(void){
       {"frequency",RRUI_ENTRY,false},{"switch",RRUI_BUTTON,false}};
    roster=rrclient_ui_layout_load("userlist.rrs",RRUI_PANEL,users,G_N_ELEMENTS(users),NULL);
    vfo=rrclient_ui_layout_load("vfo.rrs",RRUI_PANEL,rig,G_N_ELEMENTS(rig),vfo_action);
-   tools=rrclient_ui_layout_load("tools.rrs",RRUI_PANEL,NULL,0,tools_action);
+   tools=rrclient_ui_layout_load("toolbar-irc.rrs",RRUI_PANEL,NULL,0,tools_action);
+   if(!tools)tools=rrclient_ui_layout_load("tools.rrs",RRUI_PANEL,NULL,0,tools_action);
+   rig_tools=rrclient_ui_layout_load("toolbar-rig.rrs",RRUI_PANEL,NULL,0,tools_action);
+   rrui_field_t root={0};
+   rig_tools_enabled=rig_tools&&rrui_form_field(rig_tools,0,&root)&&!g_strcmp0(root.value,"enabled");
    if(roster&&!rrui_tui_tile_open(roster,6,2)){rrui_form_free(roster);roster=NULL;}
    if(vfo&&!rrui_tui_tile_open(vfo,8,1)){rrui_form_free(vfo);vfo=NULL;}
    if(tools&&!rrui_tui_tile_open(tools,6,1)){rrui_form_free(tools);tools=NULL;}
+   if(rig_tools&&!rrui_tui_tile_open(rig_tools,6,1)){rrui_form_free(rig_tools);rig_tools=NULL;}
    rrclient_tui_workspace_refresh();
 }
 void rrclient_tui_workspace_shutdown(void){
    tui_render_lock();
    save_layout();
-   rrui_form_free(roster);rrui_form_free(vfo);rrui_form_free(tools);roster=vfo=tools=NULL;
+   rrui_form_free(roster);rrui_form_free(vfo);rrui_form_free(tools);rrui_form_free(rig_tools);roster=vfo=tools=rig_tools=NULL;
    layout_mode=-1;
    g_clear_pointer(&room_seen,g_free);g_clear_pointer(&server_seen,g_free);
    g_clear_pointer(&roster_seen,g_free);

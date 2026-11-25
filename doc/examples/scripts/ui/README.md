@@ -57,9 +57,15 @@ explicit IRC formatting remains separate. GTK3 does not use this palette yet.
 
 ## IRC tools and workspace sizing
 
-The Tools tile replaces VFO on IRC connections. Override `tools.rrs` to add
+The Tools tile replaces VFO on IRC connections. Override `toolbar-irc.rrs` to add
 buttons with `action="/command arguments"`; commands use the normal client
 parser and permissions. Load any addon defining custom commands separately.
 Radio and IRC divider width and tile weights are saved independently in
 client.db under `ui.tui.radio.*` and `ui.tui.irc.*`. The active titlebar
 background is `panel.header.active` in the theme.
+
+`toolbar-rig.rrs` defines an optional second Tools tile alongside the radio
+VFO. Set the root panel's `value="enabled"` in a user override to show it.
+The VFO remains independently defined by `vfo.rrs`. The rig toolbar has its
+own persisted tile weight. The old `tools.rrs` is a fallback if the renamed
+IRC layout cannot be loaded.
