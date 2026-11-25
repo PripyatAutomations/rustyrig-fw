@@ -212,7 +212,19 @@ static bool rr_chat_flood_blocked(rrconn_t *client, const char *room) {
    state->shunned_until = stamp + (uint64_t) penalty * 1000000;
 
    if (stamp - state->warned > 1000000) {
-      ws_send_notice(client, "Chat flood: messages blocked for %d seconds; slow down.", penalty);
+      dict *notice = dict_new();
+      if (notice) {
+         char message[128];
+         snprintf(message, sizeof(message), "Chat flood: messages blocked for %d seconds; slow down.", penalty);
+         dict_add(notice, "msg.type", "notice");
+         dict_add_long(notice, "msg.ts", time(NULL));
+         dict_add(notice, "notice.msg", message);
+         if (room && *room) {
+            dict_add(notice, "notice.target", room);
+         }
+         ws_send_dict(NULL, client, notice, WEBSOCKET_OP_TEXT);
+         dict_free(notice);
+      }
       Log(LOG_WARN, "ws.chat", "Chat flood shun for %s (%ds)", client->chatname, penalty);
       state->warned = stamp;
    }
