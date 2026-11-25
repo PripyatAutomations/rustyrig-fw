@@ -22,7 +22,7 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <librustyaxe/core.h>
-#include <librustyaxe/tui.h>
+#include <librustyui/tui.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/irc.h>
 #include <rrclient/connman.h>

@@ -31,7 +31,7 @@
 #include <sys/socket.h>
 #include <librustyaxe/core.h>
 #include <librustyaxe/io.serial.h>
-#include <librustyaxe/termkey.h>
+#include <librustyui/termkey.h>
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/ws.binframe.h>
 #include <librrprotocol/cfg.fwdsp.h>

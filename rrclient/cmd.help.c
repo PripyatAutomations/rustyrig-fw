@@ -14,7 +14,7 @@
 #include <string.h>
 #include <time.h>
 #include <librustyaxe/core.h>
-#include <librustyaxe/tui.h>
+#include <librustyui/tui.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/cmd.h>
 #include <rrclient/cmd.help.h>

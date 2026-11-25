@@ -8,7 +8,7 @@
 #if     !defined(__rrclient_ui_statusbar_h)
 #define __rrclient_ui_statusbar_h
 #include <librustyaxe/config.h>
-#include <librustyaxe/tui.h>
+#include <librustyui/tui.h>
 
 #define RRCLIENT_DEFAULT_STATUS_LINE \
         "${topic} | ${ptt-state} | VFO ${active_vfo}: ${active_freq_khz:---} kHz ${active_mode:---}"
