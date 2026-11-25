@@ -794,8 +794,9 @@ static void rrclient_handle_join(const char *event, const char *data, rrconn_t *
    time_t m_ts = dict_get_time_t(d, "msg.ts", now);
    const char *s_unknown = "<UNKNOWN>";
 
+   const char *nickname = cptr && !cptr->is_ws ? cptr->nick : login_user;
    if (m_room) {
-      if (m_user && login_user && strcasecmp(m_user, login_user) == 0) {
+      if (m_user && nickname && strcasecmp(m_user, nickname) == 0) {
          /* The server includes the room's VFO mapping on our join event. Clear any stale client-side mapping when joining an ordinary room; otherwise its top
           * line incorrectly retains PTT/VFO state from the rig room. */
          /* A server-directed JOIN is authoritative, even without a local JOIN intent (SDR auto-rooms and IRC redirects). Create the room before applying its
@@ -866,11 +867,11 @@ static void rrclient_handle_join(const char *event, const char *data, rrconn_t *
       }
 
       /* Room join announcements identify the member; roster userinfo messages carry the complete per-room user state. */
-      if (m_user && (!login_user || strcasecmp(m_user, login_user) != 0)) {
+      if (m_user && (!nickname || strcasecmp(m_user, nickname) != 0)) {
          userlist_add_or_update(d);
       }
 
-      if (frontend_ops() && m_user && login_user && strcasecmp(m_user, login_user) == 0) {
+      if (frontend_ops() && m_user && nickname && strcasecmp(m_user, nickname) == 0) {
          (!rrclient_gtk_event_frontend() ? frontend_ops()->chat_room_add(m_room) : (void)0);
       }
       const char *userhost = dict_get(d, "talk.userhost", "");
