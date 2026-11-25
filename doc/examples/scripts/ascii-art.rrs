@@ -155,6 +155,23 @@ script("/artwork", {
     ui.show("artwork")
 })
 
+// Round to hundredths without relying on C-style integer division.
+char artwork_rate_text(int ticks) {
+    int whole = 0
+    int hundredths = 0
+    while ((whole + 1) * ticks <= 10) { whole = whole + 1 }
+    while ((hundredths + 1) * ticks <= (10 - whole * ticks) * 100 + ticks / 2) {
+        hundredths = hundredths + 1
+    }
+    if (hundredths == 100) {
+        whole = whole + 1
+        hundredths = 0
+    }
+    char fraction = string.str(hundredths)
+    if (hundredths < 10) { fraction = "0" + fraction }
+    return string.str(whole) + "." + fraction + " lines/s"
+}
+
 // UI values are cached asynchronously; wait until all five controls exist.
 void artwork_update_rates() {
     int bl = ui.val("artwork_burst_lines")
@@ -169,14 +186,16 @@ void artwork_update_rates() {
         if (bgap < 100) { bgap = 100 }
         if (sgap < 100) { sgap = 100 }
         // Round up to the next timer tick, matching the nominal playback cadence.
-        int bticks = (bgap + 99) / 100
-        int sticks = (sgap + 99) / 100
-        ui.set("artwork_rate_speed", string.str(10.0 / sticks) + " lines/s")
+        int bticks = 1
+        int sticks = 1
+        while (bticks * 100 < bgap) { bticks = bticks + 1 }
+        while (sticks * 100 < sgap) { sticks = sticks + 1 }
+        ui.set("artwork_rate_speed", artwork_rate_text(sticks))
         if (bm == 0) {
             ui.set("artwork_burst_speed", "Disabled")
             ui.set("artwork_rate_warning", "")
         } else {
-            ui.set("artwork_burst_speed", string.str(10.0 / bticks) + " lines/s")
+            ui.set("artwork_burst_speed", artwork_rate_text(bticks))
             if (bticks > sticks) {
                 ui.set("artwork_rate_warning", "Warning: burst is slower than sustained; playback will speed up.")
             } else {
