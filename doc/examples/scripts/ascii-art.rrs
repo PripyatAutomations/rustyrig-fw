@@ -9,7 +9,7 @@
 // colors (Ctrl+D plus six hex digits), and Unicode block graphics are preserved.
 
 event irc.privmsg {
-    if (string.regex(event.room, "^[#&]")) {
+    if (event.self != true && string.regex(event.room, "^[#&]")) {
         char key = "artwork.capture-" + string.hash(event.room + "|" + event.nick)
         char line = event.text
         bool colored = string.regex(line, string.chr(3) + "[0-9]{1,2}") ||
