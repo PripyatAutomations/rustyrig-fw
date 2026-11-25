@@ -2173,6 +2173,9 @@ static void gtk_chat_tab_add(const char *room, bool is_query, bool select) {
 
    // Background servers create tabs without stealing the active conversation.
    if (!gtk_chat_context_selected()) {
+      chat_textview = active_view;
+      chat_entry = active_entry;
+      text_buffer = active_buffer;
       return;
    }
    // A successful JOIN changes the active conversation. Select the new tab
@@ -3034,13 +3037,14 @@ static void gtk_chat_check_origin(void *data) {
 
 bool parse_chat_input_gtk(GtkButton *button, gpointer entry) {
    const char *profile = g_object_get_data(G_OBJECT(entry), "rr-server-name");
-
-   if (profile && *profile) {
-      rrclient_connection_select(profile);
-   }
+   if (!profile || !*profile) profile = rrclient_selected_server();
    const gchar *text = gtk_entry_get_text(GTK_ENTRY(entry));
    const char *entry_room = g_object_get_data(G_OBJECT(entry), "rr-room-name");
-   rrconn_t *connection = profile && *profile ? rrclient_connection_find(profile) : rrclient_active_connection();
+   rrconn_t *connection = profile && *profile ? rrclient_connection_find(profile) : NULL;
+   if (profile && *profile && !connection && text && *text && *text != '/') {
+      ui_print("status", "Selected server is disconnected; draft retained");
+      return true;
+   }
    struct gtk_chat_input_check check = {
       .text = text
    };
@@ -3048,7 +3052,7 @@ bool parse_chat_input_gtk(GtkButton *button, gpointer entry) {
    if (entry_room) {
       rrclient_input_dispatch(connection, *entry_room ? entry_room : NULL, gtk_chat_check_origin, &check);
    } else {
-      gtk_chat_check_origin(&check);
+      rrclient_input_dispatch(connection, NULL, gtk_chat_check_origin, &check);
    }
 
    if (check.blocked) {
@@ -3086,7 +3090,7 @@ bool parse_chat_input_gtk(GtkButton *button, gpointer entry) {
       if (entry_room) {
          rrclient_input_dispatch(connection, room && *room ? room : NULL, gtk_chat_parse_origin, message);
       } else {
-         parse_chat_input_real(message);
+         rrclient_input_dispatch(connection, NULL, gtk_chat_parse_origin, message);
       }
       g_free(room);
       g_free(message);
