@@ -156,6 +156,19 @@ static void frontend_gtk_chat_protocol_capture(const char *event, const char *da
    }
    GtkChatProtocol *pending = g_new0(GtkChatProtocol, 1);
    gtk_chat_context_capture(&pending->context, room);
+   if (connection) {
+      const char *profile = rrclient_connection_name(connection);
+      if (profile) {
+         g_free(pending->context.profile);
+         pending->context.profile = g_strdup(profile);
+         pending->context.selected = !g_strcmp0(profile, rrclient_selected_server());
+         const char *window = rrclient_window_find_for_connection(connection, room);
+         if (window) {
+            g_free(pending->context.window);
+            pending->context.window = g_strdup(window);
+         }
+      }
+   }
    if (connection && !connection->is_ws) {
       pending->context.irc = true;
       g_free(pending->context.nickname);
