@@ -146,7 +146,7 @@ static bool rr_chat_flood_blocked(rrconn_t *client, const char *room) {
       return true;
    }
 
-   if (has_priv(client->user->uid, "chat-flood")) {
+   if (has_priv(client->user->uid, "chat.flood") || has_priv(client->user->uid, "chat-flood")) {
       return false;
    }
 #ifdef USE_SQLITE
