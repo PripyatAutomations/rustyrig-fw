@@ -635,6 +635,10 @@ static void event_received(const char *name,const char *payload,
       rrs_dict_put(ev,"nick",nick?nick:empty);
       rrs_dict_put(ev,"room",room?room:empty);
       rrs_dict_put(ev,"target",room?room:empty);
+      const rrs_value_t *self=rrs_value_field(ev,"talk.self");
+      rrs_value_t *own=rrs_boolean(self && rrs_value_bool(self));
+      rrs_dict_put(ev,"self",own);
+      rrs_value_free(own);
       rrs_value_free(empty);
    }
    run(sub->owner,RRSCRIPT_EVENT,sub->name,ev);
