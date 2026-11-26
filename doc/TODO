@@ -23,6 +23,32 @@ rrclient: Finish remote controls (brightness etc)
 * allow docking controls into the VFO window
 
 [Routing]
+* NEAR TERM (next 1-2 days): extract the GTK/TUI patchbay into a reusable
+  native librustyui widget (in librustyaxe), before expanding routing features.
+  - Audit existing GTK graph/layout/interaction code and TUI canvas/router;
+    reuse proven implementations rather than maintain parallel editors.
+  - Common backend-independent graph model: stable block/pin/wire IDs,
+    configurable block shapes, typed/directional pins, multiple connections,
+    compatibility checks and application callbacks for connect/disconnect.
+  - Share selection (including groups), keyboard pin cycling and live wire
+    preview, dragging, hit testing, obstacle-aware wire routing, automatic
+    layout, pan/zoom, context actions, annotations and undo/redo.
+  - Expose serialization hooks for positions, view state and annotations;
+    RustyRig owns persistence and existing saved layouts must survive.
+  - Keep Cairo/GTK and Unicode/ncurses rendering backend-specific; no GTK
+    dependency in the TUI/core. Migrate incrementally without losing GTK
+    appearance, shortcuts, mouse/touch interactions or existing features.
+  - RustyRig supplies audio/serial/control/PTT graph descriptors and validates
+    and executes mutations via its existing core APIs. No DSP, rig, network,
+    authentication or PTT authorization logic in RustyUI. Graph snapshots
+    remain authoritative; pending previews are not committed connections.
+  - Use shared adapter/operations for GTK and TUI, including arbitrary
+    supported pin-to-pin patching, wire removal and block properties.
+  - Add make test coverage for model, pin compatibility, layout, routing,
+    selection, persistence and rejected mutations; exercise both renderers.
+  - Later expose the generic widget through RustyScript for custom editors.
+  - Resume by defining the common model/API and extracting pure graph logic,
+    then migrate TUI and GTK in small testable passes. Design only for now.
 * fix disconnecting lines (esp tx.mix -> tx.transport)
 * make effects and controls selectable in group (shift/ctrl)
 * Resampler block(s) for TX, like RX, so we can downsample if need
