@@ -1,0 +1,14 @@
+// SPDX-License-Identifier: GPL-2.0-only
+ui.add(dict {kind="dialog";id="info";label="SDR Directory";});
+ui.add(dict {kind="label";id="name";parent="info";label="name: ";max_length=512;});
+ui.add(dict {kind="label";id="url";parent="info";label="url: ";max_length=512;});
+ui.add(dict {kind="label";id="location";parent="info";label="location: ";max_length=512;});
+ui.add(dict {kind="label";id="country";parent="info";label="country: ";max_length=512;});
+ui.add(dict {kind="label";id="grid";parent="info";label="grid: ";max_length=512;});
+ui.add(dict {kind="label";id="contact";parent="info";label="contact: ";max_length=512;});
+ui.add(dict {kind="label";id="antenna";parent="info";label="antenna: ";max_length=512;});
+ui.add(dict {kind="label";id="hardware";parent="info";label="hardware: ";max_length=512;});
+ui.add(dict {kind="label";id="description";parent="info";label="description: ";max_length=512;});
+ui.add(dict {kind="label";id="state";parent="info";label="state: ";max_length=512;});
+ui.add(dict {kind="label";id="reason";parent="info";label="reason: ";max_length=512;});
+ui.add(dict {kind="button";id="close";parent="info";label="Close";action="close";});

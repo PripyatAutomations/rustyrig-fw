@@ -1,0 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0-only
+ui.add(dict {kind="dialog";id="mark";label="SDR Directory";});
+ui.add(dict {kind="list";id="states";parent="mark";label="Local report";height_rows=4;action="apply";});
+ui.add(dict {kind="button";id="apply";parent="mark";label="Apply";action="apply";});
+ui.add(dict {kind="button";id="cancel";parent="mark";label="Cancel";action="cancel";});

@@ -1,0 +1,16 @@
+// SPDX-License-Identifier: GPL-2.0-only
+ui.add(dict {kind="panel";id="directory";label="SDR Directory";});
+ui.add(dict {kind="entry";id="search";parent="directory";label="Search (Enter to filter)";max_length=127;action="filter";});
+ui.add(dict {kind="checkbox";id="available";parent="directory";label="Available only";action="filter";});
+ui.add(dict {kind="checkbox";id="connected";parent="directory";label="Connected only";action="filter";});
+ui.add(dict {kind="checkbox";id="favorites";parent="directory";label="Favorites only";action="filter";});
+ui.add(dict {kind="checkbox";id="proxy";parent="directory";label="Use server proxy bridge";action="filter";});
+ui.add(dict {kind="label";id="summary";parent="directory";label="";max_length=512;});
+ui.add(dict {kind="list";id="receivers";parent="directory";label="Receivers (Enter to connect/disconnect)";height_rows=12;action="connect";});
+ui.add(dict {kind="button";id="connect";parent="directory";label="Connect / Disconnect";action="connect";});
+ui.add(dict {kind="button";id="info";parent="directory";label="Receiver information";action="info";});
+ui.add(dict {kind="button";id="favorite";parent="directory";label="Toggle favorite";action="favorite";});
+ui.add(dict {kind="button";id="mark";parent="directory";label="Mark receiver";action="mark";});
+ui.add(dict {kind="button";id="refresh";parent="directory";label="Refresh catalog";action="refresh";});
+ui.add(dict {kind="button";id="reset";parent="directory";label="Reset filters";action="reset";});
+ui.add(dict {kind="label";id="message";parent="directory";label="";max_length=512;});
