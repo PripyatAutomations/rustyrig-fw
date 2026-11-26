@@ -161,5 +161,9 @@ bool rrclient_identity_any(void){
       char *path=g_build_filename(dir,name,NULL);
       any=identity_file_safe(path);g_free(path);if(any)break;
    }
-   if(folder)g_dir_close(folder);g_free(dir);return any;
+   if (folder) {
+      g_dir_close(folder);
+   }
+   g_free(dir);
+   return any;
 }
