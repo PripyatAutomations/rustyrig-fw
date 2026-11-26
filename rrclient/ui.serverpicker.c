@@ -6,6 +6,8 @@
 #include <librrprotocol/server.url.h>
 #include <rrclient/connman.h>
 #include <rrclient/media.direct.h>
+#include <rrclient/tls.pin.h>
+#include <librustyui/tui.workspace.h>
 #include <rrclient/database.h>
 #include <rrclient/identity.store.h>
 #include <unistd.h>
@@ -19,6 +21,13 @@
 static rrui_form_t *form;
 static bool editing,identity_setup,first_run,confirm_delete,groups,keys;
 static char *pending_remove;
+static bool proxies;
+static rrui_form_t *trust_form;
+static GQueue trust_queue=G_QUEUE_INIT;
+static guint trust_timer;
+static rr_event_token_t trust_event;
+static rrclient_tls_pin_request_t *trust_request;
+static void trust_finish(unsigned decision);
 static bool open_groups(void);
 static bool open_keys(void);
 static char *delete_profile;
@@ -27,17 +36,24 @@ static char *original;
 static char *last_profile;
 static void action(rrui_form_t *,const char *,const char *,void *);
 static bool open_picker(void);
+static GPtrArray *network_names(void);
+static const char *network_members(const char *name);
+static bool member_of(const char *members,const char *profile);
 
 static void close_form(void) {
    rrui_form_t *old=form;
    form=NULL;
    rrui_form_free(old);
    g_clear_pointer(&original,g_free);
-   editing=false;identity_setup=false;confirm_delete=false;groups=false;keys=false;
+   editing=false;identity_setup=false;confirm_delete=false;groups=false;keys=false;proxies=false;
    g_clear_pointer(&pending_remove,g_free);
    g_clear_pointer(&delete_profile,g_free);
 }
 void rrclient_tui_script_picker_shutdown(void) {
+   if(trust_timer){g_source_remove(trust_timer);trust_timer=0;}
+   rrui_form_free(trust_form);trust_form=NULL;
+   g_clear_pointer(&trust_request,g_free);
+   g_queue_clear_full(&trust_queue,g_free);
    close_form();
    g_clear_pointer(&last_profile,g_free);
 }
@@ -73,6 +89,76 @@ static size_t field_index(rrui_form_t *f,const char *id) {
    }
    return SIZE_MAX;
 }
+static void trust_reply(rrclient_tls_pin_request_t *request,unsigned decision) {
+   request->decision=decision;
+   event_emit_message(&(rr_event_message_t){.name=RRCLIENT_TLS_PIN_REPLY_EVENT,.payload=request,.length=sizeof(*request)});
+}
+static void trust_finish(unsigned decision) {
+   rrclient_tls_pin_request_t *request=trust_request;
+   trust_request=NULL;
+   rrui_form_free(trust_form);trust_form=NULL;
+   if(request){trust_reply(request,decision);g_free(request);}
+}
+static void trust_action(rrui_form_t *f,const char *id,const char *act,void *unused) {
+   (void)id;(void)unused;
+   if(f!=trust_form)return;
+   if(!strcmp(act,"always")){
+      const char *confirm=rrui_form_value(f,"confirm");
+      if(!confirm||strcmp(confirm,"YES")){rrui_form_set_value(f,"message","Type YES to permanently trust this fingerprint.");tui_redraw_request();return;}
+      trust_finish(2);
+   }else if(!strcmp(act,"once"))trust_finish(1);
+   else if(!strcmp(act,"deny")||!strcmp(act,"dialog.close"))trust_finish(0);
+}
+static gboolean trust_tick(gpointer unused) {
+   (void)unused;
+   if(trust_form||rrui_tui_modal_active())return G_SOURCE_CONTINUE;
+   if(g_queue_is_empty(&trust_queue)){trust_timer=0;return G_SOURCE_REMOVE;}
+   trust_request=g_queue_pop_head(&trust_queue);
+   const rrclient_ui_required_t required[]={
+      {"profile",RRUI_LABEL,false},{"address",RRUI_LABEL,false},{"node",RRUI_LABEL,false},
+      {"cn",RRUI_LABEL,false},{"sans",RRUI_LIST,false},{"cert",RRUI_LABEL,false},{"new",RRUI_LABEL,false},
+      {"old",RRUI_LABEL,false},{"confirm",RRUI_ENTRY,false}
+   };
+   trust_form=rrclient_ui_layout_load("tls-trust.rrs",RRUI_DIALOG,required,G_N_ELEMENTS(required),trust_action);
+   if(!trust_form){trust_finish(0);return G_SOURCE_CONTINUE;}
+   rrclient_tls_pin_request_t *q=trust_request;
+   bool ok=rrui_form_set_value(trust_form,"profile",q->profile)&&
+      rrui_form_set_value(trust_form,"address",q->address)&&
+      rrui_form_set_value(trust_form,"node",q->node_name)&&
+      rrui_form_set_value(trust_form,"cn",q->cert_cn)&&
+      rrui_form_set_value(trust_form,"cert",q->cert_sha256)&&
+      rrui_form_set_value(trust_form,"new",q->new_pin)&&
+      rrui_form_set_value(trust_form,"old",*q->old_pin?q->old_pin:"(first use)");
+   /* Split long SAN text into selectable, readable chunks. */
+   for(size_t i=0,n=strlen(q->cert_sans);i<n;){
+      size_t span=MIN((size_t)56,n-i);
+      while(span&&i+span<n&&((unsigned char)q->cert_sans[i+span]&0xc0)==0x80)span--;
+      if(!span){ok=false;break;}
+      char *part=g_strndup(q->cert_sans+i,span),*key=g_strdup_printf("%zu",i);
+      ok=rrui_form_list_append(trust_form,"sans",key,part)&&ok;
+      g_free(part);g_free(key);i+=span;
+   }
+   rrui_form_set_value(trust_form,"message",*q->old_pin?"WARNING: Previously trusted key has changed. Verify independently.":"Unknown TLS key. Verify fingerprint independently.");
+   rrui_form_set_focus(trust_form,field_index(trust_form,"deny"));
+   if(!ok||!rrui_tui_open(trust_form)){Log(LOG_WARN,"ui.tls","Unable to display TLS trust request; denying.");trust_finish(0);}
+   return G_SOURCE_CONTINUE;
+}
+static void trust_prompt(const rr_event_message_t *m,void *unused) {
+   (void)unused;
+   if(!m||!m->payload||m->length!=sizeof(rrclient_tls_pin_request_t))return;
+   rrclient_tls_pin_request_t *q=g_memdup2(m->payload,sizeof(*q));
+   q->profile[sizeof(q->profile)-1]=0;q->address[sizeof(q->address)-1]=0;
+   q->node_name[sizeof(q->node_name)-1]=0;q->cert_cn[sizeof(q->cert_cn)-1]=0;
+   q->cert_sans[sizeof(q->cert_sans)-1]=0;q->cert_sha256[sizeof(q->cert_sha256)-1]=0;
+   q->old_pin[sizeof(q->old_pin)-1]=0;q->new_pin[sizeof(q->new_pin)-1]=0;
+   if(strlen(q->new_pin)!=64||strspn(q->new_pin,"0123456789abcdefABCDEF")!=64){trust_reply(q,0);g_free(q);return;}
+   g_queue_push_tail(&trust_queue,q);
+   if(!trust_timer)trust_timer=g_timeout_add(100,trust_tick,NULL);
+}
+void rrclient_tui_security_init(void) {
+   trust_event=event_on_message_domain_token(RRCLIENT_TLS_PIN_PROMPT_EVENT,trust_prompt,NULL,"core");
+   if(!trust_event)Log(LOG_WARN,"ui.tls","Unable to register TLS trust prompts.");
+}
 static void refresh(void) {
    GPtrArray *names=g_ptr_array_new_with_free_func(g_free);
    int rank=0;const char *key;char *value;
@@ -88,8 +174,15 @@ static void refresh(void) {
    for(guint i=0;i<names->len;i++){
       const char *name=g_ptr_array_index(names,i);
       int state=rrclient_connection_state(name);
-      char *label=g_strdup_printf("%s  [%s%s]",name,state==1?"Online":state<0?"Connecting":"Offline",
+      GPtrArray *networks=network_names();
+      const char *group="Ungrouped";
+      for(guint j=0;j<networks->len;j++){
+         const char *n=g_ptr_array_index(networks,j);
+         if(member_of(network_members(n),name)){group=n;break;}
+      }
+      char *label=g_strdup_printf("%s / %s  [%s%s]",group,name,state==1?"Online":state<0?"Connecting":"Offline",
          selected&&!strcmp(selected,name)?", active":"");
+      g_ptr_array_unref(networks);
       if(rrui_form_list_append(form,"profiles",name,label)){
          if(wanted&&!strcmp(wanted,name))chosen=count;
          count++;
@@ -386,12 +479,53 @@ static void keys_action(const char *act) {
    }else return;
    close_form();open_keys();
 }
+static void proxy_row(const char *name,const char *url,void *data) {
+   rrui_form_t *next=data;
+   char *label=g_strdup_printf("%s",name);
+   rrui_form_list_append(next,"proxies",name,label);g_free(label);
+   (void)url;
+}
+static bool open_proxies(void) {
+   const rrclient_ui_required_t fields[]={{"proxies",RRUI_LIST,false},{"name",RRUI_ENTRY,false},{"url",RRUI_ENTRY,false}};
+   rrui_form_t *next=rrclient_ui_layout_load("proxy-manager.rrs",RRUI_DIALOG,fields,G_N_ELEMENTS(fields),action);
+   if(!next){notice("No usable proxy manager layout.");return false;}
+   rrclient_database_proxy_foreach(proxy_row,next);
+   close_form();form=next;proxies=true;
+   if(!rrui_tui_open(form)){close_form();open_picker();return false;}
+   return true;
+}
+static void proxy_load(const char *name,const char *url,void *data) {
+   if(!strcmp(name,(const char *)data)){
+      rrui_form_set_value(form,"name",name);rrui_form_set_value(form,"url",url);
+   }
+}
+static void proxy_action(const char *act) {
+   if(!strcmp(act,"cancel")||!strcmp(act,"dialog.close")){close_form();open_picker();return;}
+   const char *selected=rrui_form_value(form,"proxies");
+   const char *name=rrui_form_value(form,"name"),*url=rrui_form_value(form,"url");
+   if(!strcmp(act,"load")){if(selected&&*selected)rrclient_database_proxy_foreach(proxy_load,(void *)selected);}
+   else if(!strcmp(act,"save")){
+      if(!valid_name(name)||!url||!*url){notice("Enter a proxy name and URL.");return;}
+      if(!rrclient_database_proxy_set(name,url)){notice("Unable to save proxy.");return;}
+      close_form();open_proxies();
+   }else if(!strcmp(act,"delete")){
+      if(!selected||!*selected)return;
+      int rank=0;const char *key;char *value;
+      while((rank=dict_enumerate(cfg,rank,&key,&value))>=0)
+         if((!strcmp(key,"server.proxy")||g_str_has_suffix(key,".server.proxy"))&&value&&!strcmp(value,selected)){notice("Proxy is assigned to a server; remove that assignment first.");return;}
+      if(g_strcmp0(pending_remove,selected)){g_free(pending_remove);pending_remove=g_strdup(selected);notice("Press Delete again to remove this proxy.");return;}
+      if(!rrclient_database_proxy_delete(selected)){notice("Unable to delete proxy.");return;}
+      close_form();open_proxies();
+   }
+   tui_redraw_request();
+}
 static void action(rrui_form_t *f,const char *id,const char *name,void *unused) {
    (void)id;(void)unused;
    if(f!=form)return;
    if(identity_setup){identity_action(name);return;}
    if(groups){group_action(name);return;}
    if(keys){keys_action(name);return;}
+   if(proxies){proxy_action(name);return;}
    if(confirm_delete){
       if(!strcmp(name,"delete")&&delete_profile&&!rrclient_database_server_delete(delete_profile)){notice("Unable to delete profile.");return;}
       close_form();open_picker();return;
@@ -406,6 +540,7 @@ static void action(rrui_form_t *f,const char *id,const char *name,void *unused) 
    if(has){g_free(last_profile);last_profile=g_strdup(selected);}
    if(!strcmp(name,"keys")){open_keys();}
    else if(!strcmp(name,"groups")){open_groups();}
+   else if(!strcmp(name,"proxies")){open_proxies();}
    else if(!strcmp(name,"new"))open_editor(NULL);
    else if(!strcmp(name,"refresh"))refresh();
    else if(has&&!strcmp(name,"edit"))open_editor(selected);
@@ -432,6 +567,7 @@ static void action(rrui_form_t *f,const char *id,const char *name,void *unused) 
    }
 }
 bool rrclient_tui_script_picker_toggle(void) {
+   if(trust_form){trust_finish(0);return true;}
    if(form){if(first_run)identity_finished();else close_form();return true;}
    return open_picker();
 }

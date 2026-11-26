@@ -1,0 +1,18 @@
+// SPDX-License-Identifier: GPL-2.0-only
+ui.add(dict { kind="dialog"; id="trust"; label="TLS Identity Verification"; });
+ui.add(dict { kind="label"; id="message"; parent="trust"; label="";  });
+ui.add(dict { kind="label"; id="profile"; parent="trust"; label="Profile: "; max_length=128; });
+ui.add(dict { kind="label"; id="address"; parent="trust"; label="Address: "; max_length=256; });
+ui.add(dict { kind="label"; id="node"; parent="trust"; label="Expected node: "; max_length=254; });
+ui.add(dict { kind="label"; id="cn"; parent="trust"; label="Certificate CN: "; max_length=256; });
+ui.add(dict { kind="list"; id="sans"; parent="trust"; label="Certificate DNS SANs"; height_rows=3; });
+ui.add(dict { kind="label"; id="cert_title"; parent="trust"; label="Certificate SHA-256:";  });
+ui.add(dict { kind="label"; id="cert"; parent="trust"; label=""; max_length=65; });
+ui.add(dict { kind="label"; id="new_title"; parent="trust"; label="Observed public key SPKI SHA-256:";  });
+ui.add(dict { kind="label"; id="new"; parent="trust"; label=""; max_length=65; });
+ui.add(dict { kind="label"; id="old_title"; parent="trust"; label="Previously trusted SPKI:";  });
+ui.add(dict { kind="label"; id="old"; parent="trust"; label=""; max_length=65; });
+ui.add(dict { kind="entry"; id="confirm"; parent="trust"; label="Type YES for permanent trust"; max_length=3; });
+ui.add(dict { kind="button"; id="deny"; parent="trust"; label="Deny"; action="deny"; });
+ui.add(dict { kind="button"; id="once"; parent="trust"; label="Trust Once"; action="once"; });
+ui.add(dict { kind="button"; id="always"; parent="trust"; label="Trust Always"; action="always"; });

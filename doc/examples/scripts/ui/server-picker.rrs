@@ -11,3 +11,4 @@ ui.add(dict { kind="label"; id="message"; parent="servers"; label=""; });
 ui.add(dict { kind="button"; id="delete"; parent="servers"; label="Delete server"; action="delete"; });
 ui.add(dict { kind="button"; id="keys"; parent="servers"; label="Manage Certificates"; action="keys"; });
 ui.add(dict { kind="button"; id="groups"; parent="servers"; label="Server Groups"; action="groups"; });
+ui.add(dict { kind="button"; id="proxies"; parent="servers"; label="Manage Proxies"; action="proxies"; });

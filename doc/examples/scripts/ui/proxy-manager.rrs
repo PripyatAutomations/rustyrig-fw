@@ -1,0 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0-only
+ui.add(dict { kind="dialog"; id="proxy"; label="Proxy Manager"; });
+ui.add(dict { kind="list"; id="proxies"; parent="proxy"; label="Saved proxies"; height_rows=5; action="load"; });
+ui.add(dict { kind="button"; id="load"; parent="proxy"; label="Load selected proxy"; action="load"; });
+ui.add(dict { kind="entry"; id="name"; parent="proxy"; label="Proxy name"; max_length=127; });
+ui.add(dict { kind="entry"; id="url"; parent="proxy"; label="Proxy URL"; max_length=1024; masked=true; });
+ui.add(dict { kind="label"; id="message"; parent="proxy"; label="";  });
+ui.add(dict { kind="button"; id="save"; parent="proxy"; label="Save"; action="save"; });
+ui.add(dict { kind="button"; id="delete"; parent="proxy"; label="Delete"; action="delete"; });
+ui.add(dict { kind="button"; id="cancel"; parent="proxy"; label="Back"; action="cancel"; });
