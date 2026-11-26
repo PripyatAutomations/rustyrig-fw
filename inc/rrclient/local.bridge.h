@@ -89,6 +89,8 @@ typedef struct {
 void rrclient_local_bridge_controls_init(void);
 bool rrclient_local_bridge_connected(const char *url);
 bool rrclient_local_bridge_active(void);
+/* Select an online local receiver and publish the room's new active VFO. */
+bool rrclient_local_bridge_select_vfo(char vfo);
 bool rrclient_local_bridge_waterfall(bool enabled, unsigned zoom);
 bool rrclient_local_bridge_waterfall_at(bool enabled, unsigned zoom, uint64_t center_hz);
 bool rrclient_local_bridge_waterfall_caps(unsigned *min_zoom, unsigned *max_zoom);

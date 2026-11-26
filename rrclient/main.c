@@ -1192,7 +1192,8 @@ static void tui_local_rf_row(const rr_event_message_t *message,void *unused){
    (void)unused;
    if(!message||!message->payload||message->length!=sizeof(rr_bridge_spectrum_event))return;
    const rr_bridge_spectrum_event *p=message->payload;
-   if(p->vfo!=tui_local_vfo||!rr_bridge_spectrum_valid(&p->row))return;
+   if(p->vfo!=rrclient_room_active_vfo("&local-sdr")||!rr_bridge_spectrum_valid(&p->row))return;
+   if(tui_local_vfo!=p->vfo){tui_local_vfo=p->vfo;tui_local_clear_rf();tui_local_zoom=0;tui_local_freq_edit=false;}
    gint64 now=g_get_monotonic_time();
    if(tui_local_history_count){
       const rr_bridge_spectrum_row *prev=&tui_local_history[(tui_local_head+255)%256];
@@ -1237,26 +1238,17 @@ static void tui_local_update_vfos(void) {
    if (!tui_local_count) {
       return;
    }
-   bool found = false;
-
-   for (size_t i = 0 ; i < tui_local_count ; i++) {
-      if (tui_local_vfos[i] == tui_local_vfo) {
-         found = true;
-      }
-   }
-
-   if (!found) {
-      tui_local_vfo = tui_local_vfos[0];tui_local_clear_rf();
+   char active=rrclient_room_active_vfo("&local-sdr");
+   if(tui_local_vfo!=active){
+      tui_local_vfo=active;tui_local_clear_rf();tui_local_zoom=0;
+      tui_local_freq_edit=false;
    }
 }
 
 static void tui_local_select_vfo(char vfo) {
-   if (!rrclient_local_bridge_state_vfo(vfo, NULL, NULL)) {
-      return;
-   }
-   if(tui_local_vfo!=vfo){tui_local_clear_rf();tui_local_zoom=0;}
-   tui_local_vfo = vfo;
-   rrclient_room_set_active_vfo("&local-sdr", vfo);
+   if(!rrclient_local_bridge_select_vfo(vfo))return;
+   tui_local_update_vfos();
+   tui_redraw_request();
 }
 
 static bool tui_local_tune_delta(int64_t delta) {

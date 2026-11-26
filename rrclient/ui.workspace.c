@@ -16,6 +16,7 @@
 #include <rrclient/vfo.h>
 #include <rrclient/audio.h>
 #include <rrclient/audio.graph.h>
+#include <rrclient/local.bridge.h>
 #include <rrclient/local.modem.h>
 #include <rrclient/config.layers.h>
 #include <rrclient/objects.h>
@@ -738,7 +739,8 @@ static void vfo_action(rrui_form_t *f,const char *id,const char *action,void *da
    (void)id;(void)data;
    const char *room=rrclient_active_room();
    rrconn_t *conn=rrclient_active_connection();
-   if(!room||!*room||!conn||!conn->is_ws||rrclient_room_offline(room))return;
+   bool local=room&&!strcasecmp(room,"&local-sdr");
+   if(!room||!*room||(!local&&(!conn||!conn->is_ws))||rrclient_room_offline(room))return;
    if(g_strcmp0(room_seen,room)||g_strcmp0(server_seen,rrclient_selected_server())||active_seen!=vfo_state_get_active()){refresh();return;}
    uint32_t mask=rrclient_room_vfo_mask(room);
    char active=vfo_state_get_active();
@@ -771,6 +773,7 @@ static void vfo_action(rrui_form_t *f,const char *id,const char *action,void *da
       if(!s||!*s||strspn(s,"0123456789")!=strlen(s))return;
       errno=0;char *end;long hz=strtol(s,&end,10);
       if(errno||*end||hz<=0)return;
+      if(local){rrclient_local_bridge_set_frequency(active,(uint64_t)hz);return;}
       if(!ws_send_freq_cmd_in_room(conn,(char[]){active,0},hz,room))
          Log(LOG_WARN,"ui.workspace","Unable to tune VFO in selected room");
    }

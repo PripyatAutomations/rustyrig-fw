@@ -23,6 +23,8 @@
 #include <rrclient/frontend.h>
 #include <rrclient/media.h>
 #include <rrclient/objects.h>
+#include <rrclient/local.bridge.h>
+#include <limits.h>
 
 // The single copy of the VFO state.  There may be multiple VFOs, identified
 // by a single upper case letter (see librrprotocol/vfo.h: vfo_lookup(),
@@ -87,7 +89,24 @@ static const dict *room_vfo_property(const char *vfo, const char *key, bool *sco
 // Accessors for other modules.  `vfo` is the single upper case VFO letter
 // (see librrprotocol/vfo.h).  These read only the saved state, never the
 // widgets, so both UIs share the same copy of the truth.
+static bool local_vfo_context(void){
+   const char *room=rrclient_media_active_room();
+   return room&&!strcasecmp(room,"&local-sdr");
+}
 const char *vfo_state_get(const char *vfo, const char *key, const char *def) {
+   if(local_vfo_context()){
+      if(!key)return def;
+      uint64_t hz=0;const char *mode=NULL;
+      if(!rrclient_local_bridge_state_vfo(vfo_state_check_id(vfo),&hz,&mode))return def;
+      if(!strcmp(key,"cat.state.mode"))return mode?mode:def;
+      if(!strcmp(key,"cat.state.freq")){
+         static char frequency[32];
+         snprintf(frequency,sizeof(frequency),"%llu",(unsigned long long)hz);
+         return frequency;
+      }
+      if(!strcmp(key,"cat.state.ptt"))return "false";
+      return def;
+   }
    bool scoped;
    const dict *state = room_vfo_property(vfo, key, &scoped);
 
@@ -107,6 +126,10 @@ const char *vfo_state_get(const char *vfo, const char *key, const char *def) {
 }
 
 long vfo_state_get_long(const char *vfo, const char *key, long def) {
+   if(local_vfo_context()){
+      uint64_t hz=0;
+      return key&&!strcmp(key,"cat.state.freq")&&rrclient_local_bridge_state_vfo(vfo_state_check_id(vfo),&hz,NULL)&&hz<=LONG_MAX?(long)hz:def;
+   }
    bool scoped;
    const dict *state = room_vfo_property(vfo, key, &scoped);
 
@@ -125,6 +148,7 @@ long vfo_state_get_long(const char *vfo, const char *key, long def) {
 }
 
 bool vfo_state_get_bool(const char *vfo, const char *key, bool def) {
+   if(local_vfo_context())return key&&!strcmp(key,"cat.state.ptt")?false:def;
    if (!vfo_state || !key) {
       return def;
    }
@@ -146,7 +170,9 @@ char vfo_state_get_active(void) {
 void vfo_state_set_active(const char *vfo) {
    char active = vfo_state_check_id(vfo);
    const char *room = rrclient_media_active_room();
-   rrclient_room_set_active_vfo(room, active);
+   if(local_vfo_context()){
+      if(!rrclient_local_bridge_select_vfo(active))return;
+   }else rrclient_room_set_active_vfo(room, active);
    s_active_vfo = active;
 }
 

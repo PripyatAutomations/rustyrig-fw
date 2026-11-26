@@ -441,6 +441,13 @@ static void local_bridge_vfo_changed(void) {
    event_emit("client.local-bridge.vfo", NULL, NULL);
 }
 
+bool rrclient_local_bridge_select_vfo(char vfo){
+   unsigned slot=(unsigned)(vfo-'A');
+   if(slot>=G_N_ELEMENTS(bridges)||!bridges[slot]||!bridges[slot]->online)return false;
+   rrclient_room_set_active_vfo("&local-sdr",vfo);
+   local_bridge_vfo_changed();
+   return true;
+}
 static void local_bridge_active_request(const rr_event_message_t *unused, void *user) {
    (void)unused;
    (void)user;
@@ -469,6 +476,12 @@ static void local_room_refresh(void) {
    rrclient_room_join("&local-sdr");
    rrclient_room_set_vfos("&local-sdr", bindings);
    rrclient_room_set_vfo_mask("&local-sdr", mask);
+   unsigned selected=(unsigned)(rrclient_room_active_vfo("&local-sdr")-'A');
+   if(mask&&(selected>=26||!(mask&(UINT32_C(1)<<selected)))){
+      for(unsigned i=0;i<26;i++)if(mask&(UINT32_C(1)<<i)){
+         rrclient_room_set_active_vfo("&local-sdr",(char)('A'+i));break;
+      }
+   }
    rrclient_room_set_control_flags("&local-sdr", false, mask != 0);
    rrclient_room_set_offline("&local-sdr", mask == 0);
    local_bridge_vfo_changed();
