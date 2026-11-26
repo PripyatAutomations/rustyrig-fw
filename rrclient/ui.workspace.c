@@ -26,6 +26,7 @@
 #include <glib.h>
 #include <errno.h>
 #include <limits.h>
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -138,6 +139,8 @@ static int patch_pin=-1,patch_source_pin=-1;
 static bool patch_wire_mouse;
 static int patch_mouse_x,patch_mouse_y;
 static int patch_cols,patch_rows;
+static rrui_form_t *patch_editor;
+static char patch_edit_id[64];
 static int patch_find(const char *id){
    for(unsigned i=0;i<patch_count;i++)if(!strcmp(patch_pos[i].id,id))return (int)i;
    return -1;
@@ -400,7 +403,7 @@ static void patch_draw(tui_window_t *w,int rows,int cols,void *unused){
    rrui_canvas_text(c,0,patch_rows,patch_cols,header,0xffff70);
    rrui_canvas_text(c,0,patch_rows+1,patch_cols,patch_message,0xc2d1da);
    rrui_canvas_text(c,0,patch_rows+2,patch_cols,"Arrows block | Tab/Shift-Tab pin | Enter connect | Esc cancel | a auto | t list",UINT32_MAX);
-   rrui_canvas_text(c,0,patch_rows+3,patch_cols,"Drag background to pan | Drag block or output pin | Ctrl+arrows pan",UINT32_MAX);
+   rrui_canvas_text(c,0,patch_rows+3,patch_cols,"N Add | P/Del Properties/wires | Right-click menu | Drag background pan",UINT32_MAX);
    rrui_canvas_draw(c,2,1);rrui_canvas_free(c);
 }
 static unsigned patch_slot(const char *id,const char *pattern,unsigned max){
@@ -459,6 +462,281 @@ static bool patch_connect(const char *source,const char *target,int out,int in){
    }
    patch_notice("Connection requested; awaiting core graph update.");routing_request();return true;
 }
+/* Disconnect exactly the chosen graph edge, never an entire mixer by
+ * accident. The immutable snapshot is revalidated against stable IDs. */
+static bool patch_disconnect(const char *source,const char *target,unsigned out,unsigned in,rr_ag_link_type_t kind,unsigned property){
+   const rr_ag_view_node_t *a=patch_node(source);
+   if(!a||!patch_node(target)){
+      return false;
+   }
+   unsigned osc=patch_slot(source,"osc.%u%n",RR_AUDIO_OSC_MAX);
+   unsigned dstosc=patch_slot(target,"osc.%u%n",RR_AUDIO_OSC_MAX);
+   unsigned srcfx=patch_slot(source,"proc.lv2.%u%n",RR_AUDIO_EFFECT_MAX);
+   unsigned dstfx=patch_slot(target,"proc.lv2.%u%n",RR_AUDIO_EFFECT_MAX);
+   unsigned rxmod=patch_slot(target,"modem%u.rx%n",RR_LOCAL_MODEM_MAX);
+   unsigned txmod=patch_slot(source,"modem%u.tx%n",RR_LOCAL_MODEM_MAX);
+   bool listen=!strcmp(target,"rx.mix")||!strcmp(target,"hq.mix");
+   if(kind==RR_AG_NUMBER&&dstosc&&property<3){
+      rr_audio_osc_control_request_t req={.action='U',.slot=dstosc};
+      g_strlcpy(req.source,source,sizeof(req.source));
+      g_strlcpy(req.property,property==0?"frequency":property==1?"level":"waveform",sizeof(req.property));
+      audio_request_oscillator_control(&req);
+   }else if(kind==RR_AG_CONTROL&&txmod){
+      rr_local_modem_request_t req={.action=RR_LOCAL_MODEM_PTT_ROUTE,.slot=txmod};
+      rr_local_modem_request(&req);
+   }else if(kind!=RR_AG_NORMAL&&kind!=RR_AG_BYPASS){
+      return false;
+   }else if(osc){
+      rr_audio_osc_request_t req={.action='U',.slot=osc,.port=out};
+      if(dstfx){
+         g_snprintf(req.target,sizeof(req.target),"proc.lv2.%u.in.%c",dstfx,in?'R':'L');
+      }else if(listen||rxmod||!strcmp(target,"tx.mix")){
+         g_strlcpy(req.target,target,sizeof(req.target));
+      }else{
+         return false;
+      }
+      audio_request_oscillator(&req);
+   }else if(rxmod){
+      rr_local_modem_request_t req={.action=RR_LOCAL_MODEM_ROUTE,.slot=rxmod};
+      rr_local_modem_request(&req);
+   }else if(txmod&&(!strcmp(target,"tx.mix")||!strcmp(target,"rig.sink"))){
+      rr_local_modem_request_t req={.action=RR_LOCAL_MODEM_TX_ROUTE,.slot=txmod};
+      rr_local_modem_request(&req);
+   }else if(!strcmp(source,"src.client.dsp0")&&!strcmp(target,"tx.mix")){
+      audio_request_mic_tx_channel(in,false);
+   }else if(dstfx){
+      rr_audio_effect_request_t req={.action='R',.slot=dstfx,.channel=in};
+      audio_request_effect_block(&req);
+   }else if(srcfx&&listen){
+      rr_audio_effect_request_t req={.action='O',.slot=srcfx,.channel=in,.output='M'};
+      audio_request_effect_block(&req);
+   }else if(listen&&a->type==RR_AG_SOURCE&&!a->read_only){
+      unsigned mask=(a->route=='S'?3:a->route=='L'?1:a->route=='R'?2:0)&~(1u<<in);
+      audio_request_rx_stream_route(source,mask==3?'S':mask==1?'L':mask==2?'R':'M');
+   }else{
+      return false;
+   }
+   return true;
+}
+static void patch_editor_close(void){
+   if(patch_editor){
+      rrui_tui_close(patch_editor);
+      rrui_form_free(patch_editor);
+      patch_editor=NULL;
+   }
+}
+static bool patch_number(rrui_form_t *f,const char *id,double min,double max,double *out){
+   const char *s=rrui_form_value(f,id);
+   char *end=NULL;
+   if(!s||!*s){
+      return false;
+   }
+   double value=g_ascii_strtod(s,&end);
+   if(end==s||*end||!isfinite(value)||value<min||value>max){
+      return false;
+   }
+   *out=value;
+   return true;
+}
+static void patch_editor_action(rrui_form_t *f,const char *id,const char *action,void *unused){
+   (void)id;(void)unused;
+   if(!action){
+      return;
+   }
+   if(!strcmp(action,"cancel")){
+      patch_editor_close();
+      return;
+   }
+   const char *kind=rrui_form_value(f,"kind");
+   const char *name=rrui_form_value(f,"name");
+   const char *source=rrui_form_value(f,"source");
+   const char *option=rrui_form_value(f,"option");
+   double value=0,level=0,wave=0;
+   unsigned slot=0;
+   if(!strcmp(action,"disconnect")){
+      const char *key=rrui_form_value(f,"wires");
+      char src[64],dst[64],extra;
+      unsigned out,in,type,property;
+      if(!key||sscanf(key,"%63[^|]|%63[^|]|%u|%u|%u|%u%c",src,dst,&out,&in,&type,&property,&extra)!=6){
+         view_notice(f,"Select a wire first.");
+         return;
+      }
+      bool found=false;
+      for(unsigned j=0;j<route_snapshot.link_count;j++){
+         const rr_ag_view_link_t *l=&route_snapshot.links[j];
+         if(l->src>=route_snapshot.node_count||l->dst>=route_snapshot.node_count){
+            continue;
+         }
+         unsigned sm=l->src_channels?l->src_channels:l->channels;
+         unsigned dm=l->dst_channels?l->dst_channels:sm;
+         if(!strcmp(src,route_snapshot.nodes[l->src].id)&&!strcmp(dst,route_snapshot.nodes[l->dst].id)&&
+            type==(unsigned)l->kind&&property==l->control_pin&&
+            (type==RR_AG_NUMBER||type==RR_AG_CONTROL||((sm&(1u<<out))&&(dm&(1u<<in))))){
+            found=true;
+            break;
+         }
+      }
+      if(!found||!patch_disconnect(src,dst,out,in,(rr_ag_link_type_t)type,property)){
+         view_notice(f,"Wire disappeared or is fixed by the core.");
+         return;
+      }
+   }else if(!strcmp(action,"remove")){
+      const char *n=patch_edit_id;
+      if((slot=patch_slot(n,"osc.%u%n",RR_AUDIO_OSC_MAX))){
+         audio_request_oscillator(&(rr_audio_osc_request_t){.action='D',.slot=slot});
+      }else if((slot=patch_slot(n,"proc.lv2.%u%n",RR_AUDIO_EFFECT_MAX))){
+         audio_request_effect_block(&(rr_audio_effect_request_t){.action='D',.slot=slot});
+      }else if((slot=patch_slot(n,"modem%u.rx%n",RR_LOCAL_MODEM_MAX))||(slot=patch_slot(n,"modem%u.tx%n",RR_LOCAL_MODEM_MAX))){
+         rr_local_modem_request(&(rr_local_modem_request_t){.action=RR_LOCAL_MODEM_STOP,.slot=slot});
+      }else if(g_str_has_prefix(n,"control.")){
+         rr_audio_osc_control_request_t req={.action='D'};
+         g_strlcpy(req.source,n,sizeof(req.source));
+         audio_request_oscillator_control(&req);
+      }else{
+         view_notice(f,"This is a core-owned block and cannot be removed.");
+         return;
+      }
+   }else if(!strcmp(action,"save")&&kind){
+      if(!strcmp(kind,"oscillator")){
+         if(!patch_number(f,"value",0,21000,&value)||!patch_number(f,"level",-90,0,&level)||
+            !patch_number(f,"wave",0,3,&wave)||wave!=(unsigned)wave){
+            view_notice(f,"Frequency 0..21000, level -90..0, waveform 0..3.");
+            return;
+         }
+         slot=patch_slot(patch_edit_id,"osc.%u%n",RR_AUDIO_OSC_MAX);
+         if(!slot){
+            for(unsigned j=1;j<=RR_AUDIO_OSC_MAX;j++){
+               char key[64];g_snprintf(key,sizeof(key),"osc.%u",j);
+               if(!patch_node(key)){
+                  slot=j;
+                  break;
+               }
+            }
+         }
+         if(!slot){
+            view_notice(f,"All oscillator slots are occupied.");
+            return;
+         }
+         audio_request_oscillator(&(rr_audio_osc_request_t){.action='A',.slot=slot,
+            .config={.active=true,.frequency_hz=value,.level_db=level,.waveform=(unsigned)wave,.route='M'}});
+      }else if(!strcmp(kind,"control")){
+         const char *n=g_str_has_prefix(patch_edit_id,"control.")?patch_edit_id:name;
+         if(!n||!g_str_has_prefix(n,"control.")||strlen(n)<=8||strlen(n)>=64||
+            !patch_number(f,"value",-1e9,1e9,&value)){
+            view_notice(f,"Use control.NAME and a finite numeric value.");
+            return;
+         }
+         rr_audio_osc_control_request_t req={.action='S',.value=value};
+         g_strlcpy(req.source,n,sizeof(req.source));
+         audio_request_oscillator_control(&req);
+      }else if(!strcmp(kind,"lv2")&&!*patch_edit_id){
+         if(!name||!*name||strlen(name)>=96||!patch_number(f,"wave",1,2,&wave)||wave!=(unsigned)wave||
+            (source&&strlen(source)>=64)){
+            view_notice(f,"Enter LV2 factory name, channels (1 or 2), optional source.");
+            return;
+         }
+         rr_audio_effect_request_t req={.action='A',.channels=(unsigned)wave,.output='M'};
+         g_strlcpy(req.factory,name,sizeof(req.factory));
+         g_strlcpy(req.source,source?source:"",sizeof(req.source));
+         audio_request_effect_block(&req);
+      }else if(!strcmp(kind,"modem")&&!*patch_edit_id){
+         if(!name||(strcmp(name,"psk")&&strcmp(name,"olivia")&&strcmp(name,"ft8"))||
+            (source&&strlen(source)>=64)||(option&&strlen(option)>=24)){
+            view_notice(f,"Modem engine: psk, olivia or ft8.");
+            return;
+         }
+         bool psk=!strcmp(name,"psk"),ft8=!strcmp(name,"ft8");
+         if(!ft8&&(!patch_number(f,"value",100,3500,&value)||value!=(unsigned)value)){
+            view_notice(f,"Enter carrier Hz (PSK) or bandwidth (Olivia).");
+            return;
+         }
+         rr_local_modem_request_t req={.action=RR_LOCAL_MODEM_START,.value=(unsigned)value,.tx_enabled=false};
+         g_strlcpy(req.engine,name,sizeof(req.engine));
+         g_strlcpy(req.source,source?source:"",sizeof(req.source));
+         g_strlcpy(req.option,option&&*option?option:psk?"BPSK31":ft8?"":"8",sizeof(req.option));
+         rr_local_modem_request(&req);
+      }else{
+         view_notice(f,"Choose a supported block type; existing LV2/modem blocks can be removed here.");
+         return;
+      }
+   }else{
+      return;
+   }
+   patch_editor_close();
+   patch_notice("Routing change requested; awaiting core snapshot.");
+   routing_request();
+}
+static void patch_editor_open(bool add){
+   if(patch_editor||rrui_tui_modal_active()){
+      return;
+   }
+   const rrclient_ui_required_t required[]={
+      {"kind",RRUI_ENTRY,false},{"name",RRUI_ENTRY,false},{"value",RRUI_ENTRY,false},
+      {"source",RRUI_ENTRY,false},{"option",RRUI_ENTRY,false},{"level",RRUI_ENTRY,false},
+      {"wave",RRUI_ENTRY,false},{"wires",RRUI_LIST,false}
+   };
+   patch_editor=rrclient_ui_layout_load("routing-editor.rrs",RRUI_DIALOG,required,G_N_ELEMENTS(required),patch_editor_action);
+   if(!patch_editor){
+      patch_notice("Routing editor layout unavailable.");
+      return;
+   }
+   g_strlcpy(patch_edit_id,add?"":patch_selected,sizeof(patch_edit_id));
+   rrui_form_set_value(patch_editor,"kind","oscillator");
+   rrui_form_set_value(patch_editor,"value","1200");
+   rrui_form_set_value(patch_editor,"level","-18");
+   rrui_form_set_value(patch_editor,"wave","0");
+   unsigned slot=patch_slot(patch_edit_id,"osc.%u%n",RR_AUDIO_OSC_MAX);
+   if(slot){
+      char key[96];g_snprintf(key,sizeof(key),"audio.osc.%u",slot);
+      char *saved=rrclient_database_setting_get(key);
+      double hz,db;unsigned wave;char route;
+      if(saved&&sscanf(saved,"%lf,%lf,%u,%c",&hz,&db,&wave,&route)==4){
+         char buf[48];g_ascii_dtostr(buf,sizeof(buf),hz);rrui_form_set_value(patch_editor,"value",buf);
+         g_ascii_dtostr(buf,sizeof(buf),db);rrui_form_set_value(patch_editor,"level",buf);
+         g_snprintf(buf,sizeof(buf),"%u",wave);rrui_form_set_value(patch_editor,"wave",buf);
+      }
+      g_free(saved);
+   }else if(g_str_has_prefix(patch_edit_id,"control.")){
+      rrui_form_set_value(patch_editor,"kind","control");
+      rrui_form_set_value(patch_editor,"name",patch_edit_id);
+      char key[96];g_snprintf(key,sizeof(key),"audio.control.%s",patch_edit_id);
+      char *saved=rrclient_database_setting_get(key);
+      rrui_form_set_value(patch_editor,"value",saved?saved:"0");
+      g_free(saved);
+   }else if(!add){
+      rrui_form_set_value(patch_editor,"kind","");
+      rrui_form_set_value(patch_editor,"name",patch_edit_id);
+   }
+   for(unsigned j=0;!add&&j<route_snapshot.link_count;j++){
+      const rr_ag_view_link_t *l=&route_snapshot.links[j];
+      if(l->src>=route_snapshot.node_count||l->dst>=route_snapshot.node_count){
+         continue;
+      }
+      const char *src=route_snapshot.nodes[l->src].id,*dst=route_snapshot.nodes[l->dst].id;
+      if(strcmp(src,patch_edit_id)&&strcmp(dst,patch_edit_id)){
+         continue;
+      }
+      unsigned sm=l->src_channels?l->src_channels:l->channels;
+      unsigned dm=l->dst_channels?l->dst_channels:sm;
+      for(unsigned out=0;out<2;out++){
+         if(l->kind==RR_AG_NUMBER||l->kind==RR_AG_CONTROL){
+            if(out){
+               continue;
+            }
+         }else if(!(sm&(1u<<out))){
+            continue;
+         }
+         unsigned in=dm==2?1:dm==1?0:out;
+         char key[180],label[180];
+         g_snprintf(key,sizeof(key),"%s|%s|%u|%u|%u|%u",src,dst,out,in,(unsigned)l->kind,(unsigned)l->control_pin);
+         g_snprintf(label,sizeof(label),"%s %s -> %s %s",src,l->kind==RR_AG_NUMBER?"value":l->kind==RR_AG_CONTROL?"PTT":out?"R":"L",dst,l->kind==RR_AG_NUMBER?"parameter":l->kind==RR_AG_CONTROL?"PTT":in?"R":"L");
+         rrui_form_list_append(patch_editor,"wires",key,label);
+      }
+   }
+   if(!rrui_tui_open(patch_editor)){
+      patch_editor_close();
+   }
+}
 static void patch_toggle_list(void);
 static bool patch_key(tui_window_t *w,unsigned key,unsigned mods,void *unused){
    (void)w;(void)unused;
@@ -484,7 +762,17 @@ static bool patch_key(tui_window_t *w,unsigned key,unsigned mods,void *unused){
    if(key==TERMKEY_SYM_ESCAPE){patch_panning=false;patch_source[0]=0;patch_source_pin=-1;patch_wire_mouse=false;patch_notice("Connection cancelled.");return true;}
    if(key=='T'||key=='t'){patch_toggle_list();return true;}
    if(key=='a'){patch_layout(true);patch_x=patch_y=0;patch_notice("Automatic layout.");return true;}
-   if(i<0)return true;
+   if(key=='n'||key==TERMKEY_SYM_INSERT){
+      patch_editor_open(true);
+      return true;
+   }
+   if(i<0){
+      return true;
+   }
+   if(key=='p'||key==TERMKEY_SYM_DELETE){
+      patch_editor_open(false);
+      return true;
+   }
    if(key==TERMKEY_SYM_TAB||key=='\t'){
       const rr_ag_view_node_t *n=patch_node(patch_selected);
       int dir=mods&TERMKEY_KEYMOD_SHIFT?-1:1;
@@ -535,6 +823,16 @@ static int patch_hit(int x,int y){
 static bool patch_mouse(tui_window_t *w,int row,int col,int button,int action,unsigned mods,void *unused){
    (void)w;(void)mods;(void)unused;
    int x=col-1+patch_x,y=row-2+patch_y;
+   if(action==TERMKEY_MOUSE_PRESS&&button==3&&row>=2&&row<patch_rows+2){
+      int i=patch_hit(x,y);
+      if(i>=0){
+         g_strlcpy(patch_selected,patch_pos[i].id,sizeof(patch_selected));
+         patch_editor_open(false);
+      }else{
+         patch_editor_open(true);
+      }
+      return true;
+   }
    if(action==TERMKEY_MOUSE_PRESS&&(button==4||button==5)){patch_y=CLAMP(patch_y+(button==4?-3:3),0,4000);return true;}
    /* Handle release even outside the canvas so a drag cannot remain stuck. */
    if(action==TERMKEY_MOUSE_RELEASE&&patch_panning){
@@ -663,6 +961,7 @@ static void views_init(void){
    }
 }
 static void views_shutdown(void){
+   patch_editor_close();
    if(config_tab)rrui_tui_tab_detach(config_tab);
    if(routing_tab){rrui_tui_tab_detach(routing_tab);routing_tab->view_draw=NULL;routing_tab->view_key=NULL;routing_tab->view_mouse=NULL;}
    rrui_form_free(config_view);rrui_form_free(routing_view);

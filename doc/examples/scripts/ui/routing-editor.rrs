@@ -1,0 +1,16 @@
+// SPDX-License-Identifier: GPL-2.0-only
+ui.add(dict {kind="dialog";id="editor";label="Routing block / connections";});
+ui.add(dict {kind="entry";id="kind";parent="editor";label="Type (oscillator / control / lv2 / modem)";max_length=16;});
+ui.add(dict {kind="entry";id="name";parent="editor";label="Name / LV2 factory / modem engine";max_length=95;});
+ui.add(dict {kind="entry";id="source";parent="editor";label="Initial audio source (optional)";max_length=63;});
+ui.add(dict {kind="entry";id="option";parent="editor";label="Modem mode / tones";max_length=23;});
+ui.add(dict {kind="entry";id="value";parent="editor";label="Value / frequency / modem Hz";max_length=32;});
+ui.add(dict {kind="entry";id="level";parent="editor";label="Oscillator level (dB)";max_length=32;});
+ui.add(dict {kind="entry";id="wave";parent="editor";label="Waveform 0..3 / LV2 channels 1..2";max_length=8;});
+ui.add(dict {kind="list";id="wires";parent="editor";label="Connected wires";height_rows=4;action="select";});
+ui.add(dict {kind="row";id="actions";parent="editor";layout="flow";});
+ui.add(dict {kind="button";id="save";parent="actions";label="Save / Add";action="save";});
+ui.add(dict {kind="button";id="disconnect";parent="actions";label="Disconnect wire";action="disconnect";});
+ui.add(dict {kind="button";id="remove";parent="actions";label="Remove block";action="remove";});
+ui.add(dict {kind="button";id="cancel";parent="actions";label="Cancel";action="cancel";});
+ui.add(dict {kind="label";id="message";parent="editor";label="";max_length=256;});
