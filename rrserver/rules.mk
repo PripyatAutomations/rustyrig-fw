@@ -44,7 +44,7 @@ rrserver_src = $(addprefix rrserver/,$(patsubst %.o,%.c,$(filter-out rrscript/ho
 rrserver_objs += acl.o
 # Compile the very same graph evaluator/codec sources for the server;
 # the server never depends on GTK or the rrclient executable.
-rrserver_objs += graph.logic.o graph.control.o graph.codec.o
+rrserver_objs += graph.codec.o
 rrserver_objs += amp.o			# Support for amplifiers and their control
 rrserver_objs += atu.o			# Support for auto-tuners and their control
 #rrserver_objs += au.o			 # core abstractions
@@ -164,7 +164,7 @@ rrserver_objs += backend.hamlib-proxy.o
 rrserver_objs += hamlib.transport.o     # Per-rig socketpair and process supervision
 endif
 
-# Optional RustyScript host support.
+# RustyScript provides the shared control graph and scripting host.
 ifeq ($(shell pkg-config --exists librustyscript && echo yes),yes)
 rrserver_objs += script.o
 rrserver_objs += rrscript/host.o
@@ -174,23 +174,19 @@ RRSERVER_SCRIPT_LIBS := $(shell pkg-config --libs librustyscript)
 # A stale .so can satisfy pkg-config but lack the required VM symbols.
 .PHONY: rrserver-rustyscript-link-check
 rrserver-rustyscript-link-check:
-	@printf '%s\n' 'extern void *rrs_vm_new(void); int main(void) { return !rrs_vm_new(); }' | \
-	   $(CC) $(CFLAGS) -x c - -x none $(RRSERVER_SCRIPT_LIBS) $(LDFLAGS) -o /dev/null || { \
+	@printf '%s\n' '#include <librustyscript/control.graph.h>' 'extern void *rrs_vm_new(void); int main(void) { rr_control_graph_t *g=rr_control_graph_new(); rr_control_graph_free(g); return !rrs_vm_new(); }' | \
+	   $(CC) $(CFLAGS) $(shell pkg-config --cflags librustyscript) -x c - -x none $(RRSERVER_SCRIPT_LIBS) $(LDFLAGS) -o /dev/null || { \
 	   echo 'ERROR: librustyscript runtime link failed; reinstall rebuilt librustyscript1 and librustyscript-dev'; \
 	   echo 'pkg-config libs:'; pkg-config --libs librustyscript; exit 1; }
 bin/rrserver: rrserver-rustyscript-link-check
 ${BUILD_DIR}/rrserver/rrscript/host.o: rrscript/host.c inc/rrscript/host.h ${BUILD_HEADERS}
 	@mkdir -p $(dir $@)
 	@$(CC) $(CFLAGS_RRSERVER) $(CFLAGS) $(CFLAGS_WARN) -o $@ -c $< || exit 2
+else
+$(error Installed librustyscript development package required for shared control graph)
 endif
 
 # Build shared, GTK-free routing sources into rrserver with its own flags.
-${BUILD_DIR}/rrserver/graph.logic.o: rrclient/audio.logic.c inc/rrclient/audio.logic.h
-	@mkdir -p $(dir $@)
-	@${CC} ${CFLAGS_RRSERVER} ${CFLAGS} ${CFLAGS_WARN} -o $@ -c $<
-${BUILD_DIR}/rrserver/graph.control.o: rrclient/control.graph.c inc/rrclient/control.graph.h
-	@mkdir -p $(dir $@)
-	@${CC} ${CFLAGS_RRSERVER} ${CFLAGS} ${CFLAGS_WARN} -o $@ -c $<
 ${BUILD_DIR}/rrserver/graph.codec.o: rrclient/control.graph.codec.c inc/rrclient/control.graph.h
 	@mkdir -p $(dir $@)
 	@${CC} ${CFLAGS_RRSERVER} ${CFLAGS} ${CFLAGS_WARN} -o $@ -c $<

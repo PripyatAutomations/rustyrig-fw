@@ -6,7 +6,7 @@ bin="$(mktemp)"
 trap 'rm -f "$bin"' EXIT HUP INT TERM
 ${CC:-cc} -std=gnu23 -Wall -Wextra -Werror -Iinc \
   $(pkg-config --cflags glib-2.0) \
-  rrclient/audio.logic.c rrclient/control.graph.c rrclient/control.graph.codec.c \
+  odec.c \
   rrclient/tests/control_graph_codec.c \
-  $(pkg-config --libs glib-2.0) -o "$bin"
+  $(pkg-config --libs glib-2.0) $(pkg-config --cflags --libs librustyscript) -o "$bin"
 "$bin"

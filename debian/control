@@ -11,6 +11,7 @@ Build-Depends:
  libbsd-dev,
  librustyaxe-dev (>= 0.2.0-1),
  librustyui-dev,
+ librustyscript-dev,
  librrprotocol-dev (>= 0.2.0-1),
  librustyirc-dev,
  libcurl4-openssl-dev,

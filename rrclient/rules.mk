@@ -45,8 +45,6 @@ recording_codec_libs := $(shell pkg-config --libs $(recording_codec_pkgs) 2>/dev
 ${BUILD_DIR}/rrclient/recordings.codec.o: extra_cflags += ${recording_codec_cflags}
 rrclient_objs += audio.engine.o
 rrclient_objs += audio.graph.o # GTK-free logical routing and bypass policies
-rrclient_objs += audio.logic.o # Boolean control signal gates (PTT/COS/etc are ordinary bool signals)
-rrclient_objs += control.graph.o # Typed, bounded boolean routing topology
 rrclient_objs += control.graph.codec.o # Shared profile/import validation
 rrclient_objs += cat.o
 rrclient_objs += cat.kpa500.o
@@ -219,7 +217,7 @@ rrclient_objs += cfg.servers.o
 rrclient_objs += ws.auth.o
 rrclient_objs += ws.serial.o
 
-# Optional RustyScript host support.
+# RustyScript provides the shared control graph and scripting host.
 ifeq ($(shell pkg-config --exists librustyscript && echo yes),yes)
 rrclient_objs += script.o
 rrclient_objs += rrscript/host.o
@@ -229,14 +227,16 @@ RRCLIENT_SCRIPT_LIBS := $(shell pkg-config --libs librustyscript)
 # A stale .so can satisfy pkg-config but lack the required VM symbols.
 .PHONY: rrclient-rustyscript-link-check
 rrclient-rustyscript-link-check:
-	@printf '%s\n' 'extern void *rrs_vm_new(void); int main(void) { return !rrs_vm_new(); }' | \
-	   $(CC) $(CFLAGS) -x c - -x none $(RRCLIENT_SCRIPT_LIBS) $(LDFLAGS) -o /dev/null || { \
+	@printf '%s\n' '#include <librustyscript/control.graph.h>' 'extern void *rrs_vm_new(void); int main(void) { rr_control_graph_t *g=rr_control_graph_new(); rr_control_graph_free(g); return !rrs_vm_new(); }' | \
+	   $(CC) $(CFLAGS) $(shell pkg-config --cflags librustyscript) -x c - -x none $(RRCLIENT_SCRIPT_LIBS) $(LDFLAGS) -o /dev/null || { \
 	   echo 'ERROR: librustyscript runtime link failed; reinstall rebuilt librustyscript1 and librustyscript-dev'; \
 	   echo 'pkg-config libs:'; pkg-config --libs librustyscript; exit 1; }
 bin/rrclient: rrclient-rustyscript-link-check
 ${BUILD_DIR}/rrclient/rrscript/host.o: rrscript/host.c inc/rrscript/host.h ${BUILD_HEADERS}
 	@mkdir -p $(dir $@)
 	@$(CC) $(CFLAGS_RRCLI) $(CFLAGS) $(CFLAGS_WARN) -o $@ -c $< || exit 2
+else
+$(error Installed librustyscript development package required for shared control graph)
 endif
 
 rrclient_real_objs := $(foreach x, ${rrclient_objs}, ${BUILD_DIR}/rrclient/${x})
