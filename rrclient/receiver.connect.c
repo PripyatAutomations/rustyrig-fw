@@ -280,6 +280,12 @@ bool rrclient_receiver_connect_room_ex(const char *url, bool save, const char *r
       return false;
    }
 
+   if(!save){
+      char *description=receiver_directory_display(pending.url);
+      char *notice=g_strdup_printf("%s to %s via %s",receiver&&receiver->last_connected?"Reconnecting":"Connecting",description,profile?profile:"rrserver");
+      report(notice,connection);
+      g_free(notice);g_free(description);
+   }
    return send_receiver_request(connection);
 }
 
@@ -487,10 +493,10 @@ static void receiver_result(const char *event, const char *text, rrconn_t *conne
                Log(LOG_INFO, "receiver.connect", "Sent SDR room JOIN %s on profile %s", room, pending.profile ? pending.profile : "(unknown)");
             }
          }
-         char status[320];
-         snprintf(status, sizeof(status), "SDR attached to %s. Awaiting room VFO announcement; select the room tab for RX controls. Audio starts on demand.",
-            room);
-         report(status, connection);
+         char *description=receiver_directory_display(pending.url);
+         char *status=g_strdup_printf("SDR %s attached to %s. Awaiting VFO announcement; select the room for RX controls.",description,room);
+         report(status,connection);
+         g_free(status);g_free(description);
       }
       clear_pending();
    }

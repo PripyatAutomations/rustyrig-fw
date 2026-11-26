@@ -1434,8 +1434,11 @@ static gboolean poll_local(gpointer unused) {
          if (b->online && !was_online) {
             receiver_directory_record_connection(b->url);
             Log(LOG_INFO, "local.bridge", "Local Kiwi online: %s", b->url);
-            event_emit("client.receiver-directory.connection", NULL, "Local SDR connected.");
-            ui_print("&local-sdr", "Connected: %s (%s)", b->stream, b->url ? b->url : "unknown");
+            char *description=receiver_directory_display(b->url);
+            char *notice=g_strdup_printf("Connected: %s — %s",b->stream,description);
+            event_emit("client.receiver-directory.connection",NULL,notice);
+            ui_print("&local-sdr","%s",notice);
+            g_free(notice);g_free(description);
             event_emit("client.audio.streams.changed", NULL, NULL);
          }
       } else if (m.type == RRP_BRIDGE_IPC_METADATA) {
@@ -1788,7 +1791,9 @@ bool rrclient_local_bridge_connect_driver(const char *url, const char *driver) {
    b->timer = bridge_core_timer(10, poll_local, b);
    rrclient_room_set_active_vfo("&local-sdr", (char)('A' + slot));
    local_bridge_vfo_changed();
-   char *status = g_strdup_printf("Connecting to %s at %s", driver, url);
+   char *description=receiver_directory_display(url);
+   char *status=g_strdup_printf("%s to %s [%s]",directory&&directory->last_connected?"Reconnecting":"Connecting",description,driver);
+   g_free(description);
    event_emit("client.receiver-directory.connection", NULL, status);
    ui_print("&local-sdr", "%s", status);
    /* TUI presents an interactive local RX VFO panel on this existing tab. */

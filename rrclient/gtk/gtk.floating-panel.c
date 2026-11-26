@@ -1953,7 +1953,10 @@ static void panel_minimize(GtkButton *button, gpointer data) {
       return;
    }
    panel_state_save(p);         /* capture full-size geometry before hiding */
-   p->restore_tab = gtk_tabs_panel_restore_add(p->tabs, p->id, G_CALLBACK(panel_restore), p);
+   /* The persistent ID may contain a script-owner namespace; the user's
+    * restore tab must use the display title, not that internal identifier. */
+   const char *title=p->title?gtk_label_get_text(GTK_LABEL(p->title)):NULL;
+   p->restore_tab=gtk_tabs_panel_restore_add(p->tabs,title&&*title?title:p->id,G_CALLBACK(panel_restore),p);
 
    if (!p->restore_tab) {
       return;

@@ -1762,6 +1762,31 @@ void receiver_directory_shutdown(void) {
    initialized = false;
 }
 
+/* Catalog text is remote-supplied: strip formatting/control bytes before
+ * putting metadata into chat or status messages. Limit each component. */
+static char *receiver_display_component(const char *s){
+   char *valid=g_utf8_make_valid(s?s:"",-1);
+   GString *out=g_string_new("");
+   unsigned count=0;
+   for(const char *p=valid;*p&&count<160;p=g_utf8_next_char(p),count++){
+      gunichar ch=g_utf8_get_char(p);
+      g_string_append_unichar(out,g_unichar_iscntrl(ch)||g_unichar_type(ch)==G_UNICODE_FORMAT||ch=='{'||ch=='}'?' ':ch);
+   }
+   g_free(valid);return g_string_free(out,FALSE);
+}
+char *receiver_directory_display(const char *url){
+   const receiver_directory_entry_t *r=receiver_directory_find_url(url);
+   char *name=receiver_display_component(r?r->name:NULL);
+   char *location=receiver_display_component(r?r->location:NULL);
+   char *country=receiver_display_component(r?r->country:NULL);
+   char *address=receiver_display_component(url);
+   GString *out=g_string_new(*name?name:"SDR");
+   if(*location)g_string_append_printf(out," — %s",location);
+   if(*country&&g_ascii_strcasecmp(country,location)&&!strstr(location,country))g_string_append_printf(out,", %s",country);
+   if(*address)g_string_append_printf(out," (%s)",address);
+   g_free(name);g_free(location);g_free(country);g_free(address);
+   return g_string_free(out,FALSE);
+}
 const receiver_directory_entry_t *receiver_directory_find_url(const char *url) {
    ensure();
    char *normalized = canonical_url(url);

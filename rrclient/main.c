@@ -558,8 +558,7 @@ static void sdr_label(rrui_form_t *f,const char *id,const char *value){
 static void sdr_notice(const char *message){
    sdr_label(sdr_form,"message",message);tui_redraw_request();
 }
-static void tui_sdr_connect(void) {
-   const receiver_directory_entry_t *r = tui_sdr_current();
+static void tui_sdr_connect_receiver(const receiver_directory_entry_t *r) {
 
    if (!r || !r->url) {
       return;
@@ -584,7 +583,7 @@ static void tui_sdr_connect(void) {
    }
 
    if (tui_sdr_proxy_bridge) {
-      if (!rrclient_receiver_connect(r->url, false)) {
+      if (!rrclient_receiver_connect_room_ex(r->url, false, NULL, true)) {
          g_strlcpy(tui_sdr_message, "Unable to start proxy rrbridge: select an authenticated RustyRig server.", sizeof(tui_sdr_message));
       } else {
          g_strlcpy(tui_sdr_message, "Requesting remote SDR bridge...", sizeof(tui_sdr_message));
@@ -713,8 +712,26 @@ static void sdr_action(rrui_form_t *f,const char *id,const char *action,void *un
    const char *search=rrui_form_value(f,"search");
    g_strlcpy(tui_sdr_search,search?search:"",sizeof(tui_sdr_search));
    const receiver_directory_entry_t *r=tui_sdr_current();
-   if(!strcmp(action,"connect")){
-      tui_sdr_message[0]=0;tui_sdr_connect();sdr_notice(tui_sdr_message[0]?tui_sdr_message:"Connection change requested.");
+   if(!strcmp(action,"random")){
+      /* Reservoir sampling: one uniform choice among eligible filtered
+       * receivers; never toggle an existing connection off. */
+      size_t eligible=0;
+      const receiver_directory_entry_t *pick=NULL;
+      for(size_t i=0;i<receiver_directory_count();i++){
+         const receiver_directory_entry_t *candidate=receiver_directory_receiver(i);
+         if(!candidate||!candidate->url||!receiver_directory_entry_accessible(candidate)||tui_sdr_is_connected(candidate)||!tui_sdr_matches(candidate))continue;
+         if(g_random_double()<1.0/(double)++eligible)pick=candidate;
+      }
+      if(!pick){sdr_notice("No accessible, disconnected SDR matches the filters.");return;}
+      char *description=receiver_directory_display(pick->url);
+      tui_sdr_message[0]=0;tui_sdr_connect_receiver(pick);
+      char *notice=g_strdup_printf("%s: %s",tui_sdr_message[0]?tui_sdr_message:"Random SDR",description);
+      sdr_notice(notice);g_free(notice);g_free(description);
+   }else if(!strcmp(action,"connect")){
+      char *description=r?receiver_directory_display(r->url):NULL;
+      tui_sdr_message[0]=0;tui_sdr_connect_receiver(r);
+      char *notice=g_strdup_printf("%s%s%s",tui_sdr_message[0]?tui_sdr_message:"Connection change requested.",description?" — ":"",description?description:"");
+      sdr_notice(notice);g_free(notice);g_free(description);
    }else if(!strcmp(action,"info")&&r){sdr_show_detail(r);return;}
    else if(!strcmp(action,"mark")&&r){sdr_show_mark(r);return;}
    else if(!strcmp(action,"favorite")&&r){

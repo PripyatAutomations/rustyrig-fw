@@ -524,6 +524,34 @@ static void selection_changed(GtkTreeSelection *selection, gpointer unused) {
    g_free(text);
 }
 
+static gboolean visible_receiver(GtkTreeModel *model, GtkTreeIter *iter, gpointer unused);
+static void connect_clicked(GtkButton *button,gpointer save);
+static void random_receiver_clicked(GtkButton *button,gpointer unused){
+   (void)button;(void)unused;
+   GtkTreeModel *model=gtk_tree_view_get_model(GTK_TREE_VIEW(directory_tree));
+   GtkTreeIter chosen,group;
+   size_t eligible=0;
+   for(gboolean g=gtk_tree_model_get_iter_first(model,&group);g;g=gtk_tree_model_iter_next(model,&group)){
+      GtkTreeIter child;
+      for(gboolean c=gtk_tree_model_iter_children(model,&child,&group);c;c=gtk_tree_model_iter_next(model,&child)){
+         guint index=G_MAXUINT;
+         gtk_tree_model_get(model,&child,COL_INDEX,&index,-1);
+         const receiver_directory_entry_t *r=snapshot_receiver(index);
+         if(!r||!r->url||!receiver_directory_entry_accessible(r)||directory_connected_local(r->url)||directory_connected_remote(r->url)||directory_disconnecting(r->url))continue;
+         if(g_random_double()<1.0/(double)++eligible)chosen=child;
+      }
+   }
+   if(!eligible){
+      gtk_label_set_text(GTK_LABEL(directory_status),"No accessible, disconnected SDR matches the filters.");
+      return;
+   }
+   GtkTreePath *path=gtk_tree_model_get_path(model,&chosen);
+   gtk_tree_view_expand_to_path(GTK_TREE_VIEW(directory_tree),path);
+   gtk_tree_view_set_cursor(GTK_TREE_VIEW(directory_tree),path,NULL,FALSE);
+   gtk_tree_view_scroll_to_cell(GTK_TREE_VIEW(directory_tree),path,NULL,TRUE,0.5,0);
+   gtk_tree_path_free(path);
+   connect_clicked(NULL,NULL);
+}
 static gboolean visible_receiver(GtkTreeModel *model, GtkTreeIter *iter, gpointer unused) {
    (void)unused;
    guint index;
@@ -1307,6 +1335,10 @@ static gboolean directory_finish_show(gpointer unused) {
    proxy_bridge = gtk_check_button_new_with_label("Proxy rrbridge?");
    gtk_widget_set_tooltip_text(proxy_bridge, "Use a connected rrserver for shared upstream SDR reception instead of a local bridge");
    gtk_box_pack_start(GTK_BOX(filters), proxy_bridge, FALSE, FALSE, 0);
+   GtkWidget *random=gtk_button_new_with_label("Random SDR");
+   gtk_widget_set_tooltip_text(random,"Connect to a random accessible receiver matching the current filters");
+   gtk_box_pack_start(GTK_BOX(filters),random,FALSE,FALSE,0);
+   g_signal_connect(random,"clicked",G_CALLBACK(random_receiver_clicked),NULL);
    proxy_refresh();
    g_timeout_add_seconds(1, proxy_refresh_timer, NULL);
    directory_store =

@@ -6,6 +6,7 @@ ui.add(dict {kind="checkbox";id="available";parent="filters";label="Available";a
 ui.add(dict {kind="checkbox";id="connected";parent="filters";label="Connected";action="filter";});
 ui.add(dict {kind="checkbox";id="favorites";parent="filters";label="Favorites";action="filter";});
 ui.add(dict {kind="checkbox";id="proxy";parent="filters";label="Proxy bridge";action="filter";});
+ui.add(dict {kind="button";id="random";parent="filters";label="Random SDR";action="random";});
 ui.add(dict {kind="label";id="summary";parent="directory";label="";max_length=512;});
 ui.add(dict {kind="list";id="receivers";parent="directory";label="Receivers (Enter to connect/disconnect)";expand_y=true;action="connect";});
 ui.add(dict {kind="row";id="actions";parent="directory";layout="flow";});
