@@ -1,0 +1,12 @@
+// SPDX-License-Identifier: GPL-2.0-only
+ui.add(dict { kind="dialog"; id="groups"; label="Server Groups"; });
+ui.add(dict { kind="list"; id="groups"; parent="groups"; label="Saved groups"; height_rows=4; action="load"; });
+ui.add(dict { kind="button"; id="load"; parent="groups"; label="Load group"; action="load"; });
+ui.add(dict { kind="entry"; id="name"; parent="groups"; label="Group name"; max_length=127; });
+ui.add(dict { kind="entry"; id="members"; parent="groups"; label="Members (comma separated)"; max_length=4096; });
+ui.add(dict { kind="list"; id="profiles"; parent="groups"; label="Available profiles"; height_rows=5; action="toggle"; });
+ui.add(dict { kind="button"; id="toggle"; parent="groups"; label="Add / remove selected server"; action="toggle"; });
+ui.add(dict { kind="label"; id="message"; parent="groups"; label="";  });
+ui.add(dict { kind="button"; id="save"; parent="groups"; label="Save group"; action="save"; });
+ui.add(dict { kind="button"; id="delete"; parent="groups"; label="Delete group"; action="delete"; });
+ui.add(dict { kind="button"; id="cancel"; parent="groups"; label="Back"; action="cancel"; });

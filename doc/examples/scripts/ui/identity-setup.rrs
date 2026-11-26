@@ -1,0 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-only
+ui.add(dict { kind="dialog"; id="identity"; label="Client Identity"; });
+ui.add(dict { kind="label"; id="message"; parent="identity"; label="Create an Ed25519 identity or import a private PEM key.";  });
+ui.add(dict { kind="entry"; id="path"; parent="identity"; label="Import file (absolute path)"; max_length=4096; });
+ui.add(dict { kind="entry"; id="pass"; parent="identity"; label="Import password"; masked=true; max_length=1024; });
+ui.add(dict { kind="button"; id="create"; parent="identity"; label="Create New Key"; action="create"; });
+ui.add(dict { kind="button"; id="import"; parent="identity"; label="Import Existing Key"; action="import"; });
+ui.add(dict { kind="button"; id="cancel"; parent="identity"; label="Later / Cancel"; action="cancel"; });

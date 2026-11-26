@@ -5,6 +5,7 @@
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/server.url.h>
 #include <rrclient/connman.h>
+#include <rrclient/media.direct.h>
 #include <rrclient/database.h>
 #include <rrclient/identity.store.h>
 #include <unistd.h>
@@ -16,7 +17,10 @@
 #include <sys/stat.h>
 
 static rrui_form_t *form;
-static bool editing,identity_setup,first_run,confirm_delete;
+static bool editing,identity_setup,first_run,confirm_delete,groups,keys;
+static char *pending_remove;
+static bool open_groups(void);
+static bool open_keys(void);
 static char *delete_profile;
 extern void connman_autoconnect(void);
 static char *original;
@@ -29,7 +33,8 @@ static void close_form(void) {
    form=NULL;
    rrui_form_free(old);
    g_clear_pointer(&original,g_free);
-   editing=false;identity_setup=false;confirm_delete=false;
+   editing=false;identity_setup=false;confirm_delete=false;groups=false;keys=false;
+   g_clear_pointer(&pending_remove,g_free);
    g_clear_pointer(&delete_profile,g_free);
 }
 void rrclient_tui_script_picker_shutdown(void) {
@@ -53,7 +58,8 @@ static rrui_form_t *load_form(const char *file,bool editor) {
    const rrclient_ui_required_t picker[]={{"profiles",RRUI_LIST,false}};
    const rrclient_ui_required_t fields[]={{"name",RRUI_ENTRY,false},{"url",RRUI_ENTRY,false},
       {"user",RRUI_ENTRY,false},{"password",RRUI_ENTRY,true},{"identity",RRUI_LIST,false},
-      {"node",RRUI_ENTRY,false},{"tofu",RRUI_CHECKBOX,false},{"ignore",RRUI_CHECKBOX,false}};
+      {"node",RRUI_ENTRY,false},{"tofu",RRUI_CHECKBOX,false},{"ignore",RRUI_CHECKBOX,false},
+      {"proxy",RRUI_LIST,false},{"network",RRUI_LIST,false},{"rooms",RRUI_ENTRY,false},{"direct",RRUI_CHECKBOX,false}};
    return rrclient_ui_layout_load(file,RRUI_DIALOG,editor?fields:picker,
       editor?G_N_ELEMENTS(fields):G_N_ELEMENTS(picker),action);
 }
@@ -102,14 +108,8 @@ static rrui_form_t *inline_form(const char *source){
 }
 static bool open_identity(bool startup){
    if(form)return false;
-   form=inline_form(
-      "ui.add(dict {kind=\"dialog\";id=\"identity\";label=\"Client Identity\";});"
-      "ui.add(dict {kind=\"label\";id=\"message\";parent=\"identity\";label=\"Create an Ed25519 identity or import a private PEM key.\";});"
-      "ui.add(dict {kind=\"entry\";id=\"path\";parent=\"identity\";label=\"Import file (absolute path)\";max_length=4096;});"
-      "ui.add(dict {kind=\"entry\";id=\"pass\";parent=\"identity\";label=\"Import password (if encrypted)\";masked=true;max_length=1024;});"
-      "ui.add(dict {kind=\"button\";id=\"create\";parent=\"identity\";label=\"Create New Key\";action=\"create\";});"
-      "ui.add(dict {kind=\"button\";id=\"import\";parent=\"identity\";label=\"Import Existing Key\";action=\"import\";});"
-      "ui.add(dict {kind=\"button\";id=\"cancel\";parent=\"identity\";label=\"Later / Cancel\";action=\"cancel\";});");
+   const rrclient_ui_required_t fields[]={{"path",RRUI_ENTRY,false},{"pass",RRUI_ENTRY,true}};
+   form=rrclient_ui_layout_load("identity-setup.rrs",RRUI_DIALOG,fields,G_N_ELEMENTS(fields),action);
    if(!form)return false;
    identity_setup=true;first_run=startup;
    rrui_form_set_focus(form,field_index(form,"create"));
@@ -122,7 +122,7 @@ bool rrclient_tui_identity_first_run(void){
 static void identity_finished(void){
    bool startup=first_run;first_run=false;close_form();
    if(startup)connman_autoconnect();
-   open_picker();
+   if(startup)open_picker();else open_keys();
 }
 static void identity_action(const char *name){
    if(!strcmp(name,"cancel")||!strcmp(name,"dialog.close")){identity_finished();return;}
@@ -156,6 +156,60 @@ static bool open_picker(void) {
    if(!rrui_tui_open(form)){close_form();return false;}
    return true;
 }
+static bool valid_name(const char *name) {
+   return name&&*name&&strlen(name)<=127&&strspn(name,"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-")==strlen(name);
+}
+static GPtrArray *network_names(void) {
+   GPtrArray *names=g_ptr_array_new_with_free_func(g_free);
+   int rank=0;const char *key;char *value;
+   while((rank=dict_enumerate(cfg,rank,&key,&value))>=0) {
+      if(g_str_has_prefix(key,"network:")&&g_str_has_suffix(key,".servers")&&strlen(key)>16)
+         g_ptr_array_add(names,g_strndup(key+8,strlen(key)-16));
+   }
+   g_ptr_array_sort(names,compare_names);
+   return names;
+}
+static const char *network_members(const char *name) {
+   char *key=g_strdup_printf("network:%s.servers",name);
+   const char *value=dict_get(cfg,key,NULL);
+   g_free(key);return value;
+}
+static bool member_of(const char *members,const char *profile) {
+   if(!members||!profile)return false;
+   gchar **tokens=g_strsplit_set(members,", \t\r\n",-1);
+   bool found=false;
+   for(unsigned i=0;tokens[i];i++)if(!strcmp(tokens[i],profile)){found=true;break;}
+   g_strfreev(tokens);return found;
+}
+typedef struct {rrui_form_t *f;const char *saved;size_t count,chosen;} proxy_options;
+static void add_proxy(const char *name,const char *url,void *data) {
+   (void)url;proxy_options *p=data;
+   if(rrui_form_list_append(p->f,"proxy",name,name)){
+      if(!strcmp(name,p->saved))p->chosen=p->count;
+      p->count++;
+   }
+}
+static void editor_options(rrui_form_t *next,const char *name) {
+   rrui_form_list_append(next,"proxy","@none","None");
+   proxy_options p={next,property(name,"server.proxy"),1,0};
+   rrclient_database_proxy_foreach(add_proxy,&p);
+   if(*p.saved&&!p.chosen&&rrui_form_list_append(next,"proxy",p.saved,"Configured proxy (unavailable)"))p.chosen=p.count;
+   rrui_form_select(next,field_index(next,"proxy"),p.chosen);
+   rrui_form_list_append(next,"network","@none","Ungrouped");
+   GPtrArray *names=network_names();size_t selected=0,count=1;
+   for(guint i=0;i<names->len;i++){
+      const char *group=g_ptr_array_index(names,i);
+      if(rrui_form_list_append(next,"network",group,group)){
+         if(member_of(network_members(group),name))selected=count;
+         count++;
+      }
+   }
+   rrui_form_select(next,field_index(next,"network"),selected);
+   g_ptr_array_unref(names);
+   rrui_form_set_checked(next,"direct",name&&rrclient_direct_preferred(name));
+   char *rooms=g_strjoin(" ",property(name,"autojoin"),property(name,"autojoin.rig"),NULL);
+   g_strstrip(rooms);rrui_form_set_value(next,"rooms",rooms);g_free(rooms);
+}
 static void open_editor(const char *profile) {
    char *name=g_strdup(profile);
    rrui_form_t *next=load_form("server-editor.rrs",true);
@@ -169,7 +223,7 @@ static void open_editor(const char *profile) {
    rrui_form_set_checked(next,"tofu",!g_ascii_strcasecmp(property(name,"server.tls-trust-on-first-use"),"true")||!strcmp(property(name,"server.tls-trust-on-first-use"),"1"));
    rrui_form_set_checked(next,"ignore",!g_ascii_strcasecmp(property(name,"server.tls-ignore-hostname"),"true")||!strcmp(property(name,"server.tls-ignore-hostname"),"1"));
    const char *saved=property(name,"client.identity.path");
-   rrui_form_list_append(next,"identity","", "No certificate");
+   rrui_form_list_append(next,"identity","@none", "No certificate");
    size_t chosen=0,count=1;
    char *dir=g_build_filename(g_get_user_config_dir(),"rustyrig","identity",NULL);
    GDir *folder=g_dir_open(dir,0,NULL);const char *entry;
@@ -189,6 +243,7 @@ static void open_editor(const char *profile) {
    if(folder)g_dir_close(folder);g_free(dir);
    if(*saved&&!chosen&&rrui_form_list_append(next,"identity",saved,"Configured identity (unavailable)"))chosen=count;
    rrui_form_select(next,field_index(next,"identity"),chosen);
+   editor_options(next,name);
    close_form();form=next;editing=true;original=name;
    if(name)rrui_form_set_focus(form,field_index(form,"url"));
    if(!rrui_tui_open(form)){close_form();open_picker();}
@@ -200,25 +255,143 @@ static void save_editor(void) {
       notice("Invalid profile name or attempted rename.");return;
    }
    if(!original&&*property(name,"server.url")){notice("Profile already exists.");return;}
+   char *normalized=rrclient_database_normalize_url(url?url:"");
    rr_server_url_t endpoint;
-   if(!url||!rr_server_url_parse(url,&endpoint)){notice("Invalid server URL.");return;}
-   const char *ids[]={"url","user","password","identity","node"};
-   const char *props[]={"server.url","server.user","server.pass","client.identity.path","server.node-name"};
+   if(!normalized||!rr_server_url_parse(normalized,&endpoint)){g_free(normalized);notice("Invalid server URL.");return;}
+   rrui_form_set_value(form,"url",normalized);g_free(normalized);
+   const char *node=rrui_form_value(form,"node");
+   if(node&&*node){const char *dot=strchr(node,'.');if(!dot||dot==node||!dot[1]||node[strlen(node)-1]=='.'||strspn(node,"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-")!=strlen(node)){notice("Node Name must be station.domain.");return;}}
+   const char *ids[]={"url","user","password","identity","node","proxy","rooms"};
+   const char *props[]={"server.url","server.user","server.pass","client.identity.path","server.node-name","server.proxy","autojoin"};
    for(unsigned i=0;i<G_N_ELEMENTS(ids);i++){
-      const char *v=rrui_form_value(form,ids[i]);if(!v)v="";
+      const char *v=rrui_form_value(form,ids[i]);if(!v||((i==3||i==5)&&!strcmp(v,"@none")))v="";
       if((!original||strcmp(v,property(name,props[i])))&&!rrclient_database_server_set(name,props[i],v)){
          notice("Unable to save profile; some fields may already have been saved.");return;
       }
    }
    if(!rrclient_database_server_set(name,"server.tls-trust-on-first-use",rrui_form_checked(form,"tofu")?"true":"false")||
       !rrclient_database_server_set(name,"server.tls-ignore-hostname",rrui_form_checked(form,"ignore")?"true":"false")){notice("Unable to save TLS preferences.");return;}
+   if(!rrclient_database_server_set(name,"media.direct.prefer",rrui_form_checked(form,"direct")?"true":"false")||
+      !rrclient_database_server_set(name,"autojoin.rig","")){notice("Unable to save media/room preferences.");return;}
+   rrclient_direct_apply_preferences();
+   const char *network=rrui_form_value(form,"network");
+   if(!rrclient_database_server_move(name,network&&strcmp(network,"@none")?network:"")){notice("Unable to save group membership.");return;}
    g_free(last_profile);last_profile=g_strdup(name);
    close_form();open_picker();
+}
+static bool show_manager(rrui_form_t *next,bool group) {
+   if(!next){notice("No usable manager layout.");return false;}
+   close_form();form=next;groups=group;keys=!group;
+   if(!rrui_tui_open(form)){close_form();open_picker();return false;}
+   return true;
+}
+static bool open_groups(void) {
+   const rrclient_ui_required_t fields[]={{"groups",RRUI_LIST,false},{"name",RRUI_ENTRY,false},{"members",RRUI_ENTRY,false},{"profiles",RRUI_LIST,false}};
+   rrui_form_t *next=rrclient_ui_layout_load("server-groups.rrs",RRUI_DIALOG,fields,G_N_ELEMENTS(fields),action);
+   if(!next)return false;
+   GPtrArray *names=network_names();
+   for(guint i=0;i<names->len;i++){const char *n=g_ptr_array_index(names,i);rrui_form_list_append(next,"groups",n,n);}
+   g_ptr_array_unref(names);
+   int rank=0;const char *key;char *value;
+   while((rank=dict_enumerate(cfg,rank,&key,&value))>=0){
+      char n[512];if(rrclient_server_profile_name(key,n,sizeof(n)))rrui_form_list_append(next,"profiles",n,n);
+   }
+   return show_manager(next,true);
+}
+static void group_action(const char *act) {
+   const char *selected=rrui_form_value(form,"groups");
+   const char *name=rrui_form_value(form,"name");
+   const char *members=rrui_form_value(form,"members");
+   if(!strcmp(act,"cancel")||!strcmp(act,"dialog.close")){close_form();open_picker();return;}
+   if(!strcmp(act,"load")){
+      if(selected&&*selected){rrui_form_set_value(form,"name",selected);rrui_form_set_value(form,"members",network_members(selected)?network_members(selected):"");}
+   }else if(!strcmp(act,"toggle")){
+      const char *profile=rrui_form_value(form,"profiles");if(!profile||!*profile)return;
+      gchar **tokens=g_strsplit_set(members?members:"",", \t",-1);
+      GString *out=g_string_new("");bool found=false;
+      for(unsigned i=0;tokens[i];i++){if(!*tokens[i])continue;if(!strcmp(tokens[i],profile)){found=true;continue;}if(out->len)g_string_append_c(out,',');g_string_append(out,tokens[i]);}
+      if(!found){if(out->len)g_string_append_c(out,',');g_string_append(out,profile);}
+      if(!rrui_form_set_value(form,"members",out->str))notice("Group membership exceeds field limit.");
+      g_string_free(out,TRUE);g_strfreev(tokens);
+   }else if(!strcmp(act,"save")){
+      if(!valid_name(name)||!g_ascii_strcasecmp(name,"Ungrouped")){notice("Enter a valid group name (not Ungrouped).");return;}
+      gchar **tokens=g_strsplit_set(members?members:"",", \t",-1);bool valid=true;
+      for(unsigned i=0;tokens[i];i++)if(*tokens[i]&&!*property(tokens[i],"server.url"))valid=false;
+      g_strfreev(tokens);
+      if(!valid){notice("Unknown server in member list.");return;}
+      if(!rrclient_database_network_set(name,members?members:"")){notice("Unable to save group.");return;}
+      close_form();open_groups();
+   }else if(!strcmp(act,"delete")){
+      if(!selected||!*selected)return;
+      if(g_strcmp0(pending_remove,selected)){g_free(pending_remove);pending_remove=g_strdup(selected);notice("Press Delete again to remove this group (servers are retained).");return;}
+      if(!rrclient_database_network_delete(selected)){notice("Unable to delete group.");return;}
+      close_form();open_groups();
+   }
+   tui_redraw_request();
+}
+static bool open_keys(void) {
+   const rrclient_ui_required_t fields[]={{"keys",RRUI_LIST,false},{"label",RRUI_ENTRY,false},{"pass",RRUI_ENTRY,true},{"export",RRUI_ENTRY,false}};
+   rrui_form_t *next=rrclient_ui_layout_load("certificate-manager.rrs",RRUI_DIALOG,fields,G_N_ELEMENTS(fields),action);
+   if(!next)return false;
+   char *dir=g_build_filename(g_get_user_config_dir(),"rustyrig","identity",NULL);
+   GDir *folder=g_dir_open(dir,0,NULL);const char *entry;
+   while(folder&&(entry=g_dir_read_name(folder))){
+      if(!g_str_has_suffix(entry,".pem"))continue;
+      char *path=g_build_filename(dir,entry,NULL);struct stat st;
+      if(!lstat(path,&st)&&S_ISREG(st.st_mode)&&st.st_uid==geteuid()&&!(st.st_mode&0077)){
+         char *name=rrclient_identity_display_name(path);
+         char *label=g_strdup_printf("%s%s",name,rrclient_identity_get(path)?" [unlocked]":"");
+         rrui_form_list_append(next,"keys",path,label);g_free(name);g_free(label);
+      }
+      g_free(path);
+   }
+   if(folder)g_dir_close(folder);g_free(dir);
+   return show_manager(next,false);
+}
+static bool identity_in_use(const char *path) {
+   int rank=0;const char *key;char *value;
+   while((rank=dict_enumerate(cfg,rank,&key,&value))>=0)
+      if(g_str_has_prefix(key,"server:")&&g_str_has_suffix(key,".client.identity.path")&&value&&!strcmp(value,path))return true;
+   return false;
+}
+static void keys_action(const char *act) {
+   if(!strcmp(act,"cancel")||!strcmp(act,"dialog.close")){close_form();open_picker();return;}
+   if(!strcmp(act,"add")){close_form();if(!open_identity(false))open_keys();return;}
+   const char *path=rrui_form_value(form,"keys");struct stat st;
+   if(!path||!*path||lstat(path,&st)||!S_ISREG(st.st_mode)||st.st_uid!=geteuid()||(st.st_mode&0077)){notice("Select an available private identity.");return;}
+   if(!strcmp(act,"unlock")){
+      const char *pass=rrui_form_value(form,"pass");
+      bool ok=rrclient_identity_unlock(path,pass?pass:"");
+      rrui_form_set_value(form,"pass","");
+      if(!ok){notice("Unable to unlock identity.");return;}
+   }else if(!strcmp(act,"lock"))rrclient_identity_lock(path);
+   else if(!strcmp(act,"rename")){
+      const char *label=rrui_form_value(form,"label");
+      if(!label||!*label||!rrclient_identity_set_display_name(path,label)){notice("Unable to rename identity (default name is immutable).");return;}
+   }else if(!strcmp(act,"export")){
+      const char *dest=rrui_form_value(form,"export");
+      if(!dest||!g_path_is_absolute(dest)){notice("Enter an absolute export path.");return;}
+      rr_crypto_key_t *key=rrclient_identity_get(path);
+      if(!key){notice("Unlock the key before exporting.");return;}
+      if(!rrclient_identity_save_new(key,dest)){notice("Export failed; destination must not exist and directory must be private.");return;}
+      notice("Private PEM exported.");return;
+   }else if(!strcmp(act,"delete")){
+      if(identity_in_use(path)||g_str_has_suffix(path,"/client-ed25519.pem")){notice("Default or profile-assigned identities cannot be deleted.");return;}
+      if(g_strcmp0(pending_remove,path)){g_free(pending_remove);pending_remove=g_strdup(path);notice("Press Delete again to permanently remove this private key.");return;}
+      if(unlink(path)){notice("Unable to delete identity.");return;}
+      rrclient_identity_lock(path);
+   }else if(!strcmp(act,"info")){
+      char *label=rrclient_identity_display_name(path);
+      rrui_form_set_value(form,"label",label);g_free(label);notice(path);return;
+   }else return;
+   close_form();open_keys();
 }
 static void action(rrui_form_t *f,const char *id,const char *name,void *unused) {
    (void)id;(void)unused;
    if(f!=form)return;
    if(identity_setup){identity_action(name);return;}
+   if(groups){group_action(name);return;}
+   if(keys){keys_action(name);return;}
    if(confirm_delete){
       if(!strcmp(name,"delete")&&delete_profile&&!rrclient_database_server_delete(delete_profile)){notice("Unable to delete profile.");return;}
       close_form();open_picker();return;
@@ -231,7 +404,8 @@ static void action(rrui_form_t *f,const char *id,const char *name,void *unused) 
    const char *selected=rrui_form_value(f,"profiles");
    bool has=rrui_form_field(f,field_index(f,"profiles"),&row)&&row.selected!=SIZE_MAX&&selected&&*selected;
    if(has){g_free(last_profile);last_profile=g_strdup(selected);}
-   if(!strcmp(name,"keys")){close_form();open_identity(false);}
+   if(!strcmp(name,"keys")){open_keys();}
+   else if(!strcmp(name,"groups")){open_groups();}
    else if(!strcmp(name,"new"))open_editor(NULL);
    else if(!strcmp(name,"refresh"))refresh();
    else if(has&&!strcmp(name,"edit"))open_editor(selected);
@@ -258,6 +432,6 @@ static void action(rrui_form_t *f,const char *id,const char *name,void *unused) 
    }
 }
 bool rrclient_tui_script_picker_toggle(void) {
-   if(form){close_form();return true;}
+   if(form){if(first_run)identity_finished();else close_form();return true;}
    return open_picker();
 }

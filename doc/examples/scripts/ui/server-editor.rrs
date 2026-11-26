@@ -5,8 +5,12 @@ ui.add(dict { kind="entry"; id="url"; parent="editor"; label="Server URL (wss://
 ui.add(dict { kind="entry"; id="user"; parent="editor"; label="Username"; max_length=255; });
 ui.add(dict { kind="entry"; id="password"; parent="editor"; label="Password"; masked=true; max_length=1024; });
 ui.add(dict { kind="list"; id="identity"; parent="editor"; label="Client identity"; height_rows=4; });
+ui.add(dict { kind="list"; id="proxy"; parent="editor"; label="Proxy"; height_rows=2; });
+ui.add(dict { kind="list"; id="network"; parent="editor"; label="Server group"; height_rows=2; });
+ui.add(dict { kind="entry"; id="rooms"; parent="editor"; label="Autojoin rooms"; max_length=4096; });
+ui.add(dict { kind="checkbox"; id="direct"; parent="editor"; label="Prefer direct RTP audio"; });
 ui.add(dict { kind="entry"; id="node"; parent="editor"; label="Expected node name"; max_length=253; });
-ui.add(dict { kind="checkbox"; id="tofu"; parent="editor"; label="Allow first-use TLS trust prompt"; });
+ui.add(dict { kind="checkbox"; id="tofu"; parent="editor"; label="Allow self-signed certificates (TOFU)"; });
 ui.add(dict { kind="checkbox"; id="ignore"; parent="editor"; label="Ignore TLS hostname"; });
 ui.add(dict { kind="label"; id="message"; parent="editor"; label=""; });
 ui.add(dict { kind="button"; id="save"; parent="editor"; label="Save"; action="save"; });

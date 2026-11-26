@@ -1,0 +1,15 @@
+// SPDX-License-Identifier: GPL-2.0-only
+ui.add(dict { kind="dialog"; id="certificates"; label="Certificate Manager"; });
+ui.add(dict { kind="list"; id="keys"; parent="certificates"; label="Local identities"; height_rows=5; action="info"; });
+ui.add(dict { kind="entry"; id="label"; parent="certificates"; label="Display name"; max_length=80; });
+ui.add(dict { kind="entry"; id="pass"; parent="certificates"; label="Unlock password"; masked=true; max_length=1024; });
+ui.add(dict { kind="entry"; id="export"; parent="certificates"; label="Export private PEM path"; max_length=4096; });
+ui.add(dict { kind="label"; id="message"; parent="certificates"; label="";  });
+ui.add(dict { kind="button"; id="add"; parent="certificates"; label="Create / Import"; action="add"; });
+ui.add(dict { kind="button"; id="info"; parent="certificates"; label="Info"; action="info"; });
+ui.add(dict { kind="button"; id="rename"; parent="certificates"; label="Rename"; action="rename"; });
+ui.add(dict { kind="button"; id="unlock"; parent="certificates"; label="Unlock"; action="unlock"; });
+ui.add(dict { kind="button"; id="lock"; parent="certificates"; label="Lock"; action="lock"; });
+ui.add(dict { kind="button"; id="export_key"; parent="certificates"; label="Export private key"; action="export"; });
+ui.add(dict { kind="button"; id="delete"; parent="certificates"; label="Delete"; action="delete"; });
+ui.add(dict { kind="button"; id="cancel"; parent="certificates"; label="Back"; action="cancel"; });
