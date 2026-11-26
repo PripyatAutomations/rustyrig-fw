@@ -1745,7 +1745,7 @@ static void rrclient_handle_quit(const char *event, const char *data, rrconn_t *
 
    if (sessions > 0) {
       if (current) {
-         current->sessions = sessions;
+         userlist_update_sessions(m_user,m_target,sessions);
       } else {
          dict *remaining = dict_new();
 

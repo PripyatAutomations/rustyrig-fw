@@ -58,6 +58,11 @@ int main(void) {
    assert(dict_get_int(d, "talk.sessions", 0) == 1);
    dict_free(d);
    assert(global_userlist && global_userlist->sessions == 2);
+   unsigned before=redraws;
+   assert(userlist_update_sessions("ADMIN","#site",1));
+   assert(global_userlist->sessions==1 && redraws==before+1);
+   assert(userlist_update_sessions("ADMIN","#site",1));
+   assert(redraws==before+1);
 
    /* A last-session quit removes ADMIN from the online list. */
    assert(userlist_remove_by_name_room("ADMIN", "#site"));

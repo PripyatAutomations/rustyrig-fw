@@ -107,6 +107,22 @@ static void userlist_names_mark(const char *room,const char *nick) {
 
 static void userlist_refresh_ptt_status(void);
 
+/* Roster changes must be published after the shared state is updated. */
+static void userlist_notify_changed(const char *room) {
+   if (dying || userlist_names_pending(room)) {
+      return;
+   }
+   if (frontend_ops()) {
+      if (frontend_ops()->userlist_redraw) {
+         frontend_ops()->userlist_redraw();
+      }
+      if (rrclient_present_context() && frontend_ops()->ptt_refresh) {
+         frontend_ops()->ptt_refresh();
+      }
+   }
+   userlist_refresh_ptt_status();
+}
+
 void userlist_names_end(const char *room) {
    for (userlist_batch **link = &names_batches ; *link ; link = &(*link)->next) {
       userlist_batch *batch = *link;
@@ -137,13 +153,7 @@ void userlist_names_end(const char *room) {
 
          /* Background/autojoin NAMES may complete before the room is selected. GTK queues this redraw on its owner thread and filters views by originating
           * connection. */
-         if (!dying && frontend_ops()) {
-            frontend_ops()->userlist_redraw();
-         }
-
-         if (!dying) {
-            userlist_refresh_ptt_status();
-         }
+         userlist_notify_changed(room);
 
          return;
       }
@@ -389,20 +399,7 @@ bool userlist_add_or_update(dict *d) {
       c->next = *insert;
       *insert = c;
 
-      // Another user starting/stopping TX changes the PTT button color
-      if (!userlist_names_pending(t_room) && frontend_ops()) {
-         frontend_ops()->ptt_refresh();
-      }
-
-      if (!userlist_names_pending(t_room) && frontend_ops()) {
-         if (rrclient_present_context()) {
-            frontend_ops()->userlist_redraw();
-         }
-      }
-
-      if (!userlist_names_pending(t_room)) {
-         userlist_refresh_ptt_status();
-      }
+      userlist_notify_changed(t_room);
 
       return true;
    }
@@ -430,10 +427,6 @@ bool userlist_add_or_update(dict *d) {
    strlcpy(n->ptt_room, dict_get(d, "talk.ptt-room", ""), sizeof(n->ptt_room));
    n->ptt_vfo = (t_ptt_vfo && t_ptt_vfo[0]) ? toupper((unsigned char)t_ptt_vfo[0]) : 0;
 
-   if (!userlist_names_pending(t_room) && frontend_ops()) {
-      frontend_ops()->ptt_refresh();
-   }
-
    struct rr_user **insert = &global_userlist;
 
    while (*insert && userlist_compare(*insert, n) <= 0) {
@@ -444,15 +437,7 @@ bool userlist_add_or_update(dict *d) {
 
    Log(LOG_CRAZY, "userlist", "Storing new userlist entry for %s at <%p> in userlist", n->name, n);
 
-   if (!userlist_names_pending(t_room) && frontend_ops()) {
-      if (rrclient_present_context()) {
-         frontend_ops()->userlist_redraw();
-      }
-   }
-
-   if (!userlist_names_pending(t_room)) {
-      userlist_refresh_ptt_status();
-   }
+   userlist_notify_changed(t_room);
 
    return true;
 }
@@ -474,19 +459,10 @@ bool userlist_remove_by_name_room(const char *name, const char *room) {
             global_userlist = next;
          }
          Log(LOG_DEBUG, "userlist", "Removing user %s from room %s at <%p>", name, c->room, c);
-         bool pending = userlist_names_pending(c->room);
+         char removed_room[sizeof(c->room)];
+         strlcpy(removed_room,c->room,sizeof(removed_room));
          free(c);
-
-         if (!pending && frontend_ops()) {
-            if (rrclient_present_context()) {
-               frontend_ops()->userlist_redraw();
-            }
-         }
-
-         if (!pending) {
-            userlist_refresh_ptt_status();
-         }
-
+         userlist_notify_changed(removed_room);
          return true;
       }
       prev = c;
@@ -523,6 +499,18 @@ void userlist_remove_room(const char *room) {
       }
    }
    userlist_refresh_ptt_status();
+}
+
+bool userlist_update_sessions(const char *name,const char *room,int sessions) {
+   struct rr_user *member=userlist_find_in_room(name,room);
+   if (!member || sessions<=0) {
+      return false;
+   }
+   if (member->sessions!=sessions) {
+      member->sessions=sessions;
+      userlist_notify_changed(member->room);
+   }
+   return true;
 }
 
 bool userlist_remove_by_name(const char *name) {

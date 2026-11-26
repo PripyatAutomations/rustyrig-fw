@@ -63,6 +63,7 @@ static inline const char *select_elmernoob_icon(struct rr_user *cptr) {
 extern struct rr_user *global_userlist;
 extern bool userlist_add_or_update(dict *d);
 extern bool userlist_remove_by_name(const char *name);
+extern bool userlist_update_sessions(const char *name,const char *room,int sessions);
 extern bool userlist_remove_by_name_room(const char *name, const char *room);
 extern void userlist_remove_room(const char *room);
 extern struct rr_user *userlist_find_in_room(const char *name, const char *room);
