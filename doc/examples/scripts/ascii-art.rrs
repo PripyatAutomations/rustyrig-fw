@@ -8,8 +8,10 @@
 // Six artwork lines are required. Indexed colors (Ctrl+C) AND RGB hex
 // colors (Ctrl+D plus six hex digits), and Unicode block graphics are preserved.
 
-event irc.privmsg {
-    if (event.self != true && string.regex(event.room, "^[#&]")) {
+// Both IRC and RRPROTO deliver talk.msg. Do not subscribe to irc.privmsg
+// as well, or IRC messages would be captured twice.
+event talk.msg {
+    if (event.self != true && event.kind == "pub" && string.regex(event.room, "^[#&]")) {
         char key = "artwork.capture-" + string.hash(event.room + "|" + event.nick)
         char line = event.text
         bool colored = string.regex(line, string.chr(3) + "[0-9]{1,2}") ||

@@ -551,7 +551,7 @@ Copy it to the scripts directory and load it:
 /artwork
 ```
 
-The collector watches `irc.privmsg`. An indexed mIRC color (`0x03` plus
+The collector watches transport-neutral `talk.msg` for live public messages from IRC and RRPROTO. An indexed mIRC color (`0x03` plus
 digits), an extended RGB color (`0x04` plus six hexadecimal digits), or
 Unicode block graphics can start a capture. Subsequent lines from the same
 nick/channel join the current burst. A resettable `timer.after` saves one

@@ -624,14 +624,17 @@ static void event_received(const char *name,const char *payload,
    if(parsed)dict_free(parsed);
    if(!ev)return;
    /* For normalized IRC events expose human-friendly properties. */
-   if(!strcmp(name,"irc.privmsg")) {
+   if(!strcmp(name,"irc.privmsg") || !strcmp(name,"talk.msg")) {
       const rrs_value_t *text=rrs_value_field(ev,"talk.data");
       const rrs_value_t *nick=rrs_value_field(ev,"talk.from");
       const rrs_value_t *room=rrs_value_field(ev,"talk.room");
+      if (!room) { room=rrs_value_field(ev,"talk.target"); }
+      const rrs_value_t *kind=rrs_value_field(ev,"talk.msg_type");
       /* Normalized IRC fields are always present, including on unusual
        * PRIVMSG payloads. A missing field should not abort user scripts. */
       rrs_value_t *empty=rrs_string("");
       rrs_dict_put(ev,"text",text?text:empty);
+      rrs_dict_put(ev,"kind",kind?kind:empty);
       rrs_dict_put(ev,"nick",nick?nick:empty);
       rrs_dict_put(ev,"room",room?room:empty);
       rrs_dict_put(ev,"target",room?room:empty);

@@ -18,6 +18,7 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 
+extern const char *login_user;
 extern time_t now;              // main.c
 
 bool ws_handle_talk_msg(rrconn_t *cptr, dict *d) {
@@ -62,6 +63,7 @@ bool ws_handle_talk_msg(rrconn_t *cptr, dict *d) {
       time_t ts = dict_get_time_t(d, "msg.ts", now);
 
       if (from) {
+         dict_add_bool(d, "talk.self", login_user && !strcasecmp(from, login_user));
          event_emit_dict("talk.msg", cptr, d);
       }
    } else if (cmd && strcasecmp(cmd, "typing") == 0) {

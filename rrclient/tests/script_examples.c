@@ -110,16 +110,19 @@ int main(int argc, char **argv) {
    assert(rrs_dict_put(event,"nick",nick));
    assert(rrs_dict_put(event,"text",body));
    rrs_value_free(room);rrs_value_free(nick);rrs_value_free(body);
+   rrs_value_t *kind=rrs_string("pub");
+   assert(rrs_dict_put(event,"kind",kind));
+   rrs_value_free(kind);
    rrs_value_t *own=rrs_boolean(true);
    assert(rrs_dict_put(event,"self",own));
    rrs_value_free(own);
-   assert(rrs_vm_invoke(vm,RRSCRIPT_EVENT,"irc.privmsg",event));
+   assert(rrs_vm_invoke(vm,RRSCRIPT_EVENT,"talk.msg",event));
    assert(!rrs_value_field(test_state,"artwork.capture-capturetest.body"));
    own=rrs_boolean(false);
    assert(rrs_dict_put(event,"self",own));
    rrs_value_free(own);
-   if(!rrs_vm_invoke(vm,RRSCRIPT_EVENT,"irc.privmsg",event)) {
-      fprintf(stderr,"artwork IRC handler: %s\n",rrs_vm_error(vm));
+   if(!rrs_vm_invoke(vm,RRSCRIPT_EVENT,"talk.msg",event)) {
+      fprintf(stderr,"artwork chat handler: %s\n",rrs_vm_error(vm));
       return 1;
    }
    rrs_value_free(event);

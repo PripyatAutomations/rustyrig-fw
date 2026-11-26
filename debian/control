@@ -23,7 +23,7 @@ Build-Depends:
  libargon2-dev,
  libwslay-dev,
  libev-dev,
- libgpiod-dev,
+ libgpiod-dev (>= 2.0) <pkg.rustyrig.gpio>,
  libglib2.0-dev,
  libhamlib-dev <pkg.rustyrig.hamlib>,
  libgtk-3-dev,
