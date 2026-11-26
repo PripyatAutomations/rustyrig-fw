@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: GPL-2.0-only
 ui.add(dict {kind="panel";id="config";label="Configuration";});
 ui.add(dict {kind="entry";id="filter";parent="config";label="Filter settings (Enter)";max_length=128;action="filter";});
-ui.add(dict {kind="list";id="keys";parent="config";label="Settings (Enter to edit)";height_rows=7;action="load";});
+ui.add(dict {kind="list";id="keys";parent="config";label="Settings (Enter to edit)";height_rows=7;expand_y=true;action="load";});
 ui.add(dict {kind="label";id="selected";parent="config";label="Setting: ";max_length=256;});
 ui.add(dict {kind="label";id="description";parent="config";label="";max_length=4096;});
 ui.add(dict {kind="label";id="choices";parent="config";label="Choices: ";max_length=1024;});
 ui.add(dict {kind="entry";id="value";parent="config";label="Value";max_length=16384;});
 ui.add(dict {kind="entry";id="secret";parent="config";label="Replacement secret";max_length=4096;masked=true;});
-ui.add(dict {kind="button";id="apply";parent="config";label="Apply";action="apply";});
-ui.add(dict {kind="button";id="default";parent="config";label="Restore default";action="default";});
-ui.add(dict {kind="button";id="save";parent="config";label="Save to SQLite";action="save";});
-ui.add(dict {kind="button";id="reload";parent="config";label="Reload saved settings";action="reload";});
+ui.add(dict {kind="row";id="actions";parent="config";layout="flow";});
+ui.add(dict {kind="button";id="apply";parent="actions";label="Apply";action="apply";});
+ui.add(dict {kind="button";id="default";parent="actions";label="Restore default";action="default";});
+ui.add(dict {kind="button";id="save";parent="actions";label="Save to SQLite";action="save";});
+ui.add(dict {kind="button";id="reload";parent="actions";label="Reload saved settings";action="reload";});
 ui.add(dict {kind="label";id="message";parent="config";label="";max_length=512;});
