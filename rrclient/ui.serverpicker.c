@@ -546,7 +546,11 @@ static void action(rrui_form_t *f,const char *id,const char *name,void *unused) 
       close_form();open_picker();return;
    }
    if(!strcmp(name,"dialog.close")||!strcmp(name,"cancel")){
-      bool back=editing;close_form();if(back)open_picker();return;
+      bool back=editing;
+      close_form();
+      if(back)open_picker();
+      else {tui_window_focus("Status");tui_redraw_request();}
+      return;
    }
    if(editing){if(!strcmp(name,"save"))save_editor();return;}
    rrui_field_t row;
