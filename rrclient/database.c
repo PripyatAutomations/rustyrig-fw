@@ -14,6 +14,32 @@
 extern dict *cfg;
 
 static sqlite3 *client_db;
+static int startup_schema_version = -1;
+static bool startup_db_existed;
+
+static int database_schema_version(void) {
+   sqlite3_stmt *stmt = NULL;
+   int version = -1;
+
+   if (sqlite3_prepare_v2(client_db, "PRAGMA user_version", -1, &stmt, NULL) == SQLITE_OK && sqlite3_step(stmt) == SQLITE_ROW) {
+      version = sqlite3_column_int(stmt, 0);
+   }
+   sqlite3_finalize(stmt);
+   return version;
+}
+
+/* Called after the frontend logger is ready, including on initialization failure. */
+void rrclient_database_log_startup(void) {
+   if (startup_schema_version >= 0 && startup_schema_version < RRCLIENT_DB_SCHEMA_VERSION && startup_db_existed) {
+      Log(LOG_WARN, "db.schema", "Existing client database schema version %d (expected %d): %s",
+         startup_schema_version, RRCLIENT_DB_SCHEMA_VERSION, client_db ? "migration succeeded" : "migration failed; saved settings unavailable");
+   }
+
+   if (!client_db) {
+      Log(LOG_WARN, "db.schema", "Client database initialization failed (initial schema version %d, expected %d); saved profiles and settings unavailable. Check startup diagnostics and SQL template.",
+         startup_schema_version, RRCLIENT_DB_SCHEMA_VERSION);
+   }
+}
 static bool backup_imported;
 bool rrclient_database_restart_required(void) {
    return backup_imported;
@@ -253,6 +279,7 @@ bool rrclient_database_init(void) {
    }
    gchar *dir = g_build_filename(g_get_user_state_dir(), "rustyrig", NULL);
    gchar *path = g_build_filename(dir, "client.db", NULL);
+   startup_db_existed = g_file_test(path, G_FILE_TEST_EXISTS);
    bool ok = g_mkdir_with_parents(dir, 0700) == 0;
 
    if (ok) {
@@ -274,22 +301,22 @@ bool rrclient_database_init(void) {
    if (sqlite3_exec(client_db, "PRAGMA foreign_keys=ON", NULL, NULL, NULL) != SQLITE_OK) {
       goto fail;
    }
-   sqlite3_stmt *stmt = NULL;
-   int version = -1;
+   int version = database_schema_version();
+   startup_schema_version = version;
 
-   if (sqlite3_prepare_v2(client_db, "PRAGMA user_version", -1, &stmt, NULL) == SQLITE_OK && sqlite3_step(stmt) == SQLITE_ROW) {
-      version = sqlite3_column_int(stmt, 0);
+   if (startup_db_existed && version >= 0 && version < RRCLIENT_DB_SCHEMA_VERSION) {
+      fprintf(stderr, "WARNING: Existing client database schema version %d (expected %d); attempting migration.\n",
+         version, RRCLIENT_DB_SCHEMA_VERSION);
    }
-   sqlite3_finalize(stmt);
 
-   if (version == 2 || version == 3 || version == 4) {
+   if (version == 2 || version == 3 || version == RRCLIENT_DB_SCHEMA_VERSION) {
       if (sqlite3_exec(client_db,
          "CREATE TABLE IF NOT EXISTS proxies (name TEXT PRIMARY KEY COLLATE NOCASE, url TEXT NOT NULL); CREATE TABLE IF NOT EXISTS themes (name TEXT NOT NULL COLLATE NOCASE, property TEXT NOT NULL, value TEXT NOT NULL, PRIMARY KEY(name,property)); PRAGMA user_version=4",
          NULL, NULL, NULL) != SQLITE_OK) {
          goto fail;
       }
 
-      if (!window_state_schema()) {
+      if (database_schema_version() != RRCLIENT_DB_SCHEMA_VERSION || !window_state_schema()) {
          goto fail;
       }
       g_free(path);
@@ -331,7 +358,7 @@ bool rrclient_database_init(void) {
       goto fail;
    }
 
-   if (!window_state_schema()) {
+   if (database_schema_version() != RRCLIENT_DB_SCHEMA_VERSION || !window_state_schema()) {
       goto fail;
    }
    g_free(path);
@@ -340,6 +367,8 @@ bool rrclient_database_init(void) {
    return true;
 fail:
 
+   fprintf(stderr, "WARNING: Client database initialization failed (initial schema version %d, expected %d); saved settings unavailable.\n",
+      startup_schema_version, RRCLIENT_DB_SCHEMA_VERSION);
    if (client_db) {
       sqlite3_close(client_db);
    }

@@ -7,7 +7,10 @@
 #include <stddef.h>
 #include <librustyaxe/core.h>
 /* Opens and initializes the persistent client settings database. */
+/* Current schema version, kept in sync with sql/sqlite.client.sql. */
+#define RRCLIENT_DB_SCHEMA_VERSION 4
 bool rrclient_database_init(void);
+void rrclient_database_log_startup(void);
 /* Snapshot as a restorable SQLite SQL script; caller frees with g_free(). */
 char *rrclient_database_dump_sql(size_t *length);
 /* Validate SQL in a separate in-memory database, then replace the live DB. Caller must arrange an application restart immediately after success. */

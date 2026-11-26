@@ -2758,6 +2758,8 @@ int main(int argc, char *argv[]) {
       Log(LOG_WARN, "db.schema", "%s", schema_warning);
    }
 
+   rrclient_database_log_startup();
+
    // Register all of our core event handlers
    rrclient_register_events();
 #ifdef RR_HAVE_RUSTYSCRIPT
