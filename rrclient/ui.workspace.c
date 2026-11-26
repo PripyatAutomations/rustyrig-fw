@@ -127,6 +127,8 @@ typedef struct {char id[64];int x,y;} patch_pos_t;
 static patch_pos_t patch_pos[RR_AUDIO_GRAPH_MAX_NODES];
 static unsigned patch_count;
 static int patch_x,patch_y,patch_drag=-1,patch_dx,patch_dy;
+static bool patch_panning;
+static int patch_pan_col,patch_pan_row,patch_pan_x,patch_pan_y;
 static char patch_selected[64],patch_source[64],patch_message[180];
 static bool patch_lists;
 static int patch_cols,patch_rows;
@@ -346,7 +348,7 @@ static void patch_draw(tui_window_t *w,int rows,int cols,void *unused){
    rrui_canvas_text(c,0,patch_rows,patch_cols,header,0xffff70);
    rrui_canvas_text(c,0,patch_rows+1,patch_cols,patch_message,0xc2d1da);
    rrui_canvas_text(c,0,patch_rows+2,patch_cols,"Arrows select | W/S/D/H move | Enter connect | l/r/b/m RX | a auto | t list",UINT32_MAX);
-   rrui_canvas_text(c,0,patch_rows+3,patch_cols,"Mouse drag block or output pin | Ctrl+arrows pan | Esc cancel",UINT32_MAX);
+   rrui_canvas_text(c,0,patch_rows+3,patch_cols,"Drag background to pan | Drag block or output pin | Ctrl+arrows pan",UINT32_MAX);
    rrui_canvas_draw(c,2,1);rrui_canvas_free(c);
 }
 static bool patch_connect(const char *source,const char *target,int channel){
@@ -378,7 +380,7 @@ static bool patch_key(tui_window_t *w,unsigned key,unsigned mods,void *unused){
       }
       return true;
    }
-   if(key==TERMKEY_SYM_ESCAPE){patch_source[0]=0;patch_notice("Connection cancelled.");return true;}
+   if(key==TERMKEY_SYM_ESCAPE){patch_panning=false;patch_source[0]=0;patch_notice("Connection cancelled.");return true;}
    if(key=='T'||key=='t'){patch_toggle_list();return true;}
    if(key=='a'){patch_layout(true);patch_x=patch_y=0;patch_notice("Automatic layout.");return true;}
    if(i<0)return true;
@@ -417,9 +419,32 @@ static bool patch_mouse(tui_window_t *w,int row,int col,int button,int action,un
    (void)w;(void)mods;(void)unused;
    int x=col-1+patch_x,y=row-2+patch_y;
    if(action==TERMKEY_MOUSE_PRESS&&(button==4||button==5)){patch_y=CLAMP(patch_y+(button==4?-3:3),0,4000);return true;}
-   if(row<2||row>=patch_rows+2)return true;
+   /* Handle release even outside the canvas so a drag cannot remain stuck. */
+   if(action==TERMKEY_MOUSE_RELEASE&&patch_panning){
+      patch_panning=false;tui_redraw_request();return true;
+   }
+   if(action==TERMKEY_MOUSE_DRAG&&patch_panning){
+      patch_x=CLAMP(patch_pan_x+patch_pan_col-col,0,4000);
+      patch_y=CLAMP(patch_pan_y+patch_pan_row-row,0,4000);
+      tui_redraw_request();return true;
+   }
+   if(row<2||row>=patch_rows+2){
+      if(action==TERMKEY_MOUSE_RELEASE){
+         if(patch_drag>=0)patch_save(&patch_pos[patch_drag]);
+         patch_drag=-1;patch_source[0]=0;patch_channel=-1;
+      }
+      return true;
+   }
    if(action==TERMKEY_MOUSE_PRESS&&button==1){
-      int i=patch_hit(x,y);if(i<0)return true;
+      patch_panning=false;
+      int i=patch_hit(x,y);
+      if(i<0){
+         patch_drag=-1;patch_source[0]=0;patch_channel=-1;
+         patch_panning=true;
+         patch_pan_col=col;patch_pan_row=row;
+         patch_pan_x=patch_x;patch_pan_y=patch_y;
+         return true;
+      }
       patch_pos_t *p=&patch_pos[i];g_strlcpy(patch_selected,p->id,sizeof(patch_selected));
       if(x==p->x+PATCH_W-1&&(y==p->y+1||y==p->y+2)){
          g_strlcpy(patch_source,p->id,sizeof(patch_source));patch_channel=y-p->y-1;patch_drag=-1;
@@ -442,6 +467,7 @@ static void patch_enable(void){
    patch_lists=false;tui_redraw_request();
 }
 static void patch_toggle_list(void){
+   patch_panning=false;
    if(patch_lists){patch_enable();return;}
    routing_tab->view_draw=NULL;routing_tab->view_key=NULL;routing_tab->view_mouse=NULL;
    if(rrui_tui_tab_attach(routing_tab,routing_view))patch_lists=true;else patch_enable();
