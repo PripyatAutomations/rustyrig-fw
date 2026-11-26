@@ -16,6 +16,7 @@
 #include <rrclient/vfo.h>
 #include <rrclient/audio.h>
 #include <rrclient/audio.graph.h>
+#include <rrclient/local.modem.h>
 #include <rrclient/config.layers.h>
 #include <rrclient/objects.h>
 #include <rrclient/media.h>
@@ -131,6 +132,10 @@ static bool patch_panning;
 static int patch_pan_col,patch_pan_row,patch_pan_x,patch_pan_y;
 static char patch_selected[64],patch_source[64],patch_message[180];
 static bool patch_lists;
+/* 0/1 input L/R, 2/3 output L/R. */
+static int patch_pin=-1,patch_source_pin=-1;
+static bool patch_wire_mouse;
+static int patch_mouse_x,patch_mouse_y;
 static int patch_cols,patch_rows;
 static int patch_find(const char *id){
    for(unsigned i=0;i<patch_count;i++)if(!strcmp(patch_pos[i].id,id))return (int)i;
@@ -139,6 +144,24 @@ static int patch_find(const char *id){
 static const rr_ag_view_node_t *patch_node(const char *id){
    for(unsigned i=0;i<route_snapshot.node_count;i++)if(!strcmp(route_snapshot.nodes[i].id,id))return &route_snapshot.nodes[i];
    return NULL;
+}
+static bool patch_pin_valid(const rr_ag_view_node_t *n,int pin){
+   if(!n||pin<0||pin>3)return false;
+   /* Only PCM ports in this pass. Modem PTT and numeric controls need
+    * distinct typed pins, never masquerade as a second audio channel. */
+   if(g_str_has_prefix(n->id,"control."))return false;
+   if(pin<2&&n->type==RR_AG_SOURCE)return false;
+   if(pin>=2&&n->type==RR_AG_SINK)return false;
+   return (pin%2)==0||n->channels>=2||g_str_has_prefix(n->id,"osc.");
+}
+static void patch_pick_pin(bool input,int preferred){
+   const rr_ag_view_node_t *n=patch_node(patch_selected);
+   int base=input?0:2;
+   patch_pin=patch_pin_valid(n,base+(preferred&1))?base+(preferred&1):
+      patch_pin_valid(n,base)?base:-1;
+   if(patch_pin<0&&!*patch_source){
+      for(int i=0;i<4;i++)if(patch_pin_valid(n,i)){patch_pin=i;break;}
+   }
 }
 static void patch_save(const patch_pos_t *p){
    char *key=g_strdup_printf("ui.tui.routing.position.%s",p->id);
@@ -169,7 +192,8 @@ static void patch_layout(bool reset){
       if(reset)patch_save(p);
    }
    if(patch_find(patch_selected)<0)g_strlcpy(patch_selected,patch_count?patch_pos[0].id:"",sizeof(patch_selected));
-   if(patch_find(patch_source)<0)patch_source[0]=0;
+   if(patch_find(patch_source)<0){patch_source[0]=0;patch_source_pin=-1;patch_wire_mouse=false;}
+   if(!patch_pin_valid(patch_node(patch_selected),patch_pin))patch_pick_pin(*patch_source!=0,0);
    patch_drag=-1;
 }
 static void patch_ensure(void){
@@ -329,37 +353,110 @@ static void patch_draw(tui_window_t *w,int rows,int cols,void *unused){
          patch_paint_wire(c,path,color,used);
       }
    }
+   int origin=patch_find(patch_source),target=patch_find(patch_selected);
+   if(origin>=0&&patch_source_pin>=2){
+      int x1=patch_pos[origin].x+PATCH_W,y1=patch_pos[origin].y+1+patch_source_pin%2;
+      if(patch_wire_mouse){
+         patch_paint_wire(c,patch_route(x1,y1,patch_mouse_x,patch_mouse_y,used),0x70ff99,used);
+      }else if(target>=0&&target!=origin&&patch_pin>=0&&patch_pin<2){
+         int x2=patch_pos[target].x-1,y2=patch_pos[target].y+1+patch_pin;
+         patch_paint_wire(c,patch_route(x1,y1,x2,y2,used),0x70ff99,used);
+      }
+   }
    g_array_unref(used);
    for(unsigned i=0;i<patch_count;i++){
       const patch_pos_t *p=&patch_pos[i];const rr_ag_view_node_t *n=patch_node(p->id);if(!n)continue;
       int x=p->x-patch_x,y=p->y-patch_y;
-      uint32_t color=!strcmp(p->id,patch_selected)?0xffff70:!strcmp(p->id,patch_source)?0x70ff99:n->health==RR_AG_FAILED?0xf06060:0x8baab8;
+      bool selected=!strcmp(p->id,patch_selected),source=!strcmp(p->id,patch_source);
+      uint32_t color=source?0x70ff99:selected?0xffff70:n->health==RR_AG_FAILED?0xf06060:0x8baab8;
       rrui_canvas_box(c,x,y,PATCH_W,PATCH_H,color);
+      /* Distinguish source/sink and processor/mixer silhouettes while
+       * retaining fixed pin coordinates and rectangular hit regions. */
+      if(n->type==RR_AG_SOURCE||n->type==RR_AG_SINK){
+         rrui_canvas_put(c,x,y,0x256d,color);rrui_canvas_put(c,x+PATCH_W-1,y,0x256e,color);
+         rrui_canvas_put(c,x,y+PATCH_H-1,0x2570,color);rrui_canvas_put(c,x+PATCH_W-1,y+PATCH_H-1,0x256f,color);
+      }else if(n->type==RR_AG_MIXER){
+         rrui_canvas_put(c,x,y,0x2554,color);rrui_canvas_put(c,x+PATCH_W-1,y,0x2557,color);
+         rrui_canvas_put(c,x,y+PATCH_H-1,0x255a,color);rrui_canvas_put(c,x+PATCH_W-1,y+PATCH_H-1,0x255d,color);
+         for(int k=1;k<PATCH_W-1;k++){rrui_canvas_put(c,x+k,y,0x2550,color);rrui_canvas_put(c,x+k,y+PATCH_H-1,0x2550,color);}
+         for(int k=1;k<PATCH_H-1;k++){rrui_canvas_put(c,x,y+k,0x2551,color);rrui_canvas_put(c,x+PATCH_W-1,y+k,0x2551,color);}
+      }
       rrui_canvas_text(c,x+1,y+1,PATCH_W-2,p->id,color);
       char info[64];g_snprintf(info,sizeof(info),"%uHz %uch %s",n->rate_hz,n->channels,n->read_only?"RO":"");
       rrui_canvas_text(c,x+1,y+2,PATCH_W-2,info,0xc2d1da);
       g_snprintf(info,sizeof(info),"L %.0f R %.0f dB",n->input_gain_db[0],n->input_gain_db[1]);
       rrui_canvas_text(c,x+1,y+3,PATCH_W-2,info,0xc2d1da);
-      if(n->type!=RR_AG_SOURCE){rrui_canvas_put(c,x,y+1,0x25cb,0x53cbd5);rrui_canvas_put(c,x,y+2,0x25cb,0xd070cf);}
-      if(n->type!=RR_AG_SINK){rrui_canvas_put(c,x+PATCH_W-1,y+1,0x25cf,0x53cbd5);rrui_canvas_put(c,x+PATCH_W-1,y+2,0x25cf,0xd070cf);}
+      for(int pin=0;pin<4;pin++)if(patch_pin_valid(n,pin)){
+         bool active=selected&&pin==patch_pin,armed=source&&pin==patch_source_pin;
+         uint32_t pc=armed?0x70ff99:active?0xffff70:pin%2?0xd070cf:0x53cbd5;
+         rrui_canvas_put(c,x+(pin>=2?PATCH_W-1:0),y+1+pin%2,
+            active||armed?0x25c9:pin>=2?0x25cf:0x25cb,pc);
+      }
    }
    for(int y=patch_rows;y<rows-1;y++)for(int x=0;x<patch_cols;x++)rrui_canvas_put(c,x,y,' ',UINT32_MAX);
-   char header[180];g_snprintf(header,sizeof(header),"%u blocks / %u wires | %s | %s",patch_count,route_snapshot.link_count,patch_selected,*patch_source?patch_source:"No pending connection");
+   const char *pins[]={"In L","In R","Out L","Out R"};
+   char header[220];g_snprintf(header,sizeof(header),"%u blocks / %u wires | %s [%s] | %s",patch_count,route_snapshot.link_count,patch_selected,patch_pin>=0&&patch_pin<4?pins[patch_pin]:"No pin",*patch_source?patch_source:"No pending connection");
    rrui_canvas_text(c,0,patch_rows,patch_cols,header,0xffff70);
    rrui_canvas_text(c,0,patch_rows+1,patch_cols,patch_message,0xc2d1da);
-   rrui_canvas_text(c,0,patch_rows+2,patch_cols,"Arrows select | W/S/D/H move | Enter connect | l/r/b/m RX | a auto | t list",UINT32_MAX);
+   rrui_canvas_text(c,0,patch_rows+2,patch_cols,"Arrows block | Tab/Shift-Tab pin | Enter connect | Esc cancel | a auto | t list",UINT32_MAX);
    rrui_canvas_text(c,0,patch_rows+3,patch_cols,"Drag background to pan | Drag block or output pin | Ctrl+arrows pan",UINT32_MAX);
    rrui_canvas_draw(c,2,1);rrui_canvas_free(c);
 }
-static bool patch_connect(const char *source,const char *target,int channel){
+static unsigned patch_slot(const char *id,const char *pattern,unsigned max){
+   unsigned slot=0;int consumed=0;
+   if(sscanf(id,pattern,&slot,&consumed)!=1||!consumed||id[consumed]||!slot||slot>max)return 0;
+   return slot;
+}
+static bool patch_connect(const char *source,const char *target,int out,int in){
    const rr_ag_view_node_t *a=patch_node(source),*b=patch_node(target);
-   if(!a||!b||a->type!=RR_AG_SOURCE||a->read_only||strcmp(b->id,"rx.mix")){
-      patch_notice("Initial editor supports RX source -> rx.mix only.");return false;
+   if(!a||!b||a==b||!patch_pin_valid(a,out+2)||!patch_pin_valid(b,in)){
+      patch_notice("Select a valid audio output and a different block's input.");return false;
    }
-   char route=channel==0?'L':channel==1?'R':'S';
-   if(channel>=0&&((a->route=='L'&&channel==1)||(a->route=='R'&&channel==0)||a->route=='S'))route='S';
-   if(!audio_set_rx_stream_route(a->id,route)){patch_notice("Core rejected route.");return false;}
-   patch_notice("RX route updated.");routing_request();return true;
+   unsigned osc=patch_slot(source,"osc.%u%n",RR_AUDIO_OSC_MAX);
+   unsigned srcfx=patch_slot(source,"proc.lv2.%u%n",RR_AUDIO_EFFECT_MAX);
+   unsigned dstfx=patch_slot(target,"proc.lv2.%u%n",RR_AUDIO_EFFECT_MAX);
+   unsigned rxmod=patch_slot(target,"modem%u.rx%n",RR_LOCAL_MODEM_MAX);
+   unsigned txmod=patch_slot(source,"modem%u.tx%n",RR_LOCAL_MODEM_MAX);
+   bool listen=!strcmp(target,"rx.mix")||!strcmp(target,"hq.mix");
+   bool tx=!strcmp(target,"tx.mix");
+   if(osc&&(listen||tx)){
+      rr_audio_osc_request_t req={.action='C',.slot=osc,.port=(unsigned)out};
+      g_strlcpy(req.target,target,sizeof(req.target));audio_request_oscillator(&req);
+   }else if(dstfx){
+      rr_audio_effect_request_t req={.action='R',.slot=dstfx,.channel=(unsigned)in};
+      if(osc)g_snprintf(req.source,sizeof(req.source),"%s.%c",source,out?'Q':'I');
+      else if(srcfx&&a->channels==2)g_snprintf(req.source,sizeof(req.source),"%s.%c",source,out?'R':'L');
+      else g_strlcpy(req.source,source,sizeof(req.source));
+      audio_request_effect_block(&req);
+   }else if(rxmod){
+      rr_local_modem_request_t req={.action=RR_LOCAL_MODEM_ROUTE,.slot=rxmod};
+      const char *actual=source;
+      struct rrclient_rx_stream streams[64];
+      if(!strcmp(source,"rig.src")){
+         size_t count=MIN(audio_rx_streams(streams,G_N_ELEMENTS(streams)),G_N_ELEMENTS(streams));
+         actual=NULL;
+         for(size_t j=0;j<count;j++)if(streams[j].active_rx){actual=streams[j].id;break;}
+         if(!actual){patch_notice("No active RX stream.");return false;}
+      }
+      if(osc)g_snprintf(req.source,sizeof(req.source),"%s.%c",actual,out?'Q':'I');
+      else g_strlcpy(req.source,actual,sizeof(req.source));
+      rr_local_modem_request(&req);
+   }else if(tx&&!strcmp(source,"src.client.dsp0")){
+      audio_request_mic_tx_channel((unsigned)in,true);
+   }else if(tx&&txmod){
+      rr_local_modem_request_t req={.action=RR_LOCAL_MODEM_TX_ROUTE,.slot=txmod};
+      g_strlcpy(req.source,"tx.mix",sizeof(req.source));rr_local_modem_request(&req);
+   }else if(listen&&srcfx){
+      if(out!=in){patch_notice("LV2 mixer output mapping requires matching channels.");return false;}
+      rr_audio_effect_request_t req={.action='O',.slot=srcfx,.channel=(unsigned)in,.output=in?'R':'L'};
+      audio_request_effect_block(&req);
+   }else if(listen&&a->type==RR_AG_SOURCE&&!a->read_only&&rr_audio_graph_listen_bus(a->downstream_rate_hz,target)){
+      unsigned mask=(a->route=='S'?3:a->route=='L'?1:a->route=='R'?2:0)|(1u<<in);
+      audio_request_rx_stream_route(source,mask==3?'S':mask==1?'L':'R');
+   }else{
+      patch_notice("These pins cannot be connected by the current core routing API.");return false;
+   }
+   patch_notice("Connection requested; awaiting core graph update.");routing_request();return true;
 }
 static void patch_toggle_list(void);
 static bool patch_key(tui_window_t *w,unsigned key,unsigned mods,void *unused){
@@ -375,18 +472,38 @@ static bool patch_key(tui_window_t *w,unsigned key,unsigned mods,void *unused){
          rrui_rect_t rects[RR_AUDIO_GRAPH_MAX_NODES];
          for(unsigned j=0;j<patch_count;j++)rects[j]=(rrui_rect_t){patch_pos[j].x,patch_pos[j].y,PATCH_W,PATCH_H};
          size_t next=rrui_workspace_nearest(rects,patch_count,i,dx,dy);
-         if(next<patch_count)g_strlcpy(patch_selected,patch_pos[next].id,sizeof(patch_selected));
+         if(next<patch_count){
+            g_strlcpy(patch_selected,patch_pos[next].id,sizeof(patch_selected));
+            patch_pick_pin(*patch_source!=0,patch_pin<0?0:patch_pin%2);
+         }
          patch_ensure();
       }
       return true;
    }
-   if(key==TERMKEY_SYM_ESCAPE){patch_panning=false;patch_source[0]=0;patch_notice("Connection cancelled.");return true;}
+   if(key==TERMKEY_SYM_ESCAPE){patch_panning=false;patch_source[0]=0;patch_source_pin=-1;patch_wire_mouse=false;patch_notice("Connection cancelled.");return true;}
    if(key=='T'||key=='t'){patch_toggle_list();return true;}
    if(key=='a'){patch_layout(true);patch_x=patch_y=0;patch_notice("Automatic layout.");return true;}
    if(i<0)return true;
+   if(key==TERMKEY_SYM_TAB||key=='\t'){
+      const rr_ag_view_node_t *n=patch_node(patch_selected);
+      int dir=mods&TERMKEY_KEYMOD_SHIFT?-1:1;
+      for(int j=1;j<=4;j++){
+         int pin=(patch_pin+4+dir*j)%4;
+         if((*patch_source&&pin>=2)||!patch_pin_valid(n,pin))continue;
+         patch_pin=pin;break;
+      }
+      return true;
+   }
    if(key==TERMKEY_SYM_ENTER||key==TERMKEY_SYM_KPENTER){
-      if(!*patch_source){g_strlcpy(patch_source,patch_selected,sizeof(patch_source));patch_notice("Select the destination and press Enter.");}
-      else {patch_connect(patch_source,patch_selected,-1);patch_source[0]=0;}
+      if(!*patch_source){
+         if(patch_pin<2||!patch_pin_valid(patch_node(patch_selected),patch_pin)){
+            patch_notice("Tab to an output pin first.");return true;
+         }
+         g_strlcpy(patch_source,patch_selected,sizeof(patch_source));patch_source_pin=patch_pin;
+         patch_notice("Select destination block and input pin, then Enter.");
+      }else if(patch_pin>=0&&patch_pin<2&&patch_connect(patch_source,patch_selected,patch_source_pin-2,patch_pin)){
+         patch_source[0]=0;patch_source_pin=-1;
+      }
    }else if(key<=127&&key&&strchr("WHSD",key)){
       patch_pos_t *p=&patch_pos[i];p->x=CLAMP(p->x+(key=='D')-(key=='H'),0,4000);p->y=CLAMP(p->y+(key=='S')-(key=='W'),0,4000);
       patch_save(p);patch_ensure();
@@ -414,7 +531,6 @@ static int patch_hit(int x,int y){
    }
    return -1;
 }
-static int patch_channel=-1;
 static bool patch_mouse(tui_window_t *w,int row,int col,int button,int action,unsigned mods,void *unused){
    (void)w;(void)mods;(void)unused;
    int x=col-1+patch_x,y=row-2+patch_y;
@@ -431,7 +547,7 @@ static bool patch_mouse(tui_window_t *w,int row,int col,int button,int action,un
    if(row<2||row>=patch_rows+2){
       if(action==TERMKEY_MOUSE_RELEASE){
          if(patch_drag>=0)patch_save(&patch_pos[patch_drag]);
-         patch_drag=-1;patch_source[0]=0;patch_channel=-1;
+         patch_drag=-1;patch_source[0]=0;patch_source_pin=-1;patch_wire_mouse=false;
       }
       return true;
    }
@@ -439,7 +555,7 @@ static bool patch_mouse(tui_window_t *w,int row,int col,int button,int action,un
       patch_panning=false;
       int i=patch_hit(x,y);
       if(i<0){
-         patch_drag=-1;patch_source[0]=0;patch_channel=-1;
+         patch_drag=-1;patch_source[0]=0;patch_source_pin=-1;patch_wire_mouse=false;
          patch_panning=true;
          patch_pan_col=col;patch_pan_row=row;
          patch_pan_x=patch_x;patch_pan_y=patch_y;
@@ -447,16 +563,21 @@ static bool patch_mouse(tui_window_t *w,int row,int col,int button,int action,un
       }
       patch_pos_t *p=&patch_pos[i];g_strlcpy(patch_selected,p->id,sizeof(patch_selected));
       if(x==p->x+PATCH_W-1&&(y==p->y+1||y==p->y+2)){
-         g_strlcpy(patch_source,p->id,sizeof(patch_source));patch_channel=y-p->y-1;patch_drag=-1;
-      }else{patch_source[0]=0;patch_drag=i;patch_dx=x-p->x;patch_dy=y-p->y;}
+         int pin=2+y-p->y-1;
+         if(!patch_pin_valid(patch_node(p->id),pin))return true;
+         g_strlcpy(patch_source,p->id,sizeof(patch_source));patch_source_pin=patch_pin=pin;patch_drag=-1;
+         patch_wire_mouse=true;patch_mouse_x=x+1;patch_mouse_y=y;
+      }else{patch_source[0]=0;patch_source_pin=-1;patch_wire_mouse=false;patch_pick_pin(false,0);patch_drag=i;patch_dx=x-p->x;patch_dy=y-p->y;}
+   }else if(action==TERMKEY_MOUSE_DRAG&&patch_wire_mouse){
+      patch_mouse_x=x;patch_mouse_y=y;
    }else if(action==TERMKEY_MOUSE_DRAG&&patch_drag>=0){
       patch_pos[patch_drag].x=CLAMP(x-patch_dx,0,4000);patch_pos[patch_drag].y=CLAMP(y-patch_dy,0,4000);
    }else if(action==TERMKEY_MOUSE_RELEASE){
       if(patch_drag>=0){patch_save(&patch_pos[patch_drag]);patch_drag=-1;}
       else if(*patch_source){
          int i=patch_hit(x,y);
-         if(i>=0&&x==patch_pos[i].x&&(y==patch_pos[i].y+1||y==patch_pos[i].y+2))patch_connect(patch_source,patch_pos[i].id,y-patch_pos[i].y-1);
-         patch_source[0]=0;patch_channel=-1;
+         if(patch_wire_mouse&&i>=0&&x==patch_pos[i].x&&(y==patch_pos[i].y+1||y==patch_pos[i].y+2))patch_connect(patch_source,patch_pos[i].id,patch_source_pin-2,y-patch_pos[i].y-1);
+         patch_source[0]=0;patch_source_pin=-1;patch_wire_mouse=false;
       }
    }
    return true;
