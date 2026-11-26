@@ -1,0 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-only
+ui.add(dict { kind="panel"; id="audio"; label="Audio Controls"; });
+ui.add(dict { kind="row"; id="levels"; parent="audio"; });
+ui.add(dict { kind="stepper"; id="gain"; parent="levels"; label="Gain %"; min=0; max=100; step=1; action="gain"; });
+ui.add(dict { kind="stepper"; id="left"; parent="levels"; label="L %"; min=0; max=100; step=1; action="left"; });
+ui.add(dict { kind="stepper"; id="right"; parent="levels"; label="R %"; min=0; max=100; step=1; action="right"; });

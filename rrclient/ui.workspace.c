@@ -12,6 +12,9 @@
 #include <rrclient/userlist.h>
 #include <rrclient/nick.color.h>
 #include <rrclient/vfo.h>
+#include <rrclient/audio.h>
+#include <rrclient/objects.h>
+#include <rrclient/media.h>
 #include <rrclient/database.h>
 #include <rrclient/cmd.h>
 #include <glib.h>
@@ -20,7 +23,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-static rrui_form_t *roster,*vfo,*tools,*rig_tools;
+static rrui_form_t *roster,*vfo,*tools,*rig_tools,*audio_controls;
+static bool audio_controls_open;
+extern int rrclient_tx_power_percent;
 static bool rig_tools_enabled;
 static int layout_mode=-1;
 static int saved_width=-1,saved_roster=-1,saved_lower=-1,saved_rig_tools=-1;
@@ -68,8 +73,27 @@ static void select_layout(int mode){
    rrui_tui_tile_visible(tools,mode);
    rrui_tui_tile_visible(rig_tools,!mode&&rig_tools_enabled);
 }
+static void audio_action(rrui_form_t *f,const char *id,const char *action,void *data){
+   (void)action;(void)data;
+   const char *value=rrui_form_value(f,id);
+   if(!value||!*value)return;
+   int n=atoi(value);
+   if(!strcmp(id,"gain"))audio_set_rx_volume(n);
+   else if(!strcmp(id,"left"))audio_set_rx_channel_volume(0,n);
+   else if(!strcmp(id,"right"))audio_set_rx_channel_volume(1,n);
+}
+void rrclient_tui_audio_controls_toggle(void){
+   if(audio_controls_open){rrui_form_free(audio_controls);audio_controls=NULL;audio_controls_open=false;return;}
+   const rrclient_ui_required_t req[]={{"gain",RRUI_STEPPER,false},{"left",RRUI_STEPPER,false},{"right",RRUI_STEPPER,false}};
+   audio_controls=rrclient_ui_layout_load("audio-controls.rrs",RRUI_PANEL,req,G_N_ELEMENTS(req),audio_action);
+   if(!audio_controls)return;
+   if(!rrui_tui_panel_open(audio_controls,(rrui_rect_t){3,3,56,6})){rrui_form_free(audio_controls);audio_controls=NULL;return;}
+   audio_controls_open=true;
+   refresh();
+}
 static void tools_action(rrui_form_t *f,const char *id,const char *action,void *data){
    (void)f;(void)id;(void)data;
+   if(!g_strcmp0(action,"audio-controls")){rrclient_tui_audio_controls_toggle();return;}
    if(action&&action[0]=='/'&&action[1]&&!strpbrk(action,"\r\n"))
       parse_chat_input_real(action);
 }
@@ -90,6 +114,21 @@ static void vfo_action(rrui_form_t *f,const char *id,const char *action,void *da
             vfo_state_set_active((char[]){(char)('A'+index),0});refresh();break;
          }
       }
+   }else if(!strcmp(action,"power")){
+      if(!rrclient_room_tx_control(room))return;
+      const char *value=rrui_form_value(f,"power");
+      if(!value||!*value)return;
+      int percent=atoi(value);
+      if(percent<0||percent>100)return;
+      rrclient_tx_power_percent=percent;
+      if(!percent)return; /* Local inhibit, never a CAT power request. */
+      dict *d=dict_new();
+      if(!d)return;
+      dict_add(d,"msg.type","cat");dict_add(d,"cat.cmd","power");
+      dict_add(d,"cat.room",room);dict_add(d,"cat.vfo",(char[]){active,0});
+      dict_add_int(d,"cat.power",percent);dict_add(d,"cat.power-unit","percent");
+      if(!ws_send_dict(NULL,conn,d,WEBSOCKET_OP_TEXT))Log(LOG_WARN,"ui.workspace","TX power request failed");
+      dict_free(d);
    }else if(!strcmp(action,"tune")){
       if(!rrclient_room_tx_control(room)&&!rrclient_room_rx_tunable(room))return;
       const char *s=rrui_form_value(f,"frequency");
@@ -136,6 +175,14 @@ static void refresh(void){
       }
       g_string_free(snapshot,TRUE);
    }
+   if(audio_controls){
+      char value[16];
+      const char *ids[]={"gain","left","right"},*cfgkeys[]={"audio.volume.rx","audio.volume.rx.left","audio.volume.rx.right"};
+      for(unsigned i=0;i<3;i++){
+         g_snprintf(value,sizeof(value),"%d",CLAMP(cfg_get_int(cfgkeys[i],i?100:30),0,100));
+         redraw|=label(audio_controls,ids[i],value);
+      }
+   }
    if(vfo){
       char a=vfo_state_get_active(),id[2]={a,0};
       uint32_t mask=room&&*room?rrclient_room_vfo_mask(room):0;
@@ -155,6 +202,12 @@ static void refresh(void){
          redraw|=label(vfo,"frequency",text);
          freq_seen=hz;
       }
+      long power=valid&&rrclient_room_tx_control(room)?vfo_state_get_long(id,"cat.state.tx-power-percent",-1):-1;
+      if(power>=0&&power<=100){
+         if(rrclient_tx_power_percent==0)power=0; /* Preserve explicit local TX inhibit. */
+         g_snprintf(text,sizeof(text),"%ld",power);
+      }else text[0]=0;
+      if(changed||active_seen!=a||!rrui_tui_panel_focused(vfo))redraw|=label(vfo,"power",text);
       active_seen=a;
    }
    if(redraw)tui_redraw_request();
@@ -199,6 +252,7 @@ void rrclient_tui_workspace_init(void){
 void rrclient_tui_workspace_shutdown(void){
    tui_render_lock();
    save_layout();
+   rrui_form_free(audio_controls);audio_controls=NULL;audio_controls_open=false;
    rrui_form_free(roster);rrui_form_free(vfo);rrui_form_free(tools);rrui_form_free(rig_tools);roster=vfo=tools=rig_tools=NULL;
    layout_mode=-1;
    g_clear_pointer(&room_seen,g_free);g_clear_pointer(&server_seen,g_free);

@@ -4,3 +4,4 @@
 ui.add(dict { kind="panel"; id="tools"; label="Tools"; value="disabled"; });
 ui.add(dict { kind="button"; id="scripts"; parent="tools"; label="Script manager"; action="/script"; });
 ui.add(dict { kind="button"; id="help"; parent="tools"; label="Help"; action="/help"; });
+ui.add(dict { kind="button"; id="audio_controls"; parent="tools"; label="Audio Controls"; action="audio-controls"; });
