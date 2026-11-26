@@ -15,7 +15,7 @@
       "debug-build": "true",
       "eeprom": "false",
       "flac": "true",
-      "gpio": "true",
+      "gpio": "false",
       "gstreamer": "true",
       "gtk": "true",
       "hamlib": "true",
