@@ -2538,6 +2538,19 @@ int main(int argc, char *argv[]) {
       exit(1);
    }
 
+   /* Check even when an existing database does not need the template yet. */
+   const char *schema_path = "/var/lib/rustyrig/sql/sqlite.client.sql";
+   const bool schema_missing = !g_file_test(schema_path, G_FILE_TEST_IS_REGULAR) || access(schema_path, R_OK) != 0;
+   const char *schema_warning = NULL;
+
+   if (schema_missing) {
+      const char *source_schema = "sql/sqlite.client.sql";
+      schema_warning = g_file_test(source_schema, G_FILE_TEST_IS_REGULAR) && access(source_schema, R_OK) == 0
+         ? "Installed client SQL template /var/lib/rustyrig/sql/sqlite.client.sql is missing or unreadable; using source checkout fallback."
+         : "Client SQL template /var/lib/rustyrig/sql/sqlite.client.sql is missing or unreadable (no source fallback). Reinstall rustyrig-client; new databases cannot be initialized.";
+      fprintf(stderr, "WARNING: %s\n", schema_warning);
+   }
+
    /* Load persistent overrides before selecting GTK/TUI, initializing the logger, or creating frontend modules. --ignore-db-config is a recovery boot: no DB
     * config overrides are applied; profiles/themes still load. */
    if (!rrclient_database_init()) {
@@ -2738,6 +2751,11 @@ int main(int argc, char *argv[]) {
       g_timeout_add(1000, tui_clock_cb_real, NULL);
       // 20hz reconnect/poll sweep
       g_timeout_add(rr_rtp_supported(false) ? 10 : 50, ws_poll_cb, NULL);
+   }
+
+   /* Repeat after frontend/log initialization so the warning is visible in Client Log. */
+   if (schema_warning) {
+      Log(LOG_WARN, "db.schema", "%s", schema_warning);
    }
 
    // Register all of our core event handlers
