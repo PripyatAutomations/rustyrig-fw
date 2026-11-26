@@ -256,7 +256,7 @@ bool rrclient_database_init(void) {
    bool ok = g_mkdir_with_parents(dir, 0700) == 0;
 
    if (ok) {
-      ok = sqlite3_open(path, &client_db) == SQLITE_OK;
+      ok = sqlite3_open_v2(path, &client_db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX, NULL) == SQLITE_OK;
    }
 
    if (!ok) {
@@ -264,7 +264,7 @@ bool rrclient_database_init(void) {
       goto fail;
    }
    g_chmod(path, 0600);
-   sqlite3_busy_timeout(client_db, 250);
+   sqlite3_busy_timeout(client_db, 2000);
 
    /* Migrates existing v4 databases without changing their user_version. */
    if (sqlite3_exec(client_db, "CREATE TABLE IF NOT EXISTS config_overrides (key TEXT PRIMARY KEY, value TEXT NOT NULL)", NULL, NULL, NULL) != SQLITE_OK) {
@@ -685,7 +685,8 @@ char *rrclient_database_normalize_url(const char *url) {
 }
 
 bool rrclient_database_server_set(const char *name, const char *property, const char *value) {
-   if (!name || !*name || !property || !value) {
+   if (!client_db || !cfg || !name || !*name || !property || !value) {
+      Log(LOG_WARN, "db.profile", "Cannot save profile: database/configuration unavailable or invalid arguments");
       return false;
    }
    char *normalized = !strcmp(property, "server.url") ? rrclient_database_normalize_url(value) : NULL;
@@ -694,11 +695,10 @@ bool rrclient_database_server_set(const char *name, const char *property, const 
       value = normalized;
    }
 
-   if (sqlite3_exec(client_db, "SAVEPOINT profile_write", NULL, NULL, NULL) != SQLITE_OK) {
-      g_free(normalized);
-
-      return false;
-   }
+   /* One statement is already atomic in SQLite. Avoid sharing a named
+    * savepoint between GUI and core threads. */
+   sqlite3_mutex *mutex = sqlite3_db_mutex(client_db);
+   sqlite3_mutex_enter(mutex);
    bool ok = false;
 
    if (!strcmp(property, "server.url")) {
@@ -711,11 +711,17 @@ bool rrclient_database_server_set(const char *name, const char *property, const 
          "SELECT id,?2,?3 FROM servers WHERE name=?1 " "ON CONFLICT(server_id,property) DO UPDATE SET value=excluded.value", name, property, value);
    }
 
-   if (ok) {
-      ok = sqlite3_exec(client_db, "RELEASE profile_write", NULL, NULL, NULL) == SQLITE_OK;
-   } else {
-      sqlite3_exec(client_db, "ROLLBACK TO profile_write; RELEASE profile_write", NULL, NULL, NULL);
+   int code = sqlite3_extended_errcode(client_db);
+   char *error = ok ? NULL : g_strdup(sqlite3_errmsg(client_db));
+   if (ok && sqlite3_changes(client_db) == 0) {
+      ok = false;
+      error = g_strdup("Profile does not exist");
    }
+   sqlite3_mutex_leave(mutex);
+   if (!ok) {
+      Log(LOG_WARN, "db.profile", "Save profile %s property %s failed (SQLite %d): %s", name, property, code, error ? error : "unknown error");
+   }
+   g_free(error);
 
    if (ok) {
       char *key = g_strdup_printf("server:%s.%s", name, property);
@@ -732,7 +738,10 @@ bool rrclient_database_network_set(const char *name, const char *members) {
       return false;
    }
 
+   sqlite3_mutex *mutex = sqlite3_db_mutex(client_db);
+   sqlite3_mutex_enter(mutex);
    if (sqlite3_exec(client_db, "SAVEPOINT network_write", NULL, NULL, NULL) != SQLITE_OK) {
+      sqlite3_mutex_leave(mutex);
       return false;
    }
    bool ok = db_exec3("INSERT OR IGNORE INTO networks(name) VALUES(?1)", name, NULL, NULL);
@@ -754,9 +763,11 @@ bool rrclient_database_network_set(const char *name, const char *members) {
 
    if (ok) {
       ok = sqlite3_exec(client_db, "RELEASE network_write", NULL, NULL, NULL) == SQLITE_OK;
-   } else {
+   }
+   if (!ok) {
       sqlite3_exec(client_db, "ROLLBACK TO network_write; RELEASE network_write", NULL, NULL, NULL);
    }
+   sqlite3_mutex_leave(mutex);
 
    if (ok) {
       char *key = g_strdup_printf("network:%s.servers", name);
@@ -773,7 +784,10 @@ bool rrclient_database_network_delete(const char *name) {
       return false;
    }
 
+   sqlite3_mutex *mutex = sqlite3_db_mutex(client_db);
+   sqlite3_mutex_enter(mutex);
    if (sqlite3_exec(client_db, "SAVEPOINT network_delete", NULL, NULL, NULL) != SQLITE_OK) {
+      sqlite3_mutex_leave(mutex);
       return false;
    }
    bool ok = db_exec3("DELETE FROM network_memberships WHERE network_id=" "(SELECT id FROM networks WHERE name=?1)", name, NULL, NULL);
@@ -784,9 +798,11 @@ bool rrclient_database_network_delete(const char *name) {
 
    if (ok) {
       ok = sqlite3_exec(client_db, "RELEASE network_delete", NULL, NULL, NULL) == SQLITE_OK;
-   } else {
+   }
+   if (!ok) {
       sqlite3_exec(client_db, "ROLLBACK TO network_delete; RELEASE network_delete", NULL, NULL, NULL);
    }
+   sqlite3_mutex_leave(mutex);
 
    return ok && rrclient_database_load_profiles();
 }
@@ -809,7 +825,10 @@ bool rrclient_database_server_move(const char *name, const char *network) {
       return false;
    }
 
+   sqlite3_mutex *mutex = sqlite3_db_mutex(client_db);
+   sqlite3_mutex_enter(mutex);
    if (sqlite3_exec(client_db, "SAVEPOINT server_move", NULL, NULL, NULL) != SQLITE_OK) {
+      sqlite3_mutex_leave(mutex);
       return false;
    }
    bool ok = db_exec3("DELETE FROM network_memberships WHERE server_id=(SELECT id FROM servers WHERE name=?1)", name, NULL, NULL);
@@ -821,9 +840,11 @@ bool rrclient_database_server_move(const char *name, const char *network) {
 
    if (ok) {
       ok = sqlite3_exec(client_db, "RELEASE server_move", NULL, NULL, NULL) == SQLITE_OK;
-   } else {
+   }
+   if (!ok) {
       sqlite3_exec(client_db, "ROLLBACK TO server_move; RELEASE server_move", NULL, NULL, NULL);
    }
+   sqlite3_mutex_leave(mutex);
 
    return ok && rrclient_database_load_profiles();
 }
@@ -900,7 +921,11 @@ bool rrclient_database_load_profiles(void) {
 
 /* Effective configuration is saved as one atomic override snapshot. Server profiles, networks and named themes are already stored in dedicated tables. */
 bool rrclient_database_config_store(void) {
-   if (!client_db || !cfg || sqlite3_exec(client_db, "BEGIN IMMEDIATE", NULL, NULL, NULL) != SQLITE_OK) {
+   if (!client_db || !cfg) return false;
+   sqlite3_mutex *mutex = sqlite3_db_mutex(client_db);
+   sqlite3_mutex_enter(mutex);
+   if (sqlite3_exec(client_db, "BEGIN IMMEDIATE", NULL, NULL, NULL) != SQLITE_OK) {
+      sqlite3_mutex_leave(mutex);
       return false;
    }
    bool ok = sqlite3_exec(client_db, "DELETE FROM config_overrides", NULL, NULL, NULL) == SQLITE_OK;
@@ -933,6 +958,7 @@ bool rrclient_database_config_store(void) {
       sqlite3_exec(client_db, "ROLLBACK", NULL, NULL, NULL);
    }
 
+   sqlite3_mutex_leave(mutex);
    return ok;
 }
 
@@ -1289,7 +1315,10 @@ bool rrclient_database_audio_profile_save(const char *name, const char *const *i
       return false;
    }
 
+   sqlite3_mutex *mutex = sqlite3_db_mutex(client_db);
+   sqlite3_mutex_enter(mutex);
    if (sqlite3_exec(client_db, "SAVEPOINT audio_profile_save", NULL, NULL, NULL) != SQLITE_OK) {
+      sqlite3_mutex_leave(mutex);
       return false;
    }
    sqlite3_stmt *q = NULL;
@@ -1355,6 +1384,7 @@ done:
       sqlite3_exec(client_db, "ROLLBACK TO audio_profile_save; RELEASE audio_profile_save", NULL, NULL, NULL);
    }
 
+   sqlite3_mutex_leave(mutex);
    return ok;
 }
 

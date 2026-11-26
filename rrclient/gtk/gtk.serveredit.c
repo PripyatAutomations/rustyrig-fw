@@ -444,7 +444,9 @@ static void server_editor_save(GtkButton *button, gpointer data) {
          snprintf(key, sizeof(key), "server:%s.%s", profile, editor_keys[i]);
 
          if (!rrclient_database_server_set(profile, editor_keys[i], value)) {
-            gtk_label_set_text(GTK_LABEL(editor->error), "Unable to save server profile to SQLite.");
+            char *message = g_strdup_printf("Unable to save %s to SQLite. See Client Log for details.", editor_keys[i]);
+            gtk_label_set_text(GTK_LABEL(editor->error), message);
+            g_free(message);
 
             return;
          }
