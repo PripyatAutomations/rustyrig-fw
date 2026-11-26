@@ -333,7 +333,8 @@ static void open_editor(const char *profile) {
       }
       g_free(path);
    }
-   if(folder)g_dir_close(folder);g_free(dir);
+   if(folder)g_dir_close(folder);
+   g_free(dir);
    if(*saved&&!chosen&&rrui_form_list_append(next,"identity",saved,"Configured identity (unavailable)"))chosen=count;
    rrui_form_select(next,field_index(next,"identity"),chosen);
    editor_options(next,name);
@@ -438,7 +439,8 @@ static bool open_keys(void) {
       }
       g_free(path);
    }
-   if(folder)g_dir_close(folder);g_free(dir);
+   if(folder)g_dir_close(folder);
+   g_free(dir);
    return show_manager(next,false);
 }
 static bool identity_in_use(const char *path) {
