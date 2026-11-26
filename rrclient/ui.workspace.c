@@ -3,6 +3,8 @@
 #include <librustyui/tui.workspace.h>
 #include <librustyui/tui.h>
 #include <librustyui/theme.h>
+#include <librustyui/canvas.h>
+#include <librustyui/termkey.h>
 #include <sys/stat.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/ui.h>
@@ -117,6 +119,210 @@ static void routing_request(void){
    route_requested=g_get_monotonic_time();
    event_emit_message(&(rr_event_message_t){.name=RRCLIENT_AUDIO_SNAPSHOT_REQUEST});
 }
+/* Patchbay coordinates are logical character cells; the viewport is clipped
+ * by the canvas. Block identity survives graph reorder and refresh. */
+#define PATCH_W 22
+#define PATCH_H 5
+typedef struct {char id[64];int x,y;} patch_pos_t;
+static patch_pos_t patch_pos[RR_AUDIO_GRAPH_MAX_NODES];
+static unsigned patch_count;
+static int patch_x,patch_y,patch_drag=-1,patch_dx,patch_dy;
+static char patch_selected[64],patch_source[64],patch_message[180];
+static bool patch_lists;
+static int patch_cols,patch_rows;
+static int patch_find(const char *id){
+   for(unsigned i=0;i<patch_count;i++)if(!strcmp(patch_pos[i].id,id))return (int)i;
+   return -1;
+}
+static const rr_ag_view_node_t *patch_node(const char *id){
+   for(unsigned i=0;i<route_snapshot.node_count;i++)if(!strcmp(route_snapshot.nodes[i].id,id))return &route_snapshot.nodes[i];
+   return NULL;
+}
+static void patch_save(const patch_pos_t *p){
+   char *key=g_strdup_printf("ui.tui.routing.position.%s",p->id);
+   char value[48];g_snprintf(value,sizeof(value),"%d,%d",p->x,p->y);
+   rrclient_database_setting_set(key,value);g_free(key);
+}
+static void patch_layout(bool reset){
+   patch_pos_t old[RR_AUDIO_GRAPH_MAX_NODES];
+   unsigned old_count=patch_count;
+   memcpy(old,patch_pos,sizeof(old));patch_count=0;
+   int lane[4]={0};
+   for(unsigned i=0;i<route_snapshot.node_count;i++){
+      const rr_ag_view_node_t *n=&route_snapshot.nodes[i];
+      unsigned type=(unsigned)n->type<=RR_AG_SINK?n->type:0;
+      patch_pos_t *p=&patch_pos[patch_count++];
+      g_strlcpy(p->id,n->id,sizeof(p->id));
+      p->x=2+type*30;p->y=1+lane[type]++*7;
+      bool found=false;
+      if(!reset){
+         for(unsigned j=0;j<old_count;j++)if(!strcmp(old[j].id,p->id)){p->x=old[j].x;p->y=old[j].y;found=true;break;}
+         if(!found){
+            char *key=g_strdup_printf("ui.tui.routing.position.%s",p->id);
+            char *value=rrclient_database_setting_get(key);int x,y;char tail;
+            if(value&&sscanf(value,"%d,%d%c",&x,&y,&tail)==2&&x>=0&&x<=4000&&y>=0&&y<=4000){p->x=x;p->y=y;found=true;}
+            g_free(value);g_free(key);
+         }
+      }
+      if(reset)patch_save(p);
+   }
+   if(patch_find(patch_selected)<0)g_strlcpy(patch_selected,patch_count?patch_pos[0].id:"",sizeof(patch_selected));
+   if(patch_find(patch_source)<0)patch_source[0]=0;
+   patch_drag=-1;
+}
+static void patch_ensure(void){
+   int i=patch_find(patch_selected);if(i<0)return;
+   patch_pos_t *p=&patch_pos[i];
+   if(p->x<patch_x)patch_x=p->x;
+   if(p->y<patch_y)patch_y=p->y;
+   if(p->x+PATCH_W>patch_x+patch_cols)patch_x=MAX(0,p->x+PATCH_W-patch_cols);
+   if(p->y+PATCH_H>patch_y+patch_rows)patch_y=MAX(0,p->y+PATCH_H-patch_rows);
+}
+static void patch_notice(const char *message){g_strlcpy(patch_message,message,sizeof(patch_message));tui_redraw_request();}
+static void patch_draw(tui_window_t *w,int rows,int cols,void *unused){
+   (void)w;(void)unused;
+   if(rows<8||cols<24)return;
+   patch_cols=cols-1;patch_rows=rows-5;
+   rrui_canvas_t *c=rrui_canvas_new(patch_cols,rows-1);if(!c)return;
+   for(unsigned i=0;i<route_snapshot.link_count;i++){
+      const rr_ag_view_link_t *l=&route_snapshot.links[i];
+      if(l->src>=route_snapshot.node_count||l->dst>=route_snapshot.node_count)continue;
+      int a=patch_find(route_snapshot.nodes[l->src].id),b=patch_find(route_snapshot.nodes[l->dst].id);
+      if(a<0||b<0)continue;
+      int x1=patch_pos[a].x+PATCH_W-1-patch_x,x2=patch_pos[b].x-patch_x;
+      for(unsigned ch=0;ch<2;ch++){
+         unsigned mask=l->src_channels?l->src_channels:l->channels;
+         if(l->kind==RR_AG_CONTROL||l->kind==RR_AG_NUMBER){if(ch)continue;}
+         else if(!(mask&(1u<<ch)))continue;
+         unsigned dst=l->dst_channels?l->dst_channels:mask;
+         int dch=(dst==2)?1:(dst==1)?0:(int)ch;
+         int y1=patch_pos[a].y+1+(int)ch-patch_y,y2=patch_pos[b].y+1+dch-patch_y;
+         int mid=x1+(x2-x1)/2;
+         uint32_t color=l->kind==RR_AG_CONTROL?0xf06060:l->kind==RR_AG_NUMBER?0x55cc66:ch?0xd070cf:0x53cbd5;
+         rrui_canvas_line(c,x1,y1,mid,y1,color);
+         rrui_canvas_line(c,mid,y1,mid,y2,color);
+         rrui_canvas_line(c,mid,y2,x2,y2,color);
+      }
+   }
+   for(unsigned i=0;i<patch_count;i++){
+      const patch_pos_t *p=&patch_pos[i];const rr_ag_view_node_t *n=patch_node(p->id);if(!n)continue;
+      int x=p->x-patch_x,y=p->y-patch_y;
+      uint32_t color=!strcmp(p->id,patch_selected)?0xffff70:!strcmp(p->id,patch_source)?0x70ff99:n->health==RR_AG_FAILED?0xf06060:0x8baab8;
+      rrui_canvas_box(c,x,y,PATCH_W,PATCH_H,color);
+      rrui_canvas_text(c,x+1,y+1,PATCH_W-2,p->id,color);
+      char info[64];g_snprintf(info,sizeof(info),"%uHz %uch %s",n->rate_hz,n->channels,n->read_only?"RO":"");
+      rrui_canvas_text(c,x+1,y+2,PATCH_W-2,info,0xc2d1da);
+      g_snprintf(info,sizeof(info),"L %.0f R %.0f dB",n->input_gain_db[0],n->input_gain_db[1]);
+      rrui_canvas_text(c,x+1,y+3,PATCH_W-2,info,0xc2d1da);
+      if(n->type!=RR_AG_SOURCE){rrui_canvas_put(c,x,y+1,0x25cb,0x53cbd5);rrui_canvas_put(c,x,y+2,0x25cb,0xd070cf);}
+      if(n->type!=RR_AG_SINK){rrui_canvas_put(c,x+PATCH_W-1,y+1,0x25cf,0x53cbd5);rrui_canvas_put(c,x+PATCH_W-1,y+2,0x25cf,0xd070cf);}
+   }
+   for(int y=patch_rows;y<rows-1;y++)for(int x=0;x<patch_cols;x++)rrui_canvas_put(c,x,y,' ',UINT32_MAX);
+   char header[180];g_snprintf(header,sizeof(header),"%u blocks / %u wires | %s | %s",patch_count,route_snapshot.link_count,patch_selected,*patch_source?patch_source:"No pending connection");
+   rrui_canvas_text(c,0,patch_rows,patch_cols,header,0xffff70);
+   rrui_canvas_text(c,0,patch_rows+1,patch_cols,patch_message,0xc2d1da);
+   rrui_canvas_text(c,0,patch_rows+2,patch_cols,"Arrows select | W/S/D/H move | Enter connect | l/r/b/m RX | a auto | t list",UINT32_MAX);
+   rrui_canvas_text(c,0,patch_rows+3,patch_cols,"Mouse drag block or output pin | Ctrl+arrows pan | Esc cancel",UINT32_MAX);
+   rrui_canvas_draw(c,2,1);rrui_canvas_free(c);
+}
+static bool patch_connect(const char *source,const char *target,int channel){
+   const rr_ag_view_node_t *a=patch_node(source),*b=patch_node(target);
+   if(!a||!b||a->type!=RR_AG_SOURCE||a->read_only||strcmp(b->id,"rx.mix")){
+      patch_notice("Initial editor supports RX source -> rx.mix only.");return false;
+   }
+   char route=channel==0?'L':channel==1?'R':'S';
+   if(channel>=0&&((a->route=='L'&&channel==1)||(a->route=='R'&&channel==0)||a->route=='S'))route='S';
+   if(!audio_set_rx_stream_route(a->id,route)){patch_notice("Core rejected route.");return false;}
+   patch_notice("RX route updated.");routing_request();return true;
+}
+static void patch_toggle_list(void);
+static bool patch_key(tui_window_t *w,unsigned key,unsigned mods,void *unused){
+   (void)w;(void)unused;
+   int i=patch_find(patch_selected),dx=0,dy=0;
+   if(key==TERMKEY_SYM_LEFT)dx=-1;
+   else if(key==TERMKEY_SYM_RIGHT)dx=1;
+   else if(key==TERMKEY_SYM_UP)dy=-1;
+   else if(key==TERMKEY_SYM_DOWN)dy=1;
+   if(dx||dy){
+      if(mods&TERMKEY_KEYMOD_CTRL){patch_x=CLAMP(patch_x+dx*8,0,4000);patch_y=CLAMP(patch_y+dy*3,0,4000);}
+      else if(i>=0){
+         rrui_rect_t rects[RR_AUDIO_GRAPH_MAX_NODES];
+         for(unsigned j=0;j<patch_count;j++)rects[j]=(rrui_rect_t){patch_pos[j].x,patch_pos[j].y,PATCH_W,PATCH_H};
+         size_t next=rrui_workspace_nearest(rects,patch_count,i,dx,dy);
+         if(next<patch_count)g_strlcpy(patch_selected,patch_pos[next].id,sizeof(patch_selected));
+         patch_ensure();
+      }
+      return true;
+   }
+   if(key==TERMKEY_SYM_ESCAPE){patch_source[0]=0;patch_notice("Connection cancelled.");return true;}
+   if(key=='T'||key=='t'){patch_toggle_list();return true;}
+   if(key=='a'){patch_layout(true);patch_x=patch_y=0;patch_notice("Automatic layout.");return true;}
+   if(i<0)return true;
+   if(key==TERMKEY_SYM_ENTER||key==TERMKEY_SYM_KPENTER){
+      if(!*patch_source){g_strlcpy(patch_source,patch_selected,sizeof(patch_source));patch_notice("Select the destination and press Enter.");}
+      else {patch_connect(patch_source,patch_selected,-1);patch_source[0]=0;}
+   }else if(key<=127&&key&&strchr("WHSD",key)){
+      patch_pos_t *p=&patch_pos[i];p->x=CLAMP(p->x+(key=='D')-(key=='H'),0,4000);p->y=CLAMP(p->y+(key=='S')-(key=='W'),0,4000);
+      patch_save(p);patch_ensure();
+   }else if(key=='l'||key=='r'||key=='b'||key=='m'){
+      const rr_ag_view_node_t *n=patch_node(patch_selected);
+      if(n&&n->type==RR_AG_SOURCE&&!n->read_only&&audio_set_rx_stream_route(n->id,key=='l'?'L':key=='r'?'R':key=='b'?'S':'M')){
+         patch_notice("RX route updated.");routing_request();
+      }else patch_notice("Source does not support direct RX routing.");
+   }else if(key=='+'||key=='-'){
+      const rr_ag_view_node_t *n=patch_node(patch_selected);
+      if(n&&!n->read_only&&(n->type==RR_AG_SOURCE||n->type==RR_AG_MIXER||!strcmp(n->id,"sink.client.dsp0"))){
+         bool port=n->type!=RR_AG_SOURCE;
+         unsigned ch=(mods&TERMKEY_KEYMOD_SHIFT)?1:0;
+         double db=CLAMP((port?n->port_gain_db[ch]:n->input_gain_db[ch])+(key=='+'?1.:-1.),-60.,12.);
+         if(port)audio_request_port_gain(n->id,ch,db);else audio_request_rx_input_gain(n->id,ch,db);
+         routing_request();
+      }
+   }
+   return true;
+}
+static int patch_hit(int x,int y){
+   for(unsigned j=patch_count;j>0;j--){
+      patch_pos_t *p=&patch_pos[j-1];
+      if(x>=p->x&&x<p->x+PATCH_W&&y>=p->y&&y<p->y+PATCH_H)return j-1;
+   }
+   return -1;
+}
+static int patch_channel=-1;
+static bool patch_mouse(tui_window_t *w,int row,int col,int button,int action,unsigned mods,void *unused){
+   (void)w;(void)mods;(void)unused;
+   int x=col-1+patch_x,y=row-2+patch_y;
+   if(action==TERMKEY_MOUSE_PRESS&&(button==4||button==5)){patch_y=CLAMP(patch_y+(button==4?-3:3),0,4000);return true;}
+   if(row<2||row>=patch_rows+2)return true;
+   if(action==TERMKEY_MOUSE_PRESS&&button==1){
+      int i=patch_hit(x,y);if(i<0)return true;
+      patch_pos_t *p=&patch_pos[i];g_strlcpy(patch_selected,p->id,sizeof(patch_selected));
+      if(x==p->x+PATCH_W-1&&(y==p->y+1||y==p->y+2)){
+         g_strlcpy(patch_source,p->id,sizeof(patch_source));patch_channel=y-p->y-1;patch_drag=-1;
+      }else{patch_source[0]=0;patch_drag=i;patch_dx=x-p->x;patch_dy=y-p->y;}
+   }else if(action==TERMKEY_MOUSE_DRAG&&patch_drag>=0){
+      patch_pos[patch_drag].x=CLAMP(x-patch_dx,0,4000);patch_pos[patch_drag].y=CLAMP(y-patch_dy,0,4000);
+   }else if(action==TERMKEY_MOUSE_RELEASE){
+      if(patch_drag>=0){patch_save(&patch_pos[patch_drag]);patch_drag=-1;}
+      else if(*patch_source){
+         int i=patch_hit(x,y);
+         if(i>=0&&x==patch_pos[i].x&&(y==patch_pos[i].y+1||y==patch_pos[i].y+2))patch_connect(patch_source,patch_pos[i].id,y-patch_pos[i].y-1);
+         patch_source[0]=0;patch_channel=-1;
+      }
+   }
+   return true;
+}
+static void patch_enable(void){
+   rrui_tui_tab_detach(routing_tab);
+   routing_tab->view_draw=patch_draw;routing_tab->view_key=patch_key;routing_tab->view_mouse=patch_mouse;routing_tab->view_full_height=true;
+   patch_lists=false;tui_redraw_request();
+}
+static void patch_toggle_list(void){
+   if(patch_lists){patch_enable();return;}
+   routing_tab->view_draw=NULL;routing_tab->view_key=NULL;routing_tab->view_mouse=NULL;
+   if(rrui_tui_tab_attach(routing_tab,routing_view))patch_lists=true;else patch_enable();
+   tui_redraw_request();
+}
 static void routing_result(const rr_event_message_t *m,void *unused){
    (void)unused;
    if(!routing_view||!m||!m->payload||m->length!=sizeof(route_snapshot))return;
@@ -124,7 +330,10 @@ static void routing_result(const rr_event_message_t *m,void *unused){
    if(q->node_count>RR_AUDIO_GRAPH_MAX_NODES||q->link_count>RR_AUDIO_GRAPH_MAX_LINKS)return;
    for(unsigned i=0;i<q->node_count;i++)if(!memchr(q->nodes[i].id,0,sizeof(q->nodes[i].id)))return;
    if(route_ready&&!memcmp(&route_snapshot,q,sizeof(*q)))return;
+   bool topology=!route_ready||route_snapshot.node_count!=q->node_count;
+   if(!topology)for(unsigned i=0;i<q->node_count;i++)if(strcmp(route_snapshot.nodes[i].id,q->nodes[i].id)){topology=true;break;}
    route_snapshot=*q;route_ready=true;
+   if(topology)patch_layout(false);
    rrui_form_list_clear(routing_view,"nodes");
    rrui_form_list_clear(routing_view,"links");
    for(unsigned i=0;i<q->node_count;i++){
@@ -147,6 +356,7 @@ static void routing_result(const rr_event_message_t *m,void *unused){
 }
 static void routing_action(rrui_form_t *f,const char *id,const char *action,void *unused){
    (void)id;(void)unused;
+   if(!strcmp(action,"patchbay")){patch_enable();return;}
    if(!strcmp(action,"refresh")){routing_request();return;}
    const char *selected=rrui_form_value(f,"nodes");
    const rr_ag_view_node_t *n=NULL;
@@ -177,12 +387,12 @@ static void views_init(void){
    if(routing_view){
       routing_tab=tui_window_create("Routing");
       if(!routing_tab||!rrui_tui_tab_attach(routing_tab,routing_view)){rrui_form_free(routing_view);routing_view=NULL;}
-      else route_event=event_on_message_domain_token(RRCLIENT_AUDIO_GRAPH_RESULT,routing_result,NULL,"core");
+      else {route_event=event_on_message_domain_token(RRCLIENT_AUDIO_GRAPH_RESULT,routing_result,NULL,"core");patch_enable();}
    }
 }
 static void views_shutdown(void){
    if(config_tab)rrui_tui_tab_detach(config_tab);
-   if(routing_tab)rrui_tui_tab_detach(routing_tab);
+   if(routing_tab){rrui_tui_tab_detach(routing_tab);routing_tab->view_draw=NULL;routing_tab->view_key=NULL;routing_tab->view_mouse=NULL;}
    rrui_form_free(config_view);rrui_form_free(routing_view);
    config_view=routing_view=NULL;config_tab=routing_tab=NULL;
    g_clear_pointer(&config_key,g_free);

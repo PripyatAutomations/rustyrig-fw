@@ -10,3 +10,4 @@ ui.add(dict {kind="button";id="both";parent="routing";label="RX -> Both";action=
 ui.add(dict {kind="button";id="mute";parent="routing";label="Disconnect RX";action="mute";});
 ui.add(dict {kind="button";id="refresh";parent="routing";label="Refresh";action="refresh";});
 ui.add(dict {kind="label";id="message";parent="routing";label="";max_length=512;});
+ui.add(dict {kind="button";id="patchbay";parent="routing";label="Graphical Patchbay";action="patchbay";});
