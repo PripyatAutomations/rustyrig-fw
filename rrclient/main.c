@@ -53,6 +53,8 @@ extern defconfig_t defcfg[];
 #include <rrclient/receiver.directory.h>
 #include <rrclient/ui.layout.h>
 #include <librustyui/form.h>
+#include <librustyui/canvas.h>
+#include <rrbridge/spectrum.row.h>
 #include <rrclient/receiver.connect.h>
 #include <rrclient/rooms.h>
 #include <rrclient/local.bridge.h>
@@ -642,7 +644,10 @@ static void sdr_rebuild(bool force){
          for(guint j=0;j<indices->len;j++){
             const receiver_directory_entry_t *r=receiver_directory_receiver(g_array_index(indices,size_t,j));
             bool connected=tui_sdr_is_connected(r),available=receiver_directory_entry_accessible(r);
-            const char *state=connected?"Connected":!available?"Unavailable":r->local_state&&*r->local_state?r->local_state:"Available";
+            const char *state=connected?"Connected":r->deleted?"Deleted":r->flagged?"Flagged":r->offline?"Reported offline":
+               r->local_state&&strcmp(r->local_state,"unknown")&&strcmp(r->local_state,"good")?r->local_state:
+               !r->driver||strcmp(r->driver,"kiwi")?"Unsupported":r->ext_api<=0?"No API access":
+               available?"Available":"Unavailable";
             label=g_strdup_printf(" %s %-28s  %-20s %d/%d  %s",r->favorite?"*":" ",r->name&&*r->name?r->name:r->url,r->location?r->location:"",r->users,r->users_max,state);
             clean=sdr_clean(label);
             if(rrui_form_list_append_color(sdr_form,"receivers",r->url,clean,connected?0x70d898:available?UINT32_MAX:0xb5a0a0)){
@@ -1171,6 +1176,49 @@ static char tui_local_vfo = 'A';
 static bool tui_local_freq_edit;
 static char tui_local_freq[32], tui_local_message[180];
 static int tui_local_focus = -1;
+static void tui_local_sdr_draw(tui_window_t *,int,int,void *);
+static unsigned tui_local_digit=3;
+static int tui_local_freq_row,tui_local_freq_col,tui_local_buttons_row,tui_local_plot_rows,tui_local_plot_cols;
+static unsigned tui_local_zoom;
+static rr_bridge_spectrum_row tui_local_history[256];
+static unsigned tui_local_head,tui_local_history_count;
+static gint64 tui_local_last_row,tui_local_last_draw;
+static rr_event_token_t tui_local_rf_token;
+static const uint64_t tui_local_steps[]={100000000,10000000,1000000,100000,10000,1000,100,10,1};
+static void tui_local_clear_rf(void){
+   tui_local_head=tui_local_history_count=0;tui_local_last_row=0;
+}
+static void tui_local_rf_row(const rr_event_message_t *message,void *unused){
+   (void)unused;
+   if(!message||!message->payload||message->length!=sizeof(rr_bridge_spectrum_event))return;
+   const rr_bridge_spectrum_event *p=message->payload;
+   if(p->vfo!=tui_local_vfo||!rr_bridge_spectrum_valid(&p->row))return;
+   gint64 now=g_get_monotonic_time();
+   if(tui_local_history_count){
+      const rr_bridge_spectrum_row *prev=&tui_local_history[(tui_local_head+255)%256];
+      if(prev->low_hz!=p->row.low_hz||prev->high_hz!=p->row.high_hz||now-tui_local_last_row>5000000)
+         tui_local_clear_rf();
+   }
+   tui_local_history[tui_local_head]=p->row;
+   tui_local_head=(tui_local_head+1)%256;
+   tui_local_history_count=MIN(tui_local_history_count+1,256u);
+   tui_local_last_row=now;
+   if(now-tui_local_last_draw>=100000){
+      tui_local_last_draw=now;
+      tui_window_t *w=tui_active_window();
+      if(w&&w->view_draw==tui_local_sdr_draw)tui_redraw_request();
+   }
+}
+static uint32_t tui_local_palette(unsigned power){
+   /* Fixed color ramp; avoid per-row normalization hiding weak signals. */
+   static const unsigned rgb[][3]={{12,20,43},{24,45,105},{22,112,165},{29,190,135},{238,220,53},{255,100,35},{255,245,220}};
+   unsigned k=power*6/255,rem=power*6%255;
+   if(k>=6)return 0xfff5dc;
+   unsigned r=(rgb[k][0]*(255-rem)+rgb[k+1][0]*rem)/255;
+   unsigned g=(rgb[k][1]*(255-rem)+rgb[k+1][1]*rem)/255;
+   unsigned b=(rgb[k][2]*(255-rem)+rgb[k+1][2]*rem)/255;
+   return (r<<16)|(g<<8)|b;
+}
 enum {
    LOCAL_DEC, LOCAL_INC, LOCAL_MODE, LOCAL_FREQ, LOCAL_VFO, LOCAL_BACK, LOCAL_BUTTONS
 };
@@ -1198,7 +1246,7 @@ static void tui_local_update_vfos(void) {
    }
 
    if (!found) {
-      tui_local_vfo = tui_local_vfos[0];
+      tui_local_vfo = tui_local_vfos[0];tui_local_clear_rf();
    }
 }
 
@@ -1206,6 +1254,7 @@ static void tui_local_select_vfo(char vfo) {
    if (!rrclient_local_bridge_state_vfo(vfo, NULL, NULL)) {
       return;
    }
+   if(tui_local_vfo!=vfo){tui_local_clear_rf();tui_local_zoom=0;}
    tui_local_vfo = vfo;
    rrclient_room_set_active_vfo("&local-sdr", vfo);
 }
@@ -1317,64 +1366,94 @@ static void tui_local_action(int action) {
    }
 }
 
-static void tui_local_sdr_draw(tui_window_t *win, int rows, int cols, void *unused) {
-   (void)win;
-   (void)unused;
+static void tui_local_sdr_draw(tui_window_t *win,int rows,int cols,void *unused){
+   (void)win;(void)unused;
+   if(rows<10||cols<24)return;
    tui_local_update_vfos();
-   char active = rrclient_room_active_vfo("&local-sdr");
-   printf("\033[2;1H" SDR_TITLE " Local SDR / rrbridge VFO controls (RX only)" SDR_NORMAL "\033[K");
-   printf("\033[3;1H" SDR_TITLE "   VFO       Frequency           Mode      Status" SDR_NORMAL "\033[K");
-
-   if (!tui_local_count) {
-      printf("\033[4;1H" SDR_WARNING "  Waiting for local rrbridge receiver..." SDR_NORMAL "\033[K");
-   }
-
-   for (size_t i = 0 ; i < tui_local_count && (int)i + 4 < rows - 5 ; i++) {
-      char vfo = tui_local_vfos[i];
-      uint64_t hz = 0;
-      const char *mode = NULL;
-      bool online = rrclient_local_bridge_state_vfo(vfo, &hz, &mode);
-      printf("\033[%zu;1H%s  %c VFO %c  " SDR_NORMAL, i + 4, vfo == tui_local_vfo ? SDR_HILITE : SDR_NAME, vfo == active ? '*' : ' ', vfo);
-
-      if (online) {
-         printf(SDR_USERS "%11.6f MHz" SDR_NORMAL "    " SDR_GOOD "%-8s" SDR_NORMAL "  Online", (double)hz / 1000000.0, mode ? mode : "---");
-      } else {
-         fputs(SDR_WARNING "Not ready" SDR_NORMAL, stdout);
+   int height=rows-2,width=cols-1;
+   rrui_canvas_t *c=rrui_canvas_new(width,height);if(!c)return;
+   /* Reserve roughly one quarter for controls, but keep all controls
+    * accessible in shorter terminals. */
+   int footer=MAX(7,height/4);
+   int plot=MAX(1,height-footer-2);
+   tui_local_plot_rows=plot;tui_local_plot_cols=width;
+   rr_local_bridge_ui_state_t state={0};
+   rrclient_local_bridge_ui_state_vfo(tui_local_vfo,&state);
+   uint64_t hz=state.frequency_hz;
+   char label[256];
+   g_snprintf(label,sizeof(label),"VFO %c | %s | %s",tui_local_vfo,state.receiver_name[0]?state.receiver_name:"Local SDR",state.receiver_location);
+   rrui_canvas_text(c,0,0,width,label,0x8baab8);
+   bool fresh=state.connected&&tui_local_history_count&&g_get_monotonic_time()-tui_local_last_row<5000000;
+   if(fresh){
+      const rr_bridge_spectrum_row *latest=&tui_local_history[(tui_local_head+255)%256];
+      for(int y=0;y<plot&&y<(int)tui_local_history_count;y++){
+         const rr_bridge_spectrum_row *row=&tui_local_history[(tui_local_head+255-(unsigned)y)%256];
+         for(int x=0;x<width;x++){
+            unsigned first=(unsigned)((uint64_t)x*RR_BRIDGE_SPECTRUM_BINS/width);
+            unsigned last=MIN(RR_BRIDGE_SPECTRUM_BINS,(unsigned)((uint64_t)(x+1)*RR_BRIDGE_SPECTRUM_BINS/width));
+            unsigned power=row->power[MIN(first,RR_BRIDGE_SPECTRUM_BINS-1)];
+            for(unsigned j=first+1;j<last;j++)power=MAX(power,row->power[j]);
+            rrui_canvas_put(c,x,y+2,0x2588,tui_local_palette(power));
+         }
       }
-      fputs("\033[K", stdout);
-   }
-
-   printf("\033[%d;1H" SDR_TITLE "Selected VFO %c" SDR_NORMAL, rows - 5, tui_local_vfo);
-   printf("\033[%d;1H", rows - 4);
-
-   if (tui_local_freq_edit) {
-      printf(SDR_FOCUS " Frequency (MHz): %s_  [Enter apply / Esc cancel] " SDR_NORMAL, tui_local_freq);
-   } else {
-      printf(" F: enter MHz frequency    +/-: 1 kHz    M: change mode    V: next VFO");
-   }
-   const char *buttons[] = {
-      "-1 kHz", "+1 kHz", "Mode", "Frequency", "Next VFO", "Directory"
-   };
-   int x = 1;
-
-   for (int i = 0 ; i < LOCAL_BUTTONS ; i++) {
-      int width = (int)strlen(buttons[i]) + 2;
-      tui_local_button_start[i] = tui_local_button_end[i] = 0;
-
-      if (x + width - 1 <= cols) {
-         tui_local_button_start[i] = x;
-         tui_local_button_end[i] = x + width - 1;
-         printf("\033[%d;%dH%s[%s]" SDR_NORMAL, rows - 2, x, i == tui_local_focus ? SDR_FOCUS : SDR_BUTTON, buttons[i]);
+      for(int x=0;x<width;x++)rrui_canvas_put(c,x,1,0x2500,0x8baab8);
+      for(int tick=0;tick<=4;tick++){
+         uint64_t f=latest->low_hz+(latest->high_hz-latest->low_hz)*tick/4;
+         g_snprintf(label,sizeof(label),"%.3f",(double)f/1000000.);
+         int x=CLAMP((width-1)*tick/4-(tick==4?(int)strlen(label)-1:0),0,width-1);
+         rrui_canvas_text(c,x,1,width-x,label,0xc2d1da);
       }
-      x += width + 1;
+      if(hz>=latest->low_hz&&hz<latest->high_hz){
+         int x=(int)((hz-latest->low_hz)*width/(latest->high_hz-latest->low_hz));
+         rrui_canvas_put(c,x,1,0x25bc,0xffff70);
+      }
+   }else rrui_canvas_text(c,2,2,width-2,state.connected?"Waiting for RF waterfall...":"Waiting for receiver...",0xc2d1da);
+   int y=plot+2;
+   for(int x=0;x<width;x++)rrui_canvas_put(c,x,y,0x2500,0x8baab8);
+   g_snprintf(label,sizeof(label),"VFO %c   %s   %s   Zoom %u",tui_local_vfo,state.mode[0]?state.mode:"---",state.connected?"Online (RX only)":"Connecting",tui_local_zoom);
+   rrui_canvas_text(c,1,y+1,width-1,label,0xc2d1da);
+   char digits[16];g_snprintf(digits,sizeof(digits),"%03llu.%06llu",(unsigned long long)(hz/1000000),(unsigned long long)(hz%1000000));
+   int fx=MAX(1,(width-14)/2);
+   tui_local_freq_row=y+4;tui_local_freq_col=fx+1;
+   if(tui_local_freq_edit){
+      g_snprintf(label,sizeof(label),"MHz: %s_",tui_local_freq);
+      rrui_canvas_text(c,1,y+2,width-1,label,0xffff70);
+   }else{
+      for(unsigned d=0;d<9;d++){
+         int x=fx+d+(d>=3);
+         uint32_t color=tui_local_focus==-1&&d==tui_local_digit?0xffff70:0x53cbd5;
+         rrui_canvas_put(c,x,y+2,0x25b2,color);
+         rrui_canvas_put(c,x,y+3,digits[d+(d>=3)],color);
+         rrui_canvas_put(c,x,y+4,0x25bc,color);
+      }
+      rrui_canvas_put(c,fx+3,y+3,'.',0xc2d1da);
+      rrui_canvas_text(c,fx+11,y+3,3,"MHz",0xc2d1da);
+      tui_local_freq_row=y+5;
    }
-
-   printf("\033[%d;1H" SDR_MUTED "Tab: buttons / list   Space/Enter: activate   Esc: directory" SDR_NORMAL "\033[K", rows - 1);
-   printf("\033[%d;1H", rows);
-   tui_sdr_safe_text(tui_local_message[0] ? tui_local_message : "Use arrow keys to choose a VFO; tuning is RX-only.", cols - 1);
-   fputs("\033[K", stdout);
+   const char *buttons[]={"-1k","+1k","Mode","Freq","VFO","Directory"};
+   int bx=0,by=height-2;tui_local_buttons_row=by+2;
+   for(int i=0;i<LOCAL_BUTTONS;i++){
+      g_snprintf(label,sizeof(label),"[%s]",buttons[i]);int n=strlen(label);
+      tui_local_button_start[i]=tui_local_button_end[i]=0;
+      if(bx+n<=width){
+         rrui_canvas_text(c,bx,by,n,label,i==tui_local_focus?0xffff70:0x8baab8);
+         tui_local_button_start[i]=bx+1;tui_local_button_end[i]=bx+n;
+      }
+      bx+=n+1;
+   }
+   rrui_canvas_text(c,0,height-1,width,tui_local_message[0]?tui_local_message:"Left/Right digit | Up/Down tune | Tab controls | +/- zoom (waterfall wheel) | Esc back",0xc2d1da);
+   rrui_canvas_draw(c,2,1);rrui_canvas_free(c);
 }
 
+static void tui_local_change_zoom(int delta){
+   rr_local_bridge_ui_state_t state={0};
+   if(!rrclient_local_bridge_ui_state_vfo(tui_local_vfo,&state)||!state.connected||!state.waterfall)return;
+   unsigned zoom=(unsigned)CLAMP((int)tui_local_zoom+delta,(int)state.min_zoom,(int)state.max_zoom);
+   if(zoom==tui_local_zoom)return;
+   if(rrclient_local_bridge_request_waterfall_vfo(tui_local_vfo,true,zoom,state.frequency_hz)){
+      tui_local_zoom=zoom;tui_local_clear_rf();
+   }
+}
 static bool tui_local_sdr_key(tui_window_t *win, unsigned key, unsigned mods, void *unused) {
    (void)win;
    (void)unused;
@@ -1424,6 +1503,13 @@ static bool tui_local_sdr_key(tui_window_t *win, unsigned key, unsigned mods, vo
       return false;
    }
 
+   if(tui_local_focus==-1&&(key==TERMKEY_SYM_LEFT||key==TERMKEY_SYM_RIGHT)){
+      tui_local_digit=(unsigned)CLAMP((int)tui_local_digit+(key==TERMKEY_SYM_RIGHT?1:-1),0,8);return true;
+   }
+   if(tui_local_focus==-1&&(key==TERMKEY_SYM_UP||key==TERMKEY_SYM_DOWN)){
+      int64_t step=(int64_t)tui_local_steps[tui_local_digit];
+      tui_local_tune_delta(key==TERMKEY_SYM_UP?step:-step);return true;
+   }
    if (key == TERMKEY_SYM_UP || key == TERMKEY_SYM_DOWN) {
       if (tui_local_count) {
          size_t i = 0;
@@ -1442,7 +1528,7 @@ static bool tui_local_sdr_key(tui_window_t *win, unsigned key, unsigned mods, vo
          tui_local_action(tui_local_focus);
       }
    } else if (key == '-' || key == '+') {
-      tui_local_action(key == '-' ? LOCAL_DEC : LOCAL_INC);
+      tui_local_change_zoom(key=='+'?1:-1);
    } else if (key == 'f' || key == 'F') {
       tui_local_action(LOCAL_FREQ);
    } else if (key == 'm' || key == 'M') {
@@ -1456,33 +1542,35 @@ static bool tui_local_sdr_key(tui_window_t *win, unsigned key, unsigned mods, vo
    return true;
 }
 
-static bool tui_local_sdr_mouse(tui_window_t *win, int row, int col, int button, int action, unsigned mods, void *unused) {
-   (void)win;
-   (void)mods;
-   (void)unused;
-
-   if (action != TERMKEY_MOUSE_PRESS || button != 1) {
-      return false;
-   }
-
-   if (row >= 4 && row < 4 + (int)tui_local_count) {
-      tui_local_select_vfo(tui_local_vfos[row - 4]);
-      tui_local_focus = -1;
-
-      return true;
-   }
-
-   if (row == tui_rows() - 2) {
-      for (int i = 0 ; i < LOCAL_BUTTONS ; i++) {
-         if (tui_local_button_start[i] && col >= tui_local_button_start[i] && col <= tui_local_button_end[i]) {
-            tui_local_focus = i;
-            tui_local_action(i);
-
-            return true;
-         }
+static bool tui_local_sdr_mouse(tui_window_t *win,int row,int col,int button,int action,unsigned mods,void *unused){
+   (void)win;(void)mods;(void)unused;
+   if(action!=TERMKEY_MOUSE_PRESS)return false;
+   if(row>=3&&row<4+tui_local_plot_rows){
+      if(button==4||button==5){tui_local_change_zoom(button==4?1:-1);return true;}
+      if(button==1&&tui_local_history_count&&g_get_monotonic_time()-tui_local_last_row<5000000){
+         const rr_bridge_spectrum_row *latest=&tui_local_history[(tui_local_head+255)%256];
+         int x=CLAMP(col-1,0,tui_local_plot_cols-1);
+         uint64_t hz=latest->low_hz+(latest->high_hz-latest->low_hz)*(2*x+1)/(2*tui_local_plot_cols);
+         rrclient_local_bridge_set_frequency(tui_local_vfo,hz);return true;
       }
    }
-
+   if(!tui_local_freq_edit&&row>=tui_local_freq_row-1&&row<=tui_local_freq_row+1){
+      int d=col-tui_local_freq_col;
+      if(d==3)return true;
+      if(d>3)d--;
+      if(d>=0&&d<9){
+         tui_local_digit=(unsigned)d;tui_local_focus=-1;
+         int64_t step=(int64_t)tui_local_steps[d];
+         if(button==4||(button==1&&row<tui_local_freq_row))tui_local_tune_delta(step);
+         else if(button==5||(button==1&&row>tui_local_freq_row))tui_local_tune_delta(-step);
+         return true;
+      }
+   }
+   if(button==1&&row==tui_local_buttons_row){
+      for(int i=0;i<LOCAL_BUTTONS;i++)if(tui_local_button_start[i]&&col>=tui_local_button_start[i]&&col<=tui_local_button_end[i]){
+         tui_local_focus=i;tui_local_action(i);return true;
+      }
+   }
    return false;
 }
 
@@ -1495,6 +1583,9 @@ void rrclient_tui_local_sdr_open(void) {
    if (!window) {
       return;
    }
+   if(!tui_local_rf_token)tui_local_rf_token=event_on_message_domain_token(RR_BRIDGE_SPECTRUM_EVENT,tui_local_rf_row,NULL,"core");
+   tui_local_clear_rf();
+   tui_local_zoom=0;
    window->view_draw = tui_local_sdr_draw;
    window->view_key = tui_local_sdr_key;
    window->view_mouse = tui_local_sdr_mouse;
