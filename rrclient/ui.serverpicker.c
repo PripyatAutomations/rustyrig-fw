@@ -392,6 +392,7 @@ static bool show_manager(rrui_form_t *next,bool group) {
    if(!rrui_tui_open(form)){close_form();open_picker();return false;}
    return true;
 }
+static void manager_selection(rrui_form_t *f,const char *id,const char *act,void *unused);
 static bool open_groups(void) {
    const rrclient_ui_required_t fields[]={{"groups",RRUI_LIST,false},{"name",RRUI_ENTRY,false},{"members",RRUI_ENTRY,false},{"profiles",RRUI_LIST,false}};
    rrui_form_t *next=rrclient_ui_layout_load("server-groups.rrs",RRUI_DIALOG,fields,G_N_ELEMENTS(fields),action);
@@ -403,7 +404,11 @@ static bool open_groups(void) {
    while((rank=dict_enumerate(cfg,rank,&key,&value))>=0){
       char n[512];if(rrclient_server_profile_name(key,n,sizeof(n)))rrui_form_list_append(next,"profiles",n,n);
    }
-   return show_manager(next,true);
+   if(!show_manager(next,true))return false;
+   rrui_form_on_selection(form,manager_selection);
+   if(rrui_form_select(form,field_index(form,"groups"),0))
+      manager_selection(form,"groups","selection",NULL);
+   return true;
 }
 static void group_action(const char *act) {
    const char *selected=rrui_form_value(form,"groups");
@@ -454,7 +459,11 @@ static bool open_keys(void) {
    }
    if(folder)g_dir_close(folder);
    g_free(dir);
-   return show_manager(next,false);
+   if(!show_manager(next,false))return false;
+   rrui_form_on_selection(form,manager_selection);
+   if(rrui_form_select(form,field_index(form,"keys"),0))
+      manager_selection(form,"keys","selection",NULL);
+   return true;
 }
 static bool identity_in_use(const char *path) {
    int rank=0;const char *key;char *value;
@@ -507,12 +516,35 @@ static bool open_proxies(void) {
    rrclient_database_proxy_foreach(proxy_row,next);
    close_form();form=next;proxies=true;
    if(!rrui_tui_open(form)){close_form();open_picker();return false;}
+   rrui_form_on_selection(form,manager_selection);
+   if(rrui_form_select(form,field_index(form,"proxies"),0))
+      manager_selection(form,"proxies","selection",NULL);
    return true;
 }
 static void proxy_load(const char *name,const char *url,void *data) {
    if(!strcmp(name,(const char *)data)){
       rrui_form_set_value(form,"name",name);rrui_form_set_value(form,"url",url);
    }
+}
+static void manager_selection(rrui_form_t *f,const char *id,const char *act,void *unused){
+   (void)act;(void)unused;
+   if(f!=form)return;
+   const char *value=rrui_form_value(f,id);
+   if(!value||!*value)return;
+   if(proxies&&!strcmp(id,"proxies")){
+      rrclient_database_proxy_foreach(proxy_load,(void *)value);
+   }else if(groups&&!strcmp(id,"groups")){
+      rrui_form_set_value(f,"name",value);
+      const char *members=network_members(value);
+      rrui_form_set_value(f,"members",members?members:"");
+   }else if(keys&&!strcmp(id,"keys")){
+      char *label=rrclient_identity_display_name(value);
+      rrui_form_set_value(f,"label",label?label:"");
+      rrui_form_set_value(f,"pass","");
+      g_free(label);notice(value);
+   }else return;
+   g_clear_pointer(&pending_remove,g_free);
+   tui_redraw_request();
 }
 static void proxy_action(const char *act) {
    if(!strcmp(act,"cancel")||!strcmp(act,"dialog.close")){close_form();open_picker();return;}
