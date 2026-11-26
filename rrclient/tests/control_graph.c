@@ -50,7 +50,7 @@ int main(void) {
    assert(rr_control_graph_source_add(g,"local.ptt"));
    assert(rr_control_graph_source_add(g,"modem.ptt"));
    assert(rr_control_graph_source_add(g,"tx.enable"));
-   assert(rr_control_graph_gate_add(g,"any",RR_GATE_OR,2));
+   assert(rr_control_graph_gate_add(g,"any",RR_GATE_AND,2));
    assert(rr_control_graph_gate_add(g,"interlocked",RR_GATE_AND,2));
    assert(rr_control_graph_gate_add(g,"compare",RR_GATE_XNOR,2));
    assert(rr_control_graph_connect(g,"local.ptt","any",0));
