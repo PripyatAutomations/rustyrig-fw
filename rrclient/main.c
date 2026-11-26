@@ -1594,6 +1594,7 @@ static bool tui_server_picker_mouse(tui_window_t *w, int row, int col, int butto
 }
 
 extern bool rrclient_tui_script_picker_toggle(void);
+extern bool rrclient_tui_identity_first_run(void);
 extern void rrclient_tui_workspace_init(void);
 extern void rrclient_tui_workspace_refresh(void);
 extern void rrclient_tui_workspace_shutdown(void);
@@ -2767,7 +2768,7 @@ int main(int argc, char *argv[]) {
 
    // setup the client bits and autoconnect if configured
    ws_client_init();
-   connman_autoconnect();
+   if(ui_mode!=UI_MODE_TUI||!rrclient_tui_identity_first_run())connman_autoconnect();
 
    // start the main loop (both modes now run on GLib)
    if (ui_mode == UI_MODE_TUI) {

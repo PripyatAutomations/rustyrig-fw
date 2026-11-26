@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0-only
-ui.add(dict { kind="dialog"; id="picker"; label="Server Picker"; });
-ui.add(dict { kind="list"; id="profiles"; parent="picker"; label="Saved servers"; height_rows=12; expand_y=true; action="connect"; });
-ui.add(dict { kind="button"; id="connect"; parent="picker"; label="Select / Connect"; action="connect"; });
-ui.add(dict { kind="button"; id="disconnect"; parent="picker"; label="Disconnect"; action="disconnect"; });
-ui.add(dict { kind="button"; id="new"; parent="picker"; label="New server"; action="new"; });
-ui.add(dict { kind="button"; id="edit"; parent="picker"; label="Edit server"; action="edit"; });
-ui.add(dict { kind="button"; id="refresh"; parent="picker"; label="Refresh"; action="refresh"; });
-ui.add(dict { kind="button"; id="cancel"; parent="picker"; label="Cancel"; action="cancel"; });
+ui.add(dict { kind="dialog"; id="servers"; label="Server Picker"; });
+ui.add(dict { kind="list"; id="profiles"; parent="servers"; label="Saved servers"; height_rows=12; expand_y=true; action="connect"; });
+ui.add(dict { kind="button"; id="connect"; parent="servers"; label="Select / Connect"; action="connect"; });
+ui.add(dict { kind="button"; id="disconnect"; parent="servers"; label="Disconnect"; action="disconnect"; });
+ui.add(dict { kind="button"; id="new"; parent="servers"; label="New server"; action="new"; });
+ui.add(dict { kind="button"; id="edit"; parent="servers"; label="Edit server"; action="edit"; });
+ui.add(dict { kind="button"; id="refresh"; parent="servers"; label="Refresh"; action="refresh"; });
+ui.add(dict { kind="button"; id="cancel"; parent="servers"; label="Cancel"; action="cancel"; });
+ui.add(dict { kind="label"; id="message"; parent="servers"; label=""; });
+ui.add(dict { kind="button"; id="delete"; parent="servers"; label="Delete server"; action="delete"; });
+ui.add(dict { kind="button"; id="keys"; parent="servers"; label="Create / Import Key"; action="keys"; });

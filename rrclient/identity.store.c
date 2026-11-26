@@ -7,6 +7,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <fcntl.h>
+#include <errno.h>
 #include <string.h>
 static GHashTable *unlocked;
 static bool identity_file_safe(const char *path) {
@@ -111,4 +113,53 @@ bool rrclient_identity_set_display_name(const char *path,const char *name) {
    bool ok=rrclient_database_setting_set(key,name);
    g_free(key);
    return ok;
+}
+
+bool rrclient_identity_save_new(rr_crypto_key_t *key, const char *path) {
+   char *dir = g_path_get_dirname(path);
+   bool ok = g_mkdir_with_parents(dir, 0700) == 0;
+   struct stat st;
+
+   if (ok) {
+      ok = lstat(dir, &st) == 0 && S_ISDIR(st.st_mode) && st.st_uid == geteuid() && !(st.st_mode & 0077);
+   }
+
+   if (ok) {
+      int fd = open(path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600);
+
+      if (fd >= 0) {
+         FILE *f = fdopen(fd, "wb");
+
+         if (f) {
+            ok = rr_crypto_key_write_pem_stream(key, f) && fflush(f) == 0 && fsync(fileno(f)) == 0;
+
+            if (fclose(f)) {
+               ok = false;
+            }
+         } else {
+            close(fd);
+            ok = false;
+         }
+
+         if (!ok) {
+            unlink(path);
+         }
+      } else {
+         ok = false;
+      }
+   }
+   g_free(dir);
+
+   return ok;
+}
+
+bool rrclient_identity_any(void){
+   char *dir=g_build_filename(g_get_user_config_dir(),"rustyrig","identity",NULL);
+   GDir *folder=g_dir_open(dir,0,NULL);const char *name;bool any=false;
+   while(folder&&(name=g_dir_read_name(folder))){
+      if(!g_str_has_suffix(name,".pem"))continue;
+      char *path=g_build_filename(dir,name,NULL);
+      any=identity_file_safe(path);g_free(path);if(any)break;
+   }
+   if(folder)g_dir_close(folder);g_free(dir);return any;
 }

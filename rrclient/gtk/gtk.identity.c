@@ -36,43 +36,6 @@ static char *gtk_identity_path(void) {
    return g_build_filename(g_get_user_config_dir(), "rustyrig", "identity", "client-ed25519.pem", NULL);
 }
 
-static bool gtk_identity_save_new(rr_crypto_key_t *key, const char *path) {
-   char *dir = g_path_get_dirname(path);
-   bool ok = g_mkdir_with_parents(dir, 0700) == 0;
-   struct stat st;
-
-   if (ok) {
-      ok = lstat(dir, &st) == 0 && S_ISDIR(st.st_mode) && st.st_uid == geteuid() && !(st.st_mode & 0077);
-   }
-
-   if (ok) {
-      int fd = open(path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600);
-
-      if (fd >= 0) {
-         FILE *f = fdopen(fd, "wb");
-
-         if (f) {
-            ok = rr_crypto_key_write_pem_stream(key, f) && fflush(f) == 0 && fsync(fileno(f)) == 0;
-
-            if (fclose(f)) {
-               ok = false;
-            }
-         } else {
-            close(fd);
-            ok = false;
-         }
-
-         if (!ok) {
-            unlink(path);
-         }
-      } else {
-         ok = false;
-      }
-   }
-   g_free(dir);
-
-   return ok;
-}
 
 /* The GTK key manager deliberately operates only on the local identity. A future network profile can select an identity by stable fingerprint. */
 static void identity_message(GtkWindow *parent, GtkMessageType type, const char *message) {
@@ -529,7 +492,7 @@ static void gtk_manage_certificates(GtkWidget *unused, gpointer unused_data) {
          }
          char *basename = g_strdup_printf("%s.pem", uuid);
          char *new_path = g_build_filename(dir, basename, NULL);
-         bool stored = key && !g_file_test(new_path, G_FILE_TEST_EXISTS) && gtk_identity_save_new(key, new_path);
+         bool stored = key && !g_file_test(new_path, G_FILE_TEST_EXISTS) && rrclient_identity_save_new(key, new_path);
 
          if (stored) {
             g_free(selected_path);
@@ -710,7 +673,7 @@ void gtk_identity_first_run(void) {
          key = NULL;
       }
 
-      if (key && gtk_identity_save_new(key, path)) {
+      if (key && rrclient_identity_save_new(key, path)) {
          Log(LOG_INFO, "client.identity", "Client Ed25519 identity created at %s", path);
          rr_crypto_key_free(key);
          break;

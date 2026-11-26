@@ -24,3 +24,11 @@
 [bluetooth]	LOW PRIORITY
 * Support bluetooth PTT buttons
 * Maybe automate routing of headsets when connected, if reasonably feasible?
+
+[Kiwi SDR parity - tonight]
+* Implement adjustable low/high passband edges and width, persist with mode/frequency.
+* Add SAM/NBFM, investigate DRM and IQ stream formats.
+* Receiver-side noise reduction (WDSP/LMS/spectral), notch, complete AGC and RF controls.
+* S-meter/dBm telemetry and routing graph control output.
+* Waterfall scaling/speed/averaging, frequency annotations.
+* Receiver occupants and status telemetry; investigate extensions.

@@ -13,5 +13,7 @@ void rrclient_identity_lock_all(void);
 /* Human-readable local labels never rename PEM files or change identity paths. */
 char *rrclient_identity_display_name(const char *path);
 bool rrclient_identity_set_display_name(const char *path, const char *name);
+bool rrclient_identity_save_new(rr_crypto_key_t *key,const char *path);
+bool rrclient_identity_any(void);
 void rrclient_identity_shutdown(void);
 #endif
