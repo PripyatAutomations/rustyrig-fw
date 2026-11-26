@@ -1,0 +1,12 @@
+// SPDX-License-Identifier: GPL-2.0-only
+ui.add(dict {kind="panel";id="routing";label="Audio Routing";});
+ui.add(dict {kind="label";id="summary";parent="routing";label="Waiting for graph: ";});
+ui.add(dict {kind="list";id="nodes";parent="routing";label="Blocks";height_rows=7;action="details";});
+ui.add(dict {kind="list";id="links";parent="routing";label="Connections";height_rows=6;});
+ui.add(dict {kind="button";id="details";parent="routing";label="Block details";action="details";});
+ui.add(dict {kind="button";id="left";parent="routing";label="RX -> Left";action="left";});
+ui.add(dict {kind="button";id="right";parent="routing";label="RX -> Right";action="right";});
+ui.add(dict {kind="button";id="both";parent="routing";label="RX -> Both";action="both";});
+ui.add(dict {kind="button";id="mute";parent="routing";label="Disconnect RX";action="mute";});
+ui.add(dict {kind="button";id="refresh";parent="routing";label="Refresh";action="refresh";});
+ui.add(dict {kind="label";id="message";parent="routing";label="";max_length=512;});

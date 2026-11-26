@@ -13,6 +13,8 @@
 #include <rrclient/nick.color.h>
 #include <rrclient/vfo.h>
 #include <rrclient/audio.h>
+#include <rrclient/audio.graph.h>
+#include <rrclient/config.layers.h>
 #include <rrclient/objects.h>
 #include <rrclient/media.h>
 #include <rrclient/database.h>
@@ -33,6 +35,159 @@ static char *room_seen,*server_seen,*roster_seen;
 static char active_seen;
 static long freq_seen=-1;
 static void refresh(void);
+static rrui_form_t *config_view,*routing_view;
+static tui_window_t *config_tab,*routing_tab;
+static char *config_key;
+static rr_audio_graph_snapshot_t route_snapshot;
+static bool route_ready;
+static gint64 route_requested;
+static rr_event_token_t route_event;
+extern defconfig_t defcfg[];
+static size_t view_field(rrui_form_t *f,const char *id){
+   for(size_t i=0;i<rrui_form_count(f);i++){
+      rrui_field_t x;if(rrui_form_field(f,i,&x)&&!strcmp(x.widget->id,id))return i;
+   }
+   return SIZE_MAX;
+}
+static bool secret_key(const defconfig_t *d){
+   return d->type==DEFCONFIG_PASSWORD||strstr(d->key,".pass")||strstr(d->key,"password")||strstr(d->key,"secret")||strstr(d->key,"token");
+}
+static void view_notice(rrui_form_t *f,const char *message){
+   rrui_form_set_value(f,"message",message);tui_redraw_request();
+}
+static void config_list(void){
+   const char *filter=rrui_form_value(config_view,"filter");
+   char *needle=g_ascii_strdown(filter?filter:"",-1);
+   rrui_form_list_clear(config_view,"keys");
+   size_t count=0,chosen=0;
+   for(size_t i=0;defcfg[i].key;i++){
+      const defconfig_t *d=&defcfg[i];
+      char *key=g_ascii_strdown(d->key,-1);
+      bool match=strstr(key,needle)!=NULL;g_free(key);
+      if(!match)continue;
+      if(rrui_form_list_append(config_view,"keys",d->key,d->key)){
+         if(!g_strcmp0(config_key,d->key))chosen=count;
+         count++;
+      }
+   }
+   g_free(needle);
+   if(count)rrui_form_select(config_view,view_field(config_view,"keys"),chosen);
+   view_notice(config_view,count?"Select a setting and press Enter to edit.":"No matching settings.");
+}
+static void config_action(rrui_form_t *f,const char *id,const char *action,void *data){
+   (void)id;(void)data;
+   if(!strcmp(action,"filter")){config_list();return;}
+   if(!strcmp(action,"load")){
+      const char *key=rrui_form_value(f,"keys");
+      const defconfig_t *d=cfg_defconfig_find(key);
+      if(!d)return;
+      g_free(config_key);config_key=g_strdup(d->key);
+      rrui_form_set_value(f,"selected",d->key);
+      rrui_form_set_value(f,"description",d->help?d->help:"");
+      rrui_form_set_value(f,"choices",d->choices?d->choices:"");
+      const char *value=dict_get(cfg,d->key,d->val?d->val:"");
+      rrui_form_set_value(f,"value","");
+      rrui_form_set_value(f,"secret","");
+      if(!secret_key(d)&&!rrui_form_set_value(f,"value",value?value:"")){
+         g_clear_pointer(&config_key,g_free);
+         view_notice(f,"Value cannot be edited in a single-line field.");return;
+      }
+      rrui_form_set_focus(f,view_field(f,secret_key(d)?"secret":"value"));
+      view_notice(f,secret_key(d)?"Secret hidden. Enter replacement in masked field.":"Edit value, then Apply or Save.");
+   }else if(!strcmp(action,"apply")||!strcmp(action,"default")){
+      const defconfig_t *d=cfg_defconfig_find(config_key);
+      if(!d){view_notice(f,"Select and load a setting first.");return;}
+      const char *v=!strcmp(action,"default")?(d->val?d->val:""):rrui_form_value(f,secret_key(d)?"secret":"value");
+      if(!v||!cfg_set_value(d->key,v)){view_notice(f,"Invalid value or setting rejected.");return;}
+      rrclient_config_mark_dirty();
+      rrui_form_set_value(f,"secret","");
+      if(!secret_key(d))rrui_form_set_value(f,"value",dict_get(cfg,d->key,""));
+      view_notice(f,"Applied in memory; Save writes configuration to SQLite.");
+   }else if(!strcmp(action,"save")){
+      if(rrclient_config_save()){rrclient_config_clear_dirty();view_notice(f,"Configuration saved.");}
+      else view_notice(f,"Save failed. Current settings retained.");
+   }else if(!strcmp(action,"reload")){
+      if(rrclient_config_is_dirty()){view_notice(f,"Unsaved changes: save before reloading.");return;}
+      if(rrclient_config_reload_mode(NULL,true)){
+         g_clear_pointer(&config_key,g_free);rrui_form_set_value(f,"selected","");rrui_form_set_value(f,"value","");rrui_form_set_value(f,"secret","");config_list();
+      }else view_notice(f,"Reload failed.");
+   }
+}
+static void routing_request(void){
+   route_requested=g_get_monotonic_time();
+   event_emit_message(&(rr_event_message_t){.name=RRCLIENT_AUDIO_SNAPSHOT_REQUEST});
+}
+static void routing_result(const rr_event_message_t *m,void *unused){
+   (void)unused;
+   if(!routing_view||!m||!m->payload||m->length!=sizeof(route_snapshot))return;
+   const rr_audio_graph_snapshot_t *q=m->payload;
+   if(q->node_count>RR_AUDIO_GRAPH_MAX_NODES||q->link_count>RR_AUDIO_GRAPH_MAX_LINKS)return;
+   for(unsigned i=0;i<q->node_count;i++)if(!memchr(q->nodes[i].id,0,sizeof(q->nodes[i].id)))return;
+   if(route_ready&&!memcmp(&route_snapshot,q,sizeof(*q)))return;
+   route_snapshot=*q;route_ready=true;
+   rrui_form_list_clear(routing_view,"nodes");
+   rrui_form_list_clear(routing_view,"links");
+   for(unsigned i=0;i<q->node_count;i++){
+      const rr_ag_view_node_t *n=&q->nodes[i];
+      const char *types[]={"Source","Processor","Mixer","Sink"};
+      const char *health[]={"Stopped","Starting","Healthy","Failed"};
+      char *label=g_strdup_printf("%s [%s] %u Hz %s%s",n->id,n->type<=RR_AG_SINK?types[n->type]:"?",n->rate_hz,n->health<=RR_AG_FAILED?health[n->health]:"?",n->read_only?" (RO)":"");
+      rrui_form_list_append(routing_view,"nodes",n->id,label);g_free(label);
+   }
+   for(unsigned i=0;i<q->link_count;i++){
+      const rr_ag_view_link_t *l=&q->links[i];
+      if(l->src>=q->node_count||l->dst>=q->node_count)continue;
+      char key[24];g_snprintf(key,sizeof(key),"%u",i);
+      const char *kind=l->kind==RR_AG_CONTROL?"control":l->kind==RR_AG_NUMBER?"numeric":l->kind==RR_AG_BYPASS?"bypass":"audio";
+      char *label=g_strdup_printf("%s -> %s [%s %u:%u]",q->nodes[l->src].id,q->nodes[l->dst].id,kind,l->src_channels,l->dst_channels);
+      rrui_form_list_append(routing_view,"links",key,label);g_free(label);
+   }
+   char summary[80];g_snprintf(summary,sizeof(summary),"%u blocks, %u links",q->node_count,q->link_count);
+   rrui_form_set_value(routing_view,"summary",summary);tui_redraw_request();
+}
+static void routing_action(rrui_form_t *f,const char *id,const char *action,void *unused){
+   (void)id;(void)unused;
+   if(!strcmp(action,"refresh")){routing_request();return;}
+   const char *selected=rrui_form_value(f,"nodes");
+   const rr_ag_view_node_t *n=NULL;
+   if(route_ready&&selected)for(unsigned i=0;i<route_snapshot.node_count;i++)
+      if(!strcmp(selected,route_snapshot.nodes[i].id)){n=&route_snapshot.nodes[i];break;}
+   if(!n){view_notice(f,"Select a live block first.");return;}
+   if(!strcmp(action,"details")){
+      char value[180];g_snprintf(value,sizeof(value),"%s: %u Hz, %u ch, route %c, L %.1f/R %.1f dB, queue %u ms",n->id,n->rate_hz,n->channels,n->route?n->route:'-',n->input_gain_db[0],n->input_gain_db[1],n->queued_ms);
+      view_notice(f,value);return;
+   }
+   if(!strcmp(action,"left")||!strcmp(action,"right")||!strcmp(action,"both")||!strcmp(action,"mute")){
+      if(n->read_only||n->type!=RR_AG_SOURCE){view_notice(f,"This block is not an editable RX source.");return;}
+      char route=!strcmp(action,"left")?'L':!strcmp(action,"right")?'R':!strcmp(action,"both")?'S':'M';
+      if(!audio_set_rx_stream_route(n->id,route)){view_notice(f,"This source does not support direct RX routing.");return;}
+      view_notice(f,"RX route updated.");routing_request();
+   }
+}
+static void views_init(void){
+   const rrclient_ui_required_t c[]={{"filter",RRUI_ENTRY,false},{"keys",RRUI_LIST,false},{"value",RRUI_ENTRY,false},{"secret",RRUI_ENTRY,true},{"selected",RRUI_LABEL,false}};
+   const rrclient_ui_required_t a[]={{"nodes",RRUI_LIST,false},{"links",RRUI_LIST,false}};
+   config_view=rrclient_ui_layout_load("config.rrs",RRUI_PANEL,c,G_N_ELEMENTS(c),config_action);
+   routing_view=rrclient_ui_layout_load("routing.rrs",RRUI_PANEL,a,G_N_ELEMENTS(a),routing_action);
+   if(config_view){
+      config_tab=tui_window_create("Config");
+      if(!config_tab||!rrui_tui_tab_attach(config_tab,config_view)){rrui_form_free(config_view);config_view=NULL;}
+      else config_list();
+   }
+   if(routing_view){
+      routing_tab=tui_window_create("Routing");
+      if(!routing_tab||!rrui_tui_tab_attach(routing_tab,routing_view)){rrui_form_free(routing_view);routing_view=NULL;}
+      else route_event=event_on_message_domain_token(RRCLIENT_AUDIO_GRAPH_RESULT,routing_result,NULL,"core");
+   }
+}
+static void views_shutdown(void){
+   if(config_tab)rrui_tui_tab_detach(config_tab);
+   if(routing_tab)rrui_tui_tab_detach(routing_tab);
+   rrui_form_free(config_view);rrui_form_free(routing_view);
+   config_view=routing_view=NULL;config_tab=routing_tab=NULL;
+   g_clear_pointer(&config_key,g_free);
+}
+
 static int load_setting(const char *key,int fallback,int minimum){
    char *s=rrclient_database_setting_get(key);char *end=NULL;
    long n=s?strtol(s,&end,10):0;
@@ -144,6 +299,7 @@ static bool label(rrui_form_t *f,const char *id,const char *value){
    return old&&strcmp(old,value)&&rrui_form_set_value(f,id,value);
 }
 static void refresh(void){
+   if(routing_view&&tui_active_window()==routing_tab&&g_get_monotonic_time()-route_requested>=1500000)routing_request();
    if(!roster&&!vfo&&!tools)return;
    const char *room=rrclient_active_room(),*server=rrclient_selected_server();
    rrconn_t *conn=rrclient_active_connection();
@@ -233,6 +389,7 @@ static void load_theme(void){
 }
 void rrclient_tui_workspace_init(void){
    load_theme();
+   views_init();
    const rrclient_ui_required_t users[]={{"roster",RRUI_LIST,false}};
    const rrclient_ui_required_t rig[]={{"readback",RRUI_LABEL,false},{"mode",RRUI_LABEL,false},
       {"frequency",RRUI_ENTRY,false},{"switch",RRUI_BUTTON,false}};
@@ -252,6 +409,7 @@ void rrclient_tui_workspace_init(void){
 void rrclient_tui_workspace_shutdown(void){
    tui_render_lock();
    save_layout();
+   views_shutdown();
    rrui_form_free(audio_controls);audio_controls=NULL;audio_controls_open=false;
    rrui_form_free(roster);rrui_form_free(vfo);rrui_form_free(tools);rrui_form_free(rig_tools);roster=vfo=tools=rig_tools=NULL;
    layout_mode=-1;
