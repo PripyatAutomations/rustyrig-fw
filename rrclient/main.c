@@ -751,6 +751,20 @@ static void tui_sdr_safe_text(const char *s, int width) {
 }
 
 
+/* Legacy ANSI colors shared by the old server chooser and local SDR controls.
+ * Keep until both remaining views use RustyUI rendering. */
+#define SDR_NORMAL "\033[0m"
+#define SDR_TITLE "\033[1;36m"
+#define SDR_HILITE "\033[1;37;44m"
+#define SDR_BUTTON "\033[1;37;44m"
+#define SDR_FOCUS "\033[1;30;46m"
+#define SDR_ENABLED "\033[1;30;102m"
+#define SDR_WARNING "\033[1;33m"
+#define SDR_NAME "\033[1;96m"
+#define SDR_USERS "\033[1;93m"
+#define SDR_GOOD "\033[1;92m"
+#define SDR_MUTED "\033[2;37m"
+
 /* Temporary TUI server chooser. Created on demand and destroyed on exit;
  * the Status tab remains the stable home for connection selection. */
 #define RR_TUI_SERVER_PICKER "Server Picker"
