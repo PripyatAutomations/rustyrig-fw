@@ -38,7 +38,7 @@ typedef struct {
    gboolean zebra_dirty, zebra_rebuilding;
    guint zebra_idle, scroll_idle;
    GtkTreeStore *store;
-   GtkTreeIter local_root, serial_root, network_root, health_root, irc_root;
+   GtkTreeIter local_root, serial_root, network_root, irc_root;
    bool irc_root_valid;
    GHashTable *branches, *domains, *local_rows, *health_events, *health_last, *property_snapshots;
    guint timer;

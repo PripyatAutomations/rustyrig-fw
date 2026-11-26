@@ -27,7 +27,13 @@ gboolean resource_find_uuid(GtkTreeIter *root, const char *uuid, GtkTreeIter *fo
    GtkTreeIter child;
 
    for (gboolean ok = gtk_tree_model_iter_children(model, &child, root) ; ok ; ok = gtk_tree_model_iter_next(model, &child)) {
-      char *id = NULL;
+      char *id = NULL, *kind = NULL;
+      gtk_tree_model_get(model, &child, KIND, &kind, -1);
+      gboolean health = !g_strcmp0(kind, "cluster-health");
+      g_free(kind);
+      if (health) {
+         continue;
+      }
       gtk_tree_model_get(model, &child, UUID, &id, -1);
       gboolean match = id && !strcmp(id, uuid);
       g_free(id);
@@ -543,8 +549,14 @@ void resource_domain_rebuild(const char *domain) {
       }
    }
    GtkTreeIter child;
-   while (gtk_tree_model_iter_children(GTK_TREE_MODEL(browser->store), &child, root)) {
-      gtk_tree_store_remove(browser->store, &child);
+   GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
+   gboolean more = gtk_tree_model_iter_children(model, &child, root);
+   while (more) {
+      char *kind = NULL;
+      gtk_tree_model_get(model, &child, KIND, &kind, -1);
+      gboolean health = !g_strcmp0(kind, "cluster-health");
+      g_free(kind);
+      more = health ? gtk_tree_model_iter_next(model, &child) : gtk_tree_store_remove(browser->store, &child);
    }
 
    /* Union all reachable snapshots. Direct owners override relay metadata in the second pass, while peers supply resources they did not report. */

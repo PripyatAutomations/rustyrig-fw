@@ -1475,8 +1475,6 @@ static void resource_create(void) {
       gtk_tree_view_append_column(GTK_TREE_VIEW(browser->tree), column);
    }
 
-   gtk_tree_store_append(browser->store, &browser->health_root, NULL);
-   gtk_tree_store_set(browser->store, &browser->health_root, NAME, "Cluster Health", KIND, "cluster-health", STATE, "No telemetry", -1);
    gtk_tree_store_append(browser->store, &browser->local_root, NULL);
    gtk_tree_store_set(browser->store, &browser->local_root, NAME, "This Client", KIND, "local", STATE, "Local resources", -1);
    gtk_tree_store_append(browser->store, &browser->serial_root, &browser->local_root);
