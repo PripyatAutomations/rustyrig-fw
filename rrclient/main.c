@@ -1640,6 +1640,16 @@ void rrclient_tui_server_picker_toggle(void) {
    tui_redraw_request();
 }
 
+extern void rrclient_tui_audio_controls_toggle(void);
+static bool rrclient_tui_audio_hotkey(tui_window_t *win, unsigned key, unsigned mods, void *data) {
+   (void)win;
+   (void)key;
+   (void)mods;
+   (void)data;
+   rrclient_tui_audio_controls_toggle();
+   return true;
+}
+
 static bool rrclient_tui_server_picker_hotkey(tui_window_t *win, unsigned key, unsigned mods, void *data) {
    (void)win;
    (void)key;
@@ -2720,6 +2730,8 @@ int main(int argc, char *argv[]) {
       /* Ctrl-Tab is indistinguishable from Tab in many terminals. */
       tui_hotkey_register('s', TERMKEY_KEYMOD_ALT, rrclient_server_hotkey, NULL);
       tui_hotkey_register('S', TERMKEY_KEYMOD_ALT, rrclient_server_hotkey, NULL);
+      tui_hotkey_register('v', TERMKEY_KEYMOD_ALT, rrclient_tui_audio_hotkey, NULL);
+      tui_hotkey_register('V', TERMKEY_KEYMOD_ALT, rrclient_tui_audio_hotkey, NULL);
       tui_hotkey_register('x', TERMKEY_KEYMOD_ALT, rrclient_tui_server_picker_hotkey, NULL);
       tui_hotkey_register('X', TERMKEY_KEYMOD_ALT, rrclient_tui_server_picker_hotkey, NULL);
       tui_hotkey_register('z', TERMKEY_KEYMOD_ALT, rrclient_sdr_hotkey, NULL);
