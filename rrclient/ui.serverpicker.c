@@ -168,28 +168,41 @@ static void refresh(void) {
    }
    g_ptr_array_sort(names,compare_names);
    const char *selected=rrclient_selected_server();
-   char *wanted=g_strdup(last_profile?last_profile:selected);
+   rrui_field_t previous={0};
+   size_t idx=field_index(form,"profiles");
+   const char *current=rrui_form_value(form,"profiles");
+   bool have_current=rrui_form_field(form,idx,&previous)&&previous.selected!=SIZE_MAX&&current&&*current;
+   char *wanted=g_strdup(have_current?current:last_profile?last_profile:selected);
    rrui_form_list_clear(form,"profiles");
-   size_t idx=field_index(form,"profiles"),chosen=SIZE_MAX,count=0;
-   for(guint i=0;i<names->len;i++){
-      const char *name=g_ptr_array_index(names,i);
-      int state=rrclient_connection_state(name);
-      GPtrArray *networks=network_names();
-      const char *group="Ungrouped";
-      for(guint j=0;j<networks->len;j++){
-         const char *n=g_ptr_array_index(networks,j);
-         if(member_of(network_members(n),name)){group=n;break;}
+   GPtrArray *networks=network_names();
+   GHashTable *placed=g_hash_table_new(g_str_hash,g_str_equal);
+   size_t chosen=SIZE_MAX,first=SIZE_MAX,count=0;
+   for(guint g=0;g<=networks->len;g++){
+      const char *group=g<networks->len?g_ptr_array_index(networks,g):NULL;
+      const char *members=group?network_members(group):NULL;
+      bool heading=false;
+      for(guint i=0;i<names->len;i++){
+         const char *name=g_ptr_array_index(names,i);
+         if(g_hash_table_contains(placed,name)||(group&&!member_of(members,name)))continue;
+         if(!heading){
+            char *id=g_strdup_printf("@group:%u",g);
+            if(rrui_form_list_header(form,"profiles",id,group?group:"Ungrouped"))count++;
+            g_free(id);heading=true;
+         }
+         int state=rrclient_connection_state(name);
+         char *label=g_strdup_printf("  %s  [%s%s]",name,state==1?"Online":state<0?"Connecting":"Offline",
+            selected&&!strcmp(selected,name)?", active":"");
+         if(rrui_form_list_append(form,"profiles",name,label)){
+            if(first==SIZE_MAX)first=count;
+            if(wanted&&!strcmp(wanted,name))chosen=count;
+            count++;
+            g_hash_table_add(placed,(void *)name);
+         }
+         g_free(label);
       }
-      char *label=g_strdup_printf("%s / %s  [%s%s]",group,name,state==1?"Online":state<0?"Connecting":"Offline",
-         selected&&!strcmp(selected,name)?", active":"");
-      g_ptr_array_unref(networks);
-      if(rrui_form_list_append(form,"profiles",name,label)){
-         if(wanted&&!strcmp(wanted,name))chosen=count;
-         count++;
-      }
-      g_free(label);
    }
-   if(count)rrui_form_select(form,idx,chosen==SIZE_MAX?0:chosen);
+   if(first!=SIZE_MAX)rrui_form_select(form,idx,chosen==SIZE_MAX?first:chosen);
+   g_hash_table_unref(placed);g_ptr_array_unref(networks);
    g_free(wanted);g_ptr_array_unref(names);
    tui_redraw_request();
 }
