@@ -1180,6 +1180,9 @@ static void tui_local_sdr_draw(tui_window_t *,int,int,void *);
 static unsigned tui_local_digit=3;
 static int tui_local_freq_row,tui_local_freq_col,tui_local_buttons_row,tui_local_plot_rows,tui_local_plot_cols;
 static unsigned tui_local_zoom;
+static bool tui_local_zoom_known;
+static uint64_t tui_local_zoom_span;
+static gint64 tui_local_zoom_requested;
 static rr_bridge_spectrum_row tui_local_history[256];
 static unsigned tui_local_head,tui_local_history_count;
 static gint64 tui_local_last_row,tui_local_last_draw;
@@ -1190,15 +1193,42 @@ static void tui_local_clear_rf(void){
 }
 static void tui_local_rf_row(const rr_event_message_t *message,void *unused){
    (void)unused;
-   if(!message||!message->payload||message->length!=sizeof(rr_bridge_spectrum_event))return;
+   if(!message||!message->payload||message->length!=sizeof(rr_bridge_spectrum_event)){
+      return;
+   }
    const rr_bridge_spectrum_event *p=message->payload;
-   if(p->vfo!=rrclient_room_active_vfo("&local-sdr")||!rr_bridge_spectrum_valid(&p->row))return;
-   if(tui_local_vfo!=p->vfo){tui_local_vfo=p->vfo;tui_local_clear_rf();tui_local_zoom=0;tui_local_freq_edit=false;}
+   if(p->vfo!=rrclient_room_active_vfo("&local-sdr")||!rr_bridge_spectrum_valid(&p->row)){
+      return;
+   }
+   if(tui_local_vfo!=p->vfo){tui_local_vfo=p->vfo;tui_local_clear_rf();tui_local_zoom=0;tui_local_zoom_known=false;tui_local_zoom_requested=0;tui_local_freq_edit=false;}
    gint64 now=g_get_monotonic_time();
+   uint64_t span=p->row.high_hz-p->row.low_hz;
+   if(tui_local_zoom_requested){
+      uint64_t tolerance=MAX(UINT64_C(2),tui_local_zoom_span/100);
+      if((span>tui_local_zoom_span?span-tui_local_zoom_span:tui_local_zoom_span-span)>tolerance&&now-tui_local_zoom_requested<2000000){
+         return;
+      }
+      tui_local_zoom_requested=0;
+   }
+   if(!tui_local_zoom_known){
+      /* Kiwi starts at zoom 6; infer its current zoom from the actual RF
+       * span and the receiver's published coverage, not the UI default. */
+      unsigned zoom=0;
+      /* A normal Kiwi covers 30 MHz, with some models covering 32 MHz.
+       * Pick the nearest power-of-two span. */
+      uint64_t full=30000000;
+      while(zoom<14&&full>span+span/2){
+         full=(full+1)/2;
+         zoom++;
+      }
+      tui_local_zoom=zoom;
+      tui_local_zoom_known=true;
+   }
    if(tui_local_history_count){
       const rr_bridge_spectrum_row *prev=&tui_local_history[(tui_local_head+255)%256];
-      if(prev->low_hz!=p->row.low_hz||prev->high_hz!=p->row.high_hz||now-tui_local_last_row>5000000)
+      if(prev->low_hz!=p->row.low_hz||prev->high_hz!=p->row.high_hz||now-tui_local_last_row>5000000){
          tui_local_clear_rf();
+      }
    }
    tui_local_history[tui_local_head]=p->row;
    tui_local_head=(tui_local_head+1)%256;
@@ -1207,7 +1237,9 @@ static void tui_local_rf_row(const rr_event_message_t *message,void *unused){
    if(now-tui_local_last_draw>=100000){
       tui_local_last_draw=now;
       tui_window_t *w=tui_active_window();
-      if(w&&w->view_draw==tui_local_sdr_draw)tui_redraw_request();
+      if(w&&w->view_draw==tui_local_sdr_draw){
+         tui_redraw_request();
+      }
    }
 }
 static uint32_t tui_local_palette(unsigned power){
@@ -1240,7 +1272,7 @@ static void tui_local_update_vfos(void) {
    }
    char active=rrclient_room_active_vfo("&local-sdr");
    if(tui_local_vfo!=active){
-      tui_local_vfo=active;tui_local_clear_rf();tui_local_zoom=0;
+      tui_local_vfo=active;tui_local_clear_rf();tui_local_zoom=0;tui_local_zoom_known=false;tui_local_zoom_requested=0;
       tui_local_freq_edit=false;
    }
 }
@@ -1391,7 +1423,7 @@ static void tui_local_sdr_draw(tui_window_t *win,int rows,int cols,void *unused)
       for(int x=0;x<width;x++)rrui_canvas_put(c,x,1,0x2500,0x8baab8);
       for(int tick=0;tick<=4;tick++){
          uint64_t f=latest->low_hz+(latest->high_hz-latest->low_hz)*tick/4;
-         g_snprintf(label,sizeof(label),"%.3f",(double)f/1000000.);
+         g_snprintf(label,sizeof(label),latest->high_hz-latest->low_hz<10000?"%.6f":"%.3f",(double)f/1000000.);
          int x=CLAMP((width-1)*tick/4-(tick==4?(int)strlen(label)-1:0),0,width-1);
          rrui_canvas_text(c,x,1,width-x,label,0xc2d1da);
       }
@@ -1437,13 +1469,36 @@ static void tui_local_sdr_draw(tui_window_t *win,int rows,int cols,void *unused)
    rrui_canvas_draw(c,2,1);rrui_canvas_free(c);
 }
 
-static void tui_local_change_zoom(int delta){
+static void tui_local_change_zoom(int delta,int col){
    rr_local_bridge_ui_state_t state={0};
-   if(!rrclient_local_bridge_ui_state_vfo(tui_local_vfo,&state)||!state.connected||!state.waterfall)return;
+   if(!rrclient_local_bridge_ui_state_vfo(tui_local_vfo,&state)||!state.connected||!state.waterfall){
+      return;
+   }
+   if(!tui_local_zoom_known||!tui_local_history_count){
+      return;
+   }
    unsigned zoom=(unsigned)CLAMP((int)tui_local_zoom+delta,(int)state.min_zoom,(int)state.max_zoom);
-   if(zoom==tui_local_zoom)return;
-   if(rrclient_local_bridge_request_waterfall_vfo(tui_local_vfo,true,zoom,state.frequency_hz)){
-      tui_local_zoom=zoom;tui_local_clear_rf();
+   if(zoom==tui_local_zoom){
+      return;
+   }
+   const rr_bridge_spectrum_row *row=&tui_local_history[(tui_local_head+255)%256];
+   uint64_t span=row->high_hz-row->low_hz;
+   uint64_t next=zoom>tui_local_zoom?MAX(UINT64_C(1),span>>(zoom-tui_local_zoom)):span<<(tui_local_zoom-zoom);
+   uint64_t center=state.frequency_hz;
+   if(col>0&&tui_local_plot_cols>0){
+      /* Keep the RF frequency under the pointer stationary as the span
+       * changes. The bridge clamps the resulting window at band edges. */
+      double fraction=(CLAMP(col-1,0,tui_local_plot_cols-1)+0.5)/tui_local_plot_cols;
+      double anchor=row->low_hz+fraction*span;
+      double desired=anchor+(0.5-fraction)*next;
+      center=(uint64_t)MAX(1.0,desired);
+   }
+   if(rrclient_local_bridge_request_waterfall_vfo(tui_local_vfo,true,zoom,center)){
+      tui_local_zoom=zoom;
+      tui_local_zoom_span=next;
+      tui_local_zoom_requested=g_get_monotonic_time();
+      tui_local_clear_rf();
+      tui_redraw_request();
    }
 }
 static bool tui_local_sdr_key(tui_window_t *win, unsigned key, unsigned mods, void *unused) {
@@ -1520,7 +1575,7 @@ static bool tui_local_sdr_key(tui_window_t *win, unsigned key, unsigned mods, vo
          tui_local_action(tui_local_focus);
       }
    } else if (key == '-' || key == '+') {
-      tui_local_change_zoom(key=='+'?1:-1);
+      tui_local_change_zoom(key=='+'?1:-1,0);
    } else if (key == 'f' || key == 'F') {
       tui_local_action(LOCAL_FREQ);
    } else if (key == 'm' || key == 'M') {
@@ -1538,7 +1593,10 @@ static bool tui_local_sdr_mouse(tui_window_t *win,int row,int col,int button,int
    (void)win;(void)mods;(void)unused;
    if(action!=TERMKEY_MOUSE_PRESS)return false;
    if(row>=3&&row<4+tui_local_plot_rows){
-      if(button==4||button==5){tui_local_change_zoom(button==4?1:-1);return true;}
+      if(button==4||button==5){
+         tui_local_change_zoom(button==4?1:-1,col);
+         return true;
+      }
       if(button==1&&tui_local_history_count&&g_get_monotonic_time()-tui_local_last_row<5000000){
          const rr_bridge_spectrum_row *latest=&tui_local_history[(tui_local_head+255)%256];
          int x=CLAMP(col-1,0,tui_local_plot_cols-1);
@@ -1575,9 +1633,11 @@ void rrclient_tui_local_sdr_open(void) {
    if (!window) {
       return;
    }
-   if(!tui_local_rf_token)tui_local_rf_token=event_on_message_domain_token(RR_BRIDGE_SPECTRUM_EVENT,tui_local_rf_row,NULL,"core");
+   if(!tui_local_rf_token){
+      tui_local_rf_token=event_on_message_domain_token(RR_BRIDGE_SPECTRUM_EVENT,tui_local_rf_row,NULL,"core");
+   }
    tui_local_clear_rf();
-   tui_local_zoom=0;
+   tui_local_zoom=0;tui_local_zoom_known=false;tui_local_zoom_requested=0;
    window->view_draw = tui_local_sdr_draw;
    window->view_key = tui_local_sdr_key;
    window->view_mouse = tui_local_sdr_mouse;
