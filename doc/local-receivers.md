@@ -35,9 +35,9 @@ refreshes from the configured `receiver-directory.url` HTTPS mirror. If the
 mirror fails, the existing cache remains visible. A newly imported server
 snapshot also replaces the active catalog and is saved for later offline use.
 
-The **Favorites only** filter defaults off. Favorites are stored by canonical
-receiver URL in the local SQLite database, independently of provider catalog
-refreshes. The right-click **Mark** menu sets Unreachable, Restricted, Good,
+The **Favorites only** filter defaults off. Favorites and marks are stored by
+canonical receiver URL in persistent client.db, independently of provider catalog
+refreshes and cache deletion. The right-click **Mark** menu sets Unreachable, Restricted, Good,
 or Clear Mark; Clear Mark deletes the local override.
 
 **Connect** defaults to a local `rrbridge`. The **Proxy rrbridge?** checkbox
