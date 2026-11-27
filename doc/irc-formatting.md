@@ -13,7 +13,7 @@ markers.
 | Byte | Meaning | GTK shortcut |
 | --- | --- | --- |
 | `0x02` (`\002`) | Toggle bold | Ctrl+B |
-| `0x03` (`\003`) | Set foreground and optional background color | Ctrl+C |
+| `0x03` (`\003`) | Set foreground and optional background color | Ctrl+K |
 | `0x04` (`\004`) | Set RGB foreground and optional background | Preserved on paste/history |
 | `0x0F` (`\017`) | Reset formatting | Ctrl+O |
 | `0x11` (`\021`) | Toggle monospace | Ctrl+Shift+M |
@@ -26,6 +26,8 @@ Styles toggle independently. Reset ends all active styles and clears colors.
 GTK renders all controls in this table. TUI renders bold, italic, underline,
 reverse, strikethrough and reset. The TUI consumes monospace controls without a
 visual change because terminal text is already monospace.
+
+Ctrl+C uses normal GTK plain-text copying; Ctrl+Shift+C copies IRC formatting too.
 
 ## Indexed Colors
 
@@ -58,7 +60,7 @@ selected foreground or background independently. Indices 0-15 are listed below;
 
 For example, `\00304red text\017` selects foreground 4, and
 `\0033,1green on black\017` selects foreground 3 and background 1. After
-Ctrl+C, GTK displays the available foreground colors as numeric samples, but
+Ctrl+K, GTK displays the available foreground colors as numeric samples, but
 the palette is optional: type the foreground digits directly, then an optional
 comma and background digits. Typing a comma shows numeric foreground/background
 pairs for that foreground. After choosing a swatch, the input caret remains
@@ -91,7 +93,7 @@ controls reset both colors without turning off bold or other styles. Incomplete
 parameters remain visible, including a comma without a valid background.
 
 GTK renders the exact palette/RGB values and preserves hex controls in input
-and history. The Ctrl+C picker offers all 100 indices in a 10-column grid;
+and history. The Ctrl+K picker offers all 100 indices in a 10-column grid;
 choices insert two digits so following numeric text is preserved. TUI uses
 256-color terminal equivalents for the extended palette and true-color ANSI
 sequences for hex colors. Hex display requires a true-color terminal.
