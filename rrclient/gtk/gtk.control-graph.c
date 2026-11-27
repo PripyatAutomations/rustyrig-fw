@@ -358,6 +358,19 @@ const char *rr_logic_canvas_hit_block(double x,double y) {
    }
    return NULL;
 }
+gboolean rr_logic_canvas_move_block(const char *id,double x,double y) {
+   for (unsigned i=0;i<rr_logic_block_count;i++) {
+      if (!strcmp(rr_logic_blocks[i].id,id)) {
+         rr_logic_blocks[i].x=x;
+         rr_logic_blocks[i].y=y;
+         return TRUE;
+      }
+   }
+   return FALSE;
+}
+void rr_logic_canvas_save_positions(void) {
+   save_model();
+}
 gboolean rr_logic_canvas_remove_block(const char *id) {
    if (!rr_logic_remove(id)) { return FALSE; }
    drag_block=drag_wire=-1;changed();return TRUE;
