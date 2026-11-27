@@ -848,8 +848,7 @@ static void merge_records(void) {
    // Keep historical offline/missing entries until absent for ninety days.
    char *purge = sqlite3_mprintf("DELETE FROM receiver_details WHERE url IN(SELECT url FROM receiver_records WHERE deleted=1 AND last_seen<%lld);"
       "DELETE FROM receiver_state WHERE url IN(SELECT url FROM receiver_records WHERE deleted=1 AND last_seen<%lld);"
-      "DELETE FROM receiver_records WHERE deleted=1 AND last_seen<%lld;COMMIT;", (long long)now - 90 * 86400, (long long)now - 90 * 86400, (long long)now - 90 *
-      86400);
+      "DELETE FROM receiver_records WHERE deleted=1 AND last_seen<%lld;COMMIT;", (long long)now - 90 * 86400, (long long)now - 90 * 86400);
 
    if (!purge || sqlite3_exec(cache_db, purge, NULL, NULL, NULL) != SQLITE_OK) {
       Log(LOG_WARN, "receiver.directory", "Directory cache purge/commit failed: %s", sqlite3_errmsg(cache_db));
@@ -1199,6 +1198,7 @@ bool receiver_directory_set_favorite(const char *endpoint, bool favorite) {
    char *url = endpoint ? canonical_url(endpoint) : NULL;
 
    if (!url || !cache_db) {
+      Log(LOG_WARN, "receiver.directory", "Cannot save favorite: invalid URL or unavailable cache database");
       g_free(url);
 
       return false;
@@ -1210,6 +1210,9 @@ bool receiver_directory_set_favorite(const char *endpoint, bool favorite) {
    if (ok) {
       sqlite3_bind_text(stmt, 1, url, -1, SQLITE_TRANSIENT);
       ok = sqlite3_step(stmt) == SQLITE_DONE;
+   }
+   if (!ok) {
+      Log(LOG_WARN, "receiver.directory", "Cannot save favorite: %s", sqlite3_errmsg(cache_db));
    }
    sqlite3_finalize(stmt);
 
@@ -1260,6 +1263,8 @@ bool receiver_directory_set_state(const char *endpoint, const char *state, const
    if (ok) {
       restore_states();
       changed();
+   } else {
+      Log(LOG_WARN, "receiver.directory", "Cannot save receiver mark: %s", sqlite3_errmsg(cache_db));
    }
    g_free(url);
 
