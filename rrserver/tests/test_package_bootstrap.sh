@@ -23,7 +23,7 @@ with tempfile.TemporaryDirectory() as directory:
     path.write_text('#!/usr/bin/env python3\nimport subprocess, sys\nargs = iter(sys.argv[1:])\nfiltered = []\nfor arg in args:\n    if arg in ["-o", "-g"]: next(args)\n    else: filtered.append(arg)\nsubprocess.run([' + repr(install) + '] + filtered, check=True)\n')
     path.chmod(0o755)
     confmodule = root / 'confmodule'
-    confmodule.write_text('db_set() { :; }\ndb_get() { RET=; case $1 in rustyrig-server/site-pending) RET=${RR_TEST_SITE_PENDING:-false};; rustyrig-server/site-call) RET=${RR_TEST_SITE_CALL:-};; rustyrig-server/site-grid) RET=${RR_TEST_SITE_GRID:-};; rustyrig-server/site-location) RET=${RR_TEST_SITE_LOCATION:-};; rustyrig-server/site-description) RET=${RR_TEST_SITE_DESCRIPTION:-};; rustyrig/admin-users) RET=${RR_TEST_ADMIN_USERS:-};; rustyrig-server/admin-password) RET=${RR_TEST_ADMIN_PASSWORD:-};; rustyrig-server/enable-guest) RET=${RR_TEST_GUEST_ENABLED:-false};; rustyrig-server/guest-password) RET=${RR_TEST_GUEST_PASSWORD:-};; rustyrig-server/allow-remote-admin) RET=${RR_TEST_REMOTE_ADMIN:-false};; rustyrig-server/remote-admin-subjects) RET=${RR_TEST_REMOTE_SUBJECTS:-};; esac; }\ndb_purge() { :; }\n')
+    confmodule.write_text('db_set() { :; }\ndb_get() { RET=; case $1 in rustyrig-server/site-pending) RET=${RR_TEST_SITE_PENDING:-false};; rustyrig-server/site-domain) RET=${RR_TEST_SITE_DOMAIN:-};; rustyrig-server/site-name) RET=${RR_TEST_SITE_NAME:-};; rustyrig-server/site-call) RET=${RR_TEST_SITE_CALL:-};; rustyrig-server/site-grid) RET=${RR_TEST_SITE_GRID:-};; rustyrig-server/site-location) RET=${RR_TEST_SITE_LOCATION:-};; rustyrig-server/site-description) RET=${RR_TEST_SITE_DESCRIPTION:-};; rustyrig/admin-users) RET=${RR_TEST_ADMIN_USERS:-};; rustyrig-server/admin-password) RET=${RR_TEST_ADMIN_PASSWORD:-};; rustyrig-server/enable-guest) RET=${RR_TEST_GUEST_ENABLED:-false};; rustyrig-server/guest-password) RET=${RR_TEST_GUEST_PASSWORD:-};; rustyrig-server/allow-remote-admin) RET=${RR_TEST_REMOTE_ADMIN:-false};; rustyrig-server/remote-admin-subjects) RET=${RR_TEST_REMOTE_SUBJECTS:-};; esac; }\ndb_purge() { :; }\n')
     sql = root / 'var/lib/rustyrig/sql'
     sql.mkdir(parents=True)
     for name in ['sqlite.master.sql', 'sqlite.master.preload.sql']:
@@ -60,6 +60,8 @@ with tempfile.TemporaryDirectory() as directory:
            'RR_TEST_REMOTE_SUBJECTS': 'alice@camp bob@*',
            'RR_TEST_SITE_PENDING': 'true',
            'RR_TEST_SITE_CALL': 'N1ABC/P',
+           'RR_TEST_SITE_DOMAIN': 'ham.example.net',
+           'RR_TEST_SITE_NAME': 'testnode',
            'RR_TEST_SITE_GRID': 'EN31eo',
            'RR_TEST_SITE_LOCATION': 'Des Moines, IA, USA',
            'RR_TEST_SITE_DESCRIPTION': 'Remote RX & TX',
@@ -68,11 +70,11 @@ with tempfile.TemporaryDirectory() as directory:
     metadata = site_config.read_text()
     for line in ['station.call=N1ABC/P', 'station.grid=EN31eo',
                  'station.location=Des Moines, IA, USA', 'station.description=Remote RX & TX',
-                 'domain=camp.local', 'station.name=dsmiia00', 'owner.call=N0CALL']:
+                 'domain=ham.example.net', 'station.name=testnode', 'owner.call=N0CALL']:
         assert line in metadata, line
     assert site_config.stat().st_mode & 0o777 == 0o640
     # A normal upgrade must not replay old debconf answers over a manual edit.
-    site_config.write_text(metadata.replace('Remote RX & TX', 'Edited locally'))
+    site_config.write_text(metadata.replace('Remote RX & TX', 'Edited locally').replace('domain=ham.example.net', 'domain=local.example.net'))
     env['RR_TEST_SITE_PENDING'] = 'false'
     database = root / 'var/lib/rustyrig/db/master.db'
     with sqlite3.connect(database) as connection:
@@ -93,13 +95,18 @@ with tempfile.TemporaryDirectory() as directory:
         assert connection.execute("SELECT enabled,password FROM users WHERE name='admin'").fetchone() == (0, 'existing-password')
         assert connection.execute("SELECT count(*) FROM resource_privileges WHERE granted_by='debian-first-install'").fetchone() == (4,)
     assert 'station.description=Edited locally' in site_config.read_text()
+    assert 'domain=local.example.net' in site_config.read_text()
     # Explicit reconfiguration updates the requested fields without touching others.
     env['RR_TEST_SITE_PENDING'] = 'true'
     env['RR_TEST_SITE_DESCRIPTION'] = 'Updated via debconf'
     env['RR_TEST_SITE_GRID'] = ''
+    env['RR_TEST_SITE_DOMAIN'] = ''
+    env['RR_TEST_SITE_NAME'] = ''
     subprocess.run(['sh', str(script)], env=env, check=True)
     assert 'station.description=Updated via debconf' in site_config.read_text()
     assert 'station.grid=EN31eo' in site_config.read_text()
+    assert 'domain=local.example.net' in site_config.read_text()
+    assert 'station.name=testnode' in site_config.read_text()
     env['RR_TEST_SITE_PENDING'] = 'false'
     database.unlink()
     env['RR_TEST_HASH_FAIL'] = 'true'
