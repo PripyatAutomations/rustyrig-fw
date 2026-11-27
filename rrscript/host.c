@@ -199,7 +199,7 @@ static rrs_value_t *native_file(rrs_vm_t *vm,int argc,
 
 
 /* Reusable script utilities: neither their state nor timers know about .mac files. */
-enum { UTIL_REGEX=1,UTIL_CHR,UTIL_SLUG,UTIL_LINE,UTIL_LINES,UTIL_NOW,
+enum { UTIL_REGEX=1,UTIL_CAPTURE,UTIL_CHR,UTIL_SLUG,UTIL_LINE,UTIL_LINES,UTIL_NOW,
        UTIL_STAMP,UTIL_DATA,UTIL_STR,UTIL_HASH,UTIL_SLICE,UTIL_LENGTH,UTIL_GET,UTIL_SET,UTIL_USE,UTIL_NAMESPACE,UTIL_NAMESPACES,UTIL_KEYS,UTIL_EVERY,UTIL_AFTER,UTIL_CANCEL };
 static script_file_t *script_vm_lookup(rrs_vm_t *vm) {
    g_mutex_lock(&script_vm_owners_mutex);
@@ -493,16 +493,26 @@ static rrs_value_t *native_script_util(rrs_vm_t *vm,int argc,
       g_string_free(out,TRUE);
       return result;
    }
-   if(op==UTIL_REGEX) {
+   if(op==UTIL_REGEX || op==UTIL_CAPTURE) {
       if(argc!=2||rrs_value_type(argv[1])!=RRS_STRING) {
          rrs_vm_raise(vm,"string.regex(text,pattern)");return NULL;
       }
       GError *error=NULL;
       GRegex *re=g_regex_new(rrs_value_string(argv[1]),0,0,&error);
       if(!re){rrs_vm_raise(vm,error?error->message:"Invalid regex");g_clear_error(&error);return NULL;}
-      gboolean yes=g_regex_match(re,value,0,NULL);
+      GMatchInfo *match=NULL;
+      gboolean yes=g_regex_match(re,value,0,&match);
+      rrs_value_t *result;
+      if (op==UTIL_CAPTURE) {
+         char *capture=yes && g_match_info_get_match_count(match)>1 ? g_match_info_fetch(match,1):NULL;
+         result=capture?rrs_string(capture):rrs_null();
+         g_free(capture);
+      } else {
+         result=rrs_boolean(yes);
+      }
+      g_match_info_free(match);
       g_regex_unref(re);
-      return rrs_boolean(yes);
+      return result;
    }
    if(op==UTIL_LINE||op==UTIL_LINES) {
       if((op==UTIL_LINE&&(argc!=2||rrs_value_type(argv[1])!=RRS_INT))||
@@ -680,6 +690,7 @@ static bool register_util_api(rrs_vm_t *vm) {
       REG("net.http.post",native_script_http,1) &&
       REG("net.http.result",native_script_http,2) &&
       REG("string.regex",native_script_util,UTIL_REGEX) &&
+      REG("string.capture",native_script_util,UTIL_CAPTURE) &&
       REG("string.chr",native_script_util,UTIL_CHR) &&
       REG("string.slug",native_script_util,UTIL_SLUG) &&
       REG("string.hash",native_script_util,UTIL_HASH) &&
