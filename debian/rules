@@ -67,6 +67,7 @@ override_dh_auto_build:
 override_dh_auto_install: $(addprefix install-optional-,$(ENABLED_OPTIONAL_MODULES))
 	install -Dm755 packaging/admin-permissions.sh debian/rustyrig-common/usr/lib/rustyrig/admin-permissions
 	install -Dm755 packaging/seed-remote-admin.py debian/rustyrig-server/usr/lib/rustyrig/seed-remote-admin
+	install -Dm755 packaging/configure-site.py debian/rustyrig-server/usr/lib/rustyrig/configure-site
 	install -Dm755 bin/rrbridge debian/rustyrig-rrbridge$(LIBEXECDIR)/rrbridge
 	install -Dm755 bin/rrbridge-kiwi.so debian/rustyrig-rrbridge$(MODULEDIR)/rrbridge/rrbridge-kiwi.so
 ifneq ($(MODEMS_ENABLED),)

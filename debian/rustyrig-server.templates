@@ -63,3 +63,37 @@ Default:
 Description: Password for the optional RustyRig guest account:
  Required when the guest account is enabled. Never use a shared default
  password; choose a distinct secret and distribute it only to intended users.
+
+Template: rustyrig-server/site-call
+Type: string
+Default:
+Description: Station callsign:
+ Enter the public callsign for this station (for example, N0CALL/P).
+ Leave empty to retain the existing setting.
+
+Template: rustyrig-server/site-grid
+Type: string
+Default:
+Description: Station Maidenhead grid square:
+ Enter the station locator (for example, EM98at).
+ Leave empty to retain the existing setting.
+
+Template: rustyrig-server/site-location
+Type: string
+Default:
+Description: Station location:
+ Enter the public station location, such as City, State, Country, or MOBILE.
+ Leave empty to retain the existing setting.
+
+Template: rustyrig-server/site-description
+Type: string
+Default:
+Description: Station description:
+ Enter a short public description of the station or receiver.
+ Leave empty to retain the existing setting.
+
+Template: rustyrig-server/site-pending
+Type: boolean
+Default: false
+Description: Pending station metadata update (internal)
+ This flag preserves answers between configuration and package installation.

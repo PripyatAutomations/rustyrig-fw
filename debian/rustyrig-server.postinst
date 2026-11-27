@@ -105,6 +105,21 @@ if command -v db_set >/dev/null 2>&1 && [ "$new_database" = true ]; then
     db_set rustyrig-server/guest-password "" || true
 fi
 
+# Apply only pending debconf edits, never stale answers on ordinary upgrades.
+if command -v db_get >/dev/null 2>&1 && db_get rustyrig-server/site-pending && [ "${RET:-false}" = true ]; then
+    db_get rustyrig-server/site-call
+    site_call=${RET:-}
+    db_get rustyrig-server/site-grid
+    site_grid=${RET:-}
+    db_get rustyrig-server/site-location
+    site_location=${RET:-}
+    db_get rustyrig-server/site-description
+    site_description=${RET:-}
+    /usr/lib/rustyrig/configure-site /etc/rustyrig/rrserver.site-local.cfg \
+        "$site_call" "$site_grid" "$site_location" "$site_description"
+    db_set rustyrig-server/site-pending false || true
+fi
+
 # Grant administrative access without changing service ownership.
 /usr/lib/rustyrig/admin-permissions
 
