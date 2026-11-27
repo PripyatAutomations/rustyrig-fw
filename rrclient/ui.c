@@ -155,7 +155,20 @@ bool ui_vprint(const char *window, const char *fmt, va_list ap) {
 
    if ((!window || !*window || rrclient_window_is_shared(window)) &&
        (!window || strcasecmp(window, "client log")) && server_name && *server_name) {
-      ui_output(window, "|%s| %s", server_name, message);
+      /* Keep the existing colored timestamp at the beginning of the
+       * line, where the frontend recognizes it. Prefixing the server
+       * first makes GTK add a second timestamp. */
+      const char *end = !strncmp(message, "\00314[", 4) ? strstr(message, "]\017") : NULL;
+      if (end) {
+         end += 2;
+         while (*end == ' ') {
+            end++;
+         }
+         ui_output(window, "%.*s |%s| %s", (int)(strstr(message, "]\017") + 2 - message),
+            message, server_name, end);
+      } else {
+         ui_output(window, "|%s| %s", server_name, message);
+      }
    } else {
       ui_output(window, "%s", message);
    }
