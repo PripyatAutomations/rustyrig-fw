@@ -305,9 +305,11 @@ static void patch_notice(const char *message){g_strlcpy(patch_message,message,si
  * Blocks are expensive obstacles, including unrelated blocks on the path.
  * A congested graph still gets a best-effort route rather than losing links. */
 typedef struct {int x,y;} patch_point_t;
-typedef struct {patch_point_t a,b;} patch_segment_t;
+typedef struct {patch_point_t a,b;unsigned net;} patch_segment_t;
+typedef struct {unsigned net,mask;uint32_t color;} patch_wire_cell_t;
+static unsigned patch_net(int block,int pin) { return 1u+(unsigned)block*PIN_COUNT+(unsigned)pin; }
 typedef struct {patch_point_t p[6];unsigned n;gint64 cost;} patch_path_t;
-static gint64 patch_segment_cost(patch_point_t a,patch_point_t b,const GArray *used){
+static gint64 patch_segment_cost(patch_point_t a,patch_point_t b,const GArray *used,unsigned net){
    if(a.x==b.x&&a.y==b.y)return 0;
    bool horizontal=a.y==b.y;
    int lo=horizontal?MIN(a.x,b.x):MIN(a.y,b.y);
@@ -327,21 +329,22 @@ static gint64 patch_segment_cost(patch_point_t a,patch_point_t b,const GArray *u
       int l=h?MIN(q.a.x,q.b.x):MIN(q.a.y,q.b.y);
       int u=h?MAX(q.a.x,q.b.x):MAX(q.a.y,q.b.y);
       int f=h?q.a.y:q.a.x;
-      if(h==horizontal){
-         if(f==fixed&&lo<=u&&hi>=l)cost+=1000LL*(MIN(hi,u)-MAX(lo,l)+1);
-      }else if(f>=lo&&f<=hi&&fixed>=l&&fixed<=u)cost+=12;
+      if (q.net==net) { continue; }
+      if (h==horizontal) {
+         if (f==fixed && lo<=u && hi>=l) { cost+=1000LL*(MIN(hi,u)-MAX(lo,l)+1); }
+      } else if (f>=lo && f<=hi && fixed>=l && fixed<=u) { cost+=12; }
    }
    return cost;
 }
-static void patch_candidate(patch_path_t *best,const patch_point_t *points,unsigned count,const GArray *used){
+static void patch_candidate(patch_path_t *best,const patch_point_t *points,unsigned count,const GArray *used,unsigned net){
    gint64 cost=0;
    for(unsigned i=1;i<count;i++){
-      cost+=patch_segment_cost(points[i-1],points[i],used)+4;
+      cost+=patch_segment_cost(points[i-1],points[i],used,net)+4;
       if(cost>=best->cost)return;
    }
    best->cost=cost;best->n=count;memcpy(best->p,points,count*sizeof(*points));
 }
-static patch_path_t patch_route(int x1,int y1,int x2,int y2,const GArray *used){
+static patch_path_t patch_route(int x1,int y1,int x2,int y2,const GArray *used,unsigned net){
    /* Ports themselves are painted by blocks; begin/end one cell outside. */
    patch_path_t best={.cost=G_MAXINT64};
    if(x1<=x2){
@@ -350,7 +353,7 @@ static patch_path_t patch_route(int x1,int y1,int x2,int y2,const GArray *used){
          int lane=mid+(d%2?(d+1)/2:-d/2);
          if(lane<x1||lane>x2)continue;
          patch_point_t p[]={{x1,y1},{lane,y1},{lane,y2},{x2,y2}};
-         patch_candidate(&best,p,G_N_ELEMENTS(p),used);
+         patch_candidate(&best,p,G_N_ELEMENTS(p),used,net);
       }
    }
    /* Detour around obstructions and route right-to-left links outside
@@ -364,14 +367,39 @@ static patch_path_t patch_route(int x1,int y1,int x2,int y2,const GArray *used){
          int a=sx+j,b=dx-j;
          if(b<0)continue;
          patch_point_t p[]={{x1,y1},{a,y1},{a,y},{b,y},{b,y2},{x2,y2}};
-         patch_candidate(&best,p,G_N_ELEMENTS(p),used);
+         patch_candidate(&best,p,G_N_ELEMENTS(p),used,net);
       }
    }
    for(unsigned i=0;i<patch_count;i++){
       int ys[]={patch_pos[i].y-1,patch_pos[i].y+PATCH_H};
       for(unsigned j=0;j<2;j++)if(ys[j]>=0){
          patch_point_t p[]={{x1,y1},{sx,y1},{sx,ys[j]},{dx,ys[j]},{dx,y2},{x2,y2}};
-         patch_candidate(&best,p,G_N_ELEMENTS(p),used);
+         patch_candidate(&best,p,G_N_ELEMENTS(p),used,net);
+      }
+   }
+   return best;
+}
+/* Choose a branch from a previously routed segment of the SAME output pin.
+ * Only a visual routing optimization: each original destination stays a
+ * separate graph edge. Rebuild the tree from current block geometry. */
+static patch_path_t patch_branch(int x1,int y1,int x2,int y2,const GArray *used,unsigned net) {
+   patch_path_t best=patch_route(x1,y1,x2,y2,used,net);
+   for (guint i=0;i<used->len;i++) {
+      patch_segment_t q=g_array_index(used,patch_segment_t,i);
+      if (q.net!=net) { continue; }
+      bool horizontal=q.a.y==q.b.y;
+      int lo=horizontal?MIN(q.a.x,q.b.x):MIN(q.a.y,q.b.y);
+      int hi=horizontal?MAX(q.a.x,q.b.x):MAX(q.a.y,q.b.y);
+      int candidates[]={lo,hi,CLAMP(horizontal?x2:y2,lo,hi)};
+      for (unsigned j=0;j<G_N_ELEMENTS(candidates);j++) {
+         patch_point_t a=horizontal?(patch_point_t){candidates[j],q.a.y}:
+                                    (patch_point_t){q.a.x,candidates[j]};
+         /* Keep the final approach horizontal, directly into the input. */
+         patch_point_t p[]={{a.x,a.y},{a.x,y2},{x2,y2}};
+         patch_candidate(&best,p,G_N_ELEMENTS(p),used,net);
+         int lane=x2-1;
+         patch_point_t detour[]={{a.x,a.y},{lane,a.y},{lane,y2},{x2,y2}};
+         patch_candidate(&best,detour,G_N_ELEMENTS(detour),used,net);
       }
    }
    return best;
@@ -385,44 +413,57 @@ static uint32_t patch_corner(unsigned mask){
       case 12:return 0x256e; /* ╮ */
       case 3:return 0x2570; /* ╰ */
       case 9:return 0x256f; /* ╯ */
-      case 5:return 0x2502;
+      case 5:case 1:case 4:return 0x2502;
+      case 7:return 0x251c; /* ├ */
+      case 13:return 0x2524; /* ┤ */
+      case 14:return 0x252c; /* ┬ */
+      case 11:return 0x2534; /* ┴ */
+      case 15:return 0x253c; /* ┼ */
       default:return 0x2500;
    }
 }
-static void patch_wire_cell(rrui_canvas_t *c,int x,int y,uint32_t glyph,uint32_t color){
+/* Accumulate direction masks by net, not color. Different red signals
+ * crossing are not electrically connected, even if their colors match. */
+static void patch_wire_cell(rrui_canvas_t *c,patch_wire_cell_t *cells,int x,int y,unsigned mask,uint32_t color,unsigned net) {
    x-=patch_x;y-=patch_y;
-   if(x<0||y<0||x>=patch_cols||y>=patch_rows)return;
-   uint32_t old=rrui_canvas_get(c,x,y),old_color=rrui_canvas_color(c,x,y);
-   if(old!=' '&&old_color!=color){
-      /* A neutral crossing, not a solid connection or a mixed L/R lane. */
-      if(old==0x2500&&glyph==0x2502){rrui_canvas_put(c,x,y,0x256a,0x9aa7b3);return;}
-      if(old==0x2502&&glyph==0x2500){rrui_canvas_put(c,x,y,0x256b,0x9aa7b3);return;}
-      if(old==0x256a||old==0x256b)return;
+   if (x<0 || y<0 || x>=patch_cols || y>=patch_rows || !mask) { return; }
+   patch_wire_cell_t *cell=&cells[(size_t)y*patch_cols+x];
+   if (!cell->net) {
+      *cell=(patch_wire_cell_t){net,mask,color};
+   } else if (cell->net==net) {
+      cell->mask|=mask;
+   } else {
+      /* Neutral bridge glyph, including crossings of identically colored
+       * nets. Never draw a connected T or plus for unrelated signals. */
+      cell->net=UINT_MAX;cell->mask=0;
+      rrui_canvas_put(c,x,y,0x256a,0x9aa7b3);return;
    }
-   rrui_canvas_put(c,x,y,glyph,color);
+   rrui_canvas_put(c,x,y,patch_corner(cell->mask),cell->color);
 }
-static void patch_paint_wire(rrui_canvas_t *c,patch_path_t path,uint32_t color,GArray *used){
-   /* Normalize zero-length runs before calculating bend glyphs. */
+static void patch_paint_wire(rrui_canvas_t *c,patch_wire_cell_t *cells,patch_path_t path,uint32_t color,GArray *used,unsigned net,patch_point_t source) {
    unsigned n=0;
-   for(unsigned i=0;i<path.n;i++){
-      if(n&&path.p[i].x==path.p[n-1].x&&path.p[i].y==path.p[n-1].y)continue;
+   for (unsigned i=0;i<path.n;i++) {
+      if (n && path.p[i].x==path.p[n-1].x && path.p[i].y==path.p[n-1].y) { continue; }
       path.p[n++]=path.p[i];
    }
-   if(n<2){if(n)patch_wire_cell(c,path.p[0].x,path.p[0].y,0x2500,color);return;}
-   for(unsigned i=1;i<n;i++){
+   if (!n) { return; }
+   /* A branch starts on the existing tree, not an imaginary source to
+    * its left. The original source and destination have external stubs. */
+   bool root=path.p[0].x==source.x && path.p[0].y==source.y;
+   for (unsigned i=1;i<n;i++) {
       patch_point_t a=path.p[i-1],b=path.p[i];
-      patch_segment_t seg={a,b};g_array_append_val(used,seg);
+      patch_segment_t seg={a,b,net};g_array_append_val(used,seg);
       bool h=a.y==b.y;
       int lo=h?MAX(MIN(a.x,b.x),patch_x):MAX(MIN(a.y,b.y),patch_y);
       int hi=h?MIN(MAX(a.x,b.x),patch_x+patch_cols-1):MIN(MAX(a.y,b.y),patch_y+patch_rows-1);
-      for(int k=lo;k<=hi;k++)
-         patch_wire_cell(c,h?k:a.x,h?a.y:k,h?0x2500:0x2502,color);
+      int min=h?MIN(a.x,b.x):MIN(a.y,b.y),max=h?MAX(a.x,b.x):MAX(a.y,b.y);
+      for (int k=lo;k<=hi;k++) {
+         unsigned mask=(k>min?(h?8:1):0)|(k<max?(h?2:4):0);
+         patch_wire_cell(c,cells,h?k:a.x,h?a.y:k,mask,color,net);
+      }
    }
-   for(unsigned i=0;i<n;i++){
-      unsigned mask=(i?patch_dir(path.p[i],path.p[i-1]):8)|
-                    (i+1<n?patch_dir(path.p[i],path.p[i+1]):2);
-      patch_wire_cell(c,path.p[i].x,path.p[i].y,patch_corner(mask),color);
-   }
+   if (root) { patch_wire_cell(c,cells,path.p[0].x,path.p[0].y,8,color,net); }
+   patch_wire_cell(c,cells,path.p[n-1].x,path.p[n-1].y,2,color,net);
 }
 static void patch_draw(tui_window_t *w,int rows,int cols,void *unused){
    (void)w;(void)unused;
@@ -430,6 +471,7 @@ static void patch_draw(tui_window_t *w,int rows,int cols,void *unused){
    patch_cols=cols-1;patch_rows=rows-5;
    rrui_canvas_t *c=rrui_canvas_new(patch_cols,rows-1);if(!c)return;
    GArray *used=g_array_new(FALSE,FALSE,sizeof(patch_segment_t));
+   patch_wire_cell_t *cells=g_new0(patch_wire_cell_t,(size_t)patch_cols*patch_rows);
    for(unsigned i=0;i<route_snapshot.link_count;i++){
       const rr_ag_view_link_t *l=&route_snapshot.links[i];
       if(l->src>=route_snapshot.node_count||l->dst>=route_snapshot.node_count)continue;
@@ -456,8 +498,9 @@ static void patch_draw(tui_window_t *w,int rows,int cols,void *unused){
              !patch_pin_point(&patch_pos[b],dp,&py,&y2)) { continue; }
          x1=px+1; x2=py-1;
          uint32_t color=l->kind==RR_AG_CONTROL?0xf06060:l->kind==RR_AG_NUMBER?0x55cc66:ch?0xd070cf:0x53cbd5;
-         patch_path_t path=patch_route(x1,y1,x2,y2,used);
-         patch_paint_wire(c,path,color,used);
+         unsigned net=patch_net(a,sp);
+         patch_path_t path=patch_branch(x1,y1,x2,y2,used,net);
+         patch_paint_wire(c,cells,path,color,used,net,(patch_point_t){x1,y1});
       }
    }
    for (unsigned i=0;i<rr_logic_wire_count;i++) {
@@ -471,7 +514,8 @@ static void patch_draw(tui_window_t *w,int rows,int cols,void *unused){
       int x1,y1,x2,y2;
       if (patch_pin_point(&patch_pos[a],PIN_PTT_OUT,&x1,&y1) &&
           patch_pin_point(&patch_pos[b],rr_logic_find(wire->to)&&rr_logic_find(wire->to)->sign?PIN_PTT_IN:PIN_GATE_A+(int)wire->pin,&x2,&y2)) {
-         patch_paint_wire(c,patch_route(x1+1,y1,x2-1,y2,used),0xf06060,used);
+         unsigned net=patch_net(a,PIN_PTT_OUT);
+         patch_paint_wire(c,cells,patch_branch(x1+1,y1,x2-1,y2,used,net),0xf06060,used,net,(patch_point_t){x1+1,y1});
       }
    }
    int origin=patch_find(patch_source),target=patch_find(patch_selected);
@@ -480,16 +524,18 @@ static void patch_draw(tui_window_t *w,int rows,int cols,void *unused){
       patch_pin_point(&patch_pos[origin],patch_source_pin,&x1,&y1);
       x1++;
       if(patch_wire_mouse){
-         patch_paint_wire(c,patch_route(x1,y1,patch_mouse_x,patch_mouse_y,used),0x70ff99,used);
+         unsigned net=UINT_MAX-1;
+         patch_paint_wire(c,cells,patch_route(x1,y1,patch_mouse_x,patch_mouse_y,used,net),0x70ff99,used,net,(patch_point_t){x1,y1});
       }else if(target>=0&&target!=origin&&patch_pin>=0&&!patch_output(patch_pin)&&
                 rrui_shape_pins_compatible(&patch_ports[patch_source_pin],&patch_ports[patch_pin])){
          int x2=patch_pos[target].x,y2=patch_pos[target].y;
          patch_pin_point(&patch_pos[target],patch_pin,&x2,&y2);
          x2--;
-         patch_paint_wire(c,patch_route(x1,y1,x2,y2,used),0x70ff99,used);
+         unsigned net=UINT_MAX-1;
+         patch_paint_wire(c,cells,patch_route(x1,y1,x2,y2,used,net),0x70ff99,used,net,(patch_point_t){x1,y1});
       }
    }
-   g_array_unref(used);
+   g_array_unref(used);g_free(cells);
    for(unsigned i=0;i<patch_count;i++){
       const patch_pos_t *p=&patch_pos[i];const rr_ag_view_node_t *n=patch_node(p->id);if(!n)continue;
       int x=p->x-patch_x,y=p->y-patch_y;
