@@ -700,6 +700,8 @@ static void gtk_chat_apply_format_attributes(GtkWidget *entry, GtkFormatState *s
 }
 
 /* Paste IRC control bytes as editor formatting tokens, not literal letters. */
+static void gtk_chat_set_serialized_entry(GtkWidget *entry, const char *serialized);
+
 static void gtk_chat_entry_paste(GtkEntry *widget, gpointer unused) {
    (void)unused;
    GtkWidget *entry=GTK_WIDGET(widget);
