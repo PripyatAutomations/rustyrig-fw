@@ -8,6 +8,7 @@
 #ifndef __rrserver_thermal_h
 #define __rrserver_thermal_h
 
+#include <stdint.h>
 #include <rrserver/globalstate.h>
 
 typedef struct ThermalLimits {

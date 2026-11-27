@@ -7,6 +7,7 @@
 //
 #if     !defined(__rrserver_faults_h)
 #define __rrserver_faults_h
+#include <stdint.h>
 #include <stdbool.h>
 
 // XXX: We need set the highest bit to 1 to indicate that fault is fatal and should halt
