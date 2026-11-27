@@ -12,6 +12,7 @@ void gtk_audio_graph_hide(void);
 void gtk_audio_graph_toggle(void);
 void gtk_audio_graph_present_pipeline(const char *pipeline_id);
 void gtk_volume_toggle(void);
+void gtk_volume_toggle_at(GtkWidget *anchor);
 /* Script-owned controls can be physically rooted inside the patchbay. */
 GtkOverlay *gtk_audio_graph_patchbay_overlay(void);
 gboolean gtk_audio_graph_patchbay_active(void);
