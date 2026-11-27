@@ -28,8 +28,18 @@
 static int spectrum_tick_intervals(int width) {
    return width < 340 ? 1 : width < 640 ? 2 : 4;
 }
+static gboolean spectrum_fullscreen_key(GtkWidget *window, GdkEventKey *event, gpointer unused) {
+   (void)unused;
+   if (event->keyval == GDK_KEY_Escape) {
+      gtk_widget_destroy(window);
+      return TRUE;
+   }
+   return FALSE;
+}
+
 typedef struct {
    char *server, *room;
+   GtkWidget *fullscreen, *fullscreen_drawing;
    GtkWidget *drawing, *mode, *gain, *source;
    unsigned zoom, palette_index, style;
    uint32_t max_hz;             /* source's real Nyquist, independent of the 16 kHz FFT */
@@ -557,9 +567,48 @@ static void af_spin_changed(GtkSpinButton *spin, gpointer data) {
    af_offset_update(p, GTK_WIDGET(spin) == p->modem_tx_spin, (unsigned)gtk_spin_button_get_value_as_int(spin));
 }
 
+static gboolean draw_spectrum(GtkWidget *widget, cairo_t *cr, gpointer data);
+static gboolean af_click(GtkWidget *widget, GdkEventButton *event, gpointer data);
+static void af_fullscreen_closed(GtkWidget *window, gpointer data) {
+   (void)window;
+   spectrum_panel_t *p = data;
+   p->fullscreen = p->fullscreen_drawing = NULL;
+   p->dragging = false;
+}
+
+static void af_fullscreen_toggle(spectrum_panel_t *p) {
+   if (p->fullscreen) {
+      gtk_widget_destroy(p->fullscreen);
+      return;
+   }
+   GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+   GtkWidget *drawing = gtk_drawing_area_new();
+   p->fullscreen = window;
+   p->fullscreen_drawing = drawing;
+   gtk_window_set_title(GTK_WINDOW(window), "RustyRig AF Waterfall");
+   gtk_widget_add_events(drawing, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_POINTER_MOTION_MASK);
+   gtk_container_add(GTK_CONTAINER(window), drawing);
+   g_signal_connect(window, "destroy", G_CALLBACK(af_fullscreen_closed), p);
+   g_signal_connect(window, "key-press-event", G_CALLBACK(spectrum_fullscreen_key), NULL);
+   g_signal_connect(drawing, "draw", G_CALLBACK(draw_spectrum), p);
+   g_signal_connect(drawing, "button-press-event", G_CALLBACK(af_click), p);
+   g_signal_connect(drawing, "button-release-event", G_CALLBACK(af_release), p);
+   g_signal_connect(drawing, "motion-notify-event", G_CALLBACK(af_motion), p);
+   gtk_window_fullscreen(GTK_WINDOW(window));
+   gtk_widget_show_all(window);
+   gtk_window_present(GTK_WINDOW(window));
+}
+
 static gboolean af_click(GtkWidget *widget, GdkEventButton *event, gpointer data) {
    spectrum_panel_t *p = data;
 
+   if (event->button == 1 && (event->state & GDK_CONTROL_MASK)) {
+      p->dragging = false;
+      if (event->type == GDK_2BUTTON_PRESS) {
+         af_fullscreen_toggle(p);
+      }
+      return TRUE;
+   }
    if (event->type == GDK_BUTTON_PRESS && event->button == 1) {
       p->dragging = true;
       p->drag_moved = false;
@@ -791,7 +840,11 @@ static void af_result_event(const rr_event_message_t *message, void *data) {
 
 static gboolean update(gpointer data) {
    spectrum_panel_t *p = data;
-   bool visible = gtk_widget_get_mapped(p->drawing);
+   bool visible = gtk_widget_get_mapped(p->drawing) ||
+      (p->fullscreen_drawing && gtk_widget_get_mapped(p->fullscreen_drawing));
+   if (p->fullscreen_drawing) {
+      gtk_widget_queue_draw(p->fullscreen_drawing);
+   }
 
    if (visible != p->listening) {
       rr_af_spectrum_listen(visible);
@@ -835,6 +888,9 @@ static gboolean update(gpointer data) {
 
 static void destroy_panel(gpointer data) {
    spectrum_panel_t *p = data;
+   if (p->fullscreen) {
+      gtk_widget_destroy(p->fullscreen);
+   }
 
    if (p->af_result_token) {
       event_off_token(p->af_result_token);
@@ -1879,14 +1935,19 @@ static gboolean rf_single_tune(gpointer user) {
 }
 static gboolean rf_release(GtkWidget *widget, GdkEventButton *event, gpointer user) {
    rf_strip_t *p = user;
-   if (event->button != GDK_BUTTON_PRIMARY || !p->dragging) return FALSE;
+   if (event->button != GDK_BUTTON_PRIMARY || !p->dragging) {
+      return FALSE;
+   }
    p->dragging = false;
+   if (fabs(event->x - p->drag_x) > 4.) {
+      p->drag_moved = true;
+   }
    if (p->drag_moved || p->remote_id[0] || !p->rf_enabled || !p->count ||
       event->state & GDK_CONTROL_MASK) return TRUE;
    int width=gtk_widget_get_allocated_width(widget);
    int height=gtk_widget_get_allocated_height(widget);
    if (width < 2 || event->x < 0 || event->x >= width ||
-      event->y < 0 || event->y >= height-19) return TRUE;
+      event->y < 0 || event->y >= height-SPECTRUM_AXIS_HEIGHT) return TRUE;
    const rr_bridge_spectrum_row *row =
       &p->rows[(p->head + G_N_ELEMENTS(p->rows) - 1) % G_N_ELEMENTS(p->rows)];
    double low,high;
@@ -1990,35 +2051,42 @@ static gboolean rf_click(GtkWidget *widget, GdkEventButton *event, gpointer user
       int width=gtk_widget_get_allocated_width(widget);
       int height=gtk_widget_get_allocated_height(widget);
       if (width < 2 || event->x < 0 || event->x >= width ||
-         event->y < 0 || event->y >= height-19) return TRUE;
+         event->y < 0 || event->y >= height-SPECTRUM_AXIS_HEIGHT) return TRUE;
       const rr_bridge_spectrum_row *row =
          &p->rows[(p->head + G_N_ELEMENTS(p->rows) - 1) % G_N_ELEMENTS(p->rows)];
       double low,high;
       rf_view_bounds(p,row,&low,&high);
       if (high <= low) return TRUE;
       double hz=low+(high-low)*event->x/(width-1);
+      int direction = (event->state & GDK_SHIFT_MASK) ? -1 : 1;
       if (p->remote_id[0]) {
-         double next=CLAMP(p->zoom_fraction+1.,0.,6.);
+         double next=CLAMP(p->zoom_fraction+direction,0.,6.);
          double span=((double)row->high_hz-row->low_hz)/exp2(next);
          double center=((double)row->low_hz+row->high_hz)/2.;
          p->zoom_fraction=next;
          p->pan_hz=hz-span*event->x/(width-1)-(center-span/2.);
       } else {
          unsigned min_zoom,max_zoom;
-         if (rf_ui_caps(p,&min_zoom,&max_zoom) && p->zoom < max_zoom &&
-             rf_request(p,p->rf_enabled,p->zoom+1,(uint64_t)(hz+.5))) {
-            p->zoom++;
-            p->zoom_fraction=0;
-            p->pan_hz=0;
-         } else if (rf_ui_caps(p,&min_zoom,&max_zoom) && p->zoom == max_zoom) {
-            /* Keep fractional display zoom at the backend's native limit. */
-            double next=CLAMP(p->zoom_fraction+.4,0.,.99);
-            double span=((double)row->high_hz-row->low_hz)/exp2(next);
-            rr_local_bridge_ui_state_t state={0};
-            double center=rf_selected_state(p,&state)?(double)state.frequency_hz:
-               ((double)row->low_hz+row->high_hz)/2.;
-            p->zoom_fraction=next;
-            p->pan_hz=hz-span*event->x/(width-1)-(center-span/2.);
+         if (rf_ui_caps(p, &min_zoom, &max_zoom)) {
+            int target = CLAMP((int)p->zoom + direction, (int)min_zoom, (int)max_zoom);
+            if (direction < 0 && p->zoom_fraction > 0.) {
+               p->zoom_fraction = 0.;
+               p->pan_hz = 0.;
+            } else if (target != (int)p->zoom) {
+               if (rf_request(p, p->rf_enabled, (unsigned)target, (uint64_t)(hz + .5))) {
+                  p->zoom = (unsigned)target;
+                  p->zoom_fraction = 0.;
+                  p->pan_hz = 0.;
+               }
+            } else if (direction > 0) {
+               double next = CLAMP(p->zoom_fraction + .4, 0., .99);
+               double span = ((double)row->high_hz - row->low_hz) / exp2(next);
+               rr_local_bridge_ui_state_t state = {0};
+               double center = rf_selected_state(p, &state) ? (double)state.frequency_hz :
+                  ((double)row->low_hz + row->high_hz) / 2.;
+               p->zoom_fraction = next;
+               p->pan_hz = hz - span * event->x / (width - 1) - (center - span / 2.);
+            }
          }
       }
       gtk_widget_queue_draw(p->drawing);
@@ -2039,6 +2107,7 @@ static gboolean rf_click(GtkWidget *widget, GdkEventButton *event, gpointer user
       GDK_LEAVE_NOTIFY_MASK);
    gtk_container_add(GTK_CONTAINER(window), drawing);
    g_signal_connect(window, "destroy", G_CALLBACK(rf_fullscreen_closed), p);
+   g_signal_connect(window, "key-press-event", G_CALLBACK(spectrum_fullscreen_key), NULL);
    g_signal_connect(drawing, "draw", G_CALLBACK(rf_draw), p);
    g_signal_connect(drawing, "button-press-event", G_CALLBACK(rf_click), p);
    g_signal_connect(drawing, "button-release-event", G_CALLBACK(rf_release), p);
@@ -2104,8 +2173,8 @@ GtkWidget *rr_gtk_rf_spectrum_new(void) {
    gtk_widget_set_size_request(drawing, 160, 82);
    gtk_widget_set_vexpand(drawing, TRUE);
    gtk_widget_set_vexpand(overlay, TRUE);
-   gtk_widget_add_events(drawing, GDK_BUTTON_PRESS_MASK | GDK_SCROLL_MASK | GDK_SMOOTH_SCROLL_MASK);
-   gtk_widget_set_tooltip_text(drawing, "RF waterfall: scroll to zoom around the tuned center");
+   gtk_widget_add_events(drawing, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_POINTER_MOTION_MASK | GDK_LEAVE_NOTIFY_MASK | GDK_SCROLL_MASK | GDK_SMOOTH_SCROLL_MASK);
+   gtk_widget_set_tooltip_text(drawing, "RF waterfall: click to tune, drag to pan, double-click to zoom in, Shift+double-click to zoom out, Ctrl+double-click fullscreen; Escape restores");
    gtk_container_add(GTK_CONTAINER(overlay), drawing);
    p->vfo_select = gtk_combo_box_text_new();
    spectrum_selector_fade(p->vfo_select);
@@ -2133,6 +2202,7 @@ GtkWidget *rr_gtk_rf_spectrum_new(void) {
    g_signal_connect(drawing, "draw", G_CALLBACK(rf_draw), p);
    g_signal_connect(drawing, "scroll-event", G_CALLBACK(rf_scroll), p);
    g_signal_connect(drawing, "button-press-event", G_CALLBACK(rf_click), p);
+   g_signal_connect(drawing, "button-release-event", G_CALLBACK(rf_release), p);
    g_signal_connect(drawing, "motion-notify-event", G_CALLBACK(rf_hover), p);
    g_signal_connect(drawing, "leave-notify-event", G_CALLBACK(rf_leave), p);
    g_signal_connect(p->vfo_select, "changed", G_CALLBACK(rf_vfo_changed), p);
