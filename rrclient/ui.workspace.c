@@ -1162,6 +1162,32 @@ static void vfo_action(rrui_form_t *f,const char *id,const char *action,void *da
       dict_add_int(d,"cat.power",percent);dict_add(d,"cat.power-unit","percent");
       if(!ws_send_dict(NULL,conn,d,WEBSOCKET_OP_TEXT))Log(LOG_WARN,"ui.workspace","TX power request failed");
       dict_free(d);
+   } else if (!strcmp(action,"set-mode") || !strcmp(action,"set-width")) {
+      if (!rrclient_room_tx_control(room) && !rrclient_room_rx_tunable(room)) { return; }
+      bool mode_change=!strcmp(action,"set-mode");
+      const char *value=rrui_form_value(f,mode_change?"mode_edit":"width_edit");
+      if (!value || !*value || strpbrk(value,"\r\n")) { return; }
+      char vfo_id[2]={active,0};
+      bool sent;
+      if (local) {
+         sent=mode_change?rrclient_local_bridge_set_mode(active,value):
+                          rrclient_local_bridge_set_width(active,value);
+      } else {
+         sent=mode_change?ws_send_mode_cmd_in_room(conn,vfo_id,value,room):
+                          ws_send_width_cmd_in_room(conn,vfo_id,value,room);
+      }
+      if (!sent) { Log(LOG_WARN,"ui.workspace","VFO mode/width request failed"); }
+   } else if (!strcmp(action,"rx-codec") || !strcmp(action,"tx-codec")) {
+      bool is_tx=!strcmp(action,"tx-codec");
+      if (local || (is_tx && !rrclient_room_tx_control(room))) { return; }
+      const char *value=rrui_form_value(f,is_tx?"tx_codec":"rx_codec");
+      const char *profile=rrclient_selected_server();
+      if (!value || !*value || strlen(value)>4 || !profile || !*profile) { return; }
+      rrclient_media_codec_select_request_t req={.is_tx=is_tx};
+      g_strlcpy(req.codec,value,sizeof(req.codec));
+      g_strlcpy(req.profile,profile,sizeof(req.profile));
+      event_emit_message(&(rr_event_message_t){.name=RRCLIENT_MEDIA_CODEC_SELECT_REQUEST,
+         .payload=&req,.length=sizeof(req)});
    }else if(!strcmp(action,"tune")){
       if(!rrclient_room_tx_control(room)&&!rrclient_room_rx_tunable(room))return;
       const char *s=rrui_form_value(f,"frequency");
@@ -1232,6 +1258,14 @@ static void refresh(void){
       if(width>0)snprintf(text,sizeof(text),"%s / %ld Hz",mode,width);
       else snprintf(text,sizeof(text),"%s",mode);
       redraw|=label(vfo,"mode",text);
+      if (changed || active_seen!=a || !rrui_tui_panel_focused(vfo)) {
+         redraw|=label(vfo,"mode_edit",mode?mode:"");
+         if (width>0) { snprintf(text,sizeof(text),"%ld",width); } else { text[0]=0; }
+         redraw|=label(vfo,"width_edit",text);
+         const char *rx=rrclient_media_current_codec(false),*tx=rrclient_media_current_codec(true);
+         redraw|=label(vfo,"rx_codec",rx?rx:"");
+         redraw|=label(vfo,"tx_codec",tx?tx:"");
+      }
       if(changed||active_seen!=a||(!rrui_tui_panel_focused(vfo)&&freq_seen!=hz)){
          if(hz>0)snprintf(text,sizeof(text),"%ld",hz);else text[0]=0;
          redraw|=label(vfo,"frequency",text);
@@ -1280,7 +1314,7 @@ void rrclient_tui_workspace_init(void){
    rrui_field_t root={0};
    rig_tools_enabled=rig_tools&&rrui_form_field(rig_tools,0,&root)&&!g_strcmp0(root.value,"enabled");
    if(roster&&!rrui_tui_tile_open(roster,6,2)){rrui_form_free(roster);roster=NULL;}
-   if(vfo&&!rrui_tui_tile_open(vfo,8,1)){rrui_form_free(vfo);vfo=NULL;}
+   if(vfo&&!rrui_tui_tile_open(vfo,12,1)){rrui_form_free(vfo);vfo=NULL;}
    if(tools&&!rrui_tui_tile_open(tools,6,1)){rrui_form_free(tools);tools=NULL;}
    if(rig_tools&&!rrui_tui_tile_open(rig_tools,6,1)){rrui_form_free(rig_tools);rig_tools=NULL;}
    rrclient_tui_workspace_refresh();

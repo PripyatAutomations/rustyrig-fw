@@ -5,3 +5,7 @@ ui.add(dict { kind="label"; id="mode"; parent="vfo"; label=""; });
 ui.add(dict { kind="entry"; id="frequency"; parent="vfo"; label="Tune (Hz, Enter)"; max_length=12; width_chars=12; action="tune"; });
 ui.add(dict { kind="button"; id="switch"; parent="vfo"; label="Next VFO"; action="next"; });
 ui.add(dict { kind="stepper"; id="power"; parent="vfo"; label="TX %"; min=0; max=100; step=1; action="power"; });
+ui.add(dict { kind="entry"; id="mode_edit"; parent="vfo"; label="Mode"; max_length=12; action="set-mode"; });
+ui.add(dict { kind="entry"; id="width_edit"; parent="vfo"; label="Width (Hz/NARR/NORM/WIDE)"; max_length=12; action="set-width"; });
+ui.add(dict { kind="entry"; id="rx_codec"; parent="vfo"; label="RX codec"; max_length=4; action="rx-codec"; });
+ui.add(dict { kind="entry"; id="tx_codec"; parent="vfo"; label="TX codec"; max_length=4; action="tx-codec"; });
