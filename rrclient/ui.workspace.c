@@ -1508,7 +1508,7 @@ static void vfo_action(rrui_form_t *f,const char *id,const char *action,void *da
          }
       }
    }else if(!strcmp(action,"power")){
-      if(!rrclient_room_tx_control(room))return;
+      if (!conn || !rrclient_room_tx_control(room)) { return; }
       const char *value=rrui_form_value(f,"power");
       if(!value||!*value)return;
       int percent=atoi(value);
@@ -1629,7 +1629,7 @@ static void refresh(void){
          redraw|=label(vfo,"tx_codec",tx?tx:"");
       }
       if(changed||active_seen!=a||(!rrui_tui_panel_focused(vfo)&&freq_seen!=hz)){
-         if(hz>0)snprintf(text,sizeof(text),"%ld",hz);else text[0]=0;
+         if (hz>0) { snprintf(text,sizeof(text),"%012ld",hz); } else { text[0]=0; }
          redraw|=label(vfo,"frequency",text);
          freq_seen=hz;
       }
@@ -1672,7 +1672,7 @@ void rrclient_tui_workspace_init(void){
    views_init();
    const rrclient_ui_required_t users[]={{"roster",RRUI_LIST,false}};
    const rrclient_ui_required_t rig[]={{"readback",RRUI_LABEL,false},{"mode",RRUI_LABEL,false},
-      {"frequency",RRUI_ENTRY,false},{"switch",RRUI_BUTTON,false}};
+      {"frequency",RRUI_DIGITS,false},{"switch",RRUI_BUTTON,false}};
    roster=rrclient_ui_layout_load("userlist.rrs",RRUI_PANEL,users,G_N_ELEMENTS(users),NULL);
    vfo=rrclient_ui_layout_load("vfo.rrs",RRUI_PANEL,rig,G_N_ELEMENTS(rig),vfo_action);
    tools=rrclient_ui_layout_load("toolbar-irc.rrs",RRUI_PANEL,NULL,0,tools_action);
