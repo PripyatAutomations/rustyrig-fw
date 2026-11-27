@@ -60,14 +60,14 @@ with tempfile.TemporaryDirectory() as directory:
            'RR_TEST_REMOTE_SUBJECTS': 'alice@camp bob@*',
            'RR_TEST_SITE_PENDING': 'true',
            'RR_TEST_SITE_CALL': 'N1ABC/P',
-           'RR_TEST_SITE_GRID': 'EM98at',
-           'RR_TEST_SITE_LOCATION': 'Ripley, WV, USA',
+           'RR_TEST_SITE_GRID': 'EN32aa',
+           'RR_TEST_SITE_LOCATION': 'Des Moines, IA, USA',
            'RR_TEST_SITE_DESCRIPTION': 'Remote RX & TX',
            'RR_TEST_ADMIN_USERS': '-bad rr-test-no-such-user'}
     subprocess.run(['sh', str(script)], env=env, check=True)
     metadata = site_config.read_text()
-    for line in ['station.call=N1ABC/P', 'station.grid=EM98at',
-                 'station.location=Ripley, WV, USA', 'station.description=Remote RX & TX',
+    for line in ['station.call=N1ABC/P', 'station.grid=EN32aa',
+                 'station.location=Des Moines, IA, USA', 'station.description=Remote RX & TX',
                  'domain=camp.local', 'station.name=rplywv00', 'owner.call=N0CALL']:
         assert line in metadata, line
     assert site_config.stat().st_mode & 0o777 == 0o640
@@ -99,7 +99,7 @@ with tempfile.TemporaryDirectory() as directory:
     env['RR_TEST_SITE_GRID'] = ''
     subprocess.run(['sh', str(script)], env=env, check=True)
     assert 'station.description=Updated via debconf' in site_config.read_text()
-    assert 'station.grid=EM98at' in site_config.read_text()
+    assert 'station.grid=EN32aa' in site_config.read_text()
     env['RR_TEST_SITE_PENDING'] = 'false'
     database.unlink()
     env['RR_TEST_HASH_FAIL'] = 'true'
