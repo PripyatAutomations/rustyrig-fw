@@ -1299,8 +1299,8 @@ static gboolean on_chat_entry_keypress(GtkWidget *entry, GdkEventKey *event, gpo
             control_code = 0x02;
             break;              // Bold
          }
-         case GDK_KEY_c:
-         case GDK_KEY_C: {
+         case GDK_KEY_k:
+         case GDK_KEY_K: {
             control_code = 0x03;
             break;              // Color
          }
