@@ -23,15 +23,19 @@ typedef struct {
 
 /* Debian ownership database, including conffiles. Fail closed if unavailable
  * for a system reset: native installations have no reliable ownership index. */
-static GHashTable *rr_reset_packages(void) {
+static inline GHashTable *rr_reset_packages(void) {
    GDir *dir=g_dir_open("/var/lib/dpkg/info",0,NULL);
    if (!dir) { return NULL; }
    GHashTable *files=g_hash_table_new_full(g_str_hash,g_str_equal,g_free,NULL);
    const char *name;
    bool ok=true;
    unsigned lists=0;
+   bool server_package=false;
    while ((name=g_dir_read_name(dir))) {
       if (!g_str_has_suffix(name,".list")) { continue; }
+      if (!strcmp(name,"rustyrig-server.list") || g_str_has_prefix(name,"rustyrig-server:")) {
+         server_package=true;
+      }
       char *path=g_build_filename("/var/lib/dpkg/info",name,NULL);
       char *contents=NULL;
       ok=g_file_get_contents(path,&contents,NULL,NULL);
@@ -46,7 +50,7 @@ static GHashTable *rr_reset_packages(void) {
       g_strfreev(lines);g_free(contents);lists++;
    }
    g_dir_close(dir);
-   if (!ok || !lists) { g_hash_table_unref(files);return NULL; }
+   if (!ok || !lists || !server_package) { g_hash_table_unref(files);return NULL; }
    return files;
 }
 static bool rr_reset_preserve(rr_reset_t *r,const char *path,const char *name) {
