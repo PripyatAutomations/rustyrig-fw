@@ -719,7 +719,7 @@ static void patch_draw(tui_window_t *w,int rows,int cols,void *unused){
    rrui_canvas_text(c,0,patch_rows,patch_cols,header,0xffff70);
    rrui_canvas_text(c,0,patch_rows+1,patch_cols,patch_message,0xc2d1da);
    rrui_canvas_text(c,0,patch_rows+2,patch_cols,"Arrows block | Tab/Shift-Tab pin | Enter connect | Esc cancel | a auto | t list",UINT32_MAX);
-   rrui_canvas_text(c,0,patch_rows+3,patch_cols,"N Add | P Properties | Shift/Ctrl-click select | Drag group | Background pan",UINT32_MAX);
+   rrui_canvas_text(c,0,patch_rows+3,patch_cols,"N Add | P Properties | Space / Shift/Ctrl-click select | Drag group | Background pan",UINT32_MAX);
    rrui_canvas_draw(c,2,1);rrui_canvas_free(c);
 }
 static unsigned patch_slot(const char *id,const char *pattern,unsigned max){
@@ -798,9 +798,9 @@ static bool patch_connect(const char *source,const char *target,int out,int in){
    }else if(tx&&txmod){
       rr_local_modem_request_t req={.action=RR_LOCAL_MODEM_TX_ROUTE,.slot=txmod};
       g_strlcpy(req.source,"tx.mix",sizeof(req.source));rr_local_modem_request(&req);
-   }else if(listen&&srcfx){
-      if(out!=in){patch_notice("LV2 mixer output mapping requires matching channels.");return false;}
-      rr_audio_effect_request_t req={.action='O',.slot=srcfx,.channel=(unsigned)in,.output=in?'R':'L'};
+   }else if(srcfx&&(!strcmp(target,"rx.mix")||tx)){
+      rr_audio_effect_request_t req={.action='O',.slot=srcfx,.channel=(unsigned)out,
+         .output=tx?(in?'Y':'X'):(in?'R':'L')};
       audio_request_effect_block(&req);
    }else if(listen&&a->type==RR_AG_SOURCE&&!a->read_only&&rr_audio_graph_listen_bus(a->downstream_rate_hz,target)){
       unsigned mask=(a->route=='S'?3:a->route=='L'?1:a->route=='R'?2:0)|(1u<<in);
@@ -855,8 +855,8 @@ static bool patch_disconnect(const char *source,const char *target,unsigned out,
    }else if(dstfx){
       rr_audio_effect_request_t req={.action='R',.slot=dstfx,.channel=in};
       audio_request_effect_block(&req);
-   }else if(srcfx&&listen){
-      rr_audio_effect_request_t req={.action='O',.slot=srcfx,.channel=in,.output='M'};
+   }else if(srcfx&&(!strcmp(target,"rx.mix")||!strcmp(target,"tx.mix"))){
+      rr_audio_effect_request_t req={.action='O',.slot=srcfx,.channel=out,.output='M'};
       audio_request_effect_block(&req);
    }else if(listen&&a->type==RR_AG_SOURCE&&!a->read_only){
       unsigned mask=(a->route=='S'?3:a->route=='L'?1:a->route=='R'?2:0)&~(1u<<in);
@@ -1195,6 +1195,11 @@ static bool patch_key(tui_window_t *w,unsigned key,unsigned mods,void *unused){
       return true;
    }
    if(i<0){
+      return true;
+   }
+   if (key==' ' && !*patch_source) {
+      patch_pos[i].selected=!patch_pos[i].selected;
+      patch_notice("Group selection: Space toggles the focused block.");
       return true;
    }
    if(key=='p'||key==TERMKEY_SYM_DELETE){
