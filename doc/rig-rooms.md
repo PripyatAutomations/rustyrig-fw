@@ -3,7 +3,7 @@
 RustyRig uses rooms to organize operators, chat, radio controls and audio.
 
 - **Station lobby:** Everyone joining a station enters `#<station.name>`. This is a place to meet; it does not automatically take control of a radio.
-- **Radio room:** Join an available rig room (such as `#rplywv00-rig0`) to access its authorized controls and audio. Leave with `/part`.
+- **Radio room:** Join an available rig room (such as `#dsmiia00-rig0`) to access its authorized controls and audio. Leave with `/part`.
 - **Receive-only room:** An additional room can expose selected VFOs for listening without granting transmit access.
 - **SDR room:** Temporary SDR VFOs can be attached to a chosen room without requiring a second `-rigN` room.
 
@@ -11,18 +11,18 @@ For a simple single-rig station, you usually only need the station lobby and one
 
 ## Configure multiple radios
 
-Configured rigs normally use station-scoped names such as `#rplywv00-rig0`. Explicitly configured rig rooms are currently validated against that generated name; temporary SDR rooms use a separate creation path.
+Configured rigs normally use station-scoped names such as `#dsmiia00-rig0`. Explicitly configured rig rooms are currently validated against that generated name; temporary SDR rooms use a separate creation path.
 
 ```ini
 [general]
-station.name=rplywv00
+station.name=dsmiia00
 rig.instances=rig0 rig1
 rig.default=rig0
 
 [rig:rig0]
 backend=internal
 vfos=A B
-room=#rplywv00-rig0
+room=#dsmiia00-rig0
 rx-independent-vfos=B
 
 [rig:rig1]
@@ -30,7 +30,7 @@ backend=hamlib
 hamlib.model=2
 hamlib.device=127.0.0.1:4532
 vfos=A B
-room=#rplywv00-rig1
+room=#dsmiia00-rig1
 ```
 
 ## Independent receive controls
@@ -128,7 +128,7 @@ The native client already supports a per-server list in `config/rrclient.cfg`:
 
 ```ini
 [server:my-station]
-autojoin=#rplywv00-rig0,#rplywv00-rig1
+autojoin=#dsmiia00-rig0,#dsmiia00-rig1
 ```
 
 Use the existing server section's other connection settings. Lists accept
@@ -140,7 +140,7 @@ session in the site lobby until the operator joins a rig room.
 
 Any authenticated account can create an undashed room with `/room add #name`
 or by joining an unknown undashed room. Any dash reserves the name for station
-scoping, including future sites (`#rplywv00-*`, `#nycnc04-*`); creating these
+scoping, including future sites (`#dsmiia00-*`, `#nycnc04-*`); creating these
 requires `admin|owner` or server provisioning. The configured site lobby is also
 protected. Restoring deleted rooms, removing rooms and editing VFO bindings
 require `admin|owner`. Other users can join existing active rooms.
