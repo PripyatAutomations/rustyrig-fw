@@ -847,7 +847,6 @@ static void merge_records(void) {
    }
    // Keep historical offline/missing entries until absent for ninety days.
    char *purge = sqlite3_mprintf("DELETE FROM receiver_details WHERE url IN(SELECT url FROM receiver_records WHERE deleted=1 AND last_seen<%lld);"
-      "DELETE FROM receiver_state WHERE url IN(SELECT url FROM receiver_records WHERE deleted=1 AND last_seen<%lld);"
       "DELETE FROM receiver_records WHERE deleted=1 AND last_seen<%lld;COMMIT;", (long long)now - 90 * 86400, (long long)now - 90 * 86400);
 
    if (!purge || sqlite3_exec(cache_db, purge, NULL, NULL, NULL) != SQLITE_OK) {
