@@ -35,6 +35,7 @@ static GtkWidget *routing_window, *split_rx, *ear_volume[2];
 static bool volume_updating;
 static GtkWidget *routing_overlay, *routing_body;
 static RRFloatPanel *routing_panel;
+static GtkWidget *volume_popover, *volume_grid;
 /* Embedded tool page: deliberately omitted from the visible main tab strip. */
 static GtkWidget *graph_page;
 static GtkWidget *graph_canvas;
@@ -8694,6 +8695,47 @@ static void routing_show_event(const char *event, const char *data, rrconn_t *co
    }
 }
 
+/* Borrow the existing controls for a transient popup. No duplicate audio
+ * controls or changes to persisted dock/visibility state. */
+static void volume_popup_closed(GtkPopover *popover,gpointer unused) {
+   (void)unused;
+   if (volume_grid && routing_body &&
+       gtk_widget_get_parent(volume_grid)==GTK_WIDGET(popover)) {
+      g_object_ref(volume_grid);
+      gtk_container_remove(GTK_CONTAINER(popover),volume_grid);
+      gtk_box_pack_start(GTK_BOX(routing_body),volume_grid,FALSE,FALSE,0);
+      g_object_unref(volume_grid);
+   }
+   if (volume_popover==GTK_WIDGET(popover)) {
+      volume_popover=NULL;
+   }
+   gtk_widget_destroy(GTK_WIDGET(popover));
+}
+
+void gtk_volume_toggle_at(GtkWidget *anchor) {
+   if (!routing_panel || !volume_grid) {
+      return;
+   }
+   if (volume_popover) {
+      gtk_popover_popdown(GTK_POPOVER(volume_popover));
+      return;
+   }
+   if (!rr_floating_panels_hidden(RR_FLOATING_HIDE_TAB)) {
+      gtk_volume_toggle();
+      return;
+   }
+   volume_popover=gtk_popover_new(anchor);
+   gtk_popover_set_position(GTK_POPOVER(volume_popover),GTK_POS_TOP);
+   gtk_popover_set_modal(GTK_POPOVER(volume_popover),TRUE);
+   g_signal_connect(volume_popover,"closed",G_CALLBACK(volume_popup_closed),NULL);
+   g_object_ref(volume_grid);
+   gtk_container_remove(GTK_CONTAINER(routing_body),volume_grid);
+   gtk_container_add(GTK_CONTAINER(volume_popover),volume_grid);
+   g_object_unref(volume_grid);
+   gtk_widget_show_all(volume_popover);
+   gtk_popover_popup(GTK_POPOVER(volume_popover));
+}
+
 void gtk_volume_toggle(void) {
    if (!routing_panel || !routing_window) {
       return;
@@ -8751,6 +8793,7 @@ void gtk_audio_routing_init(void) {
    gtk_widget_set_halign(grid, GTK_ALIGN_START);
    gtk_widget_set_valign(grid, GTK_ALIGN_START);
    gtk_box_pack_start(GTK_BOX(routing_body), grid, FALSE, FALSE, 0);
+   volume_grid=grid;
 
    for (unsigned ear = 0 ; ear < 2 ; ear++) {
       GtkWidget *label = gtk_label_new(ear ? "R" : "L");
@@ -8918,6 +8961,10 @@ void gtk_audio_routing_shutdown(void) {
    }
    onair_panel = NULL;
    onair_panel_canvas = NULL;
+   if (volume_popover) {
+      volume_popup_closed(GTK_POPOVER(volume_popover),NULL);
+   }
+   volume_grid=NULL;
    rr_floating_panel_destroy(routing_panel);
    routing_panel = NULL;
    rx_vol_slider = NULL;
