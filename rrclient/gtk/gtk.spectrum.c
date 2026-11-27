@@ -20,6 +20,14 @@
 #include <librustyaxe/event-bus.h>
 
 #define HISTORY 48
+#define SPECTRUM_AXIS_FONT 20
+#define SPECTRUM_AXIS_HEIGHT 30
+#define SPECTRUM_HOVER_FONT 20
+
+/* Cairo uses GTK logical coordinates; GTK already applies the monitor scale. */
+static int spectrum_tick_intervals(int width) {
+   return width < 340 ? 1 : width < 640 ? 2 : 4;
+}
 typedef struct {
    char *server, *room;
    GtkWidget *drawing, *mode, *gain, *source;
@@ -579,7 +587,8 @@ static gboolean draw_spectrum(GtkWidget *widget, cairo_t *cr, gpointer data) {
    bool trace = mode == 0 || mode == 1 || bars;
    bool waterfall = mode == 0 || mode == 2 || mode == 4;
 
-   int trace_height = trace ? (waterfall ? MAX(34, height / 4) : height - 16) : 0;
+   int plot_height = MAX(1, height - SPECTRUM_AXIS_HEIGHT);
+   int trace_height = trace ? (waterfall ? MIN(plot_height, MAX(34, plot_height / 4)) : plot_height) : 0;
 
    if (trace && p->count) {
       cairo_set_line_width(cr, 1.1);
@@ -618,7 +627,7 @@ static gboolean draw_spectrum(GtkWidget *widget, cairo_t *cr, gpointer data) {
 
    if (waterfall) {
       int top = trace_height + (trace ? 2 : 0);
-      int available = MAX(1, height - top - 15);
+      int available = MAX(1, plot_height - top);
       /* One small ARGB image per redraw instead of thousands of individual Cairo rectangle/fill calls on the GTK/network main loop. */
       cairo_surface_t *surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, RR_AF_BINS, available);
 
@@ -675,10 +684,15 @@ static gboolean draw_spectrum(GtkWidget *widget, cairo_t *cr, gpointer data) {
       cairo_show_text(cr, "Waiting for audio on selected source...");
    }
    /* Draw the true, source-constrained viewport frequency scale. The same bounds drive AF offset click tuning and the FFT bin crop. */
-   cairo_set_font_size(cr, 10);
+   cairo_set_source_rgb(cr, .04, .06, .09);
+   cairo_rectangle(cr, 0, plot_height, width, height - plot_height);
+   cairo_fill(cr);
+   cairo_set_source_rgb(cr, .95, .96, .98);
+   cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+   cairo_set_font_size(cr, SPECTRUM_AXIS_FONT);
 
    /* Reduce tick density on narrow panels; never truncate the frequency span. */
-   unsigned tick_intervals = width < 220 ? 1 : width < 360 ? 2 : 4;
+   unsigned tick_intervals = spectrum_tick_intervals(width);
    for (unsigned tick = 0 ; tick <= tick_intervals ; tick++) {
       double x = (width - 1.) * tick / tick_intervals;
       unsigned hz = af_x_to_hz(p, x, width);
@@ -692,7 +706,7 @@ static gboolean draw_spectrum(GtkWidget *widget, cairo_t *cr, gpointer data) {
       cairo_text_extents_t ext;
       cairo_text_extents(cr, label, &ext);
       double tx = CLAMP(x - ext.width / 2., 2., MAX(2., width - ext.width - 2.));
-      cairo_move_to(cr, tx, height - 3);
+      cairo_move_to(cr, tx, height - 7);
       cairo_show_text(cr, label);
    }
 
@@ -711,12 +725,13 @@ static gboolean draw_spectrum(GtkWidget *widget, cairo_t *cr, gpointer data) {
          cairo_set_source_rgba(cr, i ? 1.0 : 0.25, i ? 0.65 : 0.9, i ? 0.18 : 1.0, 0.85);
          cairo_set_line_width(cr, 1.2);
          cairo_move_to(cr, x + 0.5, 0);
-         cairo_line_to(cr, x + 0.5, height - 16);
+         cairo_line_to(cr, x + 0.5, plot_height);
          cairo_stroke(cr);
       }
    }
 
    if (p->stereo) {
+      cairo_set_font_size(cr, 12);
       cairo_set_source_rgb(cr, .35, .92, 1);
       cairo_move_to(cr, 8, 13);
       cairo_show_text(cr, "L");
@@ -1083,7 +1098,7 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
 
    p->drawing = gtk_drawing_area_new();
    gtk_widget_add_events(p->drawing, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_POINTER_MOTION_MASK);
-   gtk_widget_set_size_request(p->drawing, -1, 64);
+   gtk_widget_set_size_request(p->drawing, -1, 80);
    gtk_widget_set_vexpand(p->drawing, TRUE);
    gtk_widget_set_hexpand(p->drawing, TRUE);
    gtk_widget_set_vexpand(overlay, TRUE);
@@ -1498,7 +1513,7 @@ static gboolean rf_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
       return FALSE;
    }
    int depth = MIN((int)p->count, 32);
-   int plot_h = MAX(1, h - 19);
+   int plot_h = MAX(1, h - SPECTRUM_AXIS_HEIGHT);
    const rr_bridge_spectrum_row *latest = &p->rows[(p->head + G_N_ELEMENTS(p->rows) - 1) % G_N_ELEMENTS(p->rows)];
    double view_low, view_high;
    rf_view_bounds(p, latest, &view_low, &view_high);
@@ -1570,11 +1585,12 @@ static gboolean rf_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
    cairo_set_source_rgba(cr, 0, 0, 0, .80);
    cairo_rectangle(cr, 0, plot_h, w, h - plot_h);
    cairo_fill(cr);
-   cairo_set_source_rgb(cr, .85, .88, .91);
-   cairo_set_font_size(cr, 10);
+   cairo_set_source_rgb(cr, .95, .96, .98);
+   cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+   cairo_set_font_size(cr, SPECTRUM_AXIS_FONT);
 
    /* Narrow RF panels show fewer labels, but still cover the full RF span. */
-   int tick_intervals = w < 220 ? 1 : w < 360 ? 2 : 4;
+   int tick_intervals = spectrum_tick_intervals(w);
    for (int tick = 0 ; tick <= tick_intervals ; tick++) {
       double x = (w - 1.) * tick / tick_intervals;
       double mhz = low + (high - low) * tick / tick_intervals;
@@ -1585,7 +1601,7 @@ static gboolean rf_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
 
       /* Keep every frequency tick visible. The gain slider is over the waterfall instead of obscuring the right end of the RF axis. */
       double tx = CLAMP(x - ext.width / 2, 2., MAX(2., w - ext.width - 2.));
-      cairo_move_to(cr, tx, h - 5);
+      cairo_move_to(cr, tx, h - 7);
       cairo_show_text(cr, label);
    }
 
@@ -1600,15 +1616,15 @@ static gboolean rf_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
       cairo_move_to(cr, x + .5, 0);
       cairo_line_to(cr, x + .5, plot_h);
       cairo_stroke(cr);
-      cairo_set_font_size(cr, 12);
+      cairo_set_font_size(cr, SPECTRUM_HOVER_FONT);
       cairo_text_extents_t ext;
       cairo_text_extents(cr, label, &ext);
       double tx = CLAMP(x - ext.width / 2, 5., MAX(5., w - ext.width - 9.));
       cairo_set_source_rgba(cr, 0, 0, 0, .85);
-      cairo_rectangle(cr, tx - 4, 4, ext.width + 8, 20);
+      cairo_rectangle(cr, tx - 4, 4, ext.width + 8, 30);
       cairo_fill(cr);
       cairo_set_source_rgb(cr, 1, 1, 1);
-      cairo_move_to(cr, tx, 19);
+      cairo_move_to(cr, tx, 27);
       cairo_show_text(cr, label);
       cairo_restore(cr);
    }
