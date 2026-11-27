@@ -693,12 +693,16 @@ static void receiver_directory_mutation(const rr_event_message_t *message, void 
       }
       case 'F': {
          if (request.favorite == 0 || request.favorite == 1) {
-            receiver_directory_set_favorite(request.value, request.favorite != 0);
+            if (!receiver_directory_set_favorite(request.value, request.favorite != 0)) {
+               event_emit("client.receiver-directory.failed", NULL, "Unable to save SDR favorite to the local database.");
+            }
          }
          break;
       }
       case 'S': {
-         receiver_directory_set_state(request.value, request.state, !strcmp(request.state, "unknown") ? "" : "User report; receiver was not probed");
+         if (!receiver_directory_set_state(request.value, request.state, !strcmp(request.state, "unknown") ? "" : "User report; receiver was not probed")) {
+            event_emit("client.receiver-directory.failed", NULL, "Unable to save SDR mark to the local database.");
+         }
          break;
       }
    }
