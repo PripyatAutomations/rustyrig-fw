@@ -29,6 +29,7 @@ static time_t next_request;
 static char status_text[512] = "No directory loaded. Import a list or configure a permitted mirror.";
 static bool initialized;
 static sqlite3 *cache_db;
+static sqlite3 *preferences_db;
 /* Directory cache and SQLite operations belong to the client core context, not GLib's process-default context (which runs GTK when threaded). */
 static guint directory_attach_source(GSource *source) {
    guint id = g_source_attach(source, rrclient_core_context());
@@ -645,6 +646,100 @@ static char *cache_path(void) {
       : g_build_filename(g_get_user_cache_dir(), "rustyrig", "receivers.sqlite3", NULL);
 }
 
+/* Separate connection to client.db keeps directory transactions isolated
+ * from unrelated settings writes. */
+static char *preferences_path(void) {
+#ifdef RR_DIRECTORY_TEST_PREFERENCES_PATH
+   return RR_DIRECTORY_TEST_PREFERENCES_PATH();
+#else
+   return g_build_filename(g_get_user_state_dir(), "rustyrig", "client.db", NULL);
+#endif
+}
+
+static bool migrate_preferences(void) {
+   if (!cache_db || !preferences_db) {
+      return false;
+   }
+   const char *queries[] = {
+      "SELECT url FROM receiver_favorites",
+      "SELECT url,state,reason,updated_at FROM receiver_state",
+      "SELECT url,last_connected FROM receiver_connections"
+   };
+   const char *inserts[] = {
+      "INSERT OR IGNORE INTO receiver_favorites VALUES(?)",
+      "INSERT OR IGNORE INTO receiver_state VALUES(?,?,?,?)",
+      "INSERT OR IGNORE INTO receiver_connections VALUES(?,?)"
+   };
+   if (sqlite3_exec(preferences_db, "BEGIN IMMEDIATE", NULL, NULL, NULL) != SQLITE_OK) {
+      return false;
+   }
+   sqlite3_stmt *check = NULL;
+   bool ok = sqlite3_prepare_v2(preferences_db, "SELECT 1 FROM receiver_preference_migration WHERE id=1", -1, &check, NULL) == SQLITE_OK;
+   int status = ok ? sqlite3_step(check) : SQLITE_ERROR;
+   sqlite3_finalize(check);
+   if (status == SQLITE_ROW) {
+      return sqlite3_exec(preferences_db, "COMMIT", NULL, NULL, NULL) == SQLITE_OK;
+   }
+   ok = ok && status == SQLITE_DONE;
+   for (unsigned i = 0; ok && i < G_N_ELEMENTS(queries); i++) {
+      sqlite3_stmt *read = NULL, *write = NULL;
+      ok = sqlite3_prepare_v2(cache_db, queries[i], -1, &read, NULL) == SQLITE_OK &&
+         sqlite3_prepare_v2(preferences_db, inserts[i], -1, &write, NULL) == SQLITE_OK;
+      int rc = SQLITE_DONE;
+      while (ok && (rc = sqlite3_step(read)) == SQLITE_ROW) {
+         for (int col = 0; ok && col < sqlite3_column_count(read); col++) {
+            ok = sqlite3_bind_value(write, col + 1, sqlite3_column_value(read, col)) == SQLITE_OK;
+         }
+         if (ok) {
+            ok = sqlite3_step(write) == SQLITE_DONE;
+         }
+         sqlite3_reset(write);
+         sqlite3_clear_bindings(write);
+      }
+      ok = ok && rc == SQLITE_DONE;
+      sqlite3_finalize(read);
+      sqlite3_finalize(write);
+   }
+   if (ok) {
+      ok = sqlite3_exec(preferences_db, "INSERT INTO receiver_preference_migration VALUES(1);COMMIT;", NULL, NULL, NULL) == SQLITE_OK;
+   }
+   if (!ok) {
+      sqlite3_exec(preferences_db, "ROLLBACK", NULL, NULL, NULL);
+   }
+   return ok;
+}
+
+static void open_preferences(void) {
+   char *path = preferences_path();
+   char *parent = g_path_get_dirname(path);
+   if (g_mkdir_with_parents(parent, 0700) == 0 &&
+       sqlite3_open_v2(path, &preferences_db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX, NULL) == SQLITE_OK) {
+      g_chmod(path, 0600);
+      sqlite3_busy_timeout(preferences_db, 2000);
+      if (sqlite3_exec(preferences_db,
+         "CREATE TABLE IF NOT EXISTS receiver_favorites(url TEXT PRIMARY KEY);"
+         "CREATE TABLE IF NOT EXISTS receiver_state(url TEXT PRIMARY KEY,state TEXT NOT NULL CHECK(state IN ('unknown','unreachable','restricted','good')),reason TEXT NOT NULL,updated_at INTEGER NOT NULL);"
+         "CREATE TABLE IF NOT EXISTS receiver_connections(url TEXT PRIMARY KEY,last_connected INTEGER NOT NULL);"
+         "CREATE TABLE IF NOT EXISTS receiver_preference_migration(id INTEGER PRIMARY KEY CHECK(id=1));",
+         NULL, NULL, NULL) == SQLITE_OK) {
+         if (cache_db && !migrate_preferences()) {
+            Log(LOG_WARN, "receiver.directory", "SDR preference migration failed; will retry on restart");
+         } else {
+            g_free(parent);
+            g_free(path);
+            return;
+         }
+      }
+   }
+   Log(LOG_WARN, "receiver.directory", "Cannot open persistent SDR preferences in %s", path);
+   if (preferences_db) {
+      sqlite3_close(preferences_db);
+      preferences_db = NULL;
+   }
+   g_free(parent);
+   g_free(path);
+}
+
 static void cache_write(void) {
    if (!cache_db) {
       return;
@@ -861,7 +956,7 @@ static void merge_records(void) {
 }
 
 static void restore_states(void) {
-   if (!cache_db) {
+   if (!preferences_db) {
       return;
    }
    /* Scan each metadata table once rather than performing three indexed
@@ -876,7 +971,7 @@ static void restore_states(void) {
       g_hash_table_insert(by_url, r->url, r);
    }
    sqlite3_stmt *statement = NULL;
-   if (sqlite3_prepare_v2(cache_db, "SELECT url,state,reason,updated_at FROM receiver_state", -1, &statement, NULL) == SQLITE_OK) {
+   if (sqlite3_prepare_v2(preferences_db, "SELECT url,state,reason,updated_at FROM receiver_state", -1, &statement, NULL) == SQLITE_OK) {
       while (sqlite3_step(statement) == SQLITE_ROW) {
          receiver_directory_entry_t *r = g_hash_table_lookup(by_url, sqlite3_column_text(statement, 0));
          if (r) {
@@ -888,7 +983,7 @@ static void restore_states(void) {
    }
    sqlite3_finalize(statement);
    statement = NULL;
-   if (sqlite3_prepare_v2(cache_db, "SELECT url,last_connected FROM receiver_connections", -1, &statement, NULL) == SQLITE_OK) {
+   if (sqlite3_prepare_v2(preferences_db, "SELECT url,last_connected FROM receiver_connections", -1, &statement, NULL) == SQLITE_OK) {
       while (sqlite3_step(statement) == SQLITE_ROW) {
          receiver_directory_entry_t *r = g_hash_table_lookup(by_url, sqlite3_column_text(statement, 0));
          if (r) {
@@ -898,7 +993,7 @@ static void restore_states(void) {
    }
    sqlite3_finalize(statement);
    statement = NULL;
-   if (sqlite3_prepare_v2(cache_db, "SELECT url FROM receiver_favorites", -1, &statement, NULL) == SQLITE_OK) {
+   if (sqlite3_prepare_v2(preferences_db, "SELECT url FROM receiver_favorites", -1, &statement, NULL) == SQLITE_OK) {
       while (sqlite3_step(statement) == SQLITE_ROW) {
          receiver_directory_entry_t *r = g_hash_table_lookup(by_url, sqlite3_column_text(statement, 0));
          if (r) {
@@ -1000,6 +1095,7 @@ static void ensure(void) {
          Log(LOG_WARN, "receiver.directory", "Cannot migrate legacy receiver state table");
       }
    }
+   open_preferences();
    sqlite3_stmt *statement = NULL;
 
    if (cache_db
@@ -1159,13 +1255,13 @@ bool receiver_directory_record_connection(const char *endpoint) {
    ensure();
    char *url = endpoint ? canonical_url(endpoint) : NULL;
 
-   if (!cache_db || !url) {
+   if (!preferences_db || !url) {
       g_free(url);
 
       return false;
    }
    sqlite3_stmt *statement = NULL;
-   bool ok = sqlite3_prepare_v2(cache_db, "INSERT INTO receiver_connections(url,last_connected) VALUES(?,?) "
+   bool ok = sqlite3_prepare_v2(preferences_db, "INSERT INTO receiver_connections(url,last_connected) VALUES(?,?) "
       "ON CONFLICT(url) DO UPDATE SET last_connected=excluded.last_connected", -1, &statement, NULL) == SQLITE_OK;
    time_t stamp = time(NULL);
 
@@ -1196,14 +1292,14 @@ bool receiver_directory_set_favorite(const char *endpoint, bool favorite) {
    ensure();
    char *url = endpoint ? canonical_url(endpoint) : NULL;
 
-   if (!url || !cache_db) {
-      Log(LOG_WARN, "receiver.directory", "Cannot save favorite: invalid URL or unavailable cache database");
+   if (!url || !preferences_db) {
+      Log(LOG_WARN, "receiver.directory", "Cannot save favorite: invalid URL or unavailable preferences database");
       g_free(url);
 
       return false;
    }
    sqlite3_stmt *stmt = NULL;
-   bool ok = sqlite3_prepare_v2(cache_db, favorite ?
+   bool ok = sqlite3_prepare_v2(preferences_db, favorite ?
       "INSERT OR IGNORE INTO receiver_favorites(url) VALUES(?)" : "DELETE FROM receiver_favorites WHERE url=?", -1, &stmt, NULL) == SQLITE_OK;
 
    if (ok) {
@@ -1211,7 +1307,7 @@ bool receiver_directory_set_favorite(const char *endpoint, bool favorite) {
       ok = sqlite3_step(stmt) == SQLITE_DONE;
    }
    if (!ok) {
-      Log(LOG_WARN, "receiver.directory", "Cannot save favorite: %s", sqlite3_errmsg(cache_db));
+      Log(LOG_WARN, "receiver.directory", "Cannot save favorite: %s", sqlite3_errmsg(preferences_db));
    }
    sqlite3_finalize(stmt);
 
@@ -1234,7 +1330,7 @@ bool receiver_directory_set_favorite(const char *endpoint, bool favorite) {
 bool receiver_directory_set_state(const char *endpoint, const char *state, const char *reason) {
    ensure();
 
-   if (!cache_db || !endpoint || !state || (strcmp(state, "unknown") && strcmp(state, "unreachable") && strcmp(state, "restricted") && strcmp(state, "good"))) {
+   if (!preferences_db || !endpoint || !state || (strcmp(state, "unknown") && strcmp(state, "unreachable") && strcmp(state, "restricted") && strcmp(state, "good"))) {
       return false;
    }
    char *url = canonical_url(endpoint);
@@ -1244,7 +1340,7 @@ bool receiver_directory_set_state(const char *endpoint, const char *state, const
    }
    sqlite3_stmt *statement = NULL;
    bool clearing = !strcmp(state, "unknown");
-   bool ok = sqlite3_prepare_v2(cache_db, clearing ?
+   bool ok = sqlite3_prepare_v2(preferences_db, clearing ?
       "DELETE FROM receiver_state WHERE url=?" : "INSERT OR REPLACE INTO receiver_state VALUES(?,?,?,?)", -1, &statement, NULL) == SQLITE_OK;
 
    if (ok) {
@@ -1263,7 +1359,7 @@ bool receiver_directory_set_state(const char *endpoint, const char *state, const
       restore_states();
       changed();
    } else {
-      Log(LOG_WARN, "receiver.directory", "Cannot save receiver mark: %s", sqlite3_errmsg(cache_db));
+      Log(LOG_WARN, "receiver.directory", "Cannot save receiver mark: %s", sqlite3_errmsg(preferences_db));
    }
    g_free(url);
 
@@ -1795,6 +1891,10 @@ void receiver_directory_shutdown(void) {
    if (cache_db) {
       sqlite3_close(cache_db);
       cache_db = NULL;
+   }
+   if (preferences_db) {
+      sqlite3_close(preferences_db);
+      preferences_db = NULL;
    }
    next_request = 0;
    initialized = false;
