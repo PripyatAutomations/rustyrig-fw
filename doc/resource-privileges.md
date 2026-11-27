@@ -293,7 +293,7 @@ A group can grant or deny `rig.full`, `rig.use`, or `room.join` for one
 named resource or `*` (all of that type on this server). An explicit denial
 from any group or direct assignment overrides allows.
 
-For example, create `club-members`, add `alice@rplywv00`, and grant
+For example, create `club-members`, add `alice@dsmiia00`, and grant
 `rig.full` for `rig0`; create `club-guests` with `room.join` for `*`.
 Only the destination server evaluates these permissions, and a local
 `admin` or `owner` role from another server is not imported.
