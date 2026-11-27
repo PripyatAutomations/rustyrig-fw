@@ -1006,17 +1006,35 @@ static rrs_value_t *native_debug_inspect(rrs_vm_t *vm,int argc,
    g_rec_mutex_unlock(&host->state_mutex);
    return result;
 }
+/* Ordinary client scripts use the same layered policy as layout scripts.
+ * Server scripts remain restricted to the administrator's configured root. */
+static char *script_path(rrscript_host_t *host,const char *name) {
+   char *local=g_build_filename(host->root,name,NULL);
+   if (!host->client || g_file_test(local,G_FILE_TEST_EXISTS)) {
+      return local;
+   }
+   const char *roots[]={"/etc/rustyrig/scripts/client","/usr/share/rustyrig/scripts/client"};
+   for (unsigned i=0;i<G_N_ELEMENTS(roots);i++) {
+      char *path=g_build_filename(roots[i],name,NULL);
+      if (g_file_test(path,G_FILE_TEST_IS_REGULAR)) {
+         g_free(local);
+         return path;
+      }
+      g_free(path);
+   }
+   return local;
+}
 static char *resolve_name(rrscript_host_t *host,const char *requested) {
-   if(!valid_name(requested))return NULL;
-   if(g_str_has_prefix(requested,"autoload/"))return g_strdup(requested);
-   /* A bare script name prefers the root; otherwise use autoload. */
-   char *path=g_build_filename(host->root,requested,NULL);
+   if (!valid_name(requested)) {
+      return NULL;
+   }
+   if (g_str_has_prefix(requested,"autoload/")) {
+      return g_strdup(requested);
+   }
+   char *path=script_path(host,requested);
    bool at_root=g_file_test(path,G_FILE_TEST_IS_REGULAR);
    g_free(path);
    return at_root?g_strdup(requested):g_strconcat("autoload/",requested,NULL);
-}
-static char *script_path(rrscript_host_t *host,const char *name) {
-   return g_build_filename(host->root,name,NULL);
 }
 static void report_error(char **error,const char *message) {
    if(error)*error=g_strdup(message);
@@ -1147,36 +1165,56 @@ bool rrscript_host_unload(rrscript_host_t *host,const char *name,char **error) {
    g_ptr_array_remove_index(host->scripts,index);
    return true;
 }
-static void list_dir(rrscript_host_t *host,const char *directory,const char *prefix,
-                     void (*visit)(const char *,bool,void *),void *user) {
+static void collect_script_names(const char *root,const char *prefix,GHashTable *seen) {
+   char *directory=g_build_filename(root,prefix,NULL);
    GDir *dir=g_dir_open(directory,0,NULL);
-   if(!dir)return;
-   GPtrArray *names=g_ptr_array_new_with_free_func(g_free);
-   const char *entry;
-   while((entry=g_dir_read_name(dir))) {
-      if(!g_str_has_suffix(entry,".rrs"))continue;
-      char *name=g_strconcat(prefix,entry,NULL);
-      char *path=script_path(host,name);
-      if(valid_name(name)&&g_file_test(path,G_FILE_TEST_IS_REGULAR))
-         g_ptr_array_add(names,name);
-      else g_free(name);
-      g_free(path);
+   if (dir) {
+      const char *entry;
+      while ((entry=g_dir_read_name(dir))) {
+         char *name=g_strconcat(prefix,entry,NULL);
+         char *path=g_build_filename(root,name,NULL);
+         if (valid_name(name) && g_file_test(path,G_FILE_TEST_IS_REGULAR)) {
+            g_hash_table_add(seen,name);
+         } else {
+            g_free(name);
+         }
+         g_free(path);
+      }
+      g_dir_close(dir);
    }
-   g_dir_close(dir);
+   g_free(directory);
+}
+static GPtrArray *script_names(rrscript_host_t *host,bool autoload_only) {
+   GHashTable *seen=g_hash_table_new_full(g_str_hash,g_str_equal,g_free,NULL);
+   const char *roots[]={host->root,"/etc/rustyrig/scripts/client","/usr/share/rustyrig/scripts/client"};
+   for (unsigned i=0;i<(host->client?G_N_ELEMENTS(roots):1);i++) {
+      if (!autoload_only) {
+         collect_script_names(roots[i],"",seen);
+      }
+      collect_script_names(roots[i],"autoload/",seen);
+   }
+   GPtrArray *names=g_ptr_array_new_with_free_func(g_free);
+   GHashTableIter iter;
+   gpointer key;
+   g_hash_table_iter_init(&iter,seen);
+   while (g_hash_table_iter_next(&iter,&key,NULL)) {
+      g_ptr_array_add(names,g_strdup(key));
+   }
+   g_hash_table_destroy(seen);
    g_ptr_array_sort(names,script_name_compare);
-   for(guint i=0;i<names->len;i++) {
+   return names;
+}
+void rrscript_host_list(rrscript_host_t *host,
+                        void (*visit)(const char *,bool,void *),void *user) {
+   if (!host || !host->root || !visit) {
+      return;
+   }
+   GPtrArray *names=script_names(host,false);
+   for (guint i=0;i<names->len;i++) {
       const char *name=g_ptr_array_index(names,i);
       visit(name,find_script(host,name,NULL)!=NULL,user);
    }
    g_ptr_array_unref(names);
-}
-void rrscript_host_list(rrscript_host_t *host,
-                        void (*visit)(const char *,bool,void *),void *user) {
-   if(!host||!host->root||!visit)return;
-   list_dir(host,host->root,"",visit,user);
-   char *autoload=g_build_filename(host->root,"autoload",NULL);
-   list_dir(host,autoload,"autoload/",visit,user);
-   g_free(autoload);
 }
 /* Emit one startup report so the frontend does not open a dialog for each
  * bad autoload script. Event bus copies this payload for cross-domain use. */
@@ -1219,35 +1257,14 @@ rrscript_host_t *rrscript_host_open(const char *directory,bool client,
       publish_startup_errors(host,startup_errors);
       return host;
    }
-   GError *open_error=NULL;
-   GDir *dir=g_dir_open(autoload,0,&open_error);
-   if(!dir) {
-      char *detail=g_strdup_printf("Cannot open script autoload directory %s: %s",
-          autoload,open_error?open_error->message:"unknown error");
-      Log(LOG_CRIT,"scripting","%s",detail);
-      g_string_append_printf(startup_errors,"%s\n",detail);
-      g_free(detail);g_clear_error(&open_error);g_free(autoload);
-      publish_startup_errors(host,startup_errors);
-      return host;
-   }
-   GPtrArray *names=g_ptr_array_new_with_free_func(g_free);
-   const char *entry;
-   while((entry=g_dir_read_name(dir))) {
-      if(!g_str_has_suffix(entry,".rrs"))continue;
-      char *full=g_build_filename(autoload,entry,NULL);
-      if(g_file_test(full,G_FILE_TEST_IS_REGULAR)&&valid_name(entry))
-         g_ptr_array_add(names,g_strdup(entry));
-      g_free(full);
-   }
-   g_dir_close(dir);
-   g_ptr_array_sort(names,script_name_compare);
-   for(guint i=0;i<names->len;i++) {
-      const char *entry=g_ptr_array_index(names,i);
-      char *name=g_strconcat("autoload/",entry,NULL);
+   GPtrArray *names=script_names(host,true);
+   for (guint i=0;i<names->len;i++) {
+      const char *name=g_ptr_array_index(names,i);
       char *error=NULL;
-      if(!rrscript_host_load(host,name,&error))
+      if (!rrscript_host_load(host,name,&error)) {
          g_string_append_printf(startup_errors,"%s: %s\n",name,error?error:"load failed");
-      g_free(error);g_free(name);
+      }
+      g_free(error);
    }
    g_ptr_array_unref(names);
    g_free(autoload);
