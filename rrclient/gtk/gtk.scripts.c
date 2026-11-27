@@ -331,15 +331,65 @@ static void script_refresh(GtkWidget *browser, const char *name, gpointer unused
    rr_local_browser_message(browser, "Refreshed");
 }
 
+typedef struct {
+   char *local;
+   char *fallback;
+} script_edit_cleanup_t;
+
+/* Only remove an override if its on-disk contents are identical to the
+ * effective lower layer. Never discard a genuinely customized script. */
+static void script_edit_cleanup(gpointer data) {
+   script_edit_cleanup_t *edit=data;
+   char *local=NULL,*fallback=NULL;
+   gsize local_len=0,fallback_len=0;
+   if (!g_file_test(edit->local,G_FILE_TEST_IS_SYMLINK) &&
+       g_file_test(edit->local,G_FILE_TEST_IS_REGULAR) &&
+       g_file_get_contents(edit->local,&local,&local_len,NULL) &&
+       g_file_get_contents(edit->fallback,&fallback,&fallback_len,NULL) &&
+       local_len==fallback_len && !memcmp(local,fallback,local_len)) {
+      g_unlink(edit->local);
+   }
+   g_free(local);
+   g_free(fallback);
+   g_free(edit->local);
+   g_free(edit->fallback);
+   g_free(edit);
+   if (script_browser) {
+      rr_local_browser_refresh(script_browser);
+   }
+}
+
 static void script_edit(GtkWidget *browser, const char *name, gpointer unused) {
    (void)unused;
-   char *path = script_editable_path(name);
-   if (!path || !g_file_test(path, G_FILE_TEST_IS_REGULAR))
-      script_message(browser, "Cannot edit", name, "unable to create a local override");
-   else {
-      gui_file_editor_open(path);
-      script_message(browser, "Editing", name, NULL);
+   const char *roots[]={"/etc/rustyrig/scripts/client","/usr/share/rustyrig/scripts/client"};
+   const char *relative=script_is_layout(name)?name+strlen("client/"):name;
+   char *fallback=NULL;
+   for (unsigned i=0;i<G_N_ELEMENTS(roots);i++) {
+      char *candidate=g_build_filename(roots[i],relative,NULL);
+      if (g_file_test(candidate,G_FILE_TEST_IS_REGULAR)) {
+         fallback=candidate;
+         break;
+      }
+      g_free(candidate);
    }
+   char *path=script_editable_path(name);
+   if (!path || !g_file_test(path,G_FILE_TEST_IS_REGULAR)) {
+      script_message(browser,"Cannot edit",name,"unable to create a local override");
+   } else if (fallback) {
+      script_edit_cleanup_t *edit=g_new0(script_edit_cleanup_t,1);
+      edit->local=g_strdup(path);
+      edit->fallback=g_steal_pointer(&fallback);
+      if (gui_file_editor_open_notify(path,script_edit_cleanup,edit)) {
+         script_message(browser,"Editing",name,NULL);
+      } else {
+         script_edit_cleanup(edit);
+         script_message(browser,"Cannot edit",name,"another editor is open or opening failed");
+      }
+   } else {
+      gui_file_editor_open(path);
+      script_message(browser,"Editing",name,NULL);
+   }
+   g_free(fallback);
    g_free(path);
 }
 
