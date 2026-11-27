@@ -115,7 +115,9 @@ int main(int argc, char **argv) {
    assert(receiver_directory_count() == 6);
    // Re-import/refresh never erases local restrictions.
    assert(receiver_directory_set_state("http://allowed.invalid:8073/", "restricted", "Operator restriction"));
+   assert(receiver_directory_set_favorite("http://allowed.invalid:8073/", true));
    assert(receiver_directory_import(path));
+   assert(receiver_directory_find_url("http://allowed.invalid:8073/")->favorite);
    assert(!receiver_directory_entry_accessible(receiver_directory_receiver(0)));
    // Learned fields win over directory updates, blanks and removal. Missing
    // entries retain both metadata and status until absent for ninety days.
@@ -144,6 +146,9 @@ int main(int argc, char **argv) {
    now += 2 * 86400;
    assert(receiver_directory_import(path));
    assert(receiver_directory_count() == 0);
+   assert(receiver_directory_import_snapshot(fixture, strlen(fixture), "rrserver"));
+   assert(receiver_directory_find_url("http://allowed.invalid:8073/")->favorite);
+   assert(!strcmp(receiver_directory_find_url("http://allowed.invalid:8073/")->local_state, "restricted"));
    puts("PASS: live metadata wins, removed receivers retain fields/status, and missing entries expire after ninety days");
    const char *live = g_getenv("RRCLIENT_KIWI_TEST_LIVE_JSON");
 
