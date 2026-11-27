@@ -214,15 +214,19 @@ static void patch_port_collection(const rr_ag_view_node_t *n,rrui_graph_port_t p
       ports[i]=(rrui_graph_port_t){.pin=patch_ports[i],.available=patch_pin_valid(n,i)};
    }
 }
+/* Hit the actual rounded cell rendered on screen, not an infinitesimal
+ * floating-point point. Allow one adjacent cell for terminal mouse precision. */
 static int patch_pin_hit(const patch_pos_t *p,int x,int y,bool output){
-   rrui_graph_port_t ports[PIN_COUNT];
-   patch_port_collection(patch_node(p->id),ports);
+   const rr_ag_view_node_t *n=patch_node(p->id);
+   int best=-1,distance=2;
    for (int i=0;i<PIN_COUNT;i++) {
-      if (patch_output(i)!=output) { ports[i].available=false; }
+      int px,py;
+      if (patch_output(i)!=output || !patch_pin_valid(n,i) ||
+          !patch_pin_point(p,i,&px,&py)) { continue; }
+      int d=abs(px-x)+abs(py-y);
+      if (d<distance) { distance=d;best=i; }
    }
-   size_t hit=rrui_graph_port_hit(ports,PIN_COUNT,RRUI_SHAPE_RECT,
-      (rrui_shape_bounds_t){p->x,p->y,PATCH_W-1,PATCH_H-1},x,y,.01);
-   return hit<PIN_COUNT?(int)hit:-1;
+   return best;
 }
 static uint32_t patch_pin_color(int pin){
    if (patch_ports[pin].type==PATCH_NUMBER) { return 0x55cc66; }
@@ -520,7 +524,7 @@ static void patch_draw(tui_window_t *w,int rows,int cols,void *unused){
       }
    }
    for(int y=patch_rows;y<rows-1;y++)for(int x=0;x<patch_cols;x++)rrui_canvas_put(c,x,y,' ',UINT32_MAX);
-   char header[220];g_snprintf(header,sizeof(header),"%u blocks / %u wires | %s [%s] | %s",patch_count,route_snapshot.link_count,patch_selected,patch_pin>=0&&patch_pin<PIN_COUNT?patch_ports[patch_pin].id:"No pin",*patch_source?patch_source:"No pending connection");
+   char header[220];g_snprintf(header,sizeof(header),"%u blocks / %u wires | %s [%s] | %s",patch_count,route_snapshot.link_count+rr_logic_wire_count,patch_selected,patch_pin>=0&&patch_pin<PIN_COUNT?patch_ports[patch_pin].id:"No pin",*patch_source?patch_source:"No pending connection");
    rrui_canvas_text(c,0,patch_rows,patch_cols,header,0xffff70);
    rrui_canvas_text(c,0,patch_rows+1,patch_cols,patch_message,0xc2d1da);
    rrui_canvas_text(c,0,patch_rows+2,patch_cols,"Arrows block | Tab/Shift-Tab pin | Enter connect | Esc cancel | a auto | t list",UINT32_MAX);
@@ -982,9 +986,11 @@ static bool patch_key(tui_window_t *w,unsigned key,unsigned mods,void *unused){
          }
          g_strlcpy(patch_source,patch_selected,sizeof(patch_source));patch_source_pin=patch_pin;
          patch_notice("Select destination block and input pin, then Enter.");
-      }else if(patch_pin>=0&&!patch_output(patch_pin)&&patch_connect(patch_source,patch_selected,patch_source_pin,patch_pin)){
-         patch_source[0]=0;patch_source_pin=-1;
-      }
+      } else if (patch_pin>=0 && !patch_output(patch_pin)) {
+         if (patch_connect(patch_source,patch_selected,patch_source_pin,patch_pin)) {
+            patch_source[0]=0;patch_source_pin=-1;
+         }
+      } else { patch_notice("Choose a compatible input pin."); }
    }else if(key<=127&&key&&strchr("WHSD",key)){
       patch_pos_t *p=&patch_pos[i];p->x=CLAMP(p->x+(key=='D')-(key=='H'),0,4000);p->y=CLAMP(p->y+(key=='S')-(key=='W'),0,4000);
       patch_save(p);patch_ensure();
@@ -1046,6 +1052,7 @@ static bool patch_mouse(tui_window_t *w,int row,int col,int button,int action,un
       patch_panning=false;
       int i=patch_hit(x,y);
       if(i<0){
+         if (*patch_source && !patch_wire_mouse) { patch_notice("Select an input pin or press Esc.");return true; }
          patch_drag=-1;patch_source[0]=0;patch_source_pin=-1;patch_wire_mouse=false;
          patch_panning=true;
          patch_pan_col=col;patch_pan_row=row;
@@ -1054,6 +1061,13 @@ static bool patch_mouse(tui_window_t *w,int row,int col,int button,int action,un
       }
       patch_pos_t *p=&patch_pos[i];g_strlcpy(patch_selected,p->id,sizeof(patch_selected));
       int pin=patch_pin_hit(p,x,y,true);
+      if (*patch_source && !patch_wire_mouse) {
+         int input=patch_pin_hit(p,x,y,false);
+         if (input>=0 && patch_connect(patch_source,p->id,patch_source_pin,input)) {
+            patch_source[0]=0;patch_source_pin=-1;patch_pin=input;
+         }
+         return true;
+      }
       if (pin>=0) {
          g_strlcpy(patch_source,p->id,sizeof(patch_source));patch_source_pin=patch_pin=pin;patch_drag=-1;
          patch_wire_mouse=true;patch_mouse_x=x+1;patch_mouse_y=y;
@@ -1068,9 +1082,16 @@ static bool patch_mouse(tui_window_t *w,int row,int col,int button,int action,un
          int i=patch_hit(x,y);
          if (patch_wire_mouse && i>=0) {
             int pin=patch_pin_hit(&patch_pos[i],x,y,false);
-            if (pin>=0) { patch_connect(patch_source,patch_pos[i].id,patch_source_pin,pin); }
+            if (pin>=0) {
+               if (patch_connect(patch_source,patch_pos[i].id,patch_source_pin,pin)) {
+                  patch_source[0]=0;patch_source_pin=-1;
+               }
+            } else if (strcmp(patch_source,patch_pos[i].id)) {
+               patch_notice("Click a compatible input or press Esc to cancel.");
+            }
          }
-         patch_source[0]=0;patch_source_pin=-1;patch_wire_mouse=false;
+         patch_wire_mouse=false;
+         if (*patch_source) { patch_notice("Output selected: click an input or press Esc."); }
       }
    }
    return true;
