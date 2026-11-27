@@ -3,7 +3,7 @@
  * No GTK gesture ever transmits PTT. The physical TX sink must separately
  * enforce authorization, interlocks and loss-of-signal release. */
 #include "gtk.control-graph.h"
-#include <rrclient/logic.rr_logic_model.h>
+#include <rrclient/logic.model.h>
 #include <rrclient/audio.h>
 #include <rrclient/local.modem.h>
 #include <rrclient/database.h>

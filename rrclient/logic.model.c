@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /* Shared client graph topology and persistence; never keys a transmitter. */
-#include <rrclient/logic.rr_logic_model.h>
+#include <rrclient/logic.model.h>
 #include <rrclient/audio.h>
 #include <rrclient/local.modem.h>
 #include <rrclient/database.h>
