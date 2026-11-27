@@ -830,6 +830,38 @@ static void nick_in_use(const char *event, const char *data, rrconn_t *cptr, voi
    dict_free(message);
 }
 
+static void schedule_reconnect(client_server_t *s) {
+   if (!s->reconnect_enabled || s->reconnect_pending || dying) {
+      return;
+   }
+   if (s->reconnect_tries >= RRC_MAX_RECONNECTS) {
+      cancel_reconnect(s);
+      ui_print(NULL, "%s: Giving up after %u reconnect attempts", s->name, RRC_MAX_RECONNECTS);
+       return;
+   }
+   s->reconnect_tries++;
+   /* PARITY: rustyrig-www/js/webui.js exponential reconnect base interval precedence. */
+   const char *override = get_server_property(s->name, "server.reconnect-interval");
+   char *end = NULL;
+   long interval = override && *override ? strtol(override, &end, 10) : cfg_get_int("server.reconnect-interval", 2);
+    if (interval < 1 || interval > 60 || (end && *end)) {
+      interval = 1;
+   }
+    for (unsigned i = 1 ; i < s->reconnect_tries && interval < 60 ; i++) {
+      interval *= 2;
+   }
+    if (interval > 60) {
+      interval = 60;
+   }
+   s->reconnect_pending = true;
+   s->reconnect_at = now + interval;
+   s->connected = -1;
+   if (context == s) {
+      ws_connected = -1;
+   }
+   ui_print(NULL, "%s: Reconnecting in %ld seconds (attempt %u/%u)", s->name, interval, s->reconnect_tries, RRC_MAX_RECONNECTS);
+}
+
 static void connection_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
    (void)data;
    (void)user;
@@ -890,33 +922,7 @@ static void connection_event(const char *event, const char *data, rrconn_t *cptr
       !strcmp(event, "http.error")) && s->reconnect_enabled && !s->reconnect_pending && !dying) {
       /* A protocol 'error' is not a transport failure. In particular, password-change-required errors must not tear down an authenticated session while the
        * user is being prompted to rotate credentials. */
-      if (s->reconnect_tries >= RRC_MAX_RECONNECTS) {
-         cancel_reconnect(s);
-         ui_print(NULL, "Giving up after %u reconnect attempts", RRC_MAX_RECONNECTS);
-
-         return;
-      }
-      s->reconnect_tries++;
-      /* PARITY: rustyrig-www/js/webui.js exponential reconnect base interval precedence. */
-      const char *override = get_server_property(s->name, "server.reconnect-interval");
-      char *end = NULL;
-      long interval = override && *override ? strtol(override, &end, 10) : cfg_get_int("server.reconnect-interval", 1);
-
-      if (interval < 1 || interval >= 60 || (end && *end)) {
-         interval = 1;
-      }
-
-      for (unsigned i = 1 ; i < s->reconnect_tries && interval < 60 ; i++) {
-         interval *= 2;
-      }
-
-      if (interval > 60) {
-         interval = 60;
-      }
-      s->reconnect_pending = true;
-      s->reconnect_at = now + interval;
-      ws_connected = -1;
-      ui_print(NULL, "Reconnecting in %ld seconds (attempt %u/%u)", interval, s->reconnect_tries, RRC_MAX_RECONNECTS);
+      schedule_reconnect(s);
    }
 }
 
@@ -1741,8 +1747,12 @@ void rrclient_poll_events_reconnect(void) {
 
          if (s->reconnect_enabled) {
             reconnect_attempting = true;
-            rrclient_connect_url(s->name, s->url);
+            ui_print(NULL, "%s: Retrying connection (attempt %u/%u)", s->name, s->reconnect_tries, RRC_MAX_RECONNECTS);
+            bool failed = rrclient_connect_url(s->name, s->url);
             reconnect_attempting = false;
+            if (failed) {
+               schedule_reconnect(s);
+            }
          }
       }
    }
@@ -1760,8 +1770,12 @@ void rrclient_poll_events_reconnect(void) {
 
          if (s->reconnect_enabled) {
             reconnect_attempting = true;
-            rrclient_connect_url(s->name, s->url);
+            ui_print(NULL, "%s: Retrying connection (attempt %u/%u)", s->name, s->reconnect_tries, RRC_MAX_RECONNECTS);
+            bool failed = rrclient_connect_url(s->name, s->url);
             reconnect_attempting = false;
+            if (failed) {
+               schedule_reconnect(s);
+            }
          }
       }
    }
