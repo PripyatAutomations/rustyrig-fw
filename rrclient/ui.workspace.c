@@ -1159,7 +1159,156 @@ static void routing_action(rrui_form_t *f,const char *id,const char *action,void
       view_notice(f,"RX route updated.");routing_request();
    }
 }
+/* Modem inventory and TX controls use the existing core request API.
+ * Decoded output is text-only; no UI path bypasses TX authorization. */
+static rrui_form_t *modem_view;
+static tui_window_t *modem_tab;
+static rr_event_token_t modem_snapshot_token,modem_decode_token;
+static rr_local_modem_snapshot_t modem_snapshot;
+static gint64 modem_requested;
+static unsigned modem_selected_slot(rrui_form_t *f) {
+   const char *key=rrui_form_value(f,"slots");
+   if (!key || !*key) { return 0; }
+   char *end=NULL;
+   unsigned long slot=strtoul(key,&end,10);
+   return end && !*end && slot>=1 && slot<=RR_LOCAL_MODEM_MAX?(unsigned)slot:0;
+}
+static void modem_request_snapshot(void) {
+   modem_requested=g_get_monotonic_time();
+   rr_local_modem_request(&(rr_local_modem_request_t){.action=RR_LOCAL_MODEM_SNAPSHOT});
+}
+static void modem_show_selected(rrui_form_t *f) {
+   unsigned slot=modem_selected_slot(f);
+   if (!slot) { return; }
+   const rr_local_modem_entry_t *e=&modem_snapshot.entries[slot-1];
+   rrui_form_set_checked(f,"tx",e->running&&e->tx_enabled);
+   rrui_form_set_value(f,"engine",e->running?e->engine:"psk");
+   rrui_form_set_value(f,"source",e->source);
+   rrui_form_set_value(f,"option",e->running?e->option:"BPSK31");
+   char value[24];g_snprintf(value,sizeof(value),"%u",e->running?e->value:1500);
+   rrui_form_set_value(f,"value",value);
+}
+static void modem_selection(rrui_form_t *f,const char *id,const char *action,void *user) {
+   (void)action;(void)user;
+   if (!strcmp(id,"slots")) { modem_show_selected(f); }
+}
+static void modem_result(const rr_event_message_t *m,void *user) {
+   (void)user;
+   if (!modem_view || !m || !m->payload || m->length!=sizeof(modem_snapshot)) { return; }
+   const rr_local_modem_snapshot_t *snapshot=m->payload;
+   if (snapshot->count>RR_LOCAL_MODEM_MAX) { return; }
+   bool first=modem_snapshot.count==0;
+   modem_snapshot=*snapshot;
+   for (unsigned i=0;i<RR_LOCAL_MODEM_MAX;i++) {
+      char source[64];g_snprintf(source,sizeof(source),"modem%u.ptt",i+1);
+      const rr_local_modem_entry_t *e=&snapshot->entries[i];
+      rr_logic_signal(source,e->running,e->tx_on);
+   }
+   unsigned selected=modem_selected_slot(modem_view);
+   rrui_form_list_clear(modem_view,"slots");
+   for (unsigned i=0;i<RR_LOCAL_MODEM_MAX;i++) {
+      const rr_local_modem_entry_t *e=&snapshot->entries[i];
+      char key[8],label[160];g_snprintf(key,sizeof(key),"%u",i+1);
+      g_snprintf(label,sizeof(label),"%u  %s %s %s  %s",i+1,e->running?e->engine:"Empty",
+         e->running?e->option:"",e->running?e->source:"",
+         e->tx_on?"ON AIR":e->tx_enabled?"TX enabled":"RX");
+      rrui_form_list_append(modem_view,"slots",key,label);
+   }
+   rrui_form_select(modem_view,view_field(modem_view,"slots"),selected?selected-1:0);
+   if (first) { modem_show_selected(modem_view); }
+   rrui_form_set_value(modem_view,"message",snapshot->status);
+   /* The core keeps a bounded text history, including partial PSK lines.
+    * Split it for a scrollable text list instead of treating it as markup. */
+   selected=modem_selected_slot(modem_view);
+   rrui_form_list_clear(modem_view,"decoded");
+   if (selected) {
+      const char *raw=snapshot->entries[selected-1].text;
+      char *valid=g_utf8_make_valid(raw,strnlen(raw,RR_LOCAL_MODEM_TEXT));
+      gchar **lines=g_strsplit(valid,"\n",-1);
+      for (unsigned i=0;lines[i];i++) {
+         for (char *p=lines[i];*p;p++) {
+            if ((unsigned char)*p<32 || *p==127) { *p=' '; }
+         }
+         char key[16];g_snprintf(key,sizeof(key),"%u",i);
+         rrui_form_list_append(modem_view,"decoded",key,lines[i]);
+      }
+      g_strfreev(lines);g_free(valid);
+   }
+   tui_redraw_request();
+}
+static void modem_decode(const rr_event_message_t *m,void *user) {
+   (void)user;
+   if (!m || !m->payload || m->length!=sizeof(rr_local_modem_decode_t)) { return; }
+   if (modem_tab && tui_active_window()==modem_tab &&
+       g_get_monotonic_time()-modem_requested>250000) { modem_request_snapshot(); }
+}
+static void modem_action(rrui_form_t *f,const char *id,const char *action,void *user) {
+   (void)id;(void)user;
+   if (!strcmp(action,"select")) { modem_show_selected(f);modem_request_snapshot();return; }
+   if (!strcmp(action,"refresh")) { modem_request_snapshot();return; }
+   unsigned slot=modem_selected_slot(f);
+   if (!slot) { view_notice(f,"Select a modem slot.");return; }
+   const rr_local_modem_entry_t *e=&modem_snapshot.entries[slot-1];
+   rr_local_modem_request_t req={.slot=slot};
+   if (!strcmp(action,"start")) {
+      if (e->running) { view_notice(f,"Stop the existing modem before replacing it.");return; }
+      const char *engine=rrui_form_value(f,"engine"),*source=rrui_form_value(f,"source");
+      const char *option=rrui_form_value(f,"option"),*value=rrui_form_value(f,"value");
+      if (!engine || (strcmp(engine,"psk") && strcmp(engine,"olivia") && strcmp(engine,"ft8")) ||
+          !source || strlen(source)>=sizeof(req.source) || !option || strlen(option)>=sizeof(req.option)) {
+         view_notice(f,"Engine: psk, olivia or ft8. Check source and mode.");return;
+      }
+      char *end=NULL;unsigned long hz=value?strtoul(value,&end,10):0;
+      if (strcmp(engine,"ft8") && (!value || !*value || !end || *end || hz<100 || hz>3500)) {
+         view_notice(f,"Carrier or bandwidth must be 100..3500 Hz.");return;
+      }
+      req.action=RR_LOCAL_MODEM_START;req.value=!strcmp(engine,"ft8")?0:(unsigned)hz;
+      g_strlcpy(req.engine,engine,sizeof(req.engine));g_strlcpy(req.source,source,sizeof(req.source));
+      g_strlcpy(req.option,option,sizeof(req.option));
+      req.tx_enabled=false;
+   } else if (!strcmp(action,"stop")) {
+      req.action=RR_LOCAL_MODEM_STOP;
+   } else if (!strcmp(action,"route")) {
+      const char *source=rrui_form_value(f,"source");
+      if (!e->running || !source || strlen(source)>=sizeof(req.source)) { view_notice(f,"Select a running modem and source.");return; }
+      req.action=RR_LOCAL_MODEM_ROUTE;g_strlcpy(req.source,source,sizeof(req.source));
+   } else if (!strcmp(action,"tx")) {
+      if (!e->running || !strcmp(e->engine,"ft8")) { rrui_form_set_checked(f,"tx",false);view_notice(f,"This modem has no TX encoder.");return; }
+      req.action=RR_LOCAL_MODEM_SET_TX_ENABLED;req.tx_enabled=rrui_form_checked(f,"tx");
+   } else if (!strcmp(action,"send")) {
+      const char *text=rrui_form_value(f,"text");
+      if (!e->running || !e->tx_enabled || !text || !*text || strlen(text)>=sizeof(req.text)) {
+         view_notice(f,"Enable TX, patch audio/PTT, and enter up to 255 bytes.");return;
+      }
+      req.action=RR_LOCAL_MODEM_SEND_TEXT;g_strlcpy(req.text,text,sizeof(req.text));
+   } else if (!strcmp(action,"abort")) {
+      req.action=RR_LOCAL_MODEM_STREAM_ABORT;
+   } else { return; }
+   rr_local_modem_request(&req);
+}
+static void modem_init(void) {
+   const rrclient_ui_required_t required[]={{"slots",RRUI_LIST,false},{"decoded",RRUI_LIST,false},{"text",RRUI_ENTRY,false},{"tx",RRUI_CHECKBOX,false}};
+   modem_view=rrclient_ui_layout_load("modems.rrs",RRUI_PANEL,required,G_N_ELEMENTS(required),modem_action);
+   if (!modem_view) { return; }
+   modem_tab=tui_window_create("Modems");
+   if (!modem_tab || !rrui_tui_tab_attach(modem_tab,modem_view)) {
+      rrui_form_free(modem_view);modem_view=NULL;modem_tab=NULL;return;
+   }
+   rrui_form_on_selection(modem_view,modem_selection);
+   modem_snapshot_token=event_on_message_domain_token(RR_LOCAL_MODEM_RESULT,modem_result,NULL,"core");
+   modem_decode_token=event_on_message_domain_token(RR_LOCAL_MODEM_DECODE,modem_decode,NULL,"core");
+   modem_request_snapshot();
+}
+static void modem_shutdown(void) {
+   if (modem_snapshot_token) { event_off_token(modem_snapshot_token);modem_snapshot_token=0; }
+   if (modem_decode_token) { event_off_token(modem_decode_token);modem_decode_token=0; }
+   if (modem_tab) { rrui_tui_tab_detach(modem_tab); }
+   rrui_form_free(modem_view);modem_view=NULL;modem_tab=NULL;
+   memset(&modem_snapshot,0,sizeof(modem_snapshot));
+}
+
 static void views_init(void){
+   modem_init();
    const rrclient_ui_required_t c[]={{"filter",RRUI_ENTRY,false},{"keys",RRUI_LIST,false},{"value",RRUI_ENTRY,false},{"secret",RRUI_ENTRY,true},{"selected",RRUI_LABEL,false}};
    const rrclient_ui_required_t a[]={{"nodes",RRUI_LIST,false},{"links",RRUI_LIST,false}};
    config_view=rrclient_ui_layout_load("config.rrs",RRUI_PANEL,c,G_N_ELEMENTS(c),config_action);
@@ -1176,6 +1325,7 @@ static void views_init(void){
    }
 }
 static void views_shutdown(void){
+   modem_shutdown();
    patch_editor_close();
    if(config_tab)rrui_tui_tab_detach(config_tab);
    if(routing_tab){rrui_tui_tab_detach(routing_tab);routing_tab->view_draw=NULL;routing_tab->view_key=NULL;routing_tab->view_mouse=NULL;}
@@ -1323,6 +1473,8 @@ static bool label(rrui_form_t *f,const char *id,const char *value){
    return old&&strcmp(old,value)&&rrui_form_set_value(f,id,value);
 }
 static void refresh(void){
+   if (modem_view && (tui_active_window()==modem_tab || tui_active_window()==routing_tab) &&
+       g_get_monotonic_time()-modem_requested>=1000000) { modem_request_snapshot(); }
    if(routing_view&&tui_active_window()==routing_tab&&g_get_monotonic_time()-route_requested>=1500000)routing_request();
    if(!roster&&!vfo&&!tools)return;
    const char *room=rrclient_active_room(),*server=rrclient_selected_server();
