@@ -75,7 +75,7 @@ Template: rustyrig-server/site-grid
 Type: string
 Default:
 Description: Station Maidenhead grid square:
- Enter the station locator (for example, EN32aa).
+ Enter the station locator (for example, EN31eo).
  Leave empty to retain the existing setting.
 
 Template: rustyrig-server/site-location
