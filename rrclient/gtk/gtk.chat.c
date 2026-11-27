@@ -2236,11 +2236,10 @@ static void gtk_chat_tab_add(const char *room, bool is_query, bool select) {
    tab->view = chat_textview;
    tab->entry = chat_entry;
    g_object_set_data_full(G_OBJECT(tab->entry), "rr-server-name", g_strdup(tab->server), g_free);
-   /* Reserve real GTK space for edge-docked panels around the flexible chat. The dock region belongs to this room page, not the whole notebook. */
+   /* The shared main workspace owns edge docks; this page owns only chat. */
    g_object_set_data_full(G_OBJECT(tab->page), "rr-chat-name", g_strdup(tab->room), g_free);
    g_object_set_data_full(G_OBJECT(tab->page), "rr-chat-server", g_strdup(tab->server), g_free);
-   GtkWidget *workspace = rr_floating_panel_chat_workspace(box, tab->page);
-   gtk_box_pack_start(GTK_BOX(tab->page), workspace, TRUE, TRUE, 0);
+   gtk_box_pack_start(GTK_BOX(tab->page), box, TRUE, TRUE, 0);
    g_object_set_data(G_OBJECT(tab->page), "rr-room-tab", tab);
    /* The dock manager follows the selected channel and server, not merely whichever page happened to be active when a panel was created. */
    g_object_set_data_full(G_OBJECT(tab->page), "rr-server-name", g_strdup(tab->server), g_free);
