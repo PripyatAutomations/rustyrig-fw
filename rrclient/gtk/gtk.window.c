@@ -321,14 +321,12 @@ static void main_panels_page_switched(GtkNotebook *book, GtkWidget *page, guint 
    (void)book;
    (void)number;
    (void)unused;
-   /* Terminal is a working page: keep floating side panels visible there.
-    * The tab mask is reserved for full-workspace utility pages.  Preserve
-    * the active room's panel context on Terminal, since it has no docks. */
-   gboolean chat_page = page && g_object_get_data(G_OBJECT(page), "rr-chat-docks");
-   gboolean terminal_page = page && g_object_get_data(G_OBJECT(page), "rr-terminal-page");
-   rr_floating_panels_set_hidden(RR_FLOATING_HIDE_TAB, !chat_page && !terminal_page);
-   if (!terminal_page)
-      rr_floating_panel_chat_activate(page);
+   /* Only explicitly designated utility pages maximize the main region.
+    * All other pages keep the shared auxiliary workspace. */
+   gboolean zoom = page && (page == status_tab || page == log_tab ||
+      g_object_get_data(G_OBJECT(page), "rr-main-zoom"));
+   rr_floating_panels_set_hidden(RR_FLOATING_HIDE_TAB, zoom);
+   rr_floating_panel_chat_activate(page);
 }
 
 /* Virtual Rigs manager. The stable per-slot name is independent of the selected chat; all serial changes cross to the core event domain. */
@@ -907,7 +905,8 @@ bool gui_init(void) {
    /* Attach the toolbar outside the scrolling content below. */
    GtkWidget *tabs_wrapper = gtk_wrapping_tabs_new(GTK_NOTEBOOK(main_notebook), cfg_ui_gtk_main_tabstrip);
    gtk_widget_set_size_request(tabs_wrapper, 1, -1);
-   gtk_box_pack_start(GTK_BOX(main_content), tabs_wrapper, TRUE, TRUE, 0);
+   GtkWidget *workspace = rr_floating_panel_main_workspace(tabs_wrapper, main_notebook);
+   gtk_box_pack_start(GTK_BOX(main_content), workspace, TRUE, TRUE, 0);
 
    gtk_ui_zoom_attach(main_window, main_content);
    /* gtk_ui_zoom_attach installs the viewport as the window child. Reparent it into an overlay so the screensaver covers the whole content area. */
