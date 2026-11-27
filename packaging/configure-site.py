@@ -12,12 +12,16 @@ import tempfile
 def configure(path, values):
     path = pathlib.Path(path).resolve()
     updates = {}
-    for key, value in zip(("call", "grid", "location", "description"), values):
+    for key, value in zip(("station.call", "station.grid", "station.location", "station.description", "domain", "station.name"), values):
         if any(ord(ch) < 32 or ord(ch) == 127 for ch in value):
-            raise ValueError(f"Invalid control character in station.{key}")
+            raise ValueError(f"Invalid control character in {key}")
         value = value.strip()
         if value:
-            updates["station." + key] = value
+            if key in ("domain", "station.name"):
+                labels = value.split(".") if key == "domain" else [value]
+                if len(value) > 253 or any(not re.fullmatch(r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?", label) for label in labels):
+                    raise ValueError(f"Invalid DNS label in {key}")
+            updates[key] = value
     if not updates:
         return
 
@@ -77,8 +81,8 @@ def configure(path, values):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 6:
-        sys.exit("Usage: configure-site CONFIG CALL GRID LOCATION DESCRIPTION")
+    if len(sys.argv) not in (6, 8):
+        sys.exit("Usage: configure-site CONFIG CALL GRID LOCATION DESCRIPTION [DOMAIN NODE]")
     try:
         configure(sys.argv[1], sys.argv[2:])
     except (OSError, ValueError) as error:
