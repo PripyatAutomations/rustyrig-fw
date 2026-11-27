@@ -1029,7 +1029,12 @@ static void bridge_diagnostic_drain(bridge_instance *b) {
    char buf[4096];
    for (unsigned n=0;n<4;n++) {
       ssize_t count=read(b->diagnostic_fd,buf,sizeof(buf));
-      if(count<0&&(errno==EAGAIN||errno==EWOULDBLOCK||errno==EINTR))return;
+      if (count<0) {
+         if (errno==EAGAIN || errno==EINTR) { return; }
+#if EWOULDBLOCK != EAGAIN
+         if (errno==EWOULDBLOCK) { return; }
+#endif
+      }
       if(count<=0){
          bridge_diagnostic_emit(b);
          close(b->diagnostic_fd);b->diagnostic_fd=-1;return;

@@ -7,6 +7,12 @@ endif
 endif
 CFLAGS_RRCLI += $(shell $(RUSTYUI_PKG_CONFIG) --cflags librustyui-curses 2>/dev/null)
 RRCLIENT_UI_LIBS := $(shell $(RUSTYUI_PKG_CONFIG) --libs librustyui-curses 2>/dev/null)
+# Fail before compiling if the installed backend metadata is broken.
+ifeq ($(filter clean distclean uninstall gmatrix-clean,$(MAKECMDGOALS)),)
+ifeq ($(filter -lrustyui-curses,$(RRCLIENT_UI_LIBS)),)
+$(error Invalid librustyui-curses pkg-config linker flags; reinstall librustyui-curses-dev)
+endif
+endif
 rrclient_headers += $(wildcard rrclient/*.h)
 rrclient_src = $(patsubst %.o,%.c,$(filter-out rrscript/host.o,$(rrclient_objs)))
 gtk_headers := $(wildcard rrclient/gtk/*.h)
