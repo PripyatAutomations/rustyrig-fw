@@ -511,7 +511,7 @@ produce both if the callsign is also on the watchlist.
 | `event.modem` | Local modem identifier, e.g. `modem1` |
 | `event.audio_source` | Exact receiver/audio stream feeding the decoder |
 | `event.vfo_uuid` | Source VFO resource UUID, if known; empty otherwise |
-| `event.rig` | Rig room name such as `rplywv00-rig0`, if established by the RX stream |
+| `event.rig` | Rig room name such as `dsmiia00-rig0`, if established by the RX stream |
 | `event.model` | Rig model such as `FT-891`, resolved from its catalog owner where available |
 | `event.server` | Connection/profile providing the source stream, if known |
 | `event.engine` | Decoder engine (`ft8`, `olivia`, `psk`) |
@@ -528,7 +528,7 @@ an easy configuration block: a `const char rooms[][]` array of `#room@network`
 destinations (default `#hamradio-test@efnet`), a popup toggle, a room
 announcement toggle, and a 30-minute per-callsign *absence* window (reset by every matching decode). It assembles a
 single message like `Spotted K1ABC on 20m FT8 at 14.074 MHz, using
-rplywv00-rig0 (FT-891)`, logs it, optionally shows a dialog, and queues
+dsmiia00-rig0 (FT-891)`, logs it, optionally shows a dialog, and queues
 it into all configured, joined IRC/RustyRig rooms. The last-seen timestamps live in shared in-memory state and reset on client restart. A callsign detected continuously will not repeat announcements until it disappears for the configured duration and reappears. A per-watch-entry
 notification checkbox in the C watchlist editor is not implemented yet.
 
