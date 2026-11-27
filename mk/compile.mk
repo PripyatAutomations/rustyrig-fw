@@ -58,7 +58,7 @@ CC := ccache ${CC}
 endif
 
 # Probe the actual selected compiler (including cross compiler and ccache).
-RR_C_STD := $(shell for std in gnu23 gnu2x; do printf 'int x;\n' | $(CC) -std=$std -Werror -x c -fsyntax-only - >/dev/null 2>&1 && { echo -std=$std; break; }; done)
+RR_C_STD := $(shell if printf 'int x;\n' | $(CC) -std=gnu23 -Werror -x c -fsyntax-only - >/dev/null 2>&1; then echo -std=gnu23; elif printf 'int x;\n' | $(CC) -std=gnu2x -Werror -x c -fsyntax-only - >/dev/null 2>&1; then echo -std=gnu2x; fi)
 ifeq ($(strip $(RR_C_STD)),)
 $(error $(CC) does not support -std=gnu23 or -std=gnu2x; a C23-capable compiler is required)
 endif
