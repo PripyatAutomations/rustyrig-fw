@@ -36,8 +36,8 @@ Each server uses a unique single-label `station.name` and the chosen shared
 
 ```ini
 [general]
-station.name=rplywv00
-domain=ham.istabpeople.com
+station.name=dsmiia00
+domain=ham.example.net
 net.http.tls-port=4420
 net.http.tls-auto-generate=true
 net.http.tls-cert=/var/lib/rustyrig/identity/tls-cert.pem
@@ -46,13 +46,13 @@ net.http.tls-key=/var/lib/rustyrig/identity/tls-key.pem
 
 This is a **logical TLS verification name**, not a requirement for DNS.
 A client can dial `wss://127.0.0.1:4420/ws` (or the WireGuard IP) and
-configure `server.tls-name=rplywv00.ham.istabpeople.com`.
+configure `server.tls-name=dsmiia00.ham.example.net`.
 The certificate must contain that exact SAN, and the client must trust its
 issuer or the explicitly provisioned certificate. Changing the URL alone
 never bypasses certificate verification.
 
-Do not expect a previously issued `rplywv00` certificate to match the
-new `rplywv00.ham.istabpeople.com` name. The certificate provisioning
+Do not expect a previously issued `dsmiia00` certificate to match the
+new `dsmiia00.ham.example.net` name. The certificate provisioning
 routine **refuses mismatched existing certificates**; it does not silently
 rotate a trusted keypair.
 
