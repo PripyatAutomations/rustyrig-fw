@@ -28,7 +28,7 @@ static GQueue *chat_backlog = NULL;
 
 // Cap on the hidden-tab backlog so a long time away can't grow it unbounded.
 // Old lines beyond the cap are dropped, matching the scrollback trim.
-#define CHAT_BACKLOG_MAX 200
+#define CHAT_BACKLOG_MAX 800
 
 extern GtkWidget *main_notebook; // gtk.chat.c / gtk.core.c
 extern GtkWidget *status_tab;   // gtk.chat.c: the chat tab page widget
@@ -107,7 +107,7 @@ static void chat_backlog_flush(GtkTextBuffer *buffer, GtkWidget *view) {
       gtk_text_buffer_insert(buffer, &end, "\n", 1);
       g_free(line);
    }
-   gtk_trim_scrollback(buffer, "ui.gtk.scrollback.chat", 200);
+   gtk_trim_scrollback(buffer, "ui.gtk.scrollback.chat", 800);
 
    if (follow) {
       gtk_chat_view_schedule_follow(view);
@@ -213,7 +213,7 @@ bool ui_print_gtk(const char *window, const char *fmt, va_list ap) {
    /* Markup insertion and prefix highlighting may invalidate end. Do not reuse an iterator across mutations of indexable buffer content. */
    gtk_text_buffer_get_end_iter(target_buffer, &end);
    gtk_text_buffer_insert(target_buffer, &end, "\n", 1);
-   gtk_trim_scrollback(target_buffer, "ui.gtk.scrollback.chat", 200);
+   gtk_trim_scrollback(target_buffer, "ui.gtk.scrollback.chat", 800);
 
    if (!colorize_failed) {
       g_free(colorized);

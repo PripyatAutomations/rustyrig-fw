@@ -340,7 +340,7 @@ defconfig_t defcfg[] = {
       "ui.gtk.vfo-docked", "true", "NYI: Docked or floating VFO?", DEFCONFIG_BOOL, NULL
    },
    {
-      "ui.gtk.scrollback.chat", "200", "Max chat scrollback lines (0 = unlimited)", DEFCONFIG_UINT, NULL
+      "ui.gtk.scrollback.chat", "800", "Max chat scrollback lines (0 = unlimited)", DEFCONFIG_UINT, NULL
    },
    {
       "ui.gtk.scrollback.syslog", "200", "Max syslog tab scrollback lines (0 = unlimited)", DEFCONFIG_UINT, NULL
