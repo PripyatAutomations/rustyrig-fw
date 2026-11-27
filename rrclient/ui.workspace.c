@@ -84,7 +84,11 @@ static void config_list(void){
       }
    }
    g_free(needle);
-   if(count)rrui_form_select(config_view,view_field(config_view,"keys"),chosen);
+   if (count) {
+      size_t field=view_field(config_view,"keys");
+      rrui_form_select(config_view,field,chosen);
+      rrui_form_set_focus(config_view,field);
+   }
    view_notice(config_view,count?"Select a setting and press Enter to edit.":"No matching settings.");
 }
 static void config_action(rrui_form_t *f,const char *id,const char *action,void *data){
@@ -1350,7 +1354,7 @@ static unsigned decoder_active(void) {
    tui_window_t *w=tui_active_window();
    if (!w) { return 0; }
    for (unsigned i=0;i<RR_LOCAL_MODEM_MAX;i++) {
-      if (*decoders[i].title && !strcmp(w->title,decoders[i].title) && w->view_data==&decoders[i]) { return i+1; }
+      if (w==modem_tab && w->view_data==&decoders[i]) { return i+1; }
    }
    return 0;
 }
@@ -1455,6 +1459,8 @@ static uint32_t decoder_color(float db) {
    unsigned b=(unsigned)(60.f+195.f*CLAMP(x*3.f,0.f,1.f)*(1.f-x));
    return (r<<16)|(g<<8)|b;
 }
+static void decoder_open(unsigned slot);
+static void terminal_manager(void);
 static void decoder_draw(tui_window_t *w,int rows,int cols,void *data) {
    (void)w;
    decoder_view_t *d=data;unsigned slot=(unsigned)(d-decoders)+1;
@@ -1502,6 +1508,7 @@ static void decoder_draw(tui_window_t *w,int rows,int cols,void *data) {
       } while (*p);
    }
    int visible=MAX(0,height-top-3);
+   d->scroll=CLAMP(d->scroll,0,MAX(0,(int)display->len-visible));
    int end=MAX(0,(int)display->len-d->scroll);
    int first=MAX(0,end-visible);
    for (int i=first;i<end;i++) {
@@ -1512,7 +1519,15 @@ static void decoder_draw(tui_window_t *w,int rows,int cols,void *data) {
    g_snprintf(header,sizeof(header),"%s %s",d->editing?"TX >":"TX :",d->input);
    rrui_canvas_text(c,0,height-3,width,header,d->editing?0xffff70:0x92a6b3);
    rrui_canvas_text(c,0,height-2,width,"Ctrl+T edit / send with Enter | Ctrl+G PSK live | Esc abort",0xbad8e8);
-   rrui_canvas_text(c,0,height-1,width,"Ctrl+W waterfall | PgUp/PgDn scroll | click header to collapse",0xbad8e8);
+   GString *tabs=g_string_new("[Ctrl+M Manage] ");
+   for (unsigned i=0;i<RR_LOCAL_MODEM_MAX;i++) {
+      if (modem_snapshot.entries[i].running || i+1==slot) {
+         g_string_append_printf(tabs,"%s%u:%s%s ",i+1==slot?"[":"",i+1,modem_snapshot.entries[i].engine,i+1==slot?"]":"");
+      }
+   }
+   g_string_append(tabs," Ctrl+N/P switch | Ctrl+W waterfall");
+   rrui_canvas_text(c,0,height-1,width,tabs->str,0xbad8e8);
+   g_string_free(tabs,TRUE);
    rrui_canvas_draw(c,2,1);rrui_canvas_free(c);
 }
 static bool decoder_key(tui_window_t *w,unsigned key,unsigned mods,void *data) {
@@ -1520,6 +1535,15 @@ static bool decoder_key(tui_window_t *w,unsigned key,unsigned mods,void *data) {
    decoder_view_t *d=data;unsigned slot=(unsigned)(d-decoders)+1;
    const rr_local_modem_entry_t *e=&modem_snapshot.entries[slot-1];
    if (mods&TERMKEY_KEYMOD_CTRL) {
+      if (key=='m' || key=='M') { terminal_manager();return true; }
+      if (key=='n' || key=='N' || key=='p' || key=='P') {
+         int step=(key=='n'||key=='N')?1:-1;
+         for (unsigned i=1;i<=RR_LOCAL_MODEM_MAX;i++) {
+            unsigned next=(unsigned)((int)slot-1+step*(int)i+RR_LOCAL_MODEM_MAX)%RR_LOCAL_MODEM_MAX;
+            if (modem_snapshot.entries[next].running) { decoder_open(next+1);break; }
+         }
+         return true;
+      }
       if (key=='w' || key=='W') { d->collapsed=!d->collapsed;decoder_update_listener();tui_redraw_request();return true; }
       if (key=='t' || key=='T') {
          if (e->running && e->tx_enabled && strcmp(e->engine,"ft8") && !d->stream_owned) { d->editing=!d->editing; }
@@ -1538,8 +1562,10 @@ static bool decoder_key(tui_window_t *w,unsigned key,unsigned mods,void *data) {
    if (mods&TERMKEY_KEYMOD_ALT) { return false; }
    if (key==TERMKEY_SYM_ESCAPE) {
       decoder_abort(slot);d->editing=false;d->input_len=0;d->input[0]=0;
-   } else if (key==TERMKEY_SYM_PAGEUP) { d->scroll=MIN(d->scroll+10,65536); }
-   else if (key==TERMKEY_SYM_PAGEDOWN) { d->scroll=MAX(0,d->scroll-10); }
+   } else if (key==TERMKEY_SYM_HOME && !d->editing && !d->stream_owned) { d->scroll=65536; }
+   else if (key==TERMKEY_SYM_END && !d->editing && !d->stream_owned) { d->scroll=0; }
+   else if (key==TERMKEY_SYM_PAGEUP) { d->scroll=MIN(d->scroll+MAX(1,d->rows-7),65536); }
+   else if (key==TERMKEY_SYM_PAGEDOWN) { d->scroll=MAX(0,d->scroll-MAX(1,d->rows-7)); }
    else if (d->stream_owned) {
       if (!e->running || !e->tx_enabled) { decoder_abort(slot); }
       else if (e->stream_active && key==TERMKEY_SYM_ENTER) { decoder_request(slot,RR_LOCAL_MODEM_STREAM_DATA,"\n"); }
@@ -1572,9 +1598,9 @@ static bool decoder_mouse(tui_window_t *w,int row,int col,int button,int action,
 }
 static void decoder_open(unsigned slot) {
    decoder_view_t *d=&decoders[slot-1];
-   g_snprintf(d->title,sizeof(d->title),"Decoder %u",slot);
-   tui_window_t *w=tui_window_find(d->title);
-   if (!w) { w=tui_window_create(d->title); }
+   if (!modem_tab) { return; }
+   tui_window_t *w=modem_tab;
+   rrui_tui_tab_detach(w);
    if (!w) { return; }
    if (!d->rx) {
       d->rx=g_string_new("");
@@ -1583,7 +1609,13 @@ static void decoder_open(unsigned slot) {
    }
    w->view_data=d;w->view_draw=decoder_draw;w->view_key=decoder_key;
    w->view_mouse=decoder_mouse;w->view_full_height=true;
-   tui_window_focus(d->title);decoder_update_listener();tui_redraw_request();
+   tui_window_focus("Terminal");decoder_update_listener();tui_redraw_request();
+}
+static void terminal_manager(void) {
+   if (!modem_tab || !modem_view) { return; }
+   modem_tab->view_draw=NULL;modem_tab->view_key=NULL;modem_tab->view_mouse=NULL;modem_tab->view_data=NULL;
+   rrui_tui_tab_attach(modem_tab,modem_view);
+   decoder_update_listener();tui_redraw_request();
 }
 static void decoder_shutdown(void) {
    if (decoder_timer) { g_source_remove(decoder_timer);decoder_timer=0; }
@@ -1594,7 +1626,7 @@ static void decoder_shutdown(void) {
    for (unsigned i=0;i<RR_LOCAL_MODEM_MAX;i++) {
       decoder_view_t *d=&decoders[i];
       decoder_abort(i+1);
-      tui_window_t *w=*d->title?tui_window_find(d->title):NULL;
+      tui_window_t *w=modem_tab;
       if (w && w->view_data==d) { w->view_draw=NULL;w->view_key=NULL;w->view_mouse=NULL;w->view_data=NULL; }
       if (d->rx) { g_string_free(d->rx,TRUE); }
       memset(d,0,sizeof(*d));
@@ -1721,7 +1753,7 @@ static void modem_init(void) {
    const rrclient_ui_required_t required[]={{"slots",RRUI_LIST,false},{"decoded",RRUI_LIST,false},{"text",RRUI_ENTRY,false},{"tx",RRUI_CHECKBOX,false}};
    modem_view=rrclient_ui_layout_load("modems.rrs",RRUI_PANEL,required,G_N_ELEMENTS(required),modem_action);
    if (!modem_view) { return; }
-   modem_tab=tui_window_create("Modems");
+   modem_tab=tui_window_create("Terminal");
    if (!modem_tab || !rrui_tui_tab_attach(modem_tab,modem_view)) {
       rrui_form_free(modem_view);modem_view=NULL;modem_tab=NULL;return;
    }
@@ -1952,9 +1984,27 @@ static void explorer_draw(tui_window_t *w,int rows,int cols,void *unused) {
    rrui_canvas_text(c,0,height-1,width,"R refresh | D details | Click select / click arrow expand",0xbad8e8);
    rrui_canvas_draw(c,2,1);rrui_canvas_free(c);
 }
+static bool tree_navigation(rrui_tree_t *tree,unsigned key,int page) {
+   size_t count=rrui_tree_count(tree);
+   if (key==TERMKEY_SYM_HOME || key==TERMKEY_SYM_END) {
+      rrui_tree_row_t row;
+      if (count && rrui_tree_row(tree,key==TERMKEY_SYM_HOME?0:count-1,&row)) {
+         rrui_tree_select(tree,row.id);
+      }
+      return true;
+   }
+   if (key==TERMKEY_SYM_PAGEUP || key==TERMKEY_SYM_PAGEDOWN) {
+      for (int i=0;i<MAX(1,page-1);i++) {
+         rrui_tree_move(tree,key==TERMKEY_SYM_PAGEUP?-1:1);
+      }
+      return true;
+   }
+   return false;
+}
 static bool explorer_key(tui_window_t *w,unsigned key,unsigned mods,void *unused) {
    (void)w;(void)unused;
    if (mods&(TERMKEY_KEYMOD_ALT|TERMKEY_KEYMOD_CTRL)) { return false; }
+   if (tree_navigation(explorer_tree,key,explorer_view_rows)) { tui_redraw_request();return true; }
    if (key==TERMKEY_SYM_UP || key==TERMKEY_SYM_DOWN) { rrui_tree_move(explorer_tree,key==TERMKEY_SYM_UP?-1:1); }
    else if (key==TERMKEY_SYM_LEFT || key==TERMKEY_SYM_RIGHT) { rrui_tree_horizontal(explorer_tree,key==TERMKEY_SYM_LEFT?-1:1); }
    else if (key==TERMKEY_SYM_ENTER) {
@@ -2113,6 +2163,7 @@ static bool sdr_key(tui_window_t *w,unsigned key,unsigned mods,void *unused) {
       else if (key>=32 && key<=126 && len<sizeof(sdr_search)-1) { sdr_search[len]=(char)key;sdr_search[len+1]=0; }
       sdr_project();return true;
    }
+   if (tree_navigation(sdr_tree,key,sdr_span)) { tui_redraw_request();return true; }
    if (key==TERMKEY_SYM_UP || key==TERMKEY_SYM_DOWN) { rrui_tree_move(sdr_tree,key==TERMKEY_SYM_UP?-1:1); }
    else if (key==TERMKEY_SYM_LEFT || key==TERMKEY_SYM_RIGHT) { rrui_tree_horizontal(sdr_tree,key==TERMKEY_SYM_LEFT?-1:1); }
    else if (key=='/') { sdr_searching=true; }
@@ -2457,7 +2508,7 @@ static void load_theme(void){
    tui_render_lock();rrui_tui_theme_set(&theme);tui_render_unlock();
 }
 static bool sidebar_for_window(const tui_window_t *window) {
-   return window && !rrclient_window_is_shared(window->title);
+   return window && !window->view_full_height && !rrclient_window_is_shared(window->title);
 }
 void rrclient_tui_workspace_init(void){
    rrui_tui_sidebar_policy(sidebar_for_window);
