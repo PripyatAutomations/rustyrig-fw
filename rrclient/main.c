@@ -2341,6 +2341,10 @@ int main(int argc, char *argv[]) {
    rrclient_config_refresh(NULL);
    Log(LOG_DEBUG, "main", "CAT poll blocking delay: %d second(s)", (int)poll_block_delay);
 
+   /* Warm the disk-only directory before starting any frontend, audio worker
+    * or network polling. Lazy first access must not stall an active reactor. */
+   (void)receiver_directory_count();
+
    // CAT parsers and configured PTY/serial service bindings
    rr_cat_init();
 

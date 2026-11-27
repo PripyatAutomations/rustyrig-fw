@@ -864,45 +864,50 @@ static void restore_states(void) {
    if (!cache_db) {
       return;
    }
-   sqlite3_stmt *statement = NULL;
-
-   if (sqlite3_prepare_v2(cache_db, "SELECT state,reason,updated_at FROM receiver_state WHERE url=?", -1, &statement, NULL) != SQLITE_OK) {
-      return;
-   }
-
-   for (guint i = 0 ; i < receivers->len ; i++) {
+   /* Scan each metadata table once rather than performing three indexed
+    * queries per receiver. Keep all local marks separate from mirror data. */
+   GHashTable *by_url = g_hash_table_new(g_str_hash, g_str_equal);
+   for (guint i = 0; i < receivers->len; i++) {
       receiver_directory_entry_t *r = g_ptr_array_index(receivers, i);
       g_clear_pointer(&r->local_state, g_free);
       g_clear_pointer(&r->local_reason, g_free);
-      r->state_updated = 0;
-      sqlite3_bind_text(statement, 1, r->url, -1, SQLITE_TRANSIENT);
-
-      if (sqlite3_step(statement) == SQLITE_ROW) {
-         r->local_state = g_strdup((const char *)sqlite3_column_text(statement, 0));
-         r->local_reason = g_strdup((const char *)sqlite3_column_text(statement, 1));
-         r->state_updated = sqlite3_column_int64(statement, 2);
-      }
-      sqlite3_reset(statement);
-      sqlite3_clear_bindings(statement);
+      r->state_updated = r->last_connected = 0;
+      r->favorite = false;
+      g_hash_table_insert(by_url, r->url, r);
    }
-
-   sqlite3_finalize(statement);
-
-   if (sqlite3_prepare_v2(cache_db, "SELECT last_connected FROM receiver_connections WHERE url=?", -1, &statement, NULL) == SQLITE_OK) {
-      for (guint i = 0 ; i < receivers->len ; i++) {
-         receiver_directory_entry_t *r = g_ptr_array_index(receivers, i);
-         r->last_connected = 0;
-         sqlite3_bind_text(statement, 1, r->url, -1, SQLITE_TRANSIENT);
-
-         if (sqlite3_step(statement) == SQLITE_ROW) {
-            r->last_connected = sqlite3_column_int64(statement, 0);
+   sqlite3_stmt *statement = NULL;
+   if (sqlite3_prepare_v2(cache_db, "SELECT url,state,reason,updated_at FROM receiver_state", -1, &statement, NULL) == SQLITE_OK) {
+      while (sqlite3_step(statement) == SQLITE_ROW) {
+         receiver_directory_entry_t *r = g_hash_table_lookup(by_url, sqlite3_column_text(statement, 0));
+         if (r) {
+            r->local_state = g_strdup((const char *)sqlite3_column_text(statement, 1));
+            r->local_reason = g_strdup((const char *)sqlite3_column_text(statement, 2));
+            r->state_updated = sqlite3_column_int64(statement, 3);
          }
-         sqlite3_reset(statement);
-         sqlite3_clear_bindings(statement);
       }
-
-      sqlite3_finalize(statement);
    }
+   sqlite3_finalize(statement);
+   statement = NULL;
+   if (sqlite3_prepare_v2(cache_db, "SELECT url,last_connected FROM receiver_connections", -1, &statement, NULL) == SQLITE_OK) {
+      while (sqlite3_step(statement) == SQLITE_ROW) {
+         receiver_directory_entry_t *r = g_hash_table_lookup(by_url, sqlite3_column_text(statement, 0));
+         if (r) {
+            r->last_connected = sqlite3_column_int64(statement, 1);
+         }
+      }
+   }
+   sqlite3_finalize(statement);
+   statement = NULL;
+   if (sqlite3_prepare_v2(cache_db, "SELECT url FROM receiver_favorites", -1, &statement, NULL) == SQLITE_OK) {
+      while (sqlite3_step(statement) == SQLITE_ROW) {
+         receiver_directory_entry_t *r = g_hash_table_lookup(by_url, sqlite3_column_text(statement, 0));
+         if (r) {
+            r->favorite = true;
+         }
+      }
+   }
+   sqlite3_finalize(statement);
+   g_hash_table_unref(by_url);
 }
 
 static bool read_bounded(const char *path, size_t limit, char **data, size_t *length) {
@@ -962,11 +967,23 @@ static void ensure(void) {
    if (cache_db) {
       sqlite3_exec(cache_db, "ALTER TABLE receiver_records ADD COLUMN offline INTEGER NOT NULL DEFAULT 0", NULL, NULL, NULL);
       sqlite3_exec(cache_db, "ALTER TABLE receiver_records ADD COLUMN provider TEXT NOT NULL DEFAULT 'kiwi'", NULL, NULL, NULL);
-      /* Rebuild the legacy state table to admit the explicit 'good' mark. */
-      sqlite3_exec(cache_db, "BEGIN;"
-         "CREATE TABLE IF NOT EXISTS receiver_state_new(url TEXT PRIMARY KEY,state TEXT NOT NULL CHECK(state IN ('unknown','unreachable','restricted','good')),reason TEXT NOT NULL,updated_at INTEGER NOT NULL);"
-         "INSERT OR REPLACE INTO receiver_state_new SELECT * FROM receiver_state;"
-         "DROP TABLE receiver_state;" "ALTER TABLE receiver_state_new RENAME TO receiver_state;" "COMMIT;", NULL, NULL, NULL);
+      /* Only migrate the old CHECK constraint once. Modern caches need no
+       * table rewrite (or write transaction) on every startup. */
+      sqlite3_stmt *schema = NULL;
+      bool legacy = false;
+      if (sqlite3_prepare_v2(cache_db, "SELECT sql FROM sqlite_master WHERE type='table' AND name='receiver_state'", -1, &schema, NULL) == SQLITE_OK &&
+          sqlite3_step(schema) == SQLITE_ROW) {
+         const char *sql = (const char *)sqlite3_column_text(schema, 0);
+         legacy = sql && !strstr(sql, "'good'");
+      }
+      sqlite3_finalize(schema);
+      if (legacy && sqlite3_exec(cache_db, "BEGIN IMMEDIATE;"
+          "CREATE TABLE receiver_state_new(url TEXT PRIMARY KEY,state TEXT NOT NULL CHECK(state IN ('unknown','unreachable','restricted','good')),reason TEXT NOT NULL,updated_at INTEGER NOT NULL);"
+          "INSERT INTO receiver_state_new SELECT * FROM receiver_state;"
+          "DROP TABLE receiver_state;ALTER TABLE receiver_state_new RENAME TO receiver_state;COMMIT;", NULL, NULL, NULL) != SQLITE_OK) {
+         sqlite3_exec(cache_db, "ROLLBACK", NULL, NULL, NULL);
+         Log(LOG_WARN, "receiver.directory", "Cannot migrate legacy receiver state table");
+      }
    }
    sqlite3_stmt *statement = NULL;
 

@@ -99,8 +99,12 @@ int main(int argc, char **argv) {
    assert(receiver_directory_set_state("http://allowed.invalid:8073/", "unreachable", "Connection failed (user report)"));
    assert(!receiver_directory_entry_accessible(receiver_directory_receiver(0)));
    assert(!receiver_directory_set_state("http://allowed.invalid:8073/", "bogus", ""));
+   assert(receiver_directory_set_favorite("http://allowed.invalid:8073/", true));
+   assert(receiver_directory_find_url("http://allowed.invalid:8073/")->favorite);
    receiver_directory_shutdown();
    assert(receiver_directory_count() == 6);
+   assert(receiver_directory_find_url("http://allowed.invalid:8073/")->favorite);
+   assert(receiver_directory_set_favorite("http://allowed.invalid:8073/", false));
    assert(!strcmp(receiver_directory_receiver(0)->local_state, "unreachable"));
    /* Local receiver-state timestamps use wall-clock time, not the synthetic\n    * catalog scheduler clock used by this fixture. */\n   assert(labs((long)(receiver_directory_receiver(0)->state_updated - time(NULL))) <= 5);
    assert(receiver_directory_set_state("http://allowed.invalid:8073/", "restricted", "Operator restriction"));
