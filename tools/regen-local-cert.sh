@@ -10,8 +10,8 @@ sudo cp -a /var/lib/rustyrig/identity/tls-cert.pem \
 sudo openssl req -new -x509 -days 397 \
   -key /var/lib/rustyrig/identity/tls-key.pem \
   -out /var/lib/rustyrig/identity/tls-cert.pem \
-  -subj "/CN=ashtwv01.ham.istabpeople.com" \
-  -addext "subjectAltName=DNS:ashtwv01.ham.istabpeople.com" \
+  -subj "/CN=ashtwv01.ham.example.net" \
+  -addext "subjectAltName=DNS:ashtwv01.ham.example.net" \
   -addext "basicConstraints=critical,CA:FALSE" \
   -addext "keyUsage=critical,digitalSignature" \
   -addext "extendedKeyUsage=serverAuth"
