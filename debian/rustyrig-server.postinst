@@ -115,8 +115,12 @@ if command -v db_get >/dev/null 2>&1 && db_get rustyrig-server/site-pending && [
     site_location=${RET:-}
     db_get rustyrig-server/site-description
     site_description=${RET:-}
+    db_get rustyrig-server/site-domain
+    site_domain=${RET:-}
+    db_get rustyrig-server/site-name
+    site_name=${RET:-}
     /usr/lib/rustyrig/configure-site /etc/rustyrig/rrserver.site-local.cfg \
-        "$site_call" "$site_grid" "$site_location" "$site_description"
+        "$site_call" "$site_grid" "$site_location" "$site_description" "$site_domain" "$site_name"
     db_set rustyrig-server/site-pending false || true
 fi
 
