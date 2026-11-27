@@ -18,6 +18,9 @@ GtkWidget *rr_local_browser_new(const char *directory, const char *suffix,
                                 guint count,
                                 const char *(*status)(const char *, gpointer),
                                 gpointer user);
+/* Optional logical file provider. Append owned relative path strings to files. */
+void rr_local_browser_set_provider(GtkWidget *browser,
+   void (*provider)(GPtrArray *files,gpointer user),gpointer user);
 void rr_local_browser_refresh(GtkWidget *browser);
 char *rr_local_browser_selected(GtkWidget *browser);
 void rr_local_browser_message(GtkWidget *browser, const char *message);
