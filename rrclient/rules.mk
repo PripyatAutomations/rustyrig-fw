@@ -253,7 +253,7 @@ VTE_CFLAGS := $(shell pkg-config --cflags vte-2.91) -DRR_HAVE_VTE=1
 VTE_LIBS := $(shell pkg-config --libs vte-2.91)
 endif
 GTK_CFLAGS := ${GTK_MODULE_CFLAGS} ${VTE_CFLAGS}
-GTK_LDFLAGS := $(shell pkg-config --libs gtk+-3.0) ${VTE_LIBS} -lm
+GTK_LDFLAGS := $(shell pkg-config --libs gtk+-3.0) ${VTE_LIBS} $(RRCLIENT_UI_LIBS) -lm
 ifeq (${USE_GSTREAMER},true)
 GTK_CFLAGS += $(shell pkg-config --cflags gstreamer-1.0) -DRR_HAVE_GSTREAMER=1
 GTK_LDFLAGS += $(shell pkg-config --libs gstreamer-1.0)

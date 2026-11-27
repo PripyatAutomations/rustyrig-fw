@@ -5,7 +5,7 @@ cd "$(dirname "$0")/../.."
 bin="$(mktemp)"
 trap 'rm -f "$bin"' EXIT HUP INT TERM
 ${CC:-cc} -std=gnu23 -Wall -Wextra -Werror -I. \
-    $(pkg-config --cflags gtk+-3.0) \
+    $(pkg-config --cflags gtk+-3.0 librustyui) \
     rrclient/gtk/gtk.graph.c rrclient/tests/gtk_graph_shapes.c \
-    $(pkg-config --libs gtk+-3.0) -lm -o "$bin"
+    $(pkg-config --libs gtk+-3.0 librustyui) -lm -o "$bin"
 "$bin"

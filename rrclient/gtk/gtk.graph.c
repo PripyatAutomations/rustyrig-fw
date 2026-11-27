@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // See doc/LICENSE for the full GNU General Public License version 2 text.
 #include "gtk.graph.h"
+#include <librustyui/shape.h>
 #include "gtk.wire-sag.h"
 #include <math.h>
 #include <string.h>
@@ -15,82 +16,50 @@ double rr_gtk_graph_wire_sag(void) { return graph_wire_sag; }
 /* Forward declaration: the shared filled/hollow pin primitive is below. */
 static void pin(cairo_t *cr, double x, double y, gboolean bypass, gboolean input);
 
-/* All silhouettes occupy the same 160x112 layout cell. Using a Cairo path
- * keeps rendering and pointer hit tests identical under any canvas zoom. */
-void rr_gtk_graph_shape_path(cairo_t *cr, rr_gtk_graph_shape_t shape,
-                             double x, double y, double width, double height) {
-   if (!cr || width <= 0 || height <= 0) return;
-   cairo_new_path(cr);
-   const double l=x+width*.09, r=x+width*.91;
-   const double t=y+height*.10, b=y+height*.90, m=y+height*.50;
+/* Geometry lives in RustyUI; Cairo is only a path consumer. */
+static rrui_shape_t shared_shape(rr_gtk_graph_shape_t shape) {
    switch (shape) {
-      case RR_GTK_GRAPH_SHAPE_THRESHOLD:
-         cairo_move_to(cr, x+width*.23,t);
-         cairo_line_to(cr,x+width*.77,t);
-         cairo_line_to(cr,r,m);
-         cairo_line_to(cr,x+width*.77,b);
-         cairo_line_to(cr,x+width*.23,b);
-         cairo_line_to(cr,l,m);
-         cairo_close_path(cr);
-         break;
-      case RR_GTK_GRAPH_SHAPE_UTILITY:
-         cairo_move_to(cr,x+width*.20,t);
-         cairo_line_to(cr,x+width*.80,t);
-         cairo_line_to(cr,r,y+height*.23);
-         cairo_line_to(cr,r,y+height*.77);
-         cairo_line_to(cr,x+width*.80,b);
-         cairo_line_to(cr,x+width*.20,b);
-         cairo_line_to(cr,l,y+height*.77);
-         cairo_line_to(cr,l,y+height*.23);
-         cairo_close_path(cr);
-         break;
-      case RR_GTK_GRAPH_SHAPE_AND:
-      case RR_GTK_GRAPH_SHAPE_NAND:
-         cairo_move_to(cr,x+width*.22,t);
-         cairo_line_to(cr,x+width*.48,t);
-         cairo_arc(cr,x+width*.48,m,height*.40,-G_PI/2,G_PI/2);
-         cairo_line_to(cr,x+width*.22,b);
-         cairo_close_path(cr);
-         break;
-      case RR_GTK_GRAPH_SHAPE_OR:
-      case RR_GTK_GRAPH_SHAPE_NOR:
-      case RR_GTK_GRAPH_SHAPE_XOR:
-      case RR_GTK_GRAPH_SHAPE_XNOR:
-         cairo_move_to(cr,x+width*.23,t);
-         cairo_curve_to(cr,x+width*.55,t,x+width*.74,y+height*.22,x+width*.86,m);
-         cairo_curve_to(cr,x+width*.74,y+height*.78,x+width*.55,b,x+width*.23,b);
-         cairo_curve_to(cr,x+width*.43,m,x+width*.43,m,x+width*.23,t);
-         cairo_close_path(cr);
-         break;
-      case RR_GTK_GRAPH_SHAPE_NOT:
-         cairo_move_to(cr,x+width*.24,t);
-         cairo_line_to(cr,x+width*.80,m);
-         cairo_line_to(cr,x+width*.24,b);
-         cairo_close_path(cr);
-         break;
-      case RR_GTK_GRAPH_SHAPE_RECT:
-      default:
-         cairo_rectangle(cr,x,y,width,height);
-         break;
+      case RR_GTK_GRAPH_SHAPE_AND: return RRUI_SHAPE_AND;
+      case RR_GTK_GRAPH_SHAPE_NAND: return RRUI_SHAPE_NAND;
+      case RR_GTK_GRAPH_SHAPE_OR: return RRUI_SHAPE_OR;
+      case RR_GTK_GRAPH_SHAPE_NOR: return RRUI_SHAPE_NOR;
+      case RR_GTK_GRAPH_SHAPE_XOR: return RRUI_SHAPE_XOR;
+      case RR_GTK_GRAPH_SHAPE_XNOR: return RRUI_SHAPE_XNOR;
+      case RR_GTK_GRAPH_SHAPE_NOT: return RRUI_SHAPE_NOT;
+      case RR_GTK_GRAPH_SHAPE_THRESHOLD: return RRUI_SHAPE_THRESHOLD;
+      case RR_GTK_GRAPH_SHAPE_UTILITY: return RRUI_SHAPE_UTILITY;
+      default: return RRUI_SHAPE_RECT;
    }
 }
-
-/* Bubble and double-curve are visual adornments, not separate signal types.
- * Keep them inside the normal cell for clipping and selection. */
-static void graph_shape_decoration(cairo_t *cr, rr_gtk_graph_shape_t shape,
-                                   double x, double y, double w, double h) {
-   if (shape == RR_GTK_GRAPH_SHAPE_XOR || shape == RR_GTK_GRAPH_SHAPE_XNOR) {
-      cairo_new_path(cr);
-      cairo_move_to(cr,x+w*.17,y+h*.10);
-      cairo_curve_to(cr,x+w*.37,y+h*.50,x+w*.37,y+h*.50,x+w*.17,y+h*.90);
-      cairo_stroke(cr);
+static void cairo_path_command(const rrui_path_command_t *p,void *user) {
+   cairo_t *cr=user;
+   switch (p->kind) {
+      case RRUI_PATH_MOVE: cairo_move_to(cr,p->x1,p->y1); break;
+      case RRUI_PATH_LINE: cairo_line_to(cr,p->x1,p->y1); break;
+      case RRUI_PATH_CUBIC:
+         cairo_curve_to(cr,p->x1,p->y1,p->x2,p->y2,p->x3,p->y3); break;
+      case RRUI_PATH_ARC:
+         cairo_save(cr);
+         cairo_translate(cr,p->x1,p->y1);
+         cairo_scale(cr,p->x2,p->y2);
+         cairo_arc(cr,0,0,1,p->x3,p->y3);
+         cairo_restore(cr);
+         break;
+      case RRUI_PATH_CLOSE: cairo_close_path(cr); break;
    }
-   if (shape == RR_GTK_GRAPH_SHAPE_NAND || shape == RR_GTK_GRAPH_SHAPE_NOR ||
-       shape == RR_GTK_GRAPH_SHAPE_NOT || shape == RR_GTK_GRAPH_SHAPE_XNOR) {
-      double bx = shape == RR_GTK_GRAPH_SHAPE_NOT ? x+w*.84 :
-                  shape == RR_GTK_GRAPH_SHAPE_NAND ? x+w*.78 : x+w*.90;
-      cairo_new_path(cr);
-      cairo_arc(cr,bx,y+h*.50,5.8,0,2*G_PI);
+}
+void rr_gtk_graph_shape_path(cairo_t *cr,rr_gtk_graph_shape_t shape,
+                             double x,double y,double width,double height) {
+   if (!cr) { return; }
+   cairo_new_path(cr);
+   rrui_shape_path(shared_shape(shape),(rrui_shape_bounds_t){x,y,width,height},
+                   false,cairo_path_command,cr);
+}
+static void graph_shape_decoration(cairo_t *cr,rr_gtk_graph_shape_t shape,
+                                   double x,double y,double w,double h) {
+   cairo_new_path(cr);
+   if (rrui_shape_path(shared_shape(shape),(rrui_shape_bounds_t){x,y,w,h},
+                      true,cairo_path_command,cr)) {
       cairo_stroke(cr);
    }
 }
