@@ -267,6 +267,15 @@ static void patch_save(const patch_pos_t *p){
    char value[48];g_snprintf(value,sizeof(value),"%d,%d",p->x,p->y);
    rrclient_database_setting_set(key,value);g_free(key);
 }
+static bool patch_space(unsigned skip,unsigned count,int x,int y) {
+   for (unsigned j=0;j<count;j++) {
+      if (j==skip) { continue; }
+      const patch_pos_t *p=&patch_pos[j];
+      if (x<p->x+PATCH_W && x+PATCH_W>p->x &&
+          y<p->y+PATCH_H && y+PATCH_H>p->y) { return false; }
+   }
+   return true;
+}
 static void patch_layout(bool reset){
    patch_pos_t old[RR_AUDIO_GRAPH_MAX_NODES+MAX_UI_GATES+1];
    unsigned old_count=patch_count;
@@ -290,7 +299,12 @@ static void patch_layout(bool reset){
             g_free(value);g_free(key);
          }
       }
-      if(reset)patch_save(p);
+      bool moved=false;
+      while (!patch_space(patch_count-1,patch_count,p->x,p->y)) {
+         p->y+=PATCH_H+2;moved=true;
+         if (p->y>4000-PATCH_H) { p->y=1;p->x=(p->x+PATCH_W+2)% (4000-PATCH_W); }
+      }
+      if (reset || moved) { patch_save(p); }
    }
    if(patch_find(patch_selected)<0)g_strlcpy(patch_selected,patch_count?patch_pos[0].id:"",sizeof(patch_selected));
    if(patch_find(patch_source)<0 || !patch_pin_valid(patch_node(patch_source),patch_source_pin)){patch_source[0]=0;patch_source_pin=-1;patch_wire_mouse=false;}
@@ -566,13 +580,15 @@ static void patch_draw(tui_window_t *w,int rows,int cols,void *unused){
          bool valid=false,high=false;rr_logic_sign_state(gate->id,&valid,&high);
          uint32_t fg=valid&&high?gate->on_fg:gate->off_fg,bg=valid&&high?gate->color:gate->off_bg;
          int length=(int)g_utf8_strlen(gate->label,-1);
-         int offset=MAX(0,(PATCH_W-2-length)/2);
+         int inset=gate->border?2:1;
+         int text_width=PATCH_W-2*inset;
+         int offset=MAX(0,(text_width-length)/2);
          for (int row=2;row<=3;row++) {
             for (int col=1;col<PATCH_W-1;col++) { rrui_canvas_put_pair(c,x+col,y+row,' ',fg,bg); }
          }
          const char *p=gate->label;
-         for (int col=offset;*p && col<PATCH_W-2;col++,p=g_utf8_next_char(p)) {
-            rrui_canvas_put_pair(c,x+1+col,y+2,g_utf8_get_char(p),fg,bg);
+         for (int col=offset;*p && col<text_width;col++,p=g_utf8_next_char(p)) {
+            rrui_canvas_put_pair(c,x+inset+col,y+2,g_utf8_get_char(p),fg,bg);
          }
          /* The graph block outline remains a selection affordance.
           * This optional inner outline belongs to the sign itself. */
@@ -1072,6 +1088,16 @@ static bool patch_key(tui_window_t *w,unsigned key,unsigned mods,void *unused){
    if(key==TERMKEY_SYM_ESCAPE){patch_panning=false;patch_source[0]=0;patch_source_pin=-1;patch_wire_mouse=false;patch_notice("Connection cancelled.");return true;}
    if(key=='T'||key=='t'){patch_toggle_list();return true;}
    if(key=='a'){patch_layout(true);patch_x=patch_y=0;patch_notice("Automatic layout.");return true;}
+   if (key=='o' || key=='O') {
+      gate_view_t *sign=rr_logic_add_sign("ON AIR",0xcc0000);
+      if (sign) {
+         patch_layout(false);
+         g_strlcpy(patch_selected,sign->id,sizeof(patch_selected));
+         patch_pick_pin(false,0);patch_ensure();
+         patch_notice("ON AIR sign added; connect a boolean output to its input.");
+      } else { patch_notice("Cannot add ON AIR sign."); }
+      return true;
+   }
    if(key=='n'||key==TERMKEY_SYM_INSERT){
       patch_editor_open(true);
       return true;
@@ -1193,7 +1219,10 @@ static bool patch_mouse(tui_window_t *w,int row,int col,int button,int action,un
    }else if(action==TERMKEY_MOUSE_DRAG&&patch_wire_mouse){
       patch_mouse_x=x;patch_mouse_y=y;
    }else if(action==TERMKEY_MOUSE_DRAG&&patch_drag>=0){
-      patch_pos[patch_drag].x=CLAMP(x-patch_dx,0,4000);patch_pos[patch_drag].y=CLAMP(y-patch_dy,0,4000);
+      int nx=CLAMP(x-patch_dx,0,4000),ny=CLAMP(y-patch_dy,0,4000);
+      if (patch_space((unsigned)patch_drag,patch_count,nx,ny)) {
+         patch_pos[patch_drag].x=nx;patch_pos[patch_drag].y=ny;
+      }
    }else if(action==TERMKEY_MOUSE_RELEASE){
       if(patch_drag>=0){patch_save(&patch_pos[patch_drag]);patch_drag=-1;}
       else if(*patch_source){

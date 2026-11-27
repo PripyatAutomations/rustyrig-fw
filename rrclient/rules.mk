@@ -1,12 +1,12 @@
 # The terminal renderer belongs to RustyUI, not RustyAxe.
 RUSTYUI_PKG_CONFIG ?= pkg-config
 ifeq ($(filter clean distclean uninstall gmatrix-clean,$(MAKECMDGOALS)),)
-ifneq ($(shell $(RUSTYUI_PKG_CONFIG) --exists librustyui && echo yes),yes)
-$(error Installed librustyui development headers/library required for rrclient)
+ifneq ($(shell $(RUSTYUI_PKG_CONFIG) --exists librustyui-curses && echo yes),yes)
+$(error Installed librustyui-curses development headers/library required for rrclient)
 endif
 endif
-CFLAGS_RRCLI += $(shell $(RUSTYUI_PKG_CONFIG) --cflags librustyui 2>/dev/null)
-RRCLIENT_UI_LIBS := $(shell $(RUSTYUI_PKG_CONFIG) --libs librustyui 2>/dev/null)
+CFLAGS_RRCLI += $(shell $(RUSTYUI_PKG_CONFIG) --cflags librustyui-curses 2>/dev/null)
+RRCLIENT_UI_LIBS := $(shell $(RUSTYUI_PKG_CONFIG) --libs librustyui-curses 2>/dev/null)
 rrclient_headers += $(wildcard rrclient/*.h)
 rrclient_src = $(patsubst %.o,%.c,$(filter-out rrscript/host.o,$(rrclient_objs)))
 gtk_headers := $(wildcard rrclient/gtk/*.h)

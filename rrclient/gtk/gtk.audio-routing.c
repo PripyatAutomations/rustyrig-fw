@@ -602,6 +602,9 @@ static void routing_layout_set(const rr_ag_view_node_t *node, double x, double y
 /* AUTO: topological depth chooses the left-to-right flow. Wrap it into bounded-width bands (rather than one unbounded row), and give each column its own
  * vertically spaced lane. Neither connected blocks nor isolated nodes can share the same rectangle. Manually pinned nodes retain their positions unless AUTO is
  * explicitly requested. */
+static gboolean routing_rect_overlap(double x,double y,double w,double h,double a,double b,double aw,double ah) {
+   return x<a+aw && x+w>a && y<b+ah && y+h>b;
+}
 static void routing_layout_auto(gboolean reset) {
    if (!graph_snapshot || !graph_snapshot->node_count) {
       return;
@@ -672,6 +675,28 @@ static void routing_layout_auto(gboolean reset) {
       const double x = GRAPH_LAYOUT_MARGIN + col * GRAPH_LAYOUT_GAP_X;
       const double y = band_y[band] + row_index[layer]++ * GRAPH_LAYOUT_GAP_Y;
       routing_layout_set(node, x, y, reset);
+   }
+   /* Preserve manual positions first. Resolve legacy overlaps and new
+    * automatic placements without placing a block over an earlier one. */
+   for (unsigned pass=0;pass<2;pass++) {
+      for (guint i=0;i<count;i++) {
+         routing_position_t *p=routing_position(graph_snapshot->nodes[i].id);
+         if (!p || (!!p->pinned)!=(pass==0)) { continue; }
+         gboolean collision;
+         do {
+            collision=FALSE;
+            for (guint j=0;j<count;j++) {
+               if (i==j) { continue; }
+               routing_position_t *q=routing_position(graph_snapshot->nodes[j].id);
+               if (!q || (!q->pinned && (pass==0 || j>i)) || (pass==0 && j>i)) { continue; }
+               if (routing_rect_overlap(p->x,p->y,RR_GTK_GRAPH_NODE_W,RR_GTK_GRAPH_NODE_H,
+                                        q->x,q->y,RR_GTK_GRAPH_NODE_W,RR_GTK_GRAPH_NODE_H)) {
+                  p->y=q->y+RR_GTK_GRAPH_NODE_H+12.;collision=TRUE;
+               }
+            }
+         } while (collision);
+         if (p->pinned) { routing_position_save(graph_snapshot->nodes[i].id,p); }
+      }
    }
 }
 
@@ -7471,6 +7496,18 @@ static gboolean routing_graph_motion(GtkWidget *widget, GdkEventMotion *event, g
 
          dx = CLAMP(dx, min_dx, max_dx);
          dy = CLAMP(dy, min_dy, max_dy);
+         /* Reject a whole group displacement if any member would cover
+          * an unselected block. Never distort the selected group. */
+         for (guint i=0;i<graph_snapshot->node_count;i++) {
+            if (!graph_group_member[i]) { continue; }
+            for (guint j=0;j<graph_snapshot->node_count;j++) {
+               if (graph_group_member[j]) { continue; }
+               const rr_ag_view_node_t *other=&graph_snapshot->nodes[j];
+               if (routing_rect_overlap(graph_group_origin_x[i]+dx,graph_group_origin_y[i]+dy,
+                       RR_GTK_GRAPH_NODE_W,RR_GTK_GRAPH_NODE_H,routing_node_x(other),routing_node_y(other),
+                       RR_GTK_GRAPH_NODE_W,RR_GTK_GRAPH_NODE_H)) { return TRUE; }
+            }
+         }
 
          for (guint i = 0 ; i < graph_snapshot->node_count && i < G_N_ELEMENTS(graph_group_member) ; i++) {
             if (!graph_group_member[i]) {
