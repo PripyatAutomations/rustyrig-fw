@@ -2,6 +2,12 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // See doc/LICENSE for the full GNU General Public License version 2 text.
 #include <assert.h>
+#include <glib.h>
+static const char *test_db;
+static char *test_preferences_path(void) {
+   return g_strconcat(test_db, ".preferences", NULL);
+}
+#define RR_DIRECTORY_TEST_PREFERENCES_PATH test_preferences_path
 #include <rrclient/receiver.directory.c>
 /* Standalone tests run their core scheduler on GLib's default context. */
 GMainContext *rrclient_core_context(void) {
@@ -10,7 +16,7 @@ GMainContext *rrclient_core_context(void) {
 
 #include <rrclient/gtk/gtk.receiver-directory.c>
 time_t now = 1792080000;
-static const char *test_db;
+
 static unsigned connects;
 static unsigned local_connects;
 static void local_bridge_request(const rr_event_message_t *message, void *unused) {
@@ -241,6 +247,9 @@ int main(int argc, char **argv) {
    gtk_receiver_directory_shutdown();
    assert(!directory_page);
    receiver_directory_shutdown();
+   char *preferences_file = test_preferences_path();
+   g_unlink(preferences_file);
+   g_free(preferences_file);
    event_emit("client.receiver-directory.show", NULL, NULL);
    assert(!directory_page);
    event_shutdown();
