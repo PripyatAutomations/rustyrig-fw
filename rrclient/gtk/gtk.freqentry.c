@@ -108,40 +108,7 @@ gulong freq_changed_handler_id;
 // fwd decl
 static void freqentry_finalize(GtkFreqEntry *fe);
 
-// XXX: Move this to the config file
-static GdkRGBA digit_group_color(int group) {
-   GdkRGBA c;
 
-   // Darker red for Hz (group 3), brighter for GHz (group 0)
-   switch (group) {
-      case 0: {
-         // GHz - brightest red
-         gdk_rgba_parse(&c, "#222288");
-         break;
-      }
-      case 1: {
-         // MHz - medium bright red
-         gdk_rgba_parse(&c, "#992222");
-         break;
-      }
-      case 2: {
-         // kHz - darker red
-         gdk_rgba_parse(&c, "#552222");
-         break;
-      }
-      case 3: {
-         // Hz - darkest red
-         gdk_rgba_parse(&c, "#220000");
-         break;
-      }
-      default: {
-         gdk_rgba_parse(&c, "#ffffff");      // fallback white
-         break;
-      }
-   }
-
-   return c;
-}
 
 static int digit_group(int i) {
    if (i == 0) {
@@ -714,10 +681,6 @@ void gtk_freq_entry_init(GtkFreqEntry *fe) {
    fe->up_buttons = g_new0(GtkWidget *, fe->num_digits);
    fe->down_buttons = g_new0(GtkWidget *, fe->num_digits);
 
-   GdkRGBA white = {
-      1, 1, 1, 1
-   };
-
    for (int i = 0 ; i < fe->num_digits ; i++) {
       // Add a separator before this digit when there are 3 digits
       // remaining to the right, and we're not at the first digit.
@@ -738,7 +701,6 @@ void gtk_freq_entry_init(GtkFreqEntry *fe) {
       gtk_entry_set_width_chars(GTK_ENTRY(entry), 1);
       gtk_entry_set_alignment(GTK_ENTRY(entry), 0.5);
       gtk_widget_set_size_request(entry, 20, 30);
-      gtk_widget_override_color(entry, GTK_STATE_FLAG_NORMAL, &white);
       // Font (monospace) comes from the .freq-digit CSS class in [gtk-css]
       gtk_widget_set_name(entry, "freq-digit");
       gtk_entry_set_text(GTK_ENTRY(entry), "0");   // start zeroed
@@ -753,9 +715,7 @@ void gtk_freq_entry_init(GtkFreqEntry *fe) {
       gtk_widget_set_name(up_button, "freq-digit-button");
       gtk_widget_set_name(down_button, "freq-digit-button");
 
-      // Set a background color scaled with the frequency magnitude (GHz, MHz, KHz, Hz)
-      GdkRGBA c = digit_group_color(digit_group(i));
-      gtk_widget_override_background_color(entry, GTK_STATE_FLAG_NORMAL, &c);
+      /* Use matched GTK theme foreground/background colors in every state. */
 
       gtk_box_pack_start(GTK_BOX(vbox), up_button, TRUE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(vbox), entry, TRUE, TRUE, 0);
