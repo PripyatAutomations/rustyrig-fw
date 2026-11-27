@@ -636,6 +636,12 @@ long rr_cat_property_long(const char *vfo, const char *property, long fallback) 
       }
    }
 
+   /* Numbered CAT endpoints must never read the selected GUI VFO as a
+    * fallback. A missing graph/remote observation is unknown, not another
+    * radio's frequency or bandwidth. */
+   if (cat_context->profile[0]) {
+      return fallback;
+   }
    /* A linked/just-selected rig may not have a populated object-property snapshot yet. Prefer its legacy CAT state over reporting 0 Hz. */
    const char *key = !strcmp(property, "frequency") ? "cat.state.freq" : !strcmp(property, "width") ? "cat.state.width" : "cat.state.key_speed";
 
