@@ -203,6 +203,7 @@ static void gtk_chat_select_tab(GtkNotebook *notebook, GtkWidget *page, guint pa
    }
 }
 
+static char *gtk_chat_serialize_entry(GtkWidget *entry);
 static bool gtk_chat_copy_widgets(GtkWidget *view, GtkWidget *entry) {
    gint first, last;
    bool input_selected = entry && GTK_IS_EDITABLE(entry) && gtk_editable_get_selection_bounds(GTK_EDITABLE(entry), &first, &last);
@@ -212,7 +213,11 @@ static bool gtk_chat_copy_widgets(GtkWidget *view, GtkWidget *entry) {
 
    /* GTK can retain selections in both widgets. Prefer the focused one. */
    if (input_selected && (!transcript_selected || !gtk_widget_has_focus(view))) {
-      gtk_editable_copy_clipboard(GTK_EDITABLE(entry));
+      char *raw = gtk_chat_serialize_entry(entry);
+      char *part = g_utf8_substring(raw, MIN(first,last), MAX(first,last));
+      gtk_clipboard_set_text(gtk_clipboard_get(GDK_SELECTION_CLIPBOARD), part, -1);
+      g_free(part);
+      g_free(raw);
 
       return true;
    }
