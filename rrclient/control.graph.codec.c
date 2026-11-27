@@ -83,6 +83,11 @@ bool rr_control_graph_text_validate(const char *snapshot,char **error) {
             for (unsigned j=0;ok && j<G_N_ELEMENTS(colors);j++) {
                if (g_key_file_has_key(kf,group,colors[j],NULL)) { ok=graph_int(kf,group,colors[j],0,0xffffff,&color); }
             }
+            if (ok && g_key_file_has_key(kf,group,"border",NULL)) {
+               GError *err=NULL;
+               g_key_file_get_boolean(kf,group,"border",&err);
+               ok=err==NULL;g_clear_error(&err);
+            }
             if (ok && g_key_file_has_key(kf,group,"font",NULL)) {
                char *font=g_key_file_get_string(kf,group,"font",NULL);
                ok=font && *font && strlen(font)<96 && g_utf8_validate(font,-1,NULL);

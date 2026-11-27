@@ -115,3 +115,5 @@ privileged needed to create it leaves. We should tell them they were removed
 because the admin left the room
 
 Future architecture (after RustyUI migration): revisit a common RustyRig node for rrclient/rrserver, with detachable GTK/TUI frontends, shared models and persistent network/DSP state. Investigate process isolation for X display-loss recovery, reattachment to a new DISPLAY, multiple simultaneous frontends, and preservation of server authorization boundaries. Do not merge executables until these boundaries are established.
+
+RustyUI migration: implement the recordings manager as a RustyScript application, like the artwork/macro manager. Expose reusable recording inventory, file operations, playback and waveform/control APIs to scripts; keep playback and recording ownership in the client core. Use shared dialogs for GTK and TUI rather than implementing separate native recording managers.

@@ -569,6 +569,18 @@ static void patch_draw(tui_window_t *w,int rows,int cols,void *unused){
          for (int col=offset;*p && col<PATCH_W-2;col++,p=g_utf8_next_char(p)) {
             rrui_canvas_put_pair(c,x+1+col,y+2,g_utf8_get_char(p),fg,bg);
          }
+         /* The graph block outline remains a selection affordance.
+          * This optional inner outline belongs to the sign itself. */
+         if (gate->border) {
+            for (int col=1;col<PATCH_W-1;col++) {
+               rrui_canvas_put_pair(c,x+col,y+1,col==1?0x250c:col==PATCH_W-2?0x2510:0x2500,fg,bg);
+               rrui_canvas_put_pair(c,x+col,y+4,col==1?0x2514:col==PATCH_W-2?0x2518:0x2500,fg,bg);
+            }
+            for (int row=2;row<=3;row++) {
+               rrui_canvas_put_pair(c,x+1,y+row,0x2502,fg,bg);
+               rrui_canvas_put_pair(c,x+PATCH_W-2,y+row,0x2502,fg,bg);
+            }
+         }
       } else if (!strcmp(p->id,RRCLIENT_ROUTING_PTT_LOCAL)) {
          bool valid=false,high=false;rr_logic_output(p->id,&valid,&high);
          rrui_canvas_text(c,x+1,y+2,PATCH_W-2,"Local PTT",color);
@@ -850,7 +862,7 @@ static void patch_editor_action(rrui_form_t *f,const char *id,const char *action
          if (existing && !existing->sign) { view_notice(f,"Cannot convert another block to a sign.");return; }
          bool added=!existing;
          if (added) { existing=rr_logic_add_sign(label,colors[1]); }
-         if (!existing || !rr_logic_sign_style(existing->id,label,colors[0],colors[1],colors[2],colors[3],font)) {
+         if (!existing || !rr_logic_sign_style(existing->id,label,colors[0],colors[1],colors[2],colors[3],font,view_field(f,"sign_border")==SIZE_MAX || rrui_form_checked(f,"sign_border"))) {
             if (added && existing) { rr_logic_remove(existing->id); }
             view_notice(f,"Cannot create or edit sign.");return;
          }
@@ -951,6 +963,7 @@ static void patch_editor_open(bool add){
    }
    g_strlcpy(patch_edit_id,add?"":patch_selected,sizeof(patch_edit_id));
    rrui_form_set_value(patch_editor,"kind","oscillator");
+   rrui_form_set_checked(patch_editor,"sign_border",true);
    rrui_form_set_value(patch_editor,"value","1200");
    rrui_form_set_value(patch_editor,"level","-18");
    rrui_form_set_value(patch_editor,"wave","0");
@@ -977,6 +990,7 @@ static void patch_editor_open(bool add){
             char rgb[16];g_snprintf(rgb,sizeof(rgb),"%06X",colors[i]);rrui_form_set_value(patch_editor,fields[i],rgb);
          }
          rrui_form_set_value(patch_editor,"sign_font",gate->font);
+         rrui_form_set_checked(patch_editor,"sign_border",gate->border);
       }
       rrui_form_set_value(patch_editor,"value",value);
    }else if(g_str_has_prefix(patch_edit_id,"control.")){

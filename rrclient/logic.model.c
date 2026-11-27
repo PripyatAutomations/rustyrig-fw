@@ -41,6 +41,7 @@ void rr_logic_save(void) {
          g_key_file_set_integer(k,group,"off_fg",(int)rr_logic_blocks[i].off_fg);
          g_key_file_set_integer(k,group,"off_bg",(int)rr_logic_blocks[i].off_bg);
          g_key_file_set_string(k,group,"font",rr_logic_blocks[i].font);
+         g_key_file_set_boolean(k,group,"border",rr_logic_blocks[i].border);
       }
       g_ascii_formatd(x,sizeof(x),"%.2f",rr_logic_blocks[i].x);
       g_ascii_formatd(y,sizeof(y),"%.2f",rr_logic_blocks[i].y);
@@ -122,6 +123,7 @@ static void restore_model(const gchar *saved) {
             b->on_fg=g_key_file_has_key(k,group,"on_fg",NULL)?(uint32_t)g_key_file_get_integer(k,group,"on_fg",NULL):0xffffff;
             b->off_fg=g_key_file_has_key(k,group,"off_fg",NULL)?(uint32_t)g_key_file_get_integer(k,group,"off_fg",NULL):0x606060;
             b->off_bg=g_key_file_has_key(k,group,"off_bg",NULL)?(uint32_t)g_key_file_get_integer(k,group,"off_bg",NULL):0x181818;
+            b->border=!g_key_file_has_key(k,group,"border",NULL) || g_key_file_get_boolean(k,group,"border",NULL);
             char *font=g_key_file_get_string(k,group,"font",NULL);
             g_strlcpy(b->font,font?font:"Sans Bold 12",sizeof(b->font));g_free(font);
          }
@@ -248,7 +250,7 @@ gate_view_t *rr_logic_add_sign(const char *label,uint32_t color) {
    char id[RR_CONTROL_NAME_LEN];
    do { g_snprintf(id,sizeof(id),"sign.%u",++rr_logic_serial); } while (rr_logic_find(id));
    gate_view_t *b=&rr_logic_blocks[rr_logic_block_count++];
-   *b=(gate_view_t){.sign=TRUE,.inputs=1,.color=color,.on_fg=0xffffff,.off_fg=0x606060,.off_bg=0x181818,.font="Sans Bold 12",
+   *b=(gate_view_t){.sign=TRUE,.inputs=1,.color=color,.on_fg=0xffffff,.off_fg=0x606060,.off_bg=0x181818,.font="Sans Bold 12",.border=TRUE,
       .x=100.+(rr_logic_block_count%3)*240.,.y=600.+(rr_logic_block_count/3)*165.};
    g_strlcpy(b->id,id,sizeof(b->id));g_strlcpy(b->label,label,sizeof(b->label));rr_logic_save();return b;
 }
@@ -257,7 +259,7 @@ gboolean rr_logic_sign_configure(const char *id,const char *label,uint32_t color
    if (!b || !b->sign || !sign_properties_ok(label,color)) { return FALSE; }
    g_strlcpy(b->label,label,sizeof(b->label));b->color=color;rr_logic_save();return TRUE;
 }
-gboolean rr_logic_sign_style(const char *id,const char *label,uint32_t on_fg,uint32_t on_bg,uint32_t off_fg,uint32_t off_bg,const char *font) {
+gboolean rr_logic_sign_style(const char *id,const char *label,uint32_t on_fg,uint32_t on_bg,uint32_t off_fg,uint32_t off_bg,const char *font,gboolean border) {
    gate_view_t *b=rr_logic_find(id);
    if (!b || !b->sign || !sign_properties_ok(label,on_bg) || on_fg>0xffffff ||
        off_fg>0xffffff || off_bg>0xffffff || !font || !*font ||
@@ -268,7 +270,7 @@ gboolean rr_logic_sign_style(const char *id,const char *label,uint32_t on_fg,uin
    char name[sizeof(b->label)],font_copy[sizeof(b->font)];
    g_strlcpy(name,label,sizeof(name));g_strlcpy(font_copy,font,sizeof(font_copy));
    g_strlcpy(b->label,name,sizeof(b->label));g_strlcpy(b->font,font_copy,sizeof(b->font));
-   b->color=on_bg;b->on_fg=on_fg;b->off_fg=off_fg;b->off_bg=off_bg;rr_logic_save();return TRUE;
+   b->color=on_bg;b->on_fg=on_fg;b->off_fg=off_fg;b->off_bg=off_bg;b->border=!!border;rr_logic_save();return TRUE;
 }
 gboolean rr_logic_sign_state(const char *id,bool *valid,bool *high) {
    if (!valid || !high) { return FALSE; }

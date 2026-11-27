@@ -315,6 +315,9 @@ skip_preview:;
          int tw,th;pango_layout_get_pixel_size(layout,&tw,&th);
          cairo_set_source_rgb(cr,((fg>>16)&255)/255.,((fg>>8)&255)/255.,(fg&255)/255.);
          cairo_move_to(cr,x,y+(height-th)/2.);pango_cairo_show_layout(cr,layout);
+         if (b->border) {
+            cairo_set_line_width(cr,1.5);cairo_rectangle(cr,x+1.,y+1.,width-2.,height-2.);cairo_stroke(cr);
+         }
          pango_font_description_free(font);g_object_unref(layout);cairo_restore(cr);
          continue;
       }
@@ -381,6 +384,9 @@ static void properties(gate_view_t *b,GtkWidget *parent) {
          gtk_box_pack_start(GTK_BOX(box),row,FALSE,FALSE,2);
       }
       gtk_box_pack_start(GTK_BOX(box),font,FALSE,FALSE,5);
+      GtkWidget *border=gtk_check_button_new_with_label("Sign border");
+      gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(border),b->border);
+      gtk_box_pack_start(GTK_BOX(box),border,FALSE,FALSE,5);
       gtk_widget_show_all(dialog);
       int result=gtk_dialog_run(GTK_DIALOG(dialog));
       if (result==GTK_RESPONSE_ACCEPT) {
@@ -389,7 +395,7 @@ static void properties(gate_view_t *b,GtkWidget *parent) {
             colors[i]=((uint32_t)lround(rgb.red*255.)<<16)|((uint32_t)lround(rgb.green*255.)<<8)|(uint32_t)lround(rgb.blue*255.);
          }
          char *selected=gtk_font_chooser_get_font(GTK_FONT_CHOOSER(font));
-         rr_logic_sign_style(b->id,gtk_entry_get_text(GTK_ENTRY(entry)),colors[0],colors[1],colors[2],colors[3],selected);
+         rr_logic_sign_style(b->id,gtk_entry_get_text(GTK_ENTRY(entry)),colors[0],colors[1],colors[2],colors[3],selected,gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(border)));
          g_free(selected);changed();
       } else if (result==GTK_RESPONSE_REJECT) { rr_logic_canvas_remove_block(b->id); }
       gtk_widget_destroy(dialog);return;
