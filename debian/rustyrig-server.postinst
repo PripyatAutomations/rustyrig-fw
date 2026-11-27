@@ -63,31 +63,40 @@ if [ ! -e "$master_db" ]; then
         printf '%s' "$remote_admin_subjects" |
             /usr/lib/rustyrig/seed-remote-admin --check
     fi
-    sqlite3 "$master_db" < "$master_sql"
-    sqlite3 "$master_db" < "$preload_sql"
-    new_database=true
-fi
+    # Complete bootstrap privately. A failed statement or hash helper must
+    # not leave master.db looking like an existing, initialized installation.
+    bootstrap_db=$(mktemp "$master_db.new.XXXXXX")
+    trap 'rm -f -- "$bootstrap_db" "$bootstrap_db-journal" "$bootstrap_db-wal" "$bootstrap_db-shm"' 0
+    trap 'exit 1' HUP INT TERM
+    sqlite3 -bail "$bootstrap_db" < "$master_sql"
+    sqlite3 -bail "$bootstrap_db" < "$preload_sql"
 
-# A grant names a future authenticated user@origin-site. It does not create
-# that account or enroll, pin, or trust a remote server certificate.
-if [ "$new_database" = true ] && [ "$remote_admin_enabled" = true ]; then
-    printf '%s' "$remote_admin_subjects" |
-        /usr/lib/rustyrig/seed-remote-admin "$master_db"
-fi
+    # A grant names a future authenticated user@origin-site. It does not
+    # create the account or enroll, pin, or trust a remote server certificate.
+    if [ "$remote_admin_enabled" = true ]; then
+        printf '%s' "$remote_admin_subjects" |
+            /usr/lib/rustyrig/seed-remote-admin "$bootstrap_db"
+    fi
 
-if [ "$new_database" = true ]; then
-    # Never place the password in argv or command output. The private helper
-    # reads it from stdin and emits an Argon2id encoded verifier only.
+    # Keep the cleartext password out of argv and command output.
     admin_hash=$(printf '%s' "$admin_password" | /usr/lib/rustyrig/rrhashpass)
-    sqlite3 "$master_db" \
+    [ -n "$admin_hash" ] || { echo "rustyrig-server: empty admin password verifier" >&2; exit 1; }
+    sqlite3 -bail "$bootstrap_db" \
         "UPDATE users SET enabled=1,password='$admin_hash' WHERE name='admin';"
     if [ "$guest_enabled" = true ]; then
         guest_hash=$(printf '%s' "$guest_password" | /usr/lib/rustyrig/rrhashpass)
-        sqlite3 "$master_db" \
+        [ -n "$guest_hash" ] || { echo "rustyrig-server: empty guest password verifier" >&2; exit 1; }
+        sqlite3 -bail "$bootstrap_db" \
             "UPDATE users SET enabled=1,password='$guest_hash',permissions='rx,chat' WHERE name='guest';"
     fi
-    chown rustyrig:rustyrig "$master_db"
-    chmod 0660 "$master_db"
+    # All SQLite connections have closed. Publish without replacing an
+    # existing database, including one created concurrently.
+    chown rustyrig:rustyrig "$bootstrap_db"
+    chmod 0660 "$bootstrap_db"
+    ln -T -- "$bootstrap_db" "$master_db"
+    rm -f -- "$bootstrap_db" "$bootstrap_db-journal" "$bootstrap_db-wal" "$bootstrap_db-shm"
+    trap - 0 HUP INT TERM
+    new_database=true
 fi
 
 if command -v db_set >/dev/null 2>&1 && [ "$new_database" = true ]; then
@@ -126,11 +135,11 @@ fi
 if command -v db_get >/dev/null 2>&1 && db_get rustyrig/admin-users; then
     for user in ${RET:-}; do
         case "$user" in
-            -*|*[!a-zA-Z0-9_.-]*) echo "Invalid local username: $user" >&2; exit 1 ;;
+            -*|*[!a-zA-Z0-9_.-]*) echo "rustyrig: skipping invalid local username: $user" >&2; continue ;;
         esac
         if ! getent passwd "$user" >/dev/null; then
-            echo "Unknown local user: $user" >&2
-            exit 1
+            echo "rustyrig: skipping unknown local user: $user" >&2
+            continue
         fi
         adduser "$user" rradmin
     done
@@ -139,11 +148,11 @@ fi
 if command -v db_get >/dev/null 2>&1 && db_get rustyrig/serial-users; then
     for user in ${RET:-}; do
         case "$user" in
-            -*|*[!a-zA-Z0-9_.-]*) echo "Invalid local username: $user" >&2; exit 1 ;;
+            -*|*[!a-zA-Z0-9_.-]*) echo "rustyrig: skipping invalid local username: $user" >&2; continue ;;
         esac
         if ! getent passwd "$user" >/dev/null; then
-            echo "Unknown local user: $user" >&2
-            exit 1
+            echo "rustyrig: skipping unknown local user: $user" >&2
+            continue
         fi
         adduser "$user" rruser
     done

@@ -35,11 +35,12 @@ with tempfile.TemporaryDirectory() as directory:
     seed_helper.write_text(pathlib.Path('packaging/seed-remote-admin.py').read_text())
     seed_helper.chmod(0o755)
     hash_helper = root / 'rrhashpass'
-    hash_helper.write_text("#!/bin/sh\ncat >/dev/null\necho argon2id-fixture\n")
+    hash_helper.write_text("#!/bin/sh\ncat >/dev/null\n[ \"$RR_TEST_HASH_FAIL\" != true ] || exit 1\necho argon2id-fixture\n")
     hash_helper.chmod(0o755)
     script = root / 'postinst'
     script.write_text(pathlib.Path('debian/rustyrig-server.postinst').read_text()
                       .replace('/var/', str(root / 'var') + '/')
+                      .replace('/home/rustyrig/SHARED', str(root / 'home/rustyrig/SHARED'))
                       .replace('/usr/share/debconf/confmodule', str(confmodule))
                       .replace('/usr/lib/rustyrig/admin-permissions', str(permissions) + ' ' + str(root))
                       .replace('/usr/lib/rustyrig/rrhashpass', str(hash_helper))
@@ -68,6 +69,12 @@ with tempfile.TemporaryDirectory() as directory:
         assert connection.execute("SELECT enabled,password FROM users WHERE name='admin'").fetchone() == (0, 'existing-password')
         assert connection.execute("SELECT count(*) FROM resource_privileges WHERE granted_by='debian-first-install'").fetchone() == (4,)
     database.unlink()
+    env['RR_TEST_HASH_FAIL'] = 'true'
+    refused = subprocess.run(['sh', str(script)], env=env, capture_output=True, text=True)
+    assert refused.returncode != 0
+    assert not database.exists()
+    assert not list(database.parent.glob('master.db.new.*'))
+    env['RR_TEST_HASH_FAIL'] = 'false'
     env['RR_TEST_ADMIN_PASSWORD'] = ''
     refused = subprocess.run(['sh', str(script)], env=env, capture_output=True, text=True)
     assert refused.returncode != 0 and 'password is required' in refused.stderr
