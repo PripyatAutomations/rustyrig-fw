@@ -483,6 +483,13 @@ static void script_gui_add(const rr_script_gui_command_t *cmd) {
    else if(!strcmp(cmd->kind,"column"))w=gtk_box_new(GTK_ORIENTATION_VERTICAL,6);
    else if(!strcmp(cmd->kind,"tabstrip"))w=gtk_notebook_new();
    else if(!strcmp(cmd->kind,"label"))w=gtk_label_new(cmd->text);
+   else if(!strcmp(cmd->kind,"irc-label")) {
+      w=gtk_label_new(NULL);
+      char *markup=gtk_colorize_string(cmd->text);
+      gtk_label_set_markup(GTK_LABEL(w),markup?markup:"");
+      gtk_label_set_xalign(GTK_LABEL(w),0);
+      g_free(markup);
+   }
    else if(!strcmp(cmd->kind,"frame")) {
       w=gtk_box_new(GTK_ORIENTATION_VERTICAL,4);
       packing=gtk_frame_new(cmd->text);
@@ -875,6 +882,10 @@ static void script_gui_command(const rr_event_message_t *message,void *unused) {
             g_free(value);
             if(match){gtk_combo_box_set_active(GTK_COMBO_BOX(w),i);break;}
          }
+      } else if(GTK_IS_LABEL(w) && !strcmp(entry->kind,"irc-label")) {
+         char *markup=gtk_colorize_string(cmd.value);
+         gtk_label_set_markup(GTK_LABEL(w),markup?markup:"");
+         g_free(markup);
       } else if(GTK_IS_LABEL(w))gtk_label_set_text(GTK_LABEL(w),cmd.value);
       else if(GTK_IS_BUTTON(w))gtk_button_set_label(GTK_BUTTON(w),cmd.value);
    } else if(cmd.action==RR_GUI_SHOW) {
