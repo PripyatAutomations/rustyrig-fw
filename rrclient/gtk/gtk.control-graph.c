@@ -1,3 +1,4 @@
+#include <pango/pangocairo.h>
 // SPDX-License-Identifier: GPL-2.0-only
 /* GTK-only view/controller for the bounded, generic boolean control graph.
  * No GTK gesture ever transmits PTT. The physical TX sink must separately
@@ -300,10 +301,21 @@ skip_preview:;
       cairo_select_font_face(cr,"Sans",CAIRO_FONT_SLANT_NORMAL,CAIRO_FONT_WEIGHT_BOLD);
       cairo_set_font_size(cr,9.);
       if (b->sign) {
-         uint32_t rgb=valid&&high?b->color:0x555555;
-         cairo_set_source_rgb(cr,((rgb>>16)&255)/255.,((rgb>>8)&255)/255.,(rgb&255)/255.);
-         cairo_rectangle(cr,b->x+28.,b->y+43.,RR_GTK_GRAPH_NODE_W-56.,28.);
-         cairo_fill(cr);
+         uint32_t bg=valid&&high?b->color:b->off_bg,fg=valid&&high?b->on_fg:b->off_fg;
+         double x=b->x+26.,y=b->y+36.,width=RR_GTK_GRAPH_NODE_W-48.,height=40.;
+         cairo_save(cr);cairo_rectangle(cr,x,y,width,height);cairo_clip(cr);
+         cairo_set_source_rgb(cr,((bg>>16)&255)/255.,((bg>>8)&255)/255.,(bg&255)/255.);cairo_paint(cr);
+         PangoLayout *layout=pango_cairo_create_layout(cr);
+         PangoFontDescription *font=pango_font_description_from_string(b->font);
+         pango_layout_set_font_description(layout,font);
+         pango_layout_set_text(layout,b->label,-1);
+         pango_layout_set_width(layout,(int)(width*PANGO_SCALE));
+         pango_layout_set_ellipsize(layout,PANGO_ELLIPSIZE_END);
+         pango_layout_set_alignment(layout,PANGO_ALIGN_CENTER);
+         int tw,th;pango_layout_get_pixel_size(layout,&tw,&th);
+         cairo_set_source_rgb(cr,((fg>>16)&255)/255.,((fg>>8)&255)/255.,(fg&255)/255.);
+         cairo_move_to(cr,x,y+(height-th)/2.);pango_cairo_show_layout(cr,layout);
+         pango_font_description_free(font);g_object_unref(layout);cairo_restore(cr);
          continue;
       }
       cairo_move_to(cr,output_x(b)-41.,b->y+43.);
@@ -352,17 +364,33 @@ static void properties(gate_view_t *b,GtkWidget *parent) {
       GtkWidget *dialog=gtk_dialog_new_with_buttons("Sign properties",GTK_IS_WINDOW(parent)?GTK_WINDOW(parent):NULL,
          GTK_DIALOG_MODAL,"_Cancel",GTK_RESPONSE_CANCEL,"_Remove",GTK_RESPONSE_REJECT,"_Apply",GTK_RESPONSE_ACCEPT,NULL);
       GtkWidget *box=gtk_dialog_get_content_area(GTK_DIALOG(dialog));
-      GtkWidget *entry=gtk_entry_new(),*color=gtk_color_button_new();
+      GtkWidget *entry=gtk_entry_new(),*font=gtk_font_button_new();
       gtk_entry_set_max_length(GTK_ENTRY(entry),63);gtk_entry_set_text(GTK_ENTRY(entry),b->label);
-      GdkRGBA rgb={((b->color>>16)&255)/255.,((b->color>>8)&255)/255.,(b->color&255)/255.,1.};
-      gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(color),&rgb);
-      gtk_box_pack_start(GTK_BOX(box),entry,FALSE,FALSE,5);gtk_box_pack_start(GTK_BOX(box),color,FALSE,FALSE,5);
+      gtk_font_chooser_set_font(GTK_FONT_CHOOSER(font),b->font);
+      gtk_box_pack_start(GTK_BOX(box),entry,FALSE,FALSE,5);
+      const char *labels[]={"ON foreground","ON background","OFF foreground","OFF background"};
+      uint32_t colors[]={b->on_fg,b->color,b->off_fg,b->off_bg};
+      GtkWidget *buttons[4];
+      for (unsigned i=0;i<G_N_ELEMENTS(buttons);i++) {
+         GtkWidget *row=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,8);
+         buttons[i]=gtk_color_button_new();
+         GdkRGBA rgb={((colors[i]>>16)&255)/255.,((colors[i]>>8)&255)/255.,(colors[i]&255)/255.,1.};
+         gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(buttons[i]),&rgb);
+         gtk_box_pack_start(GTK_BOX(row),gtk_label_new(labels[i]),TRUE,TRUE,0);
+         gtk_box_pack_end(GTK_BOX(row),buttons[i],FALSE,FALSE,0);
+         gtk_box_pack_start(GTK_BOX(box),row,FALSE,FALSE,2);
+      }
+      gtk_box_pack_start(GTK_BOX(box),font,FALSE,FALSE,5);
       gtk_widget_show_all(dialog);
       int result=gtk_dialog_run(GTK_DIALOG(dialog));
       if (result==GTK_RESPONSE_ACCEPT) {
-         gtk_color_chooser_get_rgba(GTK_COLOR_CHOOSER(color),&rgb);
-         uint32_t packed=((uint32_t)lround(rgb.red*255.)<<16)|((uint32_t)lround(rgb.green*255.)<<8)|(uint32_t)lround(rgb.blue*255.);
-         rr_logic_sign_configure(b->id,gtk_entry_get_text(GTK_ENTRY(entry)),packed);changed();
+         for (unsigned i=0;i<G_N_ELEMENTS(buttons);i++) {
+            GdkRGBA rgb;gtk_color_chooser_get_rgba(GTK_COLOR_CHOOSER(buttons[i]),&rgb);
+            colors[i]=((uint32_t)lround(rgb.red*255.)<<16)|((uint32_t)lround(rgb.green*255.)<<8)|(uint32_t)lround(rgb.blue*255.);
+         }
+         char *selected=gtk_font_chooser_get_font(GTK_FONT_CHOOSER(font));
+         rr_logic_sign_style(b->id,gtk_entry_get_text(GTK_ENTRY(entry)),colors[0],colors[1],colors[2],colors[3],selected);
+         g_free(selected);changed();
       } else if (result==GTK_RESPONSE_REJECT) { rr_logic_canvas_remove_block(b->id); }
       gtk_widget_destroy(dialog);return;
    }

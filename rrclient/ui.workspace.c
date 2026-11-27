@@ -559,8 +559,16 @@ static void patch_draw(tui_window_t *w,int rows,int cols,void *unused){
       gate_view_t *gate=rr_logic_find(p->id);
       if (gate && gate->sign) {
          bool valid=false,high=false;rr_logic_sign_state(gate->id,&valid,&high);
-         rrui_canvas_text(c,x+1,y+2,PATCH_W-2,gate->label,valid&&high?gate->color:0x777777);
-         rrui_canvas_text(c,x+1,y+3,PATCH_W-2,valid&&high?"======== ON ========":"        OFF",valid&&high?gate->color:0x777777);
+         uint32_t fg=valid&&high?gate->on_fg:gate->off_fg,bg=valid&&high?gate->color:gate->off_bg;
+         int length=(int)g_utf8_strlen(gate->label,-1);
+         int offset=MAX(0,(PATCH_W-2-length)/2);
+         for (int row=2;row<=3;row++) {
+            for (int col=1;col<PATCH_W-1;col++) { rrui_canvas_put_pair(c,x+col,y+row,' ',fg,bg); }
+         }
+         const char *p=gate->label;
+         for (int col=offset;*p && col<PATCH_W-2;col++,p=g_utf8_next_char(p)) {
+            rrui_canvas_put_pair(c,x+1+col,y+2,g_utf8_get_char(p),fg,bg);
+         }
       } else if (!strcmp(p->id,RRCLIENT_ROUTING_PTT_LOCAL)) {
          bool valid=false,high=false;rr_logic_output(p->id,&valid,&high);
          rrui_canvas_text(c,x+1,y+2,PATCH_W-2,"Local PTT",color);
@@ -825,15 +833,27 @@ static void patch_editor_action(rrui_form_t *f,const char *id,const char *action
    }else if(!strcmp(action,"save")&&kind){
       if (!g_ascii_strcasecmp(kind,"sign") || !g_ascii_strcasecmp(kind,"onair")) {
          const char *label=name&&*name?name:"ON AIR";
-         const char *rgb=rrui_form_value(f,"option");
-         char *end=NULL;unsigned long color=rgb&&*rgb?strtoul(rgb[0]=='#'?rgb+1:rgb,&end,16):0xff3030;
-         if ((end && (*end || end==rgb || (rgb[0]=='#' && end==rgb+1))) || color>0xffffff) {
-            view_notice(f,"Color: hexadecimal RRGGBB, e.g. FF3030.");return;
+         const char *font=rrui_form_value(f,"sign_font");
+         const char *fields[]={"sign_on_fg","option","sign_off_fg","sign_off_bg"};
+         uint32_t colors[]={0xffffff,0xcc0000,0x606060,0x181818};
+         for (unsigned i=0;i<G_N_ELEMENTS(fields);i++) {
+            const char *rgb=rrui_form_value(f,fields[i]);
+            if (!rgb || !*rgb) { continue; }
+            if (*rgb=='#') { rgb++; }
+            if (strlen(rgb)!=6 || strspn(rgb,"0123456789abcdefABCDEF")!=6) {
+               view_notice(f,"Sign colors must be six hexadecimal digits.");return;
+            }
+            colors[i]=(uint32_t)strtoul(rgb,NULL,16);
          }
+         if (!font || !*font) { font="Sans Bold 12"; }
          gate_view_t *existing=rr_logic_find(patch_edit_id);
-         bool ok=existing?rr_logic_sign_configure(existing->id,label,(uint32_t)color):
-            rr_logic_add_sign(label,(uint32_t)color)!=NULL;
-         if (!ok) { view_notice(f,"Cannot create or edit sign.");return; }
+         if (existing && !existing->sign) { view_notice(f,"Cannot convert another block to a sign.");return; }
+         bool added=!existing;
+         if (added) { existing=rr_logic_add_sign(label,colors[1]); }
+         if (!existing || !rr_logic_sign_style(existing->id,label,colors[0],colors[1],colors[2],colors[3],font)) {
+            if (added && existing) { rr_logic_remove(existing->id); }
+            view_notice(f,"Cannot create or edit sign.");return;
+         }
          patch_layout(false);
       } else if (!g_ascii_strcasecmp(kind,"gate") || !g_ascii_strcasecmp(kind,"constant")) {
          bool constant=!g_ascii_strcasecmp(kind,"constant");
@@ -950,7 +970,14 @@ static void patch_editor_open(bool add){
       char value[24];g_snprintf(value,sizeof(value),"%u",gate->constant?(unsigned)gate->level:gate->inputs);
       rrui_form_set_value(patch_editor,"kind",gate->sign?"sign":gate->constant?"constant":"gate");
       rrui_form_set_value(patch_editor,"name",gate->sign?gate->label:rr_gate_kind_name(gate->kind));
-      if (gate->sign) { char rgb[16];g_snprintf(rgb,sizeof(rgb),"%06X",gate->color);rrui_form_set_value(patch_editor,"option",rgb); }
+      if (gate->sign) {
+         const char *fields[]={"sign_on_fg","option","sign_off_fg","sign_off_bg"};
+         const uint32_t colors[]={gate->on_fg,gate->color,gate->off_fg,gate->off_bg};
+         for (unsigned i=0;i<G_N_ELEMENTS(fields);i++) {
+            char rgb[16];g_snprintf(rgb,sizeof(rgb),"%06X",colors[i]);rrui_form_set_value(patch_editor,fields[i],rgb);
+         }
+         rrui_form_set_value(patch_editor,"sign_font",gate->font);
+      }
       rrui_form_set_value(patch_editor,"value",value);
    }else if(g_str_has_prefix(patch_edit_id,"control.")){
       rrui_form_set_value(patch_editor,"kind","control");

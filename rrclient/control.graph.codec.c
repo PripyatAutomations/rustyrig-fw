@@ -79,6 +79,18 @@ bool rr_control_graph_text_validate(const char *snapshot,char **error) {
             for (const char *p=label;ok && *p;p=g_utf8_next_char(p)) {
                if (g_unichar_iscntrl(g_utf8_get_char(p))) { ok=FALSE; }
             }
+            const char *colors[]={"on_fg","off_fg","off_bg"};
+            for (unsigned j=0;ok && j<G_N_ELEMENTS(colors);j++) {
+               if (g_key_file_has_key(kf,group,colors[j],NULL)) { ok=graph_int(kf,group,colors[j],0,0xffffff,&color); }
+            }
+            if (ok && g_key_file_has_key(kf,group,"font",NULL)) {
+               char *font=g_key_file_get_string(kf,group,"font",NULL);
+               ok=font && *font && strlen(font)<96 && g_utf8_validate(font,-1,NULL);
+               for (const char *p=font;ok && *p;p=g_utf8_next_char(p)) {
+                  if (g_unichar_iscntrl(g_utf8_get_char(p))) { ok=FALSE; }
+               }
+               g_free(font);
+            }
             for (unsigned j=0;ok && j<sign_count;j++) {
                if (!strcmp(signs[j],id)) { ok=FALSE; }
             }
