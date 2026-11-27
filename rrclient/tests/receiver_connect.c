@@ -149,7 +149,10 @@ int main(void) {
    reply(&alpha, "stale", "");
    assert(!joins);
    reply(&alpha, request, "");
-   assert(joins == 1 && !pending.request);
+   assert(joins == 1 && pending.request);
+   assert(!rrclient_receiver_is_connected(receiver.url));
+   event_emit("client.room.joined", &alpha, "#test-rig1");
+   assert(!pending.request && rrclient_receiver_is_connected(receiver.url));
    g_free(request);
    assert(rrclient_receiver_connect(receiver.url, true));
    reply(&alpha, pending.request, "");
@@ -165,7 +168,9 @@ int main(void) {
    assert(joins == 1);
    assert(rrclient_receiver_connect_room_ex("http://manual.invalid:8073/", false, NULL, true));
    reply(&alpha, pending.request, "");
-   assert(joins == 2);
+   assert(joins == 2 && pending.request);
+   event_emit("client.room.joined", &alpha, "#test-rig1");
+   assert(!pending.request);
    receiver.ext_api = 0;
    assert(!rrclient_receiver_connect_room_ex(receiver.url, false, NULL, true));
    rrclient_receiver_connect_shutdown();
