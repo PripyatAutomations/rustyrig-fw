@@ -331,8 +331,8 @@ static void open_editor(const char *profile) {
       rrui_form_set_value(next,"password",property(name,"server.pass"));
    if(!ok){rrui_form_free(next);g_free(name);notice("Profile exceeds editor field limits.");return;}
    rrui_form_set_value(next,"node",property(name,"server.node-name"));
-   rrui_form_set_checked(next,"tofu",!g_ascii_strcasecmp(property(name,"server.tls-trust-on-first-use"),"true")||!strcmp(property(name,"server.tls-trust-on-first-use"),"1"));
-   rrui_form_set_checked(next,"ignore",!g_ascii_strcasecmp(property(name,"server.tls-ignore-hostname"),"true")||!strcmp(property(name,"server.tls-ignore-hostname"),"1"));
+   rrui_form_set_checked(next,"tofu",!name||!g_ascii_strcasecmp(property(name,"server.tls-trust-on-first-use"),"true")||!strcmp(property(name,"server.tls-trust-on-first-use"),"1"));
+   rrui_form_set_checked(next,"ignore",!name||!g_ascii_strcasecmp(property(name,"server.tls-ignore-hostname"),"true")||!strcmp(property(name,"server.tls-ignore-hostname"),"1"));
    const char *saved=property(name,"client.identity.path");
    rrui_form_list_append(next,"identity","@none", "No certificate");
    size_t chosen=0,count=1;

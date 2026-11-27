@@ -648,7 +648,7 @@ GtkWidget *gtk_show_server_editor(const char *profile) {
    gtk_grid_attach(GTK_GRID(grid), gtk_label_new("Node Name"), 0, 9, 1, 1);
    gtk_grid_attach(GTK_GRID(grid), editor->node_name, 1, 9, 1, 1);
    const char *hostname_value = profile ? get_server_property(profile, "server.tls-ignore-hostname") : NULL;
-   editor->initial_tls_hostname = hostname_value && (!g_ascii_strcasecmp(hostname_value, "true") || !strcmp(hostname_value, "1"));
+   editor->initial_tls_hostname = !profile || (hostname_value && (!g_ascii_strcasecmp(hostname_value, "true") || !strcmp(hostname_value, "1")));
    editor->tls_hostname = gtk_check_button_new_with_label("Ignore TLS hostname");
    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(editor->tls_hostname), editor->initial_tls_hostname);
    gtk_widget_set_tooltip_text(editor->tls_hostname, "Use the expected Node Name as the certificate DNS name instead of the URL dial hostname/IP. "
@@ -656,7 +656,7 @@ GtkWidget *gtk_show_server_editor(const char *profile) {
       "If Node Name is not configured yet, RustyRig can learn it after approved trust and an authenticated station announcement.");
    gtk_grid_attach(GTK_GRID(grid), editor->tls_hostname, 0, 10, 2, 1);
    const char *tofu_value = profile ? get_server_property(profile, "server.tls-trust-on-first-use") : NULL;
-   editor->initial_tls_tofu = tofu_value && (!g_ascii_strcasecmp(tofu_value, "true") || !strcmp(tofu_value, "1"));
+   editor->initial_tls_tofu = !profile || (tofu_value && (!g_ascii_strcasecmp(tofu_value, "true") || !strcmp(tofu_value, "1")));
    editor->tls_tofu = gtk_check_button_new_with_label("Allow self-signed certificates");
    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(editor->tls_tofu), editor->initial_tls_tofu);
    gtk_widget_set_tooltip_text(editor->tls_tofu, "Separately permit trust-on-first-use for self-signed certificates; "
