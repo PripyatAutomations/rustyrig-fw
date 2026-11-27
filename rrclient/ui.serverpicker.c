@@ -258,7 +258,12 @@ static bool open_picker(void) {
    form=load_form("server-picker.rrs",false);
    if(!form)return false;
    refresh();
-   rrui_form_set_focus(form,field_index(form,"profiles"));
+   rrui_field_t profiles={0};
+   size_t index=field_index(form,"profiles");
+   bool has_selection=rrui_form_field(form,index,&profiles) &&
+      profiles.selected!=SIZE_MAX &&
+      rrui_form_list_selectable(form,index,profiles.selected);
+   rrui_form_set_focus(form,has_selection?index:field_index(form,"new"));
    if(!rrui_tui_open(form)){close_form();return false;}
    return true;
 }
