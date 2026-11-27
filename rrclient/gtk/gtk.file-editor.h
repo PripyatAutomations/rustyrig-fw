@@ -11,6 +11,8 @@
 #include <glib.h>
 void gtk_file_editor_shutdown(void);
 void gui_file_editor_open(const char *filepath);
+/* Callback owns data on success; caller retains it on failure. */
+bool gui_file_editor_open_notify(const char *filepath,GDestroyNotify notify,gpointer data);
 void gui_file_editor_open_at(const char *filepath, unsigned line, unsigned column);
 void gui_file_editor_open_config(const char *filepath);
 bool gui_file_editor_open_remote(const char *, const char *, bool (*) (const char *, void *), void *, GDestroyNotify);
