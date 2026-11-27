@@ -535,6 +535,42 @@ static void patch_paint_wire(rrui_canvas_t *c,patch_wire_cell_t *cells,patch_pat
    if (root) { patch_wire_cell(c,cells,path.p[0].x,path.p[0].y,8,color,net); }
    patch_wire_cell(c,cells,path.p[n-1].x,path.p[n-1].y,2,color,net);
 }
+/* Boolean pin lamps reflect the actual evaluator, not just wiring. */
+static uint32_t patch_boolean_light(const char *id,int pin) {
+   bool valid=false,high=false;
+   if (patch_output(pin)) {
+      char source[64];g_strlcpy(source,id,sizeof(source));
+      if (g_str_has_prefix(source,"modem") && g_str_has_suffix(source,".tx")) {
+         strcpy(strrchr(source,'.'),".ptt");
+      }
+      rr_logic_output(source,&valid,&high);
+   } else {
+      bool connected=false,fresh=true;
+      unsigned input=pin==PIN_PTT_IN?0:(unsigned)(pin-PIN_GATE_A);
+      for (unsigned i=0;i<rr_logic_wire_count;i++) {
+         const wire_view_t *wire=&rr_logic_wires[i];
+         if (strcmp(wire->to,id) || wire->pin!=input) { continue; }
+         bool v=false,h=false;
+         connected=true;
+         if (!rr_logic_output(wire->from,&v,&h) || !v) { fresh=false; }
+         if (v && h) { high=true; }
+      }
+      if (!strcmp(id,"rig.sink") && pin==PIN_PTT_IN) {
+         for (unsigned i=0;i<route_snapshot.link_count;i++) {
+            const rr_ag_view_link_t *link=&route_snapshot.links[i];
+            if (link->kind!=RR_AG_CONTROL || link->src>=route_snapshot.node_count ||
+                link->dst>=route_snapshot.node_count || strcmp(route_snapshot.nodes[link->dst].id,id)) { continue; }
+            char source[64];g_strlcpy(source,route_snapshot.nodes[link->src].id,sizeof(source));
+            if (g_str_has_prefix(source,"modem") && g_str_has_suffix(source,".tx")) { strcpy(strrchr(source,'.'),".ptt"); }
+            bool v=false,h=false;connected=true;
+            if (!rr_logic_output(source,&v,&h) || !v) { fresh=false; }
+            if (v && h) { high=true; }
+         }
+      }
+      valid=connected&&fresh;
+   }
+   return !valid?0x777777:high?0x55ee66:0xff5555;
+}
 static void patch_draw(tui_window_t *w,int rows,int cols,void *unused){
    (void)w;(void)unused;
    if(rows<8||cols<24)return;
@@ -673,6 +709,9 @@ static void patch_draw(tui_window_t *w,int rows,int cols,void *unused){
          uint32_t pc=armed?0x70ff99:active?0xffff70:patch_pin_color(pin);
          rrui_canvas_put(c,px-patch_x,py-patch_y,
             active||armed?0x25c9:patch_output(pin)?0x25cf:0x25cb,pc);
+         if (patch_ports[pin].type==PATCH_BOOLEAN) {
+            rrui_canvas_put(c,px-patch_x+(patch_output(pin)?-1:1),py-patch_y,'*',patch_boolean_light(p->id,pin));
+         }
       }
    }
    for(int y=patch_rows;y<rows-1;y++)for(int x=0;x<patch_cols;x++)rrui_canvas_put(c,x,y,' ',UINT32_MAX);
@@ -1708,6 +1747,11 @@ static void modem_result(const rr_event_message_t *m,void *user) {
    if (snapshot->count>RR_LOCAL_MODEM_MAX) { return; }
    bool first=modem_snapshot.count==0;
    modem_snapshot=*snapshot;
+   /* A running idle modem is a known LOW source even before its first PTT edge. */
+   for (unsigned i=0;i<RR_LOCAL_MODEM_MAX;i++) {
+      char source[64];g_snprintf(source,sizeof(source),"modem%u.ptt",i+1);
+      rr_logic_signal(source,true,snapshot->entries[i].running && snapshot->entries[i].tx_on);
+   }
    for (unsigned i=0;i<RR_LOCAL_MODEM_MAX;i++) {
       decoder_view_t *d=&decoders[i];
       const rr_local_modem_entry_t *e=&snapshot->entries[i];

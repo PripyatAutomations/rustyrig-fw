@@ -156,9 +156,11 @@ done:
 }
 static void register_baseline_sources(rr_control_graph_t *graph) {
    rr_control_graph_source_add(graph,RRCLIENT_ROUTING_PTT_LOCAL);
+   rr_control_graph_source_set(graph,RRCLIENT_ROUTING_PTT_LOCAL,true,false);
    for(unsigned i=1;i<=RR_LOCAL_MODEM_MAX;i++) {
       char id[64];g_snprintf(id,sizeof(id),"modem%u.ptt",i);
       rr_control_graph_source_add(graph,id);
+      rr_control_graph_source_set(graph,id,true,false);
    }
 }
 
