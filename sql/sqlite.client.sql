@@ -39,4 +39,9 @@ CREATE TABLE IF NOT EXISTS server_properties (
 );
 CREATE TABLE IF NOT EXISTS proxies (name TEXT PRIMARY KEY COLLATE NOCASE, url TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS themes (name TEXT NOT NULL COLLATE NOCASE, property TEXT NOT NULL, value TEXT NOT NULL, PRIMARY KEY(name,property));
+-- Persistent SDR user metadata; never purged with receiver catalog records.
+CREATE TABLE IF NOT EXISTS receiver_favorites(url TEXT PRIMARY KEY);
+CREATE TABLE IF NOT EXISTS receiver_state(url TEXT PRIMARY KEY,state TEXT NOT NULL CHECK(state IN ('unknown','unreachable','restricted','good')),reason TEXT NOT NULL,updated_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS receiver_connections(url TEXT PRIMARY KEY,last_connected INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS receiver_preference_migration(id INTEGER PRIMARY KEY CHECK(id=1));
 PRAGMA user_version = 4;
