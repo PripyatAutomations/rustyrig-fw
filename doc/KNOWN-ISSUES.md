@@ -6,7 +6,7 @@ Tracked from hands-on client/server testing. **Open** means observed or requeste
 
 | Area | Issue | Expected result | Status |
 | --- | --- | --- | --- |
-| KiwiSDR / rrserver | Connecting to KiwiSDR creates an unusable `#sdr-*` room and a working `#rplywv00-rig1` room. This falsely implies the temporary external SDR is owned by station `rplywv00`. | One functional room for the external receiver, with correct resource identity, ownership and human-readable topology; no phantom local rig room. Check registration, room mapping, cleanup, UI discovery and reconnection. | Open |
+| KiwiSDR / rrserver | Connecting to KiwiSDR creates an unusable `#sdr-*` room and a working `#dsmiia00-rig1` room. This falsely implies the temporary external SDR is owned by station `dsmiia00`. | One functional room for the external receiver, with correct resource identity, ownership and human-readable topology; no phantom local rig room. Check registration, room mapping, cleanup, UI discovery and reconnection. | Open |
 
 The SDR problem needs a server-side root-cause fix, not merely a room rename or a client-side hide operation. Test connecting, switching VFOs, multiple receivers, disconnecting, restarting, and the resource tree after cleanup.
 
