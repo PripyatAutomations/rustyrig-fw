@@ -358,6 +358,16 @@ const char *rr_logic_canvas_hit_block(double x,double y) {
    }
    return NULL;
 }
+gboolean rr_logic_canvas_pin_at(double x,double y) {
+   for (unsigned i=0;i<rr_logic_block_count;i++) {
+      const gate_view_t *b=&rr_logic_blocks[i];
+      if (!b->sign && hypot(x-output_x(b),y-b->y-56.)<connection_snap_radius) { return TRUE; }
+      for (unsigned pin=0;pin<b->inputs;pin++) {
+         if (hypot(x-input_x(b,pin),y-pin_y(b,pin))<connection_snap_radius) { return TRUE; }
+      }
+   }
+   return FALSE;
+}
 gboolean rr_logic_canvas_move_block(const char *id,double x,double y) {
    for (unsigned i=0;i<rr_logic_block_count;i++) {
       if (!strcmp(rr_logic_blocks[i].id,id)) {
