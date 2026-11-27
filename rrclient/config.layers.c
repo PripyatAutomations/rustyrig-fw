@@ -61,6 +61,8 @@ static void log_level_apply_request(const rr_event_message_t *message, void *use
    rrclient_config_mark_dirty();
    log_clear_filters();
    load_log_filters_from_config();
+   rr_event_message_t applied = { .name = RRCLIENT_LOG_LEVEL_APPLIED };
+   event_emit_message(&applied);
    Log(LOG_INFO, "client.log", "Applied local client log.level filter (config marked dirty)");
 }
 
