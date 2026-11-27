@@ -701,7 +701,7 @@ static void sdr_show_detail(const receiver_directory_entry_t *r){
 static void sdr_mark_action(rrui_form_t *f,const char *id,const char *action,void *unused){
    (void)id;(void)unused;
    const char *state=rrui_form_value(f,"states");
-   if(!strcmp(action,"apply")&&sdr_target&&state&&(!strcmp(state,"good")||!strcmp(state,"bad")||!strcmp(state,"restricted")||!strcmp(state,"unknown"))){
+   if(!strcmp(action,"apply")&&sdr_target&&state&&(!strcmp(state,"good")||!strcmp(state,"unreachable")||!strcmp(state,"restricted")||!strcmp(state,"unknown"))){
       bool ok=receiver_directory_set_state(sdr_target,state,!strcmp(state,"unknown")?"":"User report; receiver was not probed");
       sdr_notice(ok?"Receiver mark saved.":"Unable to save receiver mark.");
    }
