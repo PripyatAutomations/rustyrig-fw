@@ -40,8 +40,32 @@ GTK_MODULE_CFLAGS := -DUSE_GTK=1 $(shell pkg-config --cflags gtk+-3.0 2>/dev/nul
 SHELL = bash
 .SHELLFLAGS = -e -c
 
+# Are we cross compiling?
+# An empty toolchain prefix must select plain gcc/ld. A quoted
+# empty string comparison chooses the cross-compiler branch and creates
+# CC=-gcc, whose leading hyphen makes GNU Make ignore compiler errors.
+ifneq ($(strip $(TC_PREFIX)),)
+CC := $(TC_PREFIX)-gcc
+LD := $(TC_PREFIX)-ld
+else
+CC := gcc
+LD := ld
+endif
+
+# Use ccache if requested via config (build.ccache: true)
+ifeq (${USE_CCACHE},true)
+CC := ccache ${CC}
+endif
+
+# Probe the actual selected compiler (including cross compiler and ccache).
+RR_C_STD := $(shell for std in gnu23 gnu2x; do printf 'int x;\n' | $(CC) -std=$std -Werror -x c -fsyntax-only - >/dev/null 2>&1 && { echo -std=$std; break; }; done)
+ifeq ($(strip $(RR_C_STD)),)
+$(error $(CC) does not support -std=gnu23 or -std=gnu2x; a C23-capable compiler is required)
+endif
+export RR_C_STD
+
 CFLAGS += -Wno-duplicated-branches
-CFLAGS += $(strip $(shell cat ${CF} | jq -r ".build.cflags"))
+CFLAGS += $(filter-out -std=gnu23 -std=gnu2x,$(strip $(shell cat ${CF} | jq -r ".build.cflags"))) $(RR_C_STD)
 CFLAGS += -Wno-deprecated-declarations
 
 # Fatal compiler warnings are opt-in for builds and standalone tests.
@@ -139,31 +163,6 @@ CFLAGS += $(shell pkg-config --cflags mbedtls)
 # depending on libmongoose.so alone is insufficient without linking it.
 LDFLAGS += $(shell pkg-config --libs mbedtls mbedcrypto mbedx509)
 endif
-
-# Are we cross compiling?
-# An empty toolchain prefix must select plain gcc/ld. A quoted
-# empty string comparison chooses the cross-compiler branch and creates
-# CC=-gcc, whose leading hyphen makes GNU Make ignore compiler errors.
-ifneq ($(strip $(TC_PREFIX)),)
-CC := $(TC_PREFIX)-gcc
-LD := $(TC_PREFIX)-ld
-else
-CC := gcc
-LD := ld
-endif
-
-# Use ccache if requested via config (build.ccache: true)
-ifeq (${USE_CCACHE},true)
-CC := ccache ${CC}
-endif
-
-# Probe the actual selected compiler (including cross compiler and ccache).
-RR_C_STD := $(shell for std in gnu23 gnu2x; do printf 'int x;\n' | $(CC) -std=$std -Werror -x c -fsyntax-only - >/dev/null 2>&1 && { echo -std=$std; break; }; done)
-ifeq ($(strip $(RR_C_STD)),)
-$(error $(CC) does not support -std=gnu23 or -std=gnu2x; a C23-capable compiler is required)
-endif
-override CFLAGS := $(filter-out -std=gnu23 -std=gnu2x,$(CFLAGS)) $(RR_C_STD)
-export RR_C_STD
 
 ifeq (${USE_SQLITE},true)
 CFLAGS += $(shell pkg-config --cflags sqlite3)
