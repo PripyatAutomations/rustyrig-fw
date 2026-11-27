@@ -804,60 +804,12 @@ static bool register_window_api(rrs_vm_t *vm) {
 
 rrscript_host_t *rrclient_script_host;
 
-/* Install packaged defaults without overwriting user-edited scripts.
- * Resolve and load them via the normal user script manager. */
-static void script_seed_autoload(const char *root) {
-   const char *source="/usr/share/rustyrig/scripts/client/autoload";
-   GDir *dir=g_dir_open(source,0,NULL);
-   if (!dir) {
-      return;
-   }
-   char *dest=g_build_filename(root,"autoload",NULL);
-   if (g_mkdir_with_parents(dest,0700)==0) {
-      const char *name;
-      while ((name=g_dir_read_name(dir))) {
-         if (!g_str_has_suffix(name,".rrs")) {
-            continue;
-         }
-         char *from=g_build_filename(source,name,NULL);
-         char *to=g_build_filename(dest,name,NULL);
-         char *body=NULL;
-         gsize len=0;
-         if (g_file_get_contents(from,&body,&len,NULL)) {
-            int fd=g_open(to,O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC,0600);
-            if (fd>=0) {
-               size_t done=0;
-               while (done<len) {
-                  ssize_t n=write(fd,body+done,len-done);
-                  if (n<0 && errno==EINTR) {
-                     continue;
-                  }
-                  if (n<=0) {
-                     break;
-                  }
-                  done+=(size_t)n;
-               }
-               if (close(fd)!=0 || done!=len) {
-                  g_unlink(to);
-               }
-            }
-            g_free(body);
-         }
-         g_free(from);
-         g_free(to);
-      }
-   }
-   g_free(dest);
-   g_dir_close(dir);
-}
-
 void rrclient_script_init(void) {
    const char *path=cfg_get("security.scripting.path");
    char *default_path=NULL;
    if(!path||!*path) {
       default_path=g_build_filename(g_get_user_config_dir(),"rustyrig","scripts",NULL);
       path=default_path;
-      script_seed_autoload(path);
    }
    script_gui_value_token=event_on_message_domain_token(RR_SCRIPT_GUI_CHANGE,script_gui_changed,NULL,"core");
    script_gui_command_token=event_on_message_domain_token(RR_SCRIPT_GUI_COMMAND,script_gui_core_command,NULL,"core");
