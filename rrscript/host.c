@@ -13,6 +13,7 @@
 #include <glib/gstdio.h>
 #include <sys/stat.h>
 #include <math.h>
+#include <curl/curl.h>
 
 typedef struct script_file script_file_t;
 typedef struct event_subscription {
@@ -30,7 +31,7 @@ struct script_file {
    char gui_owner[32];
    GRecMutex mutex; /* Nested synchronous event emissions must not deadlock. */
    event_subscription_t *subscriptions;
-   GHashTable *vars, *timers;
+   GHashTable *vars, *timers, *http_jobs;
    char *state_namespace;
    struct rrscript_host *host;
 };
@@ -206,6 +207,192 @@ static script_file_t *script_vm_lookup(rrs_vm_t *vm) {
    g_mutex_unlock(&script_vm_owners_mutex);
    return script;
 }
+
+/* Requests own all their data; workers never access a VM, script, or event bus. */
+typedef struct {
+   char *url, *post, *content_type;
+   GString *body;
+   char error[CURL_ERROR_SIZE];
+   long status;
+   gint done, cancelled;
+   GThread *thread;
+} script_http_job;
+
+static size_t script_http_write(char *data, size_t size, size_t count, void *opaque) {
+   script_http_job *j = opaque;
+   if (size && count > G_MAXSIZE / size) {
+      return 0;
+   }
+   size_t bytes = size * count;
+   if (bytes > 1024*1024 - j->body->len) {
+      return 0;
+   }
+   g_string_append_len(j->body,data,bytes);
+   return bytes;
+}
+
+static int script_http_progress(void *opaque, curl_off_t a, curl_off_t b, curl_off_t c, curl_off_t d) {
+   (void)a; (void)b; (void)c; (void)d;
+   script_http_job *j = opaque;
+   return g_atomic_int_get(&j->cancelled) != 0;
+}
+
+static gpointer script_http_worker(gpointer opaque) {
+   script_http_job *j = opaque;
+   CURL *curl = curl_easy_init();
+   if (!curl) {
+      g_strlcpy(j->error,"Unable to initialize HTTP request",sizeof(j->error));
+   } else {
+      struct curl_slist *headers = NULL;
+      curl_easy_setopt(curl,CURLOPT_URL,j->url);
+#if LIBCURL_VERSION_NUM >= 0x075500
+      curl_easy_setopt(curl,CURLOPT_PROTOCOLS_STR,"http,https");
+      curl_easy_setopt(curl,CURLOPT_REDIR_PROTOCOLS_STR,"http,https");
+#else
+      curl_easy_setopt(curl,CURLOPT_PROTOCOLS,CURLPROTO_HTTP|CURLPROTO_HTTPS);
+      curl_easy_setopt(curl,CURLOPT_REDIR_PROTOCOLS,CURLPROTO_HTTP|CURLPROTO_HTTPS);
+#endif
+      curl_easy_setopt(curl,CURLOPT_NOSIGNAL,1L);
+      curl_easy_setopt(curl,CURLOPT_CONNECTTIMEOUT_MS,5000L);
+      curl_easy_setopt(curl,CURLOPT_TIMEOUT_MS,15000L);
+      curl_easy_setopt(curl,CURLOPT_SSL_VERIFYPEER,1L);
+      curl_easy_setopt(curl,CURLOPT_SSL_VERIFYHOST,2L);
+      /* Redirects are explicit to avoid leaking POST data across origins. */
+      curl_easy_setopt(curl,CURLOPT_FOLLOWLOCATION,0L);
+      curl_easy_setopt(curl,CURLOPT_USERAGENT,"RustyScript/1");
+      curl_easy_setopt(curl,CURLOPT_WRITEFUNCTION,script_http_write);
+      curl_easy_setopt(curl,CURLOPT_WRITEDATA,j);
+      curl_easy_setopt(curl,CURLOPT_ERRORBUFFER,j->error);
+      curl_easy_setopt(curl,CURLOPT_NOPROGRESS,0L);
+      curl_easy_setopt(curl,CURLOPT_XFERINFOFUNCTION,script_http_progress);
+      curl_easy_setopt(curl,CURLOPT_XFERINFODATA,j);
+      if (j->post) {
+         char *header = g_strdup_printf("Content-Type: %s",j->content_type);
+         headers = curl_slist_append(NULL,header);
+         g_free(header);
+         curl_easy_setopt(curl,CURLOPT_HTTPHEADER,headers);
+         curl_easy_setopt(curl,CURLOPT_POST,1L);
+         curl_easy_setopt(curl,CURLOPT_POSTFIELDS,j->post);
+         curl_easy_setopt(curl,CURLOPT_POSTFIELDSIZE_LARGE,(curl_off_t)strlen(j->post));
+      }
+      CURLcode result = curl_easy_perform(curl);
+      curl_easy_getinfo(curl,CURLINFO_RESPONSE_CODE,&j->status);
+      if (result != CURLE_OK && !j->error[0]) {
+         g_strlcpy(j->error,curl_easy_strerror(result),sizeof(j->error));
+      }
+      if (result == CURLE_OK && (memchr(j->body->str,0,j->body->len) ||
+            !g_utf8_validate(j->body->str,j->body->len,NULL))) {
+         g_strlcpy(j->error,"Response is not UTF-8 text",sizeof(j->error));
+         g_string_truncate(j->body,0);
+      }
+      curl_slist_free_all(headers);
+      curl_easy_cleanup(curl);
+   }
+   g_atomic_int_set(&j->done,1);
+   return NULL;
+}
+
+static void script_http_free(gpointer opaque) {
+   script_http_job *j = opaque;
+   g_atomic_int_set(&j->cancelled,1);
+   if (j->thread) {
+      g_thread_join(j->thread);
+   }
+   g_free(j->url);
+   g_free(j->post);
+   g_free(j->content_type);
+   g_string_free(j->body,TRUE);
+   g_free(j);
+}
+
+static bool script_http_put(rrs_value_t *d, const char *key, rrs_value_t *value) {
+   bool ok = value && rrs_dict_put(d,key,value);
+   rrs_value_free(value);
+   return ok;
+}
+
+static rrs_value_t *native_script_http(rrs_vm_t *vm,int argc,const rrs_value_t *const argv[],void *user) {
+   int op=GPOINTER_TO_INT(user);
+   script_file_t *script=script_vm_lookup(vm);
+   if (!script) {
+      rrs_vm_raise(vm,"Script not active");
+      return NULL;
+   }
+   if ((op==1 ? (argc!=2 && argc!=3) : argc!=1)) {
+      rrs_vm_raise(vm,"net.http.fetch(url), post(url,body[,content_type]), result(id)");
+      return NULL;
+   }
+   for (int i=0;i<argc;i++) {
+      if (rrs_value_type(argv[i])!=RRS_STRING) {
+         rrs_vm_raise(vm,"HTTP arguments must be strings");
+         return NULL;
+      }
+   }
+   const char *arg=rrs_value_string(argv[0]);
+   if (op==2) {
+      script_http_job *j=script->http_jobs?g_hash_table_lookup(script->http_jobs,arg):NULL;
+      if (!j) {
+         rrs_vm_raise(vm,"Unknown HTTP request ID");
+         return NULL;
+      }
+      if (!g_atomic_int_get(&j->done)) {
+         return rrs_null();
+      }
+      rrs_value_t *d=rrs_dictionary();
+      bool ok=d && script_http_put(d,"status",rrs_integer(j->status)) &&
+         script_http_put(d,"body",rrs_string(j->error[0]?"":j->body->str)) &&
+         script_http_put(d,"error",j->error[0]?rrs_string(j->error):rrs_null());
+      g_hash_table_remove(script->http_jobs,arg);
+      if (!ok) {
+         rrs_value_free(d);
+         rrs_vm_raise(vm,"Unable to allocate HTTP result");
+         return NULL;
+      }
+      return d;
+   }
+   const char *body=op==1?rrs_value_string(argv[1]):NULL;
+   const char *type=argc==3?rrs_value_string(argv[2]):"application/json";
+   if ((!g_str_has_prefix(arg,"http://") && !g_str_has_prefix(arg,"https://")) ||
+       strlen(arg)>4096 || (body && strlen(body)>1024*1024) ||
+       !*type || strlen(type)>256 || strpbrk(type,"\r\n")) {
+      rrs_vm_raise(vm,"Invalid HTTP URL, body or content type");
+      return NULL;
+   }
+   if (!script->http_jobs) {
+      script->http_jobs=g_hash_table_new_full(g_str_hash,g_str_equal,g_free,script_http_free);
+   }
+   if (g_hash_table_size(script->http_jobs)>=4) {
+      rrs_vm_raise(vm,"Maximum four outstanding HTTP requests per script; collect results first");
+      return NULL;
+   }
+   static gsize curl_initialized;
+   if (g_once_init_enter(&curl_initialized)) {
+      CURLcode result=curl_global_init(CURL_GLOBAL_DEFAULT);
+      g_once_init_leave(&curl_initialized,result==CURLE_OK?1:2);
+   }
+   if (curl_initialized!=1) {
+      rrs_vm_raise(vm,"HTTP initialization failed");
+      return NULL;
+   }
+   script_http_job *j=g_new0(script_http_job,1);
+   j->url=g_strdup(arg);
+   j->post=g_strdup(body);
+   j->content_type=g_strdup(type);
+   j->body=g_string_new("");
+   GError *error=NULL;
+   j->thread=g_thread_try_new("script-http",script_http_worker,j,&error);
+   if (!j->thread) {
+      script_http_free(j);
+      g_clear_error(&error);
+      rrs_vm_raise(vm,"Unable to start HTTP worker");
+      return NULL;
+   }
+   char *id=g_uuid_string_random();
+   rrs_value_t *value=rrs_string(id);
+   g_hash_table_insert(script->http_jobs,id,j);
+   return value;
+}
+
 typedef struct { script_file_t *script; char *id; gboolean repeat; } script_timer_t;
 static void timer_free(gpointer data) {
    script_timer_t *t=data;
@@ -489,7 +676,10 @@ static rrs_value_t *native_script_timer(rrs_vm_t *vm,int argc,
 }
 static bool register_util_api(rrs_vm_t *vm) {
    #define REG(name,fn,id) rrs_vm_register_native(vm,name,fn,GINT_TO_POINTER(id))
-   bool ok=REG("string.regex",native_script_util,UTIL_REGEX) &&
+   bool ok=REG("net.http.fetch",native_script_http,0) &&
+      REG("net.http.post",native_script_http,1) &&
+      REG("net.http.result",native_script_http,2) &&
+      REG("string.regex",native_script_util,UTIL_REGEX) &&
       REG("string.chr",native_script_util,UTIL_CHR) &&
       REG("string.slug",native_script_util,UTIL_SLUG) &&
       REG("string.hash",native_script_util,UTIL_HASH) &&
@@ -671,6 +861,7 @@ static void release_script(gpointer data) {
          g_source_remove(GPOINTER_TO_UINT(value));
       g_clear_pointer(&script->timers,g_hash_table_destroy);
    }
+   g_clear_pointer(&script->http_jobs,g_hash_table_destroy);
    g_clear_pointer(&script->vars,g_hash_table_destroy);
    g_free(script->state_namespace);
    event_subscription_t *sub=script->subscriptions;

@@ -181,7 +181,7 @@ rrserver-rustyscript-link-check:
 bin/rrserver: rrserver-rustyscript-link-check
 ${BUILD_DIR}/rrserver/rrscript/host.o: rrscript/host.c inc/rrscript/host.h ${BUILD_HEADERS}
 	@mkdir -p $(dir $@)
-	@$(CC) $(CFLAGS_RRSERVER) $(CFLAGS) $(CFLAGS_WARN) -o $@ -c $< || exit 2
+	@$(CC) $(CFLAGS_RRSERVER) $(CFLAGS) $(CFLAGS_WARN) $(shell pkg-config --cflags libcurl) -o $@ -c $< || exit 2
 else
 $(error Installed librustyscript development package required for shared control graph)
 endif

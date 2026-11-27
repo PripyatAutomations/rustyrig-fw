@@ -240,7 +240,7 @@ rrclient-rustyscript-link-check:
 bin/rrclient: rrclient-rustyscript-link-check
 ${BUILD_DIR}/rrclient/rrscript/host.o: rrscript/host.c inc/rrscript/host.h ${BUILD_HEADERS}
 	@mkdir -p $(dir $@)
-	@$(CC) $(CFLAGS_RRCLI) $(CFLAGS) $(CFLAGS_WARN) -o $@ -c $< || exit 2
+	@$(CC) $(CFLAGS_RRCLI) $(CFLAGS) $(CFLAGS_WARN) $(shell pkg-config --cflags libcurl) -o $@ -c $< || exit 2
 else
 $(error Installed librustyscript development package required for shared control graph)
 endif

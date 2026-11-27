@@ -789,3 +789,21 @@ smoke test (when `librustyscript` is installed). After changing
 `librustyaxe`, rebuild/install it before rebuilding the client.
 **Documentation review is not a substitute for successful local builds
 and functional tests.**
+
+## SDR and HTTP automation
+
+Client-only `sdr.connect_favorite(frequency_hz, mode)` chooses an accessible favorite
+and requests a new temporary receiver with initial RX tuning. Returns the selected
+URL or null. This is acceptance, not a guarantee of a successful tune. Requires
+an authenticated RustyRig connection and matching updated server.
+
+`net.http.fetch(url)` and `net.http.post(url, body[, content_type])` return
+opaque request IDs immediately. POST defaults to application/json. Both client
+and server scripts can call `net.http.result(id)` to collect a completed dictionary
+with status (HTTP status or zero), body (UTF-8 text), and error (null on successful
+transport). Pending requests return null; a result can be collected only once.
+HTTP errors such as 404 retain their status and body. Poll from an existing timer
+rather than busy-waiting. There are four outstanding requests per script, 1 MiB
+request/response limits, 5-second connect and 15-second total timeouts. TLS
+verification is mandatory; redirects are not followed automatically. Unloading
+a script cancels and joins its outstanding workers. WebSockets are not yet exposed.
