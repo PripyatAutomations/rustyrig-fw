@@ -452,6 +452,8 @@ typedef struct {
    bool (*remote_save)(const char *, void *);
    void *remote_data;
    GDestroyNotify remote_destroy;
+   GDestroyNotify close_notify;
+   gpointer close_data;
    GtkWidget *save_as, *save_button;
    bool remote_pending, destroying;
    rr_event_token_t remote_token;
@@ -514,6 +516,9 @@ static void destroy_editor(EditorContext *ctx) {
 
    if (ctx->remote_destroy) {
       ctx->remote_destroy(ctx->remote_data);
+   }
+   if (ctx->close_notify) {
+      ctx->close_notify(ctx->close_data);
    }
    g_free(ctx->filepath);
    g_free(ctx);
@@ -916,6 +921,21 @@ void gui_file_editor_open(const char *filepath) {
    g_signal_connect(btn_save_as, "clicked", G_CALLBACK(on_save_other_clicked), ctx);
    g_signal_connect(btn_discard, "clicked", G_CALLBACK(on_discard_clicked), ctx);
    rr_floating_panel_present(ctx->panel);
+}
+
+/* Attach a close hook only to a newly opened editor, never another file. */
+bool gui_file_editor_open_notify(const char *filepath,GDestroyNotify notify,gpointer data) {
+   if (active_editor) {
+      rr_floating_panel_present(active_editor->panel);
+      return false;
+   }
+   gui_file_editor_open(filepath);
+   if (!active_editor) {
+      return false;
+   }
+   active_editor->close_notify=notify;
+   active_editor->close_data=data;
+   return true;
 }
 
 void gui_file_editor_open_at(const char *filepath,unsigned line,unsigned column) {
