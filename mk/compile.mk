@@ -57,15 +57,9 @@ ifeq (${USE_CCACHE},true)
 CC := ccache ${CC}
 endif
 
-# Probe the actual selected compiler (including cross compiler and ccache).
-RR_C_STD := $(shell if printf 'int x;\n' | $(CC) -std=gnu23 -Werror -x c -fsyntax-only - >/dev/null 2>&1; then echo -std=gnu23; elif printf 'int x;\n' | $(CC) -std=gnu2x -Werror -x c -fsyntax-only - >/dev/null 2>&1; then echo -std=gnu2x; fi)
-ifeq ($(strip $(RR_C_STD)),)
-$(error $(CC) does not support -std=gnu23 or -std=gnu2x; a C23-capable compiler is required)
-endif
-export RR_C_STD
 
 CFLAGS += -Wno-duplicated-branches
-CFLAGS += $(filter-out -std=gnu23 -std=gnu2x,$(strip $(shell cat ${CF} | jq -r ".build.cflags"))) $(RR_C_STD)
+CFLAGS += $(filter-out -std=gnu23 -std=gnu2x,$(strip $(shell cat ${CF} | jq -r ".build.cflags"))) -std=gnu2x
 CFLAGS += -Wno-deprecated-declarations
 
 # Fatal compiler warnings are opt-in for builds and standalone tests.
