@@ -65,7 +65,7 @@
    },
    "build": {
       "strict-warnings": false,
-      "cflags": "-fPIC -g -ggdb -O1 -std=gnu23",
+      "cflags": "-fPIC -g -ggdb -O1 -std=gnu2x",
       "cflags_warn": "-Wall -pedantic -Wno-unused -Wno-format-truncation",
       "ldflags": "-g",
       "platform": "posix",
