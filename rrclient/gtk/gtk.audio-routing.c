@@ -8461,6 +8461,7 @@ void gtk_audio_graph_present(void) {
       gtk_container_add(GTK_CONTAINER(graph_page),graph_content);
       g_object_set_data(G_OBJECT(graph_page), "rr-tab-hidden", GINT_TO_POINTER(1));
       GtkWidget *label = gtk_label_new("Routing");
+      g_object_set_data(G_OBJECT(graph_page), "rr-main-zoom", GINT_TO_POINTER(1));
       gtk_notebook_append_page(book, graph_page, label);
       gtk_widget_set_no_show_all(label, TRUE);
       gtk_widget_hide(label);
