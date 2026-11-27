@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 #ifndef RRCLIENT_LOGIC_MODEL_H
 #define RRCLIENT_LOGIC_MODEL_H
+#include <stdbool.h>
+#include <stdint.h>
 #include <glib.h>
 #include <rrclient/control.graph.h>
 #define MAX_UI_GATES RR_CONTROL_MAX_GATES
