@@ -712,7 +712,7 @@ static void sdr_show_mark(const receiver_directory_entry_t *r){
    sdr_mark_form=rrclient_ui_layout_load("sdr-mark.rrs",RRUI_DIALOG,req,G_N_ELEMENTS(req),sdr_mark_action);
    if(!sdr_mark_form)return;
    g_free(sdr_target);sdr_target=g_strdup(r->url);
-   const char *states[]={"good","bad","restricted","unknown"};
+   const char *states[]={"good","unreachable","restricted","unknown"};
    for(unsigned i=0;i<G_N_ELEMENTS(states);i++)rrui_form_list_append(sdr_mark_form,"states",states[i],states[i]);
    rrui_form_select(sdr_mark_form,sdr_field(sdr_mark_form,"states"),3);
    if(!rrui_tui_open(sdr_mark_form)){rrui_form_free(sdr_mark_form);sdr_mark_form=NULL;g_clear_pointer(&sdr_target,g_free);}
