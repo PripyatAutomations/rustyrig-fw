@@ -43,6 +43,17 @@ SHELL = bash
 CFLAGS += -Wno-duplicated-branches
 CFLAGS += $(strip $(shell cat ${CF} | jq -r ".build.cflags"))
 CFLAGS += -Wno-deprecated-declarations
+
+# Fatal compiler warnings are opt-in for builds and standalone tests.
+STRICT_WARNINGS ?= $(shell jq -r '.build["strict-warnings"] // false' ${CF})
+ifeq ($(STRICT_WARNINGS),true)
+RR_WARNING_FLAGS := -Werror
+else
+RR_WARNING_FLAGS :=
+endif
+export RR_WARNING_FLAGS
+CFLAGS += $(RR_WARNING_FLAGS)
+CFLAGS_WARN += $(RR_WARNING_FLAGS)
 # System headers first; RustyRig-local headers as fallback for project files.
 CFLAGS += $(AXE_SYSTEM_CFLAGS) $(RRPROTO_SYSTEM_CFLAGS) $(IRC_SYSTEM_CFLAGS) -I${BUILD_DIR} -idirafter ./inc -idirafter .
 
