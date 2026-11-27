@@ -1447,8 +1447,11 @@ static void on_userlist_dock_clicked(GtkButton *button, gpointer data) {
 
       if (!userlist_float_panel) {
          userlist_float_panel = rr_floating_panel_new(overlay, GTK_NOTEBOOK(main_notebook), "userlist-main", "Userlist");
-         if (userlist_float_panel)
+         if (userlist_float_panel) {
             rr_floating_panel_set_resizable(userlist_float_panel, TRUE);
+            rr_floating_panel_set_closable(userlist_float_panel, FALSE);
+            rr_floating_panel_set_minimizable(userlist_float_panel, FALSE);
+         }
       }
 
       if (!userlist_float_panel) {
@@ -1731,6 +1734,8 @@ static void on_room_userlist_dock_clicked(GtkButton *button, gpointer data) {
 
          if (entry->float_panel) {
             rr_floating_panel_set_resizable(entry->float_panel, TRUE);
+            rr_floating_panel_set_closable(entry->float_panel, FALSE);
+            rr_floating_panel_set_minimizable(entry->float_panel, FALSE);
             rr_floating_panel_set_chat_room(entry->float_panel, entry->server, entry->room);
             rr_floating_panel_default_dock(entry->float_panel, 1);   /* right */
          }
@@ -2062,8 +2067,11 @@ GtkWidget *userlist_create(void) {
 
    if (!userlist_float_panel) {
       userlist_float_panel = rr_floating_panel_new(overlay, GTK_NOTEBOOK(main_notebook), "userlist-main", "Userlist");
-         if (userlist_float_panel)
+         if (userlist_float_panel) {
             rr_floating_panel_set_resizable(userlist_float_panel, TRUE);
+            rr_floating_panel_set_closable(userlist_float_panel, FALSE);
+            rr_floating_panel_set_minimizable(userlist_float_panel, FALSE);
+         }
    }
 
    if (!userlist_float_panel) {
