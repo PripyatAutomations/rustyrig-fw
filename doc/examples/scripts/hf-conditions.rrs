@@ -1,0 +1,93 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// HF propagation estimates: HAMQSL / N0NBH. Open with /hf.
+// No network requests until the panel is first opened; refresh hourly.
+void hf_start() {
+    if (state.get("hf.request") == null) {
+        state.set("hf.request", net.http.fetch("https://www.hamqsl.com/solarxml.php"))
+        ui.set("hf_status", "Updating...")
+        timer.every("hf-poll", 500)
+    }
+}
+char hf_rating(char xml, char band, char period) {
+    char rating = string.capture(xml, "<band[^>]*name=\"" + band + "\"[^>]*time=\"" + period + "\"[^>]*>[ ]*(Good|Fair|Poor)[ ]*</band>")
+    if (rating == "Good") { return string.chr(3) + "09Good" + string.chr(15) }
+    if (rating == "Fair") { return string.chr(3) + "08Fair" + string.chr(15) }
+    if (rating == "Poor") { return string.chr(3) + "04Poor" + string.chr(15) }
+    return "--"
+}
+char hf_field(char xml, char field) {
+    char value = string.capture(xml, "<" + field + ">([0-9.]+)</" + field + ">")
+    if (value == null) { return "--" }
+    return value
+}
+void hf_row(char xml, char id, char band) {
+    ui.set(id + "_day", hf_rating(xml, band, "day"))
+    ui.set(id + "_night", hf_rating(xml, band, "night"))
+}
+void hf_display(char xml) {
+    ui.set("hf_sfi", "SFI " + hf_field(xml, "solarflux"))
+    ui.set("hf_k", "K " + hf_field(xml, "kindex"))
+    ui.set("hf_a", "A " + hf_field(xml, "aindex"))
+    hf_row(xml, "hf_b80", "80m-40m")
+    hf_row(xml, "hf_b30", "30m-20m")
+    hf_row(xml, "hf_b17", "17m-15m")
+    hf_row(xml, "hf_b12", "12m-10m")
+}
+script("/hf", {
+    ui.panel("hf_conditions", "HF Conditions")
+    ui.add("hf_conditions", "row", "hf_indices", "")
+    ui.add("hf_indices", "label", "hf_sfi", "SFI --")
+    ui.add("hf_indices", "label", "hf_k", "K --")
+    ui.add("hf_indices", "label", "hf_a", "A --")
+    ui.add("hf_conditions", "row", "hf_columns", "")
+    ui.add("hf_columns", "column", "hf_bands", "")
+    ui.add("hf_columns", "column", "hf_days", "")
+    ui.add("hf_columns", "column", "hf_nights", "")
+    ui.add("hf_bands", "label", "hf_heading_band", "Band")
+    ui.add("hf_days", "label", "hf_heading_day", "Day")
+    ui.add("hf_nights", "label", "hf_heading_night", "Night")
+    ui.add("hf_bands", "label", "hf_b80", "80–40m")
+    ui.add("hf_bands", "label", "hf_b30", "30–20m")
+    ui.add("hf_bands", "label", "hf_b17", "17–15m")
+    ui.add("hf_bands", "label", "hf_b12", "12–10m")
+    ui.add("hf_days", "irc-label", "hf_b80_day", "--")
+    ui.add("hf_days", "irc-label", "hf_b30_day", "--")
+    ui.add("hf_days", "irc-label", "hf_b17_day", "--")
+    ui.add("hf_days", "irc-label", "hf_b12_day", "--")
+    ui.add("hf_nights", "irc-label", "hf_b80_night", "--")
+    ui.add("hf_nights", "irc-label", "hf_b30_night", "--")
+    ui.add("hf_nights", "irc-label", "hf_b17_night", "--")
+    ui.add("hf_nights", "irc-label", "hf_b12_night", "--")
+    ui.add("hf_conditions", "label", "hf_status", "HAMQSL.com / N0NBH")
+    ui.show("hf_conditions")
+    char cached = state.get("hf.xml")
+    if (cached != null) { hf_display(cached) }
+    if (state.get("hf.started") == null) {
+        state.set("hf.started", true)
+        hf_start()
+        timer.every("hf-hour", 3600000)
+    }
+})
+event script.init {
+    state.use("")
+}
+event ui.timer {
+    if (event.id == "hf-hour") { hf_start() }
+    if (event.id == "hf-poll") {
+        char id = state.get("hf.request")
+        if (id != null) {
+            dict response = net.http.result(id)
+            if (response != null) {
+                timer.cancel("hf-poll")
+                state.set("hf.request", null)
+                if (response.error == null && response.status == 200 && string.regex(response.body, "<calculatedconditions>")) {
+                    state.set("hf.xml", response.body)
+                    hf_display(response.body)
+                    ui.set("hf_status", "HAMQSL.com / N0NBH · hourly")
+                } else {
+                    ui.set("hf_status", "HAMQSL refresh failed · stale")
+                }
+            }
+        }
+    }
+}
