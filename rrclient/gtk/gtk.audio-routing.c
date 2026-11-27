@@ -6452,7 +6452,7 @@ static void routing_marquee_update(void) {
       for (guint i = 0 ; i < graph_snapshot->node_count ; i++) {
          const rr_ag_view_node_t *n = &graph_snapshot->nodes[i];
 
-         if (graph_missing_since[i]) {
+         if (graph_missing_since[i] || !routing_pcm_node_visible(n)) {
             continue;
          }
 
@@ -6994,6 +6994,219 @@ static void routing_toolbar_add_clicked(GtkButton *button,gpointer unused) {
    gtk_menu_popup_at_widget(GTK_MENU(menu),GTK_WIDGET(button),
                             GDK_GRAVITY_SOUTH_WEST,GDK_GRAVITY_NORTH_WEST,NULL);
 }
+/* One stable-ID drag transaction for every visible block family. */
+typedef enum { GROUP_PCM, GROUP_SERIAL, GROUP_EFFECT, GROUP_CONTROL, GROUP_LOGIC, GROUP_ONAIR, GROUP_PTT } group_kind_t;
+typedef struct {
+   char *id;
+   group_kind_t kind;
+   double x,y,w,h;
+} group_block_t;
+static GPtrArray *group_blocks;
+static double group_press_x,group_press_y,group_anchor_x,group_anchor_y;
+static gboolean group_dragging,group_moved;
+static void group_block_free(gpointer data) {
+   group_block_t *b=data;
+   g_free(b->id);
+   g_free(b);
+}
+static void group_add(GPtrArray *list,const char *id,group_kind_t kind,double x,double y,double w,double h) {
+   group_block_t *b=g_new0(group_block_t,1);
+   b->id=g_strdup(id); b->kind=kind;
+   b->x=x; b->y=y; b->w=w; b->h=h;
+   g_ptr_array_add(list,b);
+}
+static void group_logic_add(const char *id,double x,double y,double w,double h,gpointer data) {
+   group_add(data,id,GROUP_LOGIC,x,y,w,h);
+}
+static GPtrArray *group_collect(void) {
+   GPtrArray *list=g_ptr_array_new_with_free_func(group_block_free);
+   if (graph_snapshot) {
+      for (guint i=0;i<graph_snapshot->node_count;i++) {
+         const rr_ag_view_node_t *n=&graph_snapshot->nodes[i];
+         if (!graph_missing_since[i] && routing_pcm_node_visible(n)) {
+            group_add(list,n->id,GROUP_PCM,routing_node_x(n),routing_node_y(n),RR_GTK_GRAPH_NODE_W,RR_GTK_GRAPH_NODE_H);
+         }
+      }
+   }
+   for (guint i=0;i<routing_serial_count;i++) {
+      const routing_serial_node_t *n=&routing_serial_nodes[i];
+      group_add(list,n->id,GROUP_SERIAL,n->x,n->y,ROUTING_SERIAL_W,ROUTING_SERIAL_H);
+   }
+   if (routing_effects_visible && routing_effect_blocks) {
+      for (guint i=0;i<routing_effect_blocks->len;i++) {
+         const routing_effect_block_t *b=g_ptr_array_index(routing_effect_blocks,i);
+         if (!b->standalone) {
+            routing_position_t *p=routing_position(b->id);
+            if (p) { group_add(list,b->id,GROUP_EFFECT,p->x,p->y,routing_effect_width(b),routing_effect_height(b)); }
+         }
+      }
+   }
+   if (routing_controls_visible && routing_compact_controls) {
+      for (guint i=0;i<routing_compact_controls->len;i++) {
+         const routing_compact_control_t *b=g_ptr_array_index(routing_compact_controls,i);
+         group_add(list,b->uuid,GROUP_CONTROL,b->x,b->y,ROUTING_CONTROL_WIDTH,ROUTING_CONTROL_HEIGHT);
+      }
+   }
+   if (routing_logic_visible) { rr_logic_canvas_foreach_block(group_logic_add,list); }
+   if (onair_visible) { group_add(list,"ui.onair",GROUP_ONAIR,onair_x,onair_y,ONAIR_W,ONAIR_H); }
+   if (ptt_visible) { group_add(list,"ui.ptt",GROUP_PTT,ptt_x,ptt_y,150.,70.); }
+   return list;
+}
+static group_block_t *group_hit(GPtrArray *list,double x,double y) {
+   for (gint i=(gint)list->len-1;i>=0;i--) {
+      group_block_t *b=g_ptr_array_index(list,i);
+      if (x>=b->x && x<=b->x+b->w && y>=b->y && y<=b->y+b->h) { return b; }
+   }
+   return NULL;
+}
+static gboolean group_begin(double x,double y,guint modifiers) {
+   GPtrArray *list=group_collect();
+   group_block_t *hit=group_hit(list,x,y);
+   if (!hit) { g_ptr_array_unref(list); return FALSE; }
+   if (modifiers & (GDK_CONTROL_MASK|GDK_SHIFT_MASK)) {
+      routing_graph_select(hit->id,!routing_graph_is_selected(hit->id));
+      g_ptr_array_unref(list);
+      graph_canvas_update_size();
+      return TRUE;
+   }
+   /* A body drag must not steal an actual pin or gain gesture. */
+   gboolean pin=FALSE;
+   gint source=-1,channel=-1,serial=-1;
+   guint serial_kind=0;
+   gboolean mixer=FALSE,port=FALSE,virt=FALSE;
+   routing_effect_port_t effect_port;
+   if (hit->kind==GROUP_PCM && graph_snapshot) {
+      pin=graph_port_at(x,y,&source,&channel,&mixer) || graph_gain_at(x,y,&source,&channel,&port);
+   } else if (hit->kind==GROUP_SERIAL) {
+      pin=routing_serial_pin_hit(x,y,&serial,&serial_kind,&virt);
+   } else if (hit->kind==GROUP_EFFECT) {
+      pin=routing_effect_pin_at(x,y,&effect_port);
+   } else if (hit->kind==GROUP_ONAIR) {
+      pin=hypot(x-onair_x,y-onair_y-ONAIR_H/2.)<=routing_pin_radius();
+   } else if (hit->kind==GROUP_PTT) {
+      pin=hypot(x-ptt_x-150.,y-ptt_y-35.)<=routing_pin_radius();
+   } else if (hit->kind==GROUP_LOGIC) {
+      pin=rr_logic_canvas_pin_at(x,y);
+   } else if (hit->kind==GROUP_CONTROL && routing_compact_controls) {
+      for (guint i=0;i<routing_compact_controls->len;i++) {
+         routing_compact_control_t *b=g_ptr_array_index(routing_compact_controls,i);
+         if (!strcmp(b->uuid,hit->id)) {
+            double tx,ty,px,py;
+            gboolean bound=routing_compact_target(b,&tx,&ty);
+            routing_compact_output_corner(b,bound?tx:b->x+ROUTING_CONTROL_WIDTH+40.,bound?ty:b->y+ROUTING_CONTROL_HEIGHT/2.,&px,&py);
+            pin=hypot(x-px,y-py)<=16.;
+            break;
+         }
+      }
+   }
+   if (pin) { g_ptr_array_unref(list); return FALSE; }
+   if (!routing_graph_is_selected(hit->id)) {
+      routing_graph_clear_selection();
+      routing_graph_select(hit->id,TRUE);
+   }
+   group_press_x=x; group_press_y=y;
+   group_anchor_x=hit->x; group_anchor_y=hit->y;
+   g_clear_pointer(&group_blocks,g_ptr_array_unref);
+   group_blocks=list;
+   group_dragging=TRUE; group_moved=FALSE;
+   graph_canvas_update_size();
+   return TRUE;
+}
+static void group_move_block(const group_block_t *b,double x,double y,gboolean save) {
+   switch (b->kind) {
+      case GROUP_PCM: case GROUP_EFFECT: case GROUP_SERIAL: {
+         routing_position_t *p=routing_position(b->id);
+         if (p) {
+            p->x=x; p->y=y; p->pinned=TRUE;
+            if (save) { routing_position_save(b->id,p); }
+         }
+         if (b->kind==GROUP_SERIAL) {
+            for (guint i=0;i<routing_serial_count;i++) {
+               if (!strcmp(routing_serial_nodes[i].id,b->id)) {
+                  routing_serial_nodes[i].x=x; routing_serial_nodes[i].y=y;
+                  break;
+               }
+            }
+         }
+         break;
+      }
+      case GROUP_LOGIC: {
+         rr_logic_canvas_move_block(b->id,x,y);
+         break;
+      }
+      case GROUP_CONTROL: {
+         if (routing_compact_controls) {
+            for (guint i=0;i<routing_compact_controls->len;i++) {
+               routing_compact_control_t *control=g_ptr_array_index(routing_compact_controls,i);
+               if (!strcmp(control->uuid,b->id)) {
+                  control->x=x; control->y=y;
+                  if (save) { routing_compact_save(control); }
+                  break;
+               }
+            }
+         }
+         break;
+      }
+      case GROUP_ONAIR: { onair_x=x; onair_y=y; if (save) { onair_save(); } break; }
+      case GROUP_PTT: { ptt_x=x; ptt_y=y; if (save) { onair_save(); } break; }
+   }
+}
+static double group_last_dx,group_last_dy;
+static gboolean group_motion(double x,double y,guint modifiers) {
+   if (!group_dragging) { return FALSE; }
+   if (!group_moved && hypot(x-group_press_x,y-group_press_y)<=3.) { return TRUE; }
+   double dx=x-group_press_x,dy=y-group_press_y;
+   if (graph_snap_enabled && !(modifiers&GDK_SHIFT_MASK)) {
+      dx=routing_snap_coordinate(group_anchor_x+dx)-group_anchor_x;
+      dy=routing_snap_coordinate(group_anchor_y+dy)-group_anchor_y;
+   }
+   double minx=-G_MAXDOUBLE,miny=-G_MAXDOUBLE,maxx=G_MAXDOUBLE,maxy=G_MAXDOUBLE;
+   for (guint i=0;i<group_blocks->len;i++) {
+      group_block_t *b=g_ptr_array_index(group_blocks,i);
+      if (routing_graph_is_selected(b->id)) {
+         minx=MAX(minx,-b->x); miny=MAX(miny,-b->y);
+         maxx=MIN(maxx,100000.-b->x); maxy=MIN(maxy,100000.-b->y);
+      }
+   }
+   dx=CLAMP(dx,minx,maxx); dy=CLAMP(dy,miny,maxy);
+   /* Test the destination, not the swept path: groups can pass obstacles. */
+   for (guint i=0;i<group_blocks->len;i++) {
+      group_block_t *b=g_ptr_array_index(group_blocks,i);
+      if (!routing_graph_is_selected(b->id)) { continue; }
+      for (guint j=0;j<group_blocks->len;j++) {
+         group_block_t *o=g_ptr_array_index(group_blocks,j);
+         if (routing_graph_is_selected(o->id)) { continue; }
+         if (routing_rect_overlap(b->x+dx,b->y+dy,b->w,b->h,o->x,o->y,o->w,o->h) &&
+             !routing_rect_overlap(b->x,b->y,b->w,b->h,o->x,o->y,o->w,o->h)) { return TRUE; }
+      }
+   }
+   group_last_dx=dx; group_last_dy=dy; group_moved=TRUE;
+   for (guint i=0;i<group_blocks->len;i++) {
+      group_block_t *b=g_ptr_array_index(group_blocks,i);
+      if (routing_graph_is_selected(b->id)) { group_move_block(b,b->x+dx,b->y+dy,FALSE); }
+   }
+   graph_canvas_update_size();
+   return TRUE;
+}
+static gboolean group_release(void) {
+   if (!group_dragging) { return FALSE; }
+   gboolean logic=FALSE;
+   if (group_moved) {
+      for (guint i=0;i<group_blocks->len;i++) {
+         group_block_t *b=g_ptr_array_index(group_blocks,i);
+         if (routing_graph_is_selected(b->id)) {
+            group_move_block(b,b->x+group_last_dx,b->y+group_last_dy,TRUE);
+            logic|=b->kind==GROUP_LOGIC;
+         }
+      }
+      if (logic) { rr_logic_canvas_save_positions(); }
+   }
+   group_dragging=group_moved=FALSE;
+   g_clear_pointer(&group_blocks,g_ptr_array_unref);
+   graph_canvas_update_size();
+   return TRUE;
+}
+
 static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, gpointer unused) {
    (void)unused;
 
@@ -7064,41 +7277,8 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
       return TRUE;
    }
 
-   /* Shared selection must take precedence over red/green port drags. */
-   if (event->type == GDK_BUTTON_PRESS &&
-       (event->state & (GDK_SHIFT_MASK | GDK_CONTROL_MASK))) {
-      const char *gate_id=routing_logic_visible?rr_logic_canvas_hit_block(gx,gy):NULL;
-      if (gate_id) {
-         routing_graph_select(gate_id,!routing_graph_is_selected(gate_id));
-         graph_canvas_update_size();
-         return TRUE;
-      }
-      if (onair_visible) {
-         const char *id = gx>=onair_x && gx<=onair_x+ONAIR_W &&
-                         gy>=onair_y && gy<=onair_y+ONAIR_H ? "ui.onair" :
-                          ptt_visible && gx>=ptt_x && gx<=ptt_x+150. &&
-                          gy>=ptt_y && gy<=ptt_y+70. ? "ui.ptt" : NULL;
-         if (id) {
-            routing_graph_select(id,!routing_graph_is_selected(id));
-            graph_canvas_update_size();
-            return TRUE;
-         }
-      }
-      if (routing_controls_visible && routing_compact_controls) {
-         for (guint i=0;i<routing_compact_controls->len;i++) {
-            const routing_compact_control_t *c=g_ptr_array_index(routing_compact_controls,i);
-            if (gx>=c->x && gx<=c->x+ROUTING_CONTROL_WIDTH &&
-                gy>=c->y && gy<=c->y+ROUTING_CONTROL_HEIGHT) {
-               routing_graph_select(c->uuid,!routing_graph_is_selected(c->uuid));
-               graph_canvas_update_size();
-               return TRUE;
-            }
-         }
-      }
-   }
-   if (event->type == GDK_BUTTON_PRESS && !(event->state & (GDK_SHIFT_MASK|GDK_CONTROL_MASK))) {
-      const char *id=routing_logic_visible?rr_logic_canvas_hit_block(gx,gy):NULL;
-      if (id) routing_graph_select(id,TRUE); /* add to current selection */
+   if (event->type==GDK_BUTTON_PRESS && group_begin(gx,gy,event->state)) {
+      return TRUE;
    }
 
    if (event->type == GDK_BUTTON_PRESS && (onair_visible || ptt_visible)) {
@@ -7372,6 +7552,12 @@ static gboolean routing_graph_motion(GtkWidget *widget, GdkEventMotion *event, g
       return TRUE;
    }
 
+   if (group_dragging) {
+      double x,y;
+      if (graph_pointer(event->x,event->y,&x,&y)) { group_motion(x,y,event->state); }
+      return TRUE;
+   }
+
    if (routing_marks_motion_event(event)) {
       return TRUE;
    }
@@ -7547,6 +7733,8 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
 
       return TRUE;
    }
+
+   if (event->button==GDK_BUTTON_PRIMARY && group_release()) { return TRUE; }
 
    if (routing_marks_release_event(event)) {
       return TRUE;
@@ -8872,6 +9060,8 @@ void gtk_audio_routing_shutdown(void) {
       graph_positions = NULL;
    }
 
+   group_dragging=group_moved=FALSE;
+   g_clear_pointer(&group_blocks,g_ptr_array_unref);
    if (graph_selection) {
       g_hash_table_destroy(graph_selection);
       graph_selection = NULL;
