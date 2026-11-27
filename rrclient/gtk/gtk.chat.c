@@ -699,6 +699,59 @@ static void gtk_chat_apply_format_attributes(GtkWidget *entry, GtkFormatState *s
    pango_attr_list_unref(attrs);
 }
 
+/* Paste IRC control bytes as editor formatting tokens, not literal letters. */
+static void gtk_chat_entry_paste(GtkEntry *widget, gpointer unused) {
+   (void)unused;
+   GtkWidget *entry=GTK_WIDGET(widget);
+   char *paste=gtk_clipboard_wait_for_text(gtk_widget_get_clipboard(entry,GDK_SELECTION_CLIPBOARD));
+   if (!paste) {
+      return;
+   }
+   if (!strpbrk(paste,"\002\003\004\017\021\026\035\036\037")) {
+      g_free(paste);
+      return;
+   }
+   g_signal_stop_emission_by_name(entry,"paste-clipboard");
+   gint a,b;
+   if (!gtk_editable_get_selection_bounds(GTK_EDITABLE(entry),&a,&b)) {
+      a=b=gtk_editable_get_position(GTK_EDITABLE(entry));
+   }
+   char *raw=gtk_chat_serialize_entry(entry);
+   char *left=g_utf8_substring(raw,0,MIN(a,b));
+   char *right=g_strdup(g_utf8_offset_to_pointer(raw,MAX(a,b)));
+   for (char *p=paste;*p;p++) {
+      if (*p=='\r'||*p=='\n') {
+         *p=' ';
+      }
+   }
+   char *combined=g_strconcat(left,paste,right,NULL);
+   GtkFormatState *state=gtk_chat_format_state(entry);
+   if (state->undo->len>=100) {
+      g_ptr_array_remove_index(state->undo,0);
+   }
+   g_ptr_array_add(state->undo,raw);
+   g_ptr_array_set_size(state->redo,0);
+   gtk_chat_set_serialized_entry(entry,combined);
+   gtk_editable_set_position(GTK_EDITABLE(entry),MIN(a,b)+g_utf8_strlen(paste,-1));
+   g_free(left);
+   g_free(right);
+   g_free(combined);
+   g_free(paste);
+}
+
+static void gtk_chat_entry_copy(GtkEntry *widget, gpointer unused) {
+   (void)unused;
+   gint a,b;
+   if (gtk_editable_get_selection_bounds(GTK_EDITABLE(widget),&a,&b)) {
+      g_signal_stop_emission_by_name(widget,"copy-clipboard");
+      char *raw=gtk_chat_serialize_entry(GTK_WIDGET(widget));
+      char *part=g_utf8_substring(raw,MIN(a,b),MAX(a,b));
+      gtk_clipboard_set_text(gtk_widget_get_clipboard(GTK_WIDGET(widget),GDK_SELECTION_CLIPBOARD),part,-1);
+      g_free(part);
+      g_free(raw);
+   }
+}
+
 static void gtk_chat_color_choice(GtkButton *button, gpointer data);
 
 static void gtk_chat_color_popover_fill(GtkWidget *entry, bool backgrounds, unsigned int foreground) {
@@ -2029,6 +2082,8 @@ static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room, bool i
    gtk_popover_set_modal(GTK_POPOVER(color_popover), FALSE);
    g_object_set_data(G_OBJECT(chat_entry), "rr-color-popover", color_popover);
    g_signal_connect(chat_entry, "changed", G_CALLBACK(gtk_chat_entry_changed), NULL);
+   g_signal_connect(chat_entry, "paste-clipboard", G_CALLBACK(gtk_chat_entry_paste), NULL);
+   g_signal_connect(chat_entry, "copy-clipboard", G_CALLBACK(gtk_chat_entry_copy), NULL);
    // Explicitly span the full width of the box; with fill=FALSE packing an
    // entry can end up right-aligned once other widgets (vfo box) are packed
    // around it.
