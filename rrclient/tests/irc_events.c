@@ -393,6 +393,22 @@ int main(void) {
       assert(strstr(status_text, whois_replies[i].second));
    }
 
+   /* Channel errors must be visible in their destination, not the active tab. */
+   active_window = "#unrelated";
+   const char *channel_errors[] = {
+      ":server 404 tester #room :Cannot send to channel",
+      ":server 442 tester #room :You're not on that channel",
+      ":server 482 tester #room :You're not channel operator",
+      ":server 404 tester &local :Cannot send to channel"
+   };
+
+   for (size_t i = 0; i < sizeof(channel_errors) / sizeof(channel_errors[0]); i++) {
+      irc_process_message(&client, channel_errors[i]);
+      assert(!printed_status && !strcmp(printed_room, i == 3 ? "&local" : "#room"));
+   }
+   irc_process_message(&client, ":server 404 tester #missing :Cannot send to channel");
+   assert(printed_status);
+
    active_window = "#unrelated";
    assert(!rrclient_whois_send(&client, "#menu-origin", "menu-user"));
    irc_process_message(&client, ":server 311 tester menu-user ident host * :Menu User");

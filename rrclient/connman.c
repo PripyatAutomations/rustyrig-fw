@@ -551,7 +551,19 @@ bool rrclient_window_is_shared(const char *window) {
 }
 
 const char *rrclient_window_name(const char *room) {
-   if (!room || !*room || rrclient_window_is_shared(room) || !context) {
+   if (!room || !*room || rrclient_window_is_shared(room)) {
+      return room;
+   }
+
+   /* Output callers may already have resolved a connection-owned window.
+    * Preserve its identity even when another server is currently selected. */
+   for (client_window_t *w = windows ; w ; w = w->next) {
+      if (!strcmp(w->key, room)) {
+         return w->key;
+      }
+   }
+
+   if (!context) {
       return room;
    }
 

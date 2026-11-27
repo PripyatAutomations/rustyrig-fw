@@ -126,7 +126,7 @@ static void ui_output(const char *window, const char *fmt, ...) {
       }
 
       if (win && name && *name && !rrclient_window_is_shared(name)) {
-         win->cptr = rrclient_connection_context();
+         win->cptr = rrclient_connection_for_window(name);
       }
       tui_vprint(win, fmt, ap);
    }

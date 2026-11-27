@@ -295,7 +295,12 @@ int main(void) {
    rrclient_connection_dispatch(a, check_background_scope, a);
    rrclient_connection_dispatch(NULL, check_disconnected_scope, NULL);
    assert(ws_conn == b && !strcmp(server_name, "beta") && !strcmp(rrclient_selected_server(), "beta"));
-   assert(strcmp(alpha_window, rrclient_window_name("#shared")));
+   const char *beta_window = rrclient_window_name("#shared");
+   assert(strcmp(alpha_window, beta_window));
+   assert(!strcmp(alpha_window, rrclient_window_name(alpha_window)));
+   assert(!strcmp(beta_window, rrclient_window_name(beta_window)));
+   assert(!strcmp(alpha_window, rrclient_window_find_for_connection(a, "#SHARED")));
+   assert(!strcmp(beta_window, rrclient_window_find_for_connection(b, "#shared")));
    /* Three system tabs, shared across profiles; tab focus never chooses a different server. Background output cannot capture the prompt/session. */
    ui_mode = UI_MODE_TUI;
    tui_only = true;
@@ -313,6 +318,13 @@ int main(void) {
       assert(!strcmp(rrclient_tui_prompt(tab), ""));
    }
 
+   /* Already-resolved keys must not create a second window or change owners. */
+   tui_window_t *alpha_tab = tui_window_create(alpha_window);
+   assert(alpha_tab);
+   ui_print(alpha_window, "Cannot send to channel [404]: #shared");
+   assert(tui_window_find(alpha_window) == alpha_tab);
+   assert(alpha_tab->cptr == a && alpha_tab->log_count == 1);
+   assert(strstr(alpha_tab->buffer[0], "[404]"));
    rrclient_connection_dispatch(a, check_shared_background, a);
    assert(rrclient_active_connection() == b);
    assert(tui_window_find("host log")->log_count == 1);
