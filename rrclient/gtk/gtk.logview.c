@@ -23,6 +23,7 @@ struct GtkLogView {
    GtkTreeModel *filtered;
    GtkAdjustment *vadj;
    guint scroll_idle;
+   rr_event_token_t level_token;
    gboolean follow_end;
    unsigned limit;
 };
@@ -59,6 +60,9 @@ static void logview_destroy(GtkWidget *widget, gpointer data) {
    if (v->scroll_idle) {
       g_source_remove(v->scroll_idle);
    }
+   if (v->level_token) {
+      event_off_token(v->level_token);
+   }
    g_free(v);
 }
 
@@ -69,6 +73,10 @@ static gboolean visible(GtkTreeModel *model, GtkTreeIter *iter, gpointer data) {
    gtk_tree_model_get(model, iter, COL_HOST, &host, COL_TIME, &time, COL_SOURCE, &source, COL_LEVEL, &level, COL_SUBSYS, &subsys, COL_MESSAGE, &message, -1);
    const char *query = gtk_entry_get_text(GTK_ENTRY(v->filter));
    gboolean ok = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(host ? v->host : v->client));
+
+   if (ok && !host && level) {
+      ok = !debug_filter(subsys, log_priority_from_str(level));
+   }
 
    if (ok && query && *query) {
       gchar *needle = g_utf8_casefold(query, -1);
@@ -122,6 +130,11 @@ static void refresh(GtkWidget *widget, gpointer data) {
    (void)widget;
    GtkLogView *v = data;
    gtk_tree_model_filter_refilter(GTK_TREE_MODEL_FILTER(v->filtered));
+}
+
+static void log_levels_applied(const rr_event_message_t *message, void *data) {
+   (void)message;
+   refresh(NULL, data);
 }
 
 static gchar *logview_selected_text(GtkLogView *v, gboolean csv);
@@ -519,6 +532,7 @@ GtkLogView *gtk_logview_new(unsigned limit) {
    g_signal_connect(v->tree, "button-press-event", G_CALLBACK(context), v);
    g_signal_connect(v->tree, "key-press-event", G_CALLBACK(logview_key), v);
    g_signal_connect(v->page, "destroy", G_CALLBACK(logview_destroy), v);
+   v->level_token = event_on_message_domain_token(RRCLIENT_LOG_LEVEL_APPLIED, log_levels_applied, v, "gtk");
    g_object_unref(v->filtered);
    g_object_unref(v->store);
 
