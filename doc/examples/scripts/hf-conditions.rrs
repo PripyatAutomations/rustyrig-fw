@@ -1,12 +1,47 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // HF propagation estimates: HAMQSL / N0NBH. Open with /hf.
 // No network requests until the panel is first opened; refresh hourly.
-void hf_start() {
-    if (state.get("hf.request") == null) {
-        state.set("hf.request", net.http.fetch("https://www.hamqsl.com/solarxml.php"))
-        ui.set("hf_status", "Updating...")
-        timer.every("hf-poll", 500)
+// Timestamps are stored as decimal strings by setting.set().
+int hf_timestamp(char key) {
+    char value = setting.get(key)
+    if (value == null) { return 0 }
+    if (!string.regex(value, "^[0-9]{1,13}$")) { return 0 }
+    int result = 0
+    int i = 0
+    while (i < string.length(value)) {
+        char digit = string.slice(value, i, 1)
+        int n = 0
+        while (string.str(n) != digit && n < 9) { n++ }
+        result = result * 10 + n
+        i++
     }
+    return result
+}
+void hf_status() {
+    int updated = hf_timestamp("hf.cache.updated")
+    if (updated == 0) {
+        ui.set("hf_status", "HAMQSL / N0NBH · no cached data")
+    } else {
+        int minutes = (time.now() - updated) / 60000
+        if (minutes < 0) { minutes = 0 }
+        ui.set("hf_status", "HAMQSL / N0NBH · " + string.str(minutes) + "m old")
+    }
+}
+void hf_start() {
+    if (state.get("hf.request") != null) { return }
+    hf_status()
+    int now = time.now()
+    int attempted = hf_timestamp("hf.cache.attempted")
+    if (attempted > now || now - attempted < 3600000) { return }
+    // Persist before starting the worker, including unsuccessful attempts.
+    // Fail closed if the database cannot record the rate limit.
+    if (!setting.set("hf.cache.attempted", now)) {
+        ui.set("hf_status", "Cannot persist HTTP rate limit")
+        return
+    }
+    state.set("hf.request", net.http.fetch("https://www.hamqsl.com/solarxml.php"))
+    ui.set("hf_status", "Updating...")
+    timer.every("hf-poll", 500)
 }
 char hf_rating(char xml, char band, char period) {
     char rating = string.capture(xml, "<band[^>]*name=\"" + band + "\"[^>]*time=\"" + period + "\"[^>]*>[ ]*(Good|Fair|Poor)[ ]*</band>")
@@ -60,12 +95,13 @@ script("/hf", {
     ui.add("hf_nights", "irc-label", "hf_b12_night", "--")
     ui.add("hf_conditions", "label", "hf_status", "HAMQSL.com / N0NBH")
     ui.show("hf_conditions")
-    char cached = state.get("hf.xml")
+    char cached = setting.get("hf.cache.xml")
     if (cached != null) { hf_display(cached) }
+    hf_status()
     if (state.get("hf.started") == null) {
         state.set("hf.started", true)
         hf_start()
-        timer.every("hf-hour", 3600000)
+        timer.every("hf-hour", 60000)
     }
 })
 event script.init {
@@ -81,11 +117,14 @@ event ui.timer {
                 timer.cancel("hf-poll")
                 state.set("hf.request", null)
                 if (response.error == null && response.status == 200 && string.regex(response.body, "<calculatedconditions>")) {
-                    state.set("hf.xml", response.body)
+                    if (setting.set("hf.cache.xml", response.body)) {
+                        setting.set("hf.cache.updated", time.now())
+                    }
                     hf_display(response.body)
-                    ui.set("hf_status", "HAMQSL.com / N0NBH · hourly")
+                    hf_status()
                 } else {
-                    ui.set("hf_status", "HAMQSL refresh failed · stale")
+                    hf_status()
+                    log.warn("HF conditions refresh failed; retaining cached data")
                 }
             }
         }
