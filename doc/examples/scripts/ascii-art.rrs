@@ -37,8 +37,10 @@ event talk.msg {
                 state.set(key + ".count", -1000000)
                 timer.after(key, 3500)
             }
-        } else if (body != null) {
-            timer.after(key, 1)
+        } else {
+            if (body != null) {
+                timer.after(key, 1)
+            }
         }
     }
 }
