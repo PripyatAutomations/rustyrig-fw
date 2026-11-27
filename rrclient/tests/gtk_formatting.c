@@ -254,6 +254,8 @@ static void test_color_popup(void) {
    gtk_editable_set_position(GTK_EDITABLE(entry), 0);
    copy_event.state = GDK_CONTROL_MASK;
    copy_event.keyval = GDK_KEY_c;
+   assert(!on_chat_entry_keypress(entry, &copy_event, NULL));
+   copy_event.keyval = GDK_KEY_k;
    assert(on_chat_entry_keypress(entry, &copy_event, NULL));
    serialized = gtk_chat_serialize_entry(entry);
    assert(!strcmp(serialized, "\003"));
