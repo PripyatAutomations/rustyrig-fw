@@ -4,6 +4,8 @@
 #include <librustyui/tui.h>
 #include <librustyui/theme.h>
 #include <librustyui/canvas.h>
+#include <librustyui/tree.h>
+#include <librustyaxe/json.h>
 #include <librustyui/shape.h>
 #include <librustyui/termkey.h>
 #include <sys/stat.h>
@@ -1719,7 +1721,258 @@ static void logic_connection_lost(const char *event,const char *data,rrconn_t *c
    (void)event;(void)data;(void)conn;(void)unused;
    rr_logic_reset_sources();tui_redraw_request();
 }
+/* Explorer projects completed per-profile inventory snapshots into the
+ * backend-neutral tree. Resource operations retain their originating profile. */
+typedef struct {
+   char *profile,*request;
+   GPtrArray *rows,*pending;
+   gint64 requested;
+} explorer_branch_t;
+static GPtrArray *explorer_branches;
+static rrui_tree_t *explorer_tree;
+static GHashTable *explorer_resources;
+static rr_event_token_t explorer_tokens[4];
+static unsigned explorer_top;
+static gint64 explorer_refresh_at;
+static int explorer_view_rows;
+static char explorer_notice[256];
+static void explorer_branch_free(gpointer data) {
+   explorer_branch_t *b=data;
+   g_free(b->profile);g_free(b->request);
+   g_ptr_array_unref(b->rows);g_ptr_array_unref(b->pending);g_free(b);
+}
+static explorer_branch_t *explorer_branch(const char *profile) {
+   if (!profile || !*profile || !explorer_branches) { return NULL; }
+   for (unsigned i=0;i<explorer_branches->len;i++) {
+      explorer_branch_t *b=g_ptr_array_index(explorer_branches,i);
+      if (!strcmp(b->profile,profile)) { return b; }
+   }
+   explorer_branch_t *b=g_new0(explorer_branch_t,1);
+   b->profile=g_strdup(profile);
+   b->rows=g_ptr_array_new_with_free_func(g_free);b->pending=g_ptr_array_new_with_free_func(g_free);
+   g_ptr_array_add(explorer_branches,b);return b;
+}
+static void explorer_project(void) {
+   if (!explorer_tree) { return; }
+   rrui_tree_clear(explorer_tree);g_hash_table_remove_all(explorer_resources);
+   for (unsigned i=0;i<explorer_branches->len;i++) {
+      explorer_branch_t *b=g_ptr_array_index(explorer_branches,i);
+      char *root=g_strdup_printf("profile:%s",b->profile);
+      int state=rrclient_connection_state(b->profile);
+      char *label=g_strdup_printf("%s [%s]",b->profile,state==1?"online":state<0?"connecting":"offline");
+      rrui_tree_add(explorer_tree,root,NULL,label,state==1?0x55dd88:0x92a6b3,true);g_free(label);
+      char *parents[5]={0};
+      for (unsigned k=0;k<b->rows->len;k++) {
+         const char *raw=g_ptr_array_index(b->rows,k);dict *d=json2dict(raw);
+         if (!d) { continue; }
+         unsigned depth=dict_get_uint(d,"inventory.depth",0);
+         if (depth>=G_N_ELEMENTS(parents)) { dict_free(d);continue; }
+         const char *kind=dict_get(d,"inventory.kind","resource");
+         const char *uuid=dict_get(d,"inventory.uuid","");
+         const char *name=dict_get(d,"inventory.name","");
+         const char *owner=dict_get(d,"inventory.parent","");
+         char *id=*uuid?g_strdup_printf("%s/%s",root,uuid):g_strdup_printf("%s/row:%u:%s:%s",root,k,kind,name);
+         char *owner_id=*owner?g_strdup_printf("%s/%s",root,owner):NULL;
+         const char *parent=depth&&parents[depth-1]?parents[depth-1]:root;
+         if (owner_id && g_hash_table_contains(explorer_resources,owner_id)) { parent=owner_id; }
+         char *caption=g_strdup_printf("%s  %s%s",kind,name,dict_get_bool(d,"client.room.joined",false)?" [joined]":"");
+         if (rrui_tree_add(explorer_tree,id,parent,caption,0xc2d1da,depth<2)) {
+            g_hash_table_insert(explorer_resources,g_strdup(id),g_strdup(raw));
+            for (unsigned n=depth;n<G_N_ELEMENTS(parents);n++) { g_clear_pointer(&parents[n],g_free); }
+            parents[depth]=g_strdup(id);
+         }
+         g_free(caption);g_free(owner_id);g_free(id);dict_free(d);
+      }
+      for (unsigned n=0;n<G_N_ELEMENTS(parents);n++) { g_free(parents[n]); }
+      g_free(root);
+   }
+   tui_redraw_request();
+}
+static void explorer_show(const char *event,const void *data,size_t length,rrconn_t *conn,void *unused) {
+   (void)event;(void)conn;(void)unused;
+   if (!data || length!=sizeof(rrclient_resource_view_t)) { return; }
+   const rrclient_resource_view_t *r=data;
+   if (!memchr(r->profile,0,sizeof(r->profile)) || !memchr(r->request,0,sizeof(r->request))) { return; }
+   explorer_branch_t *b=explorer_branch(r->profile);
+   if (!b) { return; }
+   g_free(b->request);b->request=g_strdup(r->request);
+   b->requested=g_get_monotonic_time();g_ptr_array_set_size(b->pending,0);
+}
+static void explorer_row(const char *event,const char *payload,rrconn_t *conn,void *unused) {
+   (void)event;(void)conn;(void)unused;
+   dict *d=payload?json2dict(payload):NULL;
+   if (!d) { return; }
+   explorer_branch_t *b=explorer_branch(dict_get(d,"client.profile",""));
+   const char *cmd=dict_get(d,"object.cmd","");
+   if (b && b->request && !strcmp(b->request,dict_get(d,"request.id",""))) {
+      if (!strcmp(cmd,"inventory-entry")) {
+         if (b->pending->len<8192) { g_ptr_array_add(b->pending,g_strdup(payload)); }
+      } else if (!strcmp(cmd,"inventory-end")) {
+         GPtrArray *old=b->rows;b->rows=b->pending;b->pending=old;
+         g_ptr_array_set_size(b->pending,0);g_clear_pointer(&b->request,g_free);explorer_project();
+      } else if (!strcmp(cmd,"result")) {
+         g_snprintf(explorer_notice,sizeof(explorer_notice),"Inventory error: %s",dict_get(d,"result.code","unknown"));
+         g_clear_pointer(&b->request,g_free);g_ptr_array_set_size(b->pending,0);tui_redraw_request();
+      }
+   }
+   dict_free(d);
+}
+static void explorer_refresh(void) {
+   explorer_refresh_at=g_get_monotonic_time();
+   for (unsigned i=0;;i++) {
+      const char *profile=rrclient_connection_iter(i);
+      if (!profile) { break; }
+      explorer_branch_t *b=explorer_branch(profile);
+      rrconn_t *conn=rrclient_connection_find(profile);
+      if (b && conn && conn->authenticated && conn->is_ws &&
+          (!b->request || explorer_refresh_at-b->requested>15000000)) {
+         event_emit("client.resources.refresh-request",NULL,profile);
+      }
+   }
+   explorer_project();
+}
+static dict *explorer_selected_resource(void) {
+   const char *id=rrui_tree_selected(explorer_tree);
+   const char *raw=id?g_hash_table_lookup(explorer_resources,id):NULL;
+   return raw?json2dict(raw):NULL;
+}
+static void explorer_action(const char *action) {
+   dict *d=explorer_selected_resource();
+   if (!d) { return; }
+   const char *profile=dict_get(d,"client.profile",""),*uuid=dict_get(d,"inventory.uuid","");
+   const char *room=dict_get(d,"inventory.room","");
+   const char *kind=dict_get(d,"inventory.kind","");
+   dict *req=dict_new();
+   if (req) {
+      dict_add(req,"profile",profile);dict_add(req,"uuid",uuid);
+      const char *event="client.resources.action-request";
+      bool valid=false;
+      if (!strcmp(action,"details") && *uuid) { event="client.resources.details-request";valid=true; }
+      else if (!strcmp(action,"join") && *room) {
+         dict_add(req,"action",dict_get_bool(d,"client.room.joined",false)?"part":"join");
+         dict_add(req,"value",room);valid=true;
+      } else if (!strcmp(action,"media") && *uuid &&
+                 (!strcmp(kind,"media") || !strcmp(kind,"gps"))) {
+         dict_add(req,"action",dict_get_bool(d,"client.media.subscribed",false)?"unsubscribe":"subscribe");
+         dict_add(req,"value",uuid);valid=true;
+      }
+      if (valid) { event_emit_dict(event,NULL,req); }
+      dict_free(req);
+   }
+   dict_free(d);
+}
+static void explorer_reply(const char *event,const char *payload,rrconn_t *conn,void *unused) {
+   (void)conn;(void)unused;
+   dict *d=payload?json2dict(payload):NULL;
+   if (!d) { return; }
+   if (!strcmp(event,"client.resources.details-result")) {
+      const char *details=dict_get(d,"details","");
+      tui_window_t *w=tui_window_find("Resource details");
+      if (!w) { w=tui_window_create("Resource details"); }
+      if (w) {
+         tui_clear_scrollback(w);
+         char **lines=g_strsplit(details,"\n",-1);
+         for (unsigned i=0;lines[i];i++) { ui_print("Resource details","%s",lines[i]); }
+         g_strfreev(lines);tui_window_focus("Resource details");
+      }
+   } else {
+      g_strlcpy(explorer_notice,dict_get_bool(d,"failed",true)?"Resource action failed":"Resource action requested",sizeof(explorer_notice));
+      explorer_refresh_at=0;tui_redraw_request();
+   }
+   dict_free(d);
+}
+static void explorer_draw(tui_window_t *w,int rows,int cols,void *unused) {
+   (void)w;(void)unused;
+   if (rows<8 || cols<24) { return; }
+   int width=cols-1,height=rows-1;
+   rrui_canvas_t *c=rrui_canvas_new(width,height);
+   if (!c) { return; }
+   int span=height-4;explorer_view_rows=span;
+   size_t count=rrui_tree_count(explorer_tree);
+   const char *selected=rrui_tree_selected(explorer_tree);
+   for (size_t i=0;i<count;i++) {
+      rrui_tree_row_t row;
+      if (rrui_tree_row(explorer_tree,i,&row) && selected && !strcmp(row.id,selected)) {
+         if (i<explorer_top) { explorer_top=(unsigned)i; }
+         if (i>=explorer_top+(unsigned)span) { explorer_top=(unsigned)i-span+1; }
+         break;
+      }
+   }
+   if (explorer_top>=count) { explorer_top=count?(unsigned)count-1:0; }
+   rrui_canvas_text(c,0,0,width,"Explorer — connected server resources",0xbad8e8);
+   for (int y=0;y<span;y++) {
+      rrui_tree_row_t row;
+      if (!rrui_tree_row(explorer_tree,explorer_top+(unsigned)y,&row)) { break; }
+      bool active=selected && !strcmp(row.id,selected);
+      uint32_t fg=active?0xffff70:row.color,bg=active?0x263c50:UINT32_MAX;
+      if (active) {
+         for (int x=0;x<width;x++) { rrui_canvas_put_pair(c,x,y+1,' ',fg,bg); }
+      }
+      int x=MIN((int)row.depth*2,width-4);
+      rrui_canvas_put_pair(c,x,y+1,row.branch?(row.expanded?0x25be:0x25b8):0x2022,fg,bg);
+      const char *p=row.label;
+      for (int col=x+2;*p && col<width;col++,p=g_utf8_next_char(p)) {
+         rrui_canvas_put_pair(c,col,y+1,g_utf8_get_char_validated(p,-1),fg,bg);
+      }
+   }
+   rrui_canvas_text(c,0,height-3,width,explorer_notice,0xc2d1da);
+   rrui_canvas_text(c,0,height-2,width,"Arrows navigate | Enter expand/details | J join/part | S subscribe",0xbad8e8);
+   rrui_canvas_text(c,0,height-1,width,"R refresh | D details | Click select / click arrow expand",0xbad8e8);
+   rrui_canvas_draw(c,2,1);rrui_canvas_free(c);
+}
+static bool explorer_key(tui_window_t *w,unsigned key,unsigned mods,void *unused) {
+   (void)w;(void)unused;
+   if (mods&(TERMKEY_KEYMOD_ALT|TERMKEY_KEYMOD_CTRL)) { return false; }
+   if (key==TERMKEY_SYM_UP || key==TERMKEY_SYM_DOWN) { rrui_tree_move(explorer_tree,key==TERMKEY_SYM_UP?-1:1); }
+   else if (key==TERMKEY_SYM_LEFT || key==TERMKEY_SYM_RIGHT) { rrui_tree_horizontal(explorer_tree,key==TERMKEY_SYM_LEFT?-1:1); }
+   else if (key==TERMKEY_SYM_ENTER) {
+      if (!rrui_tree_toggle(explorer_tree,rrui_tree_selected(explorer_tree))) { explorer_action("details"); }
+   } else if (key=='r' || key=='R') { explorer_refresh(); }
+   else if (key=='d' || key=='D') { explorer_action("details"); }
+   else if (key=='j' || key=='J') { explorer_action("join"); }
+   else if (key=='s' || key=='S') { explorer_action("media"); }
+   else { return false; }
+   tui_redraw_request();return true;
+}
+static bool explorer_mouse(tui_window_t *w,int row,int col,int button,int action,unsigned mods,void *unused) {
+   (void)w;(void)mods;(void)unused;
+   if (action!=TERMKEY_MOUSE_PRESS) { return false; }
+   if (button==4 || button==5) {
+      for (int i=0;i<3;i++) { rrui_tree_move(explorer_tree,button==4?-1:1); }
+   } else if (button==1 && row>=3 && row<3+explorer_view_rows) {
+      rrui_tree_row_t r;
+      if (rrui_tree_row(explorer_tree,explorer_top+(unsigned)(row-3),&r)) {
+         rrui_tree_select(explorer_tree,r.id);
+         if (r.branch && col<=(int)r.depth*2+2) { rrui_tree_toggle(explorer_tree,r.id); }
+      }
+   } else { return false; }
+   tui_redraw_request();return true;
+}
+static void explorer_init(void) {
+   explorer_tree=rrui_tree_new();
+   explorer_branches=g_ptr_array_new_with_free_func(explorer_branch_free);
+   explorer_resources=g_hash_table_new_full(g_str_hash,g_str_equal,g_free,g_free);
+   tui_window_t *w=tui_window_create("Explorer");
+   if (w) {
+      w->view_draw=explorer_draw;w->view_key=explorer_key;w->view_mouse=explorer_mouse;w->view_full_height=true;
+   }
+   explorer_tokens[0]=event_on_binary_domain_token(RRCLIENT_RESOURCE_VIEW_EVENT,explorer_show,NULL,"core");
+   explorer_tokens[1]=event_on_domain_token("client.resources.row",explorer_row,NULL,"core");
+   explorer_tokens[2]=event_on_domain_token("client.resources.details-result",explorer_reply,NULL,"core");
+   explorer_tokens[3]=event_on_domain_token("client.resources.action-result",explorer_reply,NULL,"core");
+}
+static void explorer_shutdown(void) {
+   for (unsigned i=0;i<G_N_ELEMENTS(explorer_tokens);i++) {
+      if (explorer_tokens[i]) { event_off_token(explorer_tokens[i]);explorer_tokens[i]=0; }
+   }
+   tui_window_t *w=tui_window_find("Explorer");
+   if (w && w->view_draw==explorer_draw) { w->view_draw=NULL;w->view_key=NULL;w->view_mouse=NULL; }
+   rrui_tree_free(explorer_tree);explorer_tree=NULL;
+   g_clear_pointer(&explorer_resources,g_hash_table_unref);g_clear_pointer(&explorer_branches,g_ptr_array_unref);
+}
+
 static void views_init(void){
+   explorer_init();
    rr_logic_model_init();
    logic_ptt_token=event_on_message_domain_token(RRCLIENT_ROUTING_PTT_SIGNAL,logic_ptt_event,NULL,"core");
    logic_disconnect_token=event_on_domain_token("disconnected",logic_connection_lost,NULL,"core");
@@ -1740,6 +1993,7 @@ static void views_init(void){
    }
 }
 static void views_shutdown(void){
+   explorer_shutdown();
    if (logic_ptt_token) { event_off_token(logic_ptt_token);logic_ptt_token=0; }
    if (logic_disconnect_token) { event_off_token(logic_disconnect_token);logic_disconnect_token=0; }
    if (route_event) { event_off_token(route_event);route_event=0; }
@@ -1891,6 +2145,8 @@ static bool label(rrui_form_t *f,const char *id,const char *value){
    return old&&strcmp(old,value)&&rrui_form_set_value(f,id,value);
 }
 static void refresh(void){
+   tui_window_t *active_window=tui_active_window();
+   if (explorer_tree && active_window && active_window->view_draw==explorer_draw && g_get_monotonic_time()-explorer_refresh_at>=15000000) { explorer_refresh(); }
    if (modem_view && (tui_active_window()==modem_tab || tui_active_window()==routing_tab) &&
        g_get_monotonic_time()-modem_requested>=1000000) { modem_request_snapshot(); }
    if(routing_view&&tui_active_window()==routing_tab&&g_get_monotonic_time()-route_requested>=1500000)routing_request();
