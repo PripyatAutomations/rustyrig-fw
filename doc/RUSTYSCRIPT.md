@@ -38,6 +38,11 @@ directory itself.
   `~/.config/rustyrig/scripts`)
 - Server: `/etc/rustyrig/scripts` (local administrator-managed scripts)
 
+The client package ships `ascii-art.rrs` (`/artwork`) and `hf-conditions.rrs`
+(`/hf`) in `/usr/share/rustyrig/scripts/client/autoload/`. These load automatically
+without a per-user copy. A matching user script takes precedence over an
+administrator or packaged script; upgrades never overwrite user scripts.
+
 Place scripts in an `autoload/` subdirectory to load them when the process
 starts. Only immediate `*.rrs` files are loaded, in lexical filename order;
 the parent directory and any other subdirectories are **not** executed.
