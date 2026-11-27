@@ -151,11 +151,11 @@ access, permission to join all rooms, and remote server administration:
 The default database is /var/lib/rustyrig/db/master.db. To grant only an
 account from a specific originating site, replace the wildcard:
 
-    sudo ./tools/grant-remote-superadmin.sh 'admin@rplywv00'
+    sudo ./tools/grant-remote-superadmin.sh 'admin@dsmiia00'
 
 For a custom database path, specify it first:
 
-    sudo ./tools/grant-remote-superadmin.sh /path/to/master.db 'admin@rplywv00'
+    sudo ./tools/grant-remote-superadmin.sh /path/to/master.db 'admin@dsmiia00'
 
 Quote the identity to keep * from shell expansion. Run the script from the
 repository checkout on the destination host; it needs sqlite3 and database
