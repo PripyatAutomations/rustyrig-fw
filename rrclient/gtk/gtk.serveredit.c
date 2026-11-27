@@ -422,7 +422,7 @@ static void server_editor_save(GtkButton *button, gpointer data) {
       if (!dot || dot == node_name || !dot[1] || strlen(node_name) >= 254 ||
          node_name[strlen(node_name) - 1] == '.' ||
          strspn(node_name, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-") != strlen(node_name)) {
-         gtk_label_set_text(GTK_LABEL(editor->error), "Node Name must be station.domain (e.g. rplywv00.ham.istabpeople.com).");
+         gtk_label_set_text(GTK_LABEL(editor->error), "Node Name must be station.domain (e.g. dsmiia00.ham.example.net).");
 
          return;
       }
@@ -643,7 +643,7 @@ GtkWidget *gtk_show_server_editor(const char *profile) {
    editor->node_name = gtk_entry_new();
    const char *existing_node = profile ? get_server_property(profile, "server.node-name") : NULL;
    gtk_entry_set_text(GTK_ENTRY(editor->node_name), existing_node ? existing_node : "");
-   gtk_entry_set_placeholder_text(GTK_ENTRY(editor->node_name), "rplywv00.ham.istabpeople.com");
+   gtk_entry_set_placeholder_text(GTK_ENTRY(editor->node_name), "dsmiia00.ham.example.net");
    gtk_widget_set_tooltip_text(editor->node_name,
       "Expected station and domain identity. Used for TLS certificate name matching and verified against the station's announced identity.");
    gtk_grid_attach(GTK_GRID(grid), gtk_label_new("Node Name"), 0, 9, 1, 1);
