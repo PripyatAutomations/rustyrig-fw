@@ -1398,7 +1398,11 @@ static void load_theme(void){
    for(unsigned i=0;i<G_N_ELEMENTS(paths);i++)g_free(paths[i]);
    tui_render_lock();rrui_tui_theme_set(&theme);tui_render_unlock();
 }
+static bool sidebar_for_window(const tui_window_t *window) {
+   return window && !rrclient_window_is_shared(window->title);
+}
 void rrclient_tui_workspace_init(void){
+   rrui_tui_sidebar_policy(sidebar_for_window);
    load_theme();
    rr_logic_model_init();
    views_init();
@@ -1419,6 +1423,7 @@ void rrclient_tui_workspace_init(void){
    rrclient_tui_workspace_refresh();
 }
 void rrclient_tui_workspace_shutdown(void){
+   rrui_tui_sidebar_policy(NULL);
    tui_render_lock();
    save_layout();
    views_shutdown();
