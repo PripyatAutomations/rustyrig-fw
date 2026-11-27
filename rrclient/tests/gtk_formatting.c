@@ -315,6 +315,7 @@ static void test_transcript_copy(void) {
    GtkWidget *view = gtk_text_view_new();
    GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(view));
    gtk_text_buffer_set_text(buffer, "copy this transcript", -1);
+   gtk_irc_copy_record(buffer,0,"\00304copy this transcript\017");
    GtkTextIter start, end;
    gtk_text_buffer_get_bounds(buffer, &start, &end);
    gtk_text_buffer_select_range(buffer, &start, &end);
@@ -327,7 +328,7 @@ static void test_transcript_copy(void) {
    g_signal_emit_by_name(view, "key-press-event", &event, &handled);
    assert(handled);
    gchar *copied = gtk_clipboard_wait_for_text(gtk_clipboard_get(GDK_SELECTION_CLIPBOARD));
-   assert(copied && !strcmp(copied, "copy this transcript"));
+   assert(copied && !strcmp(copied, "\00304copy this transcript\017"));
    g_free(copied);
    /* Global copy must follow the selected page even after another tab was built. */
    main_notebook = gtk_notebook_new();
@@ -341,7 +342,7 @@ static void test_transcript_copy(void) {
    chat_textview = gtk_text_view_new();
    assert(gtk_chat_copy_selection());
    copied = gtk_clipboard_wait_for_text(gtk_clipboard_get(GDK_SELECTION_CLIPBOARD));
-   assert(copied && !strcmp(copied, "copy this transcript"));
+   assert(copied && !strcmp(copied, "\00304copy this transcript\017"));
    g_free(copied);
    GtkWidget *entry = gtk_entry_new();
    GtkWidget *input_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
@@ -359,7 +360,7 @@ static void test_transcript_copy(void) {
    gtk_text_buffer_select_range(buffer, &start, &end);
    assert(on_chat_entry_keypress(entry, &event, NULL));
    copied = gtk_clipboard_wait_for_text(gtk_clipboard_get(GDK_SELECTION_CLIPBOARD));
-   assert(copied && !strcmp(copied, "copy this transcript"));
+   assert(copied && !strcmp(copied, "\00304copy this transcript\017"));
    g_free(copied);
    gtk_widget_destroy(input_window);
    gtk_widget_destroy(chat_textview);

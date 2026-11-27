@@ -126,6 +126,8 @@ extern GtkWidget *mode_combo;
 extern const struct rr_user *gtk_roster_members(const char *profile, size_t *count);
 extern bool ui_print_gtk(const char *window, const char *fmt, va_list ap);
 extern char *gtk_colorize_string(const char *in);
+extern void gtk_irc_copy_record(GtkTextBuffer *buffer, gint first, const char *raw);
+extern char *gtk_chat_copy_formatted(GtkTextIter start, const GtkTextIter *end);
 extern const char *gtk_mirc_color_name(unsigned int n);
 extern guint8 gtk_formatting_control(gunichar token);
 extern const char *gtk_formatting_token(guint8 control);

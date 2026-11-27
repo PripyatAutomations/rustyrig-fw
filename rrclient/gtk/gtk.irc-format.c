@@ -322,3 +322,146 @@ char *gtk_colorize_string(const char *in) {
 
    return result;
 }
+
+/* Keep the original IRC stream with the rendered range. Marks follow
+ * scrollback deletion. No reconstruction from theme-dependent GTK tags. */
+typedef struct {
+   GtkTextMark *start, *end;
+   char *raw;
+} GtkIrcCopyLine;
+
+static void copy_line_free(gpointer data) {
+   GtkIrcCopyLine *line = data;
+   g_object_unref(line->start);
+   g_object_unref(line->end);
+   g_free(line->raw);
+   g_free(line);
+}
+
+static void copy_lines_free(gpointer data) {
+   g_queue_free_full(data, copy_line_free);
+}
+
+void gtk_irc_copy_record(GtkTextBuffer *buffer, gint first, const char *raw) {
+   GQueue *lines = g_object_get_data(G_OBJECT(buffer), "rr-irc-copy-lines");
+   if (!lines) {
+      lines = g_queue_new();
+      g_object_set_data_full(G_OBJECT(buffer), "rr-irc-copy-lines", lines, copy_lines_free);
+   }
+   while (!g_queue_is_empty(lines)) {
+      GtkIrcCopyLine *old = g_queue_peek_head(lines);
+      GtkTextIter a,b;
+      gtk_text_buffer_get_iter_at_mark(buffer, &a, old->start);
+      gtk_text_buffer_get_iter_at_mark(buffer, &b, old->end);
+      if (!gtk_text_iter_equal(&a,&b)) {
+         break;
+      }
+      gtk_text_buffer_delete_mark(buffer, old->start);
+      gtk_text_buffer_delete_mark(buffer, old->end);
+      copy_line_free(g_queue_pop_head(lines));
+   }
+   GtkTextIter a,b;
+   gtk_text_buffer_get_iter_at_offset(buffer,&a,first);
+   gtk_text_buffer_get_end_iter(buffer,&b);
+   if (gtk_text_iter_equal(&a,&b)) {
+      return;
+   }
+   GtkIrcCopyLine *line = g_new0(GtkIrcCopyLine,1);
+   line->start = g_object_ref(gtk_text_buffer_create_mark(buffer,NULL,&a,TRUE));
+   line->end = g_object_ref(gtk_text_buffer_create_mark(buffer,NULL,&b,TRUE));
+   line->raw = g_strdup(raw);
+   g_queue_push_tail(lines,line);
+}
+
+/* Replay the formatting prefix when a selection begins mid-span. */
+static char *copy_raw_range(const char *raw, gint first, gint last, bool whole) {
+   if (whole && !strchr(raw,27)) {
+      return g_strdup(raw);
+   }
+   GString *out = g_string_new(NULL), *prefix = g_string_new(NULL);
+   gint pos=0;
+   bool started=false, styled=false;
+   for (const char *p=raw; *p;) {
+      unsigned char ch=*p;
+      size_t n=0;
+      if (ch==3 || ch==4) {
+         irc_color_t color;
+         n=irc_color_parse(p,&color);
+      } else if (strchr("\002\017\021\026\035\036\037",ch)) {
+         n=1;
+      }
+      if (n) {
+         if (pos<first) {
+            g_string_append_len(prefix,p,n);
+         } else if (pos<last || (pos==last && !p[n] && started)) {
+            if (!started) {
+               g_string_append(out,prefix->str);
+               started=true;
+            }
+            g_string_append_len(out,p,n);
+            styled=true;
+         }
+         p+=n;
+         continue;
+      }
+      if (ch==27) {
+         p++;
+         if (*p=='[') {
+            p++;
+            while (*p && !isalpha((unsigned char)*p)) { p++; }
+            if (*p) { p++; }
+         }
+         continue;
+      }
+      const char *next=g_utf8_next_char(p);
+      if (pos>=last) { break; }
+      if (pos>=first) {
+         if (!started) {
+            g_string_append(out,prefix->str);
+            styled=prefix->len!=0;
+            started=true;
+         }
+         g_string_append_len(out,p,next-p);
+      }
+      pos++;
+      p=next;
+   }
+   if (styled && out->len && out->str[out->len-1]!=15) {
+      g_string_append_c(out,15);
+   }
+   g_string_free(prefix,TRUE);
+   return g_string_free(out,FALSE);
+}
+
+char *gtk_chat_copy_formatted(GtkTextIter start, const GtkTextIter *end) {
+   GtkTextBuffer *buffer=gtk_text_iter_get_buffer(&start);
+   GQueue *lines=g_object_get_data(G_OBJECT(buffer),"rr-irc-copy-lines");
+   GString *out=g_string_new(NULL);
+   for (GList *it=lines?lines->head:NULL;it;it=it->next) {
+      GtkIrcCopyLine *line=it->data;
+      GtkTextIter a,b;
+      gtk_text_buffer_get_iter_at_mark(buffer,&a,line->start);
+      gtk_text_buffer_get_iter_at_mark(buffer,&b,line->end);
+      if (gtk_text_iter_compare(&b,&start)<=0) { continue; }
+      if (gtk_text_iter_compare(&a,end)>=0) { break; }
+      if (gtk_text_iter_compare(&start,&a)<0) {
+         char *plain=gtk_text_buffer_get_text(buffer,&start,&a,FALSE);
+         g_string_append(out,plain);
+         g_free(plain);
+         start=a;
+      }
+      GtkTextIter stop=gtk_text_iter_compare(&b,end)<0?b:*end;
+      char *part=copy_raw_range(line->raw,gtk_text_iter_get_offset(&start)-gtk_text_iter_get_offset(&a),
+         gtk_text_iter_get_offset(&stop)-gtk_text_iter_get_offset(&a),
+         gtk_text_iter_equal(&start,&a)&&gtk_text_iter_equal(&stop,&b));
+      g_string_append(out,part);
+      g_free(part);
+      start=stop;
+   }
+   if (gtk_text_iter_compare(&start,end)<0) {
+      char *plain=gtk_text_buffer_get_text(buffer,&start,end,FALSE);
+      g_string_append(out,plain);
+      g_free(plain);
+   }
+   return g_string_free(out,FALSE);
+}

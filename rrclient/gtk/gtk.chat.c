@@ -224,12 +224,26 @@ static bool gtk_chat_copy_widgets(GtkWidget *view, GtkWidget *entry) {
    }
 
    if (transcript_selected) {
-      gtk_text_buffer_copy_clipboard(buffer, gtk_clipboard_get(GDK_SELECTION_CLIPBOARD));
+      char *raw = gtk_chat_copy_formatted(start,&end);
+      gtk_clipboard_set_text(gtk_clipboard_get(GDK_SELECTION_CLIPBOARD),raw,-1);
+      g_free(raw);
 
       return true;
    }
 
    return false;
+}
+
+static void gtk_chat_view_copy(GtkTextView *view,gpointer unused) {
+   (void)unused;
+   GtkTextIter a,b;
+   GtkTextBuffer *buffer=gtk_text_view_get_buffer(view);
+   if (gtk_text_buffer_get_selection_bounds(buffer,&a,&b)) {
+      g_signal_stop_emission_by_name(view,"copy-clipboard");
+      char *raw=gtk_chat_copy_formatted(a,&b);
+      gtk_clipboard_set_text(gtk_clipboard_get(GDK_SELECTION_CLIPBOARD),raw,-1);
+      g_free(raw);
+   }
 }
 
 static gboolean gtk_chat_view_keypress(GtkWidget *view, GdkEventKey *event, gpointer user_data) {
@@ -1969,6 +1983,7 @@ static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room, bool i
    gtk_widget_set_name(chat_textview, "chat-view");
    gtk_widget_add_events(chat_textview, GDK_POINTER_MOTION_MASK);
    g_signal_connect(chat_textview, "key-press-event", G_CALLBACK(gtk_chat_view_keypress), NULL);
+   g_signal_connect(chat_textview, "copy-clipboard", G_CALLBACK(gtk_chat_view_copy), NULL);
    text_buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(chat_textview));
    g_object_set_data(G_OBJECT(chat_textview),"rr-follow-bottom",GINT_TO_POINTER(1));
    gtk_widget_add_events(scrolled,GDK_SCROLL_MASK|GDK_SMOOTH_SCROLL_MASK);

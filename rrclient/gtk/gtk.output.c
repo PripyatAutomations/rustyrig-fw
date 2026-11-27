@@ -102,6 +102,8 @@ static void chat_backlog_flush(GtkTextBuffer *buffer, GtkWidget *view) {
       } else {
          gtk_text_buffer_insert(buffer, &end, line, -1);
       }
+      gtk_irc_copy_record(buffer,first,line);
+      gtk_text_buffer_get_end_iter(buffer,&end);
       gtk_text_buffer_insert(buffer, &end, "\n", 1);
       g_free(line);
    }
@@ -206,6 +208,7 @@ bool ui_print_gtk(const char *window, const char *fmt, va_list ap) {
    gtk_text_buffer_insert_markup(target_buffer, &end, colorized, -1);
    if(strstr(colorized,"background=\""))
       gtk_chat_full_height_backgrounds(target_buffer,start_offset);
+   gtk_irc_copy_record(target_buffer,start_offset,msgbuf);
    gtk_chat_highlight_prefix(target_view, start_offset);
    /* Markup insertion and prefix highlighting may invalidate end. Do not reuse an iterator across mutations of indexable buffer content. */
    gtk_text_buffer_get_end_iter(target_buffer, &end);
