@@ -199,7 +199,7 @@ static rrs_value_t *native_file(rrs_vm_t *vm,int argc,
 
 
 /* Reusable script utilities: neither their state nor timers know about .mac files. */
-enum { UTIL_REGEX=1,UTIL_CAPTURE,UTIL_CHR,UTIL_SLUG,UTIL_LINE,UTIL_LINES,UTIL_NOW,
+enum { UTIL_REGEX=1,UTIL_CAPTURE,UTIL_INT,UTIL_CHR,UTIL_SLUG,UTIL_LINE,UTIL_LINES,UTIL_NOW,
        UTIL_STAMP,UTIL_DATA,UTIL_STR,UTIL_HASH,UTIL_SLICE,UTIL_LENGTH,UTIL_GET,UTIL_SET,UTIL_USE,UTIL_NAMESPACE,UTIL_NAMESPACES,UTIL_KEYS,UTIL_EVERY,UTIL_AFTER,UTIL_CANCEL };
 static script_file_t *script_vm_lookup(rrs_vm_t *vm) {
    g_mutex_lock(&script_vm_owners_mutex);
@@ -456,6 +456,19 @@ static rrs_value_t *native_script_util(rrs_vm_t *vm,int argc,
       rrs_vm_raise(vm,"Expected string argument");return NULL;
    }
    const char *value=rrs_value_string(argv[0]);
+   if(op==UTIL_INT) {
+      if (argc!=1) {
+         rrs_vm_raise(vm,"string.int(text)");
+         return NULL;
+      }
+      char *end=NULL;
+      errno=0;
+      gint64 number=g_ascii_strtoll(value,&end,10);
+      if (errno==ERANGE || end==value || *end) {
+         return rrs_null();
+      }
+      return rrs_integer(number);
+   }
    if(op==UTIL_LENGTH) {
       if(argc!=1){rrs_vm_raise(vm,"string.length(text)");return NULL;}
       return rrs_integer((int64_t)strlen(value));
@@ -697,6 +710,7 @@ static bool register_util_api(rrs_vm_t *vm) {
       REG("string.length",native_script_util,UTIL_LENGTH) &&
       REG("string.slice",native_script_util,UTIL_SLICE) &&
       REG("string.str",native_script_util,UTIL_STR) &&
+      REG("string.int",native_script_util,UTIL_INT) &&
       REG("string.line",native_script_util,UTIL_LINE) &&
       REG("string.lines",native_script_util,UTIL_LINES) &&
       REG("time.now",native_script_util,UTIL_NOW) &&
