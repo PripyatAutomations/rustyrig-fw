@@ -5,6 +5,7 @@
 #include <rrclient/local.modem.h>
 #include <rrclient/database.h>
 #include <math.h>
+#include <stdio.h>
 #include <string.h>
 #define LOGIC_STORE "audio.graph.control.v2"
 gate_view_t rr_logic_blocks[MAX_UI_GATES];
@@ -161,6 +162,47 @@ static void register_baseline_sources(rr_control_graph_t *graph) {
    }
 }
 
+/* Import the historical GTK-only indicator once. Keep its PTT display
+ * geometry, but retire the legacy sign only after saving the shared node. */
+static void migrate_legacy_onair(void) {
+   char *saved=rrclient_database_setting_get("audio.graph.onair");
+   if (!saved || !*saved) { g_free(saved);return; }
+   double x,y,px,py,scale;
+   int visible,bound,ptt=1;
+   int n=sscanf(saved,"%lf,%lf,%lf,%lf,%lf,%d,%d,%d",&x,&y,&px,&py,&scale,&visible,&bound,&ptt);
+   if (n<7 || !visible || !isfinite(x) || !isfinite(y) || x<0 || y<0 || x>100000 || y>100000) {
+      g_free(saved);return;
+   }
+   char *source=rrclient_database_setting_get("audio.graph.onair.source");
+   if (bound && source && *source) {
+      bool valid=false,high=false;
+      if (!rr_logic_output(source,&valid,&high)) { g_free(source);g_free(saved);return; }
+      if (rr_logic_wire_count>=MAX_UI_WIRES) { g_free(source);g_free(saved);return; }
+   }
+   gate_view_t *sign=rr_logic_find("sign.legacy-onair");
+   if (!sign) {
+      sign=rr_logic_add_sign("ON AIR",0x8c0f0a);
+      if (!sign) { g_free(source);g_free(saved);return; }
+      g_strlcpy(sign->id,"sign.legacy-onair",sizeof(sign->id));
+      sign->x=x;sign->y=y;sign->on_fg=0xff4a38;sign->off_fg=0x807a80;sign->off_bg=0x242b33;
+      g_strlcpy(sign->font,"Sans Bold 31",sizeof(sign->font));
+   }
+   if (bound && source && *source) {
+      bool connected=false;
+      for (unsigned i=0;i<rr_logic_wire_count;i++) {
+         if (!strcmp(rr_logic_wires[i].to,sign->id)) { connected=true;break; }
+      }
+      if (!connected && !rr_logic_connect(source,sign->id,0,FALSE)) {
+         rr_logic_remove(sign->id);g_free(source);g_free(saved);return;
+      }
+   }
+   rr_logic_save();
+   char *legacy=g_strdup_printf("%.2f,%.2f,%.2f,%.2f,%.2f,0,0,%d",x,y,px,py,scale,ptt);
+   rrclient_database_setting_set("audio.graph.onair",legacy);
+   rrclient_database_setting_set("audio.graph.onair.source","");
+   g_free(legacy);g_free(source);g_free(saved);
+}
+
 void rr_logic_model_init(void) {
    if (rr_logic_model) { return; }
    rr_logic_model=rr_control_graph_new();
@@ -169,6 +211,7 @@ void rr_logic_model_init(void) {
    gchar *saved=rrclient_database_setting_get(LOGIC_STORE);
    if (saved && rr_control_graph_text_validate(saved,NULL)) { restore_model(saved); }
    g_free(saved);
+   migrate_legacy_onair();
 }
 gboolean rr_logic_output(const char *name,bool *valid,bool *high) {
    return rr_logic_model && rr_control_graph_output(rr_logic_model,name,valid,high);

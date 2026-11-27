@@ -647,6 +647,12 @@ void rr_logic_canvas_add(GtkWidget *parent) {
 
 /* Static boolean blocks are ordinary source nodes, no extra input wires or
  * special PTT privileges. Instances persist independently. */
+void rr_logic_canvas_add_sign(void) {
+   last_created[0]=0;
+   gate_view_t *b=rr_logic_add_sign("ON AIR",0xcc0000);
+   if (!b) { place_pending=FALSE;return; }
+   placement(b);g_strlcpy(last_created,b->id,sizeof(last_created));save_model();
+}
 void rr_logic_canvas_add_constant(gboolean high) {
    last_created[0]=0;
    gate_view_t *b=rr_logic_add(RR_GATE_AND,0,true,high);

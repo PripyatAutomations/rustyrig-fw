@@ -1526,11 +1526,10 @@ static void onair_draw(cairo_t *cr) {
 }
 
 static void onair_add(GtkButton *button, gpointer unused) {
-   (void)button;
-   (void)unused;
-   onair_visible = TRUE;
-   onair_save();
-   onair_panel_ensure(TRUE);
+   (void)button;(void)unused;
+   rr_logic_canvas_place_next(onair_x+ONAIR_W/2.,onair_y+ONAIR_H/2.);
+   rr_logic_canvas_add_sign();
+   routing_create_select_logic();
    graph_canvas_update_size();
 }
 
@@ -5718,7 +5717,7 @@ static void routing_compact_create(GtkButton *button, gpointer unused) {
          onair_x=MAX(0.,x-ONAIR_W/2.);
          onair_y=MAX(0.,y-ONAIR_H/2.);
          onair_add(NULL,NULL);
-         routing_graph_select("ui.onair",TRUE);
+
       } else if (kind && !strcmp(kind,"gate")) {
          create_gate_after_close=TRUE;
       } else if (kind && !strcmp(kind,"ptt")) {
@@ -6909,7 +6908,7 @@ static void routing_canvas_add_action(GtkMenuItem *item,gpointer unused) {
       onair_x=MAX(0.,x-ONAIR_W/2.);
       onair_y=MAX(0.,y-ONAIR_H/2.);
       onair_add(NULL,NULL);
-      routing_graph_select("ui.onair",TRUE);
+
    } else if(!strcmp(kind,"ptt")) {
       double x,y;routing_creation_point(&x,&y);
       ptt_x=MAX(0.,x-75.);ptt_y=MAX(0.,y-35.);
