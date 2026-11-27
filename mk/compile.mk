@@ -157,6 +157,14 @@ ifeq (${USE_CCACHE},true)
 CC := ccache ${CC}
 endif
 
+# Probe the actual selected compiler (including cross compiler and ccache).
+RR_C_STD := $(shell for std in gnu23 gnu2x; do printf 'int x;\n' | $(CC) -std=$std -Werror -x c -fsyntax-only - >/dev/null 2>&1 && { echo -std=$std; break; }; done)
+ifeq ($(strip $(RR_C_STD)),)
+$(error $(CC) does not support -std=gnu23 or -std=gnu2x; a C23-capable compiler is required)
+endif
+override CFLAGS := $(filter-out -std=gnu23 -std=gnu2x,$(CFLAGS)) $(RR_C_STD)
+export RR_C_STD
+
 ifeq (${USE_SQLITE},true)
 CFLAGS += $(shell pkg-config --cflags sqlite3)
 LDFLAGS += $(shell pkg-config --libs sqlite3)
