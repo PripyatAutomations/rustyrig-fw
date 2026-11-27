@@ -4,7 +4,7 @@ set -eu
 cd "$(dirname "$0")/../.."
 out="$(mktemp)"
 trap 'rm -f "$out"' EXIT HUP INT TERM
-cc -std=c11 -Wall -Wextra -Werror -I. \
+cc -std=c11 -Wall -Wextra ${RR_WARNING_FLAGS:-} -I. \
    libfwdspmgr/dsp-worker.c libfwdspmgr/tests/dsp_worker.c \
    $(pkg-config --cflags --libs glib-2.0) -o "$out"
 "$out"

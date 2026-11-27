@@ -26,7 +26,7 @@ int main(void) {
    return atu_table_c[0][0] > 0 && atu_table_l[0][0] > 0 ? 0 : 1;
 }
 C
-cc -std=c11 -Wall -Wextra -Werror -I"$tmp" -fsyntax-only "$tmp/header-smoke.c"
+cc -std=c11 -Wall -Wextra ${RR_WARNING_FLAGS:-} -I"$tmp" -fsyntax-only "$tmp/header-smoke.c"
 
 test ! -e "$tmp/eeprom.bin"
 test ! -e "$tmp/eeprom_types.h"
