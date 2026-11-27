@@ -22,6 +22,7 @@ bool rrclient_config_ignore_db(void);
 bool rrclient_config_save(void);
 /* Core-domain handler for local-only log verbosity changes from GTK. */
 void rrclient_log_level_register(void);
+#define RRCLIENT_LOG_LEVEL_APPLIED "client.log.level.applied"
 #define RRCLIENT_LOG_LEVEL_REQUEST "client.log.level.apply"
 typedef struct {
    char spec[2048];
