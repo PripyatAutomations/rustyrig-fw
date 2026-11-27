@@ -56,9 +56,10 @@ gboolean rr_floating_panel_is_minimized(const RRFloatPanel *panel);
 /* Transient, GTK-thread-only visibility masks. These never persist panel state, change minimization, or restore panels which were already hidden. */
 #define RR_FLOATING_HIDE_MANUAL (1u << 0)
 #define RR_FLOATING_HIDE_TAB (1u << 1)
-/* Wrap the chat content in four collapsible GtkPaned dock regions. The chat text takes all unreserved space; other notebook pages are unchanged. */
+/* Wrap the central content in four independently splittable edge docks. */
 GtkWidget *rr_floating_panel_chat_workspace(GtkWidget *chat, GtkWidget *page);
-/* Switch the dock destination to the newly active chat room, or NULL for tool/status pages. Docked panels retain their edge when changing rooms. */
+GtkWidget *rr_floating_panel_main_workspace(GtkWidget *content, GtkWidget *notebook);
+/* Update room-bound visibility while retaining the shared workspace. */
 void rr_floating_panel_chat_activate(GtkWidget *page);
 /* Room-bound panels follow only the matching chat tab; NULL means global. */
 void rr_floating_panel_set_chat_room(RRFloatPanel *panel, const char *server, const char *room);
