@@ -64,6 +64,23 @@ Description: Password for the optional RustyRig guest account:
  Required when the guest account is enabled. Never use a shared default
  password; choose a distinct secret and distribute it only to intended users.
 
+Template: rustyrig-server/site-domain
+Type: string
+Default:
+Description: RustyRig mesh domain:
+ Enter the shared mesh domain (for example, ham.example.net).
+ All servers in a mesh must use the same domain.
+ Leave empty to retain the existing setting.
+
+Template: rustyrig-server/site-name
+Type: string
+Default:
+Description: RustyRig node name:
+ Enter the unique station name within the mesh (for example, dsmiia00).
+ The full node identity is station.name.domain.
+ Leave empty to retain the existing setting.
+ Changing an enrolled node identity may require certificate and peer updates.
+
 Template: rustyrig-server/site-call
 Type: string
 Default:
