@@ -22,6 +22,8 @@
 extern time_t now;
 static GPtrArray *receivers;
 static char *payload, *source, *etag, *modified;
+static char *published_at;
+static bool published_known;
 static char last_fetch_error[512];
 static time_t next_request;
 static char status_text[512] = "No directory loaded. Import a list or configure a permitted mirror.";
@@ -935,6 +937,21 @@ static bool read_bounded(const char *path, size_t limit, char **data, size_t *le
    return ok;
 }
 
+static const char *directory_published_at(void) {
+   if (!published_known) {
+      dict *json = payload ? json2dict(payload) : NULL;
+      published_at = json ? field(json, "fetched_at") : g_strdup("");
+      dict_free(json);
+      published_known = true;
+   }
+   return published_at;
+}
+
+static void directory_invalidate_published(void) {
+   g_clear_pointer(&published_at, g_free);
+   published_known = false;
+}
+
 static void ensure(void) {
    if (initialized) {
       return;
@@ -1008,6 +1025,7 @@ static void ensure(void) {
          g_ptr_array_free(receivers, TRUE);
          receivers = fallback;
       } else {
+         directory_invalidate_published();
          g_clear_pointer(&payload, g_free);
          g_clear_pointer(&etag, g_free);
          g_clear_pointer(&modified, g_free);
@@ -1018,6 +1036,7 @@ static void ensure(void) {
       g_snprintf(status_text, sizeof(status_text), "Loaded %u locally cached receivers (no network request).", receivers->len);
    }
    restore_states();
+   (void)directory_published_at();
    Log(LOG_INFO, "receiver.directory", "Loaded %u locally cached receivers from %s in %.1f ms; no directory HTTP request made", receivers->len, path, (
       g_get_monotonic_time() - loading_since) / 1000.0);
    g_free(path);
@@ -1285,9 +1304,7 @@ const char *receiver_directory_source_url(void) {
 
 char *receiver_directory_info(void) {
    ensure();
-   dict *published_json = payload ? json2dict(payload) : NULL;
-   char *published = published_json ? field(published_json, "fetched_at") : g_strdup("");
-   dict_free(published_json);
+   const char *published = directory_published_at();
    GDateTime *date = *published ? g_date_time_new_from_iso8601(published, NULL) : NULL;
    char *age = date ? g_strdup_printf("%lld minutes old", (long long)MAX(0, (now - g_date_time_to_unix(date)) / 60)) : g_strdup("age unknown");
    char *info = g_strdup_printf("Refresh source: %s\nDirectory published: %s (%s)\n" "Next local mirror check: %s%s%s", source && *source ? source :
@@ -1297,7 +1314,6 @@ char *receiver_directory_info(void) {
    if (date) {
       g_date_time_unref(date);
    }
-   g_free(published);
    g_free(age);
 
    return info;
@@ -1478,6 +1494,7 @@ static gboolean finish(gpointer unused) {
       if (list) {
          g_ptr_array_free(receivers, TRUE);
          receivers = list;
+         directory_invalidate_published();
          g_free(payload);
          payload = g_strndup(job->body->str, job->body->len);
          g_free(etag);
@@ -1485,12 +1502,9 @@ static gboolean finish(gpointer unused) {
          g_free(modified);
          modified = g_strdup(job->response_modified);
       }
-      dict *published_json = payload ? json2dict(payload) : NULL;
-      char *published = published_json ? field(published_json, "fetched_at") : g_strdup("");
-      dict_free(published_json);
+      const char *published = directory_published_at();
       g_snprintf(status_text, sizeof(status_text), "%u receivers; directory published %s. Availability is a cached hint.", receivers->len, *published ?
          published : "at an unknown time");
-      g_free(published);
    } else {
       const char *reason = job->result != CURLE_OK ? curl_easy_strerror(job->result) :
          job->status == 200 ? "Invalid or unsupported directory JSON" :
@@ -1623,6 +1637,7 @@ bool receiver_directory_refresh_force(bool force) {
    }
 
    if (g_strcmp0(source, url)) {
+      directory_invalidate_published();
       g_clear_pointer(&payload, g_free);
       g_clear_pointer(&etag, g_free);
       g_clear_pointer(&modified, g_free);
@@ -1701,6 +1716,7 @@ bool receiver_directory_import_snapshot(const char *data, size_t length, const c
    }
    g_ptr_array_free(receivers, TRUE);
    receivers = list;
+   directory_invalidate_published();
    g_free(payload);
    payload = g_strndup(data, length);
    g_free(source);
@@ -1766,6 +1782,7 @@ void receiver_directory_shutdown(void) {
       g_ptr_array_free(receivers, TRUE);
    }
    receivers = NULL;
+   directory_invalidate_published();
    g_clear_pointer(&payload, g_free);
    g_clear_pointer(&source, g_free);
    g_clear_pointer(&etag, g_free);

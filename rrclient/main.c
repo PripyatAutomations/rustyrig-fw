@@ -376,7 +376,12 @@ typedef struct {
 } CoreEventDelivery;
 static gboolean rrclient_core_deliver_event(gpointer opaque) {
    CoreEventDelivery *delivery = opaque;
+   gint64 started = g_get_monotonic_time();
    delivery->fn(delivery->arg);
+   gint64 elapsed = g_get_monotonic_time() - started;
+   if (elapsed > 20000) {
+      Log(LOG_WARN, "core.scheduler", "Core event delivery took %" G_GINT64_FORMAT "us", elapsed);
+   }
 
    return G_SOURCE_REMOVE;
 }
@@ -423,9 +428,16 @@ static gboolean ws_poll_cb(gpointer user_data) {
    if (dying) {
       return G_SOURCE_REMOVE;
    }
+   gint64 started = g_get_monotonic_time();
    rrclient_poll_events();
+   gint64 polled = g_get_monotonic_time();
    // GTK and TUI share the nonblocking transport sweep and reconnect engine.
    rrclient_poll_events_reconnect();
+   gint64 finished = g_get_monotonic_time();
+   if (polled - started > 20000 || finished - polled > 20000) {
+      Log(LOG_WARN, "core.scheduler", "Slow network sweep: events=%" G_GINT64_FORMAT "us reconnect=%" G_GINT64_FORMAT "us",
+          polled - started, finished - polled);
+   }
 
    return G_SOURCE_CONTINUE;
 }
