@@ -17,6 +17,8 @@ typedef struct {
    gpointer user;
    void (*selection_callback)(GtkWidget *, const char *, gpointer);
    gpointer selection_user;
+   void (*provider)(GPtrArray *,gpointer);
+   gpointer provider_user;
 } local_browser_t;
 
 static local_browser_t *browser_data(GtkWidget *widget) {
@@ -131,7 +133,11 @@ void rr_local_browser_refresh(GtkWidget *widget) {
    if (!b) return;
    char *selected = rr_local_browser_selected(widget);
    GPtrArray *files = g_ptr_array_new_with_free_func(g_free);
-   browser_scan(b, "", 0, files);
+   if (b->provider) {
+      b->provider(files,b->provider_user);
+   } else {
+      browser_scan(b, "", 0, files);
+   }
    g_ptr_array_sort(files, sort_names);
    gtk_list_store_clear(b->store);
    GtkTreeSelection *selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(b->view));
@@ -150,6 +156,17 @@ void rr_local_browser_refresh(GtkWidget *widget) {
    g_ptr_array_unref(files);
    g_free(selected);
    refresh_buttons(widget);
+}
+
+void rr_local_browser_set_provider(GtkWidget *widget,
+   void (*provider)(GPtrArray *,gpointer),gpointer user) {
+   local_browser_t *b=browser_data(widget);
+   if (!b) {
+      return;
+   }
+   b->provider=provider;
+   b->provider_user=user;
+   rr_local_browser_refresh(widget);
 }
 
 void rr_local_browser_on_selection(GtkWidget *widget,
