@@ -6,15 +6,8 @@ int hf_timestamp(char key) {
     char value = setting.get(key)
     if (value == null) { return 0 }
     if (!string.regex(value, "^[0-9]{1,13}$")) { return 0 }
-    int result = 0
-    int i = 0
-    while (i < string.length(value)) {
-        char digit = string.slice(value, i, 1)
-        int n = 0
-        while (string.str(n) != digit && n < 9) { n++ }
-        result = result * 10 + n
-        i++
-    }
+    int result = string.int(value)
+    if (result == null) { return 0 }
     return result
 }
 void hf_status() {
@@ -22,7 +15,8 @@ void hf_status() {
     if (updated == 0) {
         ui.set("hf_status", "HAMQSL / N0NBH · no cached data")
     } else {
-        int minutes = (time.now() - updated) / 60000
+        int minutes = string.int(string.capture(string.str((time.now() - updated) / 60000), "^[0-9]+"))
+        if (minutes == null) { minutes = 0 }
         if (minutes < 0) { minutes = 0 }
         ui.set("hf_status", "HAMQSL / N0NBH · " + string.str(minutes) + "m old")
     }
@@ -116,6 +110,7 @@ event ui.timer {
             if (response != null) {
                 timer.cancel("hf-poll")
                 state.set("hf.request", null)
+                ui.set("hf_status", "HAMQSL / N0NBH · response received")
                 if (response.error == null && response.status == 200 && string.regex(response.body, "<calculatedconditions>")) {
                     if (setting.set("hf.cache.xml", response.body)) {
                         setting.set("hf.cache.updated", time.now())
@@ -124,7 +119,11 @@ event ui.timer {
                     hf_status()
                 } else {
                     hf_status()
-                    log.warn("HF conditions refresh failed; retaining cached data")
+                    if (response.error != null) {
+                        log.warn("HF conditions: " + response.error)
+                    } else {
+                        log.warn("HF conditions: HTTP " + string.str(response.status) + "; invalid or unavailable feed")
+                    }
                 }
             }
         }
