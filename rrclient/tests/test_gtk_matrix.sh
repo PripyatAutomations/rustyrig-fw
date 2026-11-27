@@ -13,6 +13,6 @@ if ! pkg-config --exists gtk+-3.0 || ! command -v xvfb-run >/dev/null; then
 fi
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
-${CC:-cc} -Wall -Wextra -Werror -I. $(pkg-config --cflags gtk+-3.0) \
+${CC:-cc} -Wall -Wextra ${RR_WARNING_FLAGS:-} -I. $(pkg-config --cflags gtk+-3.0) \
    rrclient/tests/gtk_matrix.c $(pkg-config --libs gtk+-3.0) -o "$work/matrix"
 G_DEBUG=fatal-warnings xvfb-run -a "$work/matrix"

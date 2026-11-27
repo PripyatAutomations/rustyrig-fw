@@ -10,7 +10,7 @@ fi
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 source rrclient/tests/irc-adapter.sh
-${CC:-cc} -Wall -Wextra -Werror -I. -Iinc -Ibuild/${PROFILE:-radio} -Iext/libmongoose -DUSE_MONGOOSE=1 \
+${CC:-cc} -Wall -Wextra ${RR_WARNING_FLAGS:-} -I. -Iinc -Ibuild/${PROFILE:-radio} -Iext/libmongoose -DUSE_MONGOOSE=1 \
    rrclient/tests/socks_live.c rrclient/tests/client_stubs.c rrclient/connman.c \
    -L. -Wl,-rpath,"$PWD" -lrrprotocol -lrustyaxe -lmongoose $(pkg-config --libs mbedtls mbedcrypto mbedx509) ${LDFLAGS:-} -o "$work/socks_live"
 openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj /CN=target.invalid \

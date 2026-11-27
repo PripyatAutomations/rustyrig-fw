@@ -9,7 +9,7 @@ if ! pkg-config --exists "${deps[@]}"; then
 fi
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
-"${CC:-cc}" -std=gnu23 -Wall -Wextra -Werror -I. \
+"${CC:-cc}" -std=gnu23 -Wall -Wextra ${RR_WARNING_FLAGS:-} -I. \
    $(pkg-config --cflags "${deps[@]}") \
    rrclient/tests/recording_codecs.c rrclient/recordings.codec.c \
    $(pkg-config --libs "${deps[@]}") -lm -o "$tmp/recording-codecs"

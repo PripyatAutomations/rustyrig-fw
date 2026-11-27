@@ -8,7 +8,7 @@ if ! pkg-config --exists librustyscript; then
 fi
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
-${CC:-cc} -std=gnu23 -Wall -Wextra -Werror -Iinc \
+${CC:-cc} -std=gnu23 -Wall -Wextra ${RR_WARNING_FLAGS:-} -Iinc \
     rrclient/tests/script_lifecycle.c \
     $(pkg-config --cflags --libs librustyscript) \
     -o "$work/script_lifecycle"

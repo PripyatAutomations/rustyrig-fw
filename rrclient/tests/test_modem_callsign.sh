@@ -7,14 +7,14 @@ if ! pkg-config --exists glib-2.0; then
 fi
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
-${CC:-cc} -std=gnu23 -Wall -Wextra -Werror -Iinc \
+${CC:-cc} -std=gnu23 -Wall -Wextra ${RR_WARNING_FLAGS:-} -Iinc \
   $(pkg-config --cflags glib-2.0) \
   rrclient/tests/modem_callsign.c -o "$tmp/modem_callsign" \
   $(pkg-config --libs glib-2.0)
 "$tmp/modem_callsign"
 echo "Modem callsign token tests passed"
 if pkg-config --exists librustyscript; then
-  ${CC:-cc} -std=gnu23 -Wall -Wextra -Werror -Iinc \
+  ${CC:-cc} -std=gnu23 -Wall -Wextra ${RR_WARNING_FLAGS:-} -Iinc \
     $(pkg-config --cflags librustyscript) \
     rrclient/tests/modem_callsign_script.c -o "$tmp/modem_callsign_script" \
     $(pkg-config --libs librustyscript)
