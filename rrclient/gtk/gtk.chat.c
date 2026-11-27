@@ -3006,9 +3006,8 @@ static void room_rf_source_changed(const char *event, const char *data, rrconn_t
 }
 
 static void status_volume_clicked(GtkButton *button, gpointer unused) {
-   (void)button;
    (void)unused;
-   gtk_volume_toggle();
+   gtk_volume_toggle_at(GTK_WIDGET(button));
 }
 
 bool chat_init(void) {
