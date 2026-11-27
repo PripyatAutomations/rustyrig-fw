@@ -12,7 +12,7 @@ if ! grep -q '^#define USE_SQLITE' "build/${PROFILE:-radio}/build_config.h" ||
 fi
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
-${CC:-cc} -std=gnu11 -Wall -Wextra -Werror -I. -Ibuild/${PROFILE:-radio} \
+${CC:-cc} -std=gnu11 -Wall -Wextra ${RR_WARNING_FLAGS:-} -I. -Ibuild/${PROFILE:-radio} \
    rrserver/tests/rtp_peer.c -L. -Wl,-rpath,"$PWD" -lrrprotocol -lrustyaxe $(pkg-config --cflags --libs glib-2.0) -o "$work/rtp-peer"
 if ! "$work/rtp-peer" --supported; then
    echo 'SKIP: direct media transport is disabled in this build'

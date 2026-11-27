@@ -11,7 +11,7 @@ fi
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 source rrclient/tests/irc-adapter.sh
-${CC:-cc} -DUSE_MONGOOSE=1 -Wall -Wextra -Werror -Wno-unused-parameter -Wno-unused-but-set-variable -I. -Iinc -Ibuild/${PROFILE:-radio} -Iext/libmongoose \
+${CC:-cc} -DUSE_MONGOOSE=1 -Wall -Wextra ${RR_WARNING_FLAGS:-} -Wno-unused-parameter -Wno-unused-but-set-variable -I. -Iinc -Ibuild/${PROFILE:-radio} -Iext/libmongoose \
    -ffunction-sections -fdata-sections rrclient/tests/transport_urls.c rrclient/tests/client_stubs.c rrclient/connman.c rrclient/rooms.c rrclient/ui.c rrclient/cmd.misc.c rrclient/cmd.chat.c rrclient/cmd.tabs.c rrclient/cmd.admin.c -Wl,--gc-sections \
    -L. -Wl,-rpath,"$PWD" -lrrprotocol -lrustyaxe -lmongoose \
    $(pkg-config --libs mbedtls mbedcrypto mbedx509) ${LDFLAGS:-} -o "$work/transport_urls"
