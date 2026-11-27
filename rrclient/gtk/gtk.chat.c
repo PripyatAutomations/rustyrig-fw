@@ -2708,7 +2708,9 @@ static void vfo_locator_popup(GdkEventButton *event) {
 
    /* Position beside the cursor, independently of the locator's allocation, and keep the complete settings window inside the active monitor. */
    GtkRequisition minimum, natural;
-   gtk_widget_get_preferred_size(popup, &minimum, &natural);
+   gtk_widget_show_all(box);
+   gtk_widget_get_preferred_size(box, &minimum, &natural);
+   gtk_window_resize(GTK_WINDOW(popup), MAX(1, natural.width), MAX(1, natural.height));
    gint x = (gint) event->x_root, y = (gint) event->y_root + 8;
    GdkDisplay *display = gtk_widget_get_display(vfo_locator_window);
    GdkMonitor *monitor = gdk_display_get_monitor_at_point(display, x, y);
@@ -2908,7 +2910,17 @@ static void vfo_locator_snapshot_event(const char *event, const void *data, size
    } else {
       gtk_style_context_remove_class(style, "rr-vfo-ptt");
    }
-   gtk_widget_show_all(vfo_locator_window);
+   gtk_widget_show_all(vfo_locator_frame);
+   /* A non-resizable toplevel still retains its previous allocation when
+    * the TX holder or mode text becomes shorter. Fit the current contents. */
+   GtkRequisition natural;
+   gtk_widget_get_preferred_size(vfo_locator_frame, NULL, &natural);
+   int width, height;
+   gtk_window_get_size(GTK_WINDOW(vfo_locator_window), &width, &height);
+   if (width != natural.width || height != natural.height) {
+      gtk_window_resize(GTK_WINDOW(vfo_locator_window), MAX(1, natural.width), MAX(1, natural.height));
+   }
+   gtk_widget_show(vfo_locator_window);
 }
 
 static gboolean vfo_locator_tick(gpointer unused) {
