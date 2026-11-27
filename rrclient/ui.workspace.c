@@ -25,6 +25,9 @@
 #include <rrclient/spectrum.af.h>
 #include <rrclient/config.layers.h>
 #include <rrclient/objects.h>
+#include <rrclient/receiver.directory.h>
+#include <rrclient/receiver.connect.h>
+#include <rrclient/receiver.catalog.h>
 #include <rrclient/media.h>
 #include <rrclient/database.h>
 #include <rrclient/cmd.h>
@@ -1971,7 +1974,185 @@ static void explorer_shutdown(void) {
    g_clear_pointer(&explorer_resources,g_hash_table_unref);g_clear_pointer(&explorer_branches,g_ptr_array_unref);
 }
 
+/* Directory browsing uses cached metadata only. Country nodes and receiver
+ * URLs have independent stable IDs, including across filter changes. */
+static rrui_tree_t *sdr_tree;
+static rr_event_token_t sdr_show_token,sdr_change_token;
+static unsigned sdr_top;
+static int sdr_span;
+static bool sdr_favorites,sdr_available,sdr_connected,sdr_searching;
+static char sdr_search[128],sdr_notice[256];
+static void sdr_project(void) {
+   if (!sdr_tree) { return; }
+   rrui_tree_clear(sdr_tree);
+   GHashTable *counts=g_hash_table_new_full(g_str_hash,g_str_equal,g_free,NULL);
+   GPtrArray *entries=g_ptr_array_new();
+   char *needle=g_utf8_casefold(sdr_search,-1);
+   for (size_t i=0;i<receiver_directory_count();i++) {
+      const receiver_directory_entry_t *e=receiver_directory_receiver(i);
+      if (!e || !e->url || !*e->url || e->deleted) { continue; }
+      bool connected=rrclient_receiver_is_connected_any(e->url);
+      if ((sdr_favorites&&!e->favorite) || (sdr_available&&!receiver_directory_entry_accessible(e)) ||
+          (sdr_connected&&!connected)) { continue; }
+      const char *country=e->country&&*e->country?e->country:"Unknown country";
+      char *hay=g_strdup_printf("%s %s %s %s",e->name?e->name:"",e->location?e->location:"",country,e->url);
+      char *valid=g_utf8_make_valid(hay,-1),*fold=g_utf8_casefold(valid,-1);
+      bool match=strstr(fold,needle)!=NULL;
+      g_free(hay);g_free(valid);g_free(fold);
+      if (!match) { continue; }
+      unsigned count=GPOINTER_TO_UINT(g_hash_table_lookup(counts,country));
+      g_hash_table_replace(counts,g_strdup(country),GUINT_TO_POINTER(count+1));
+      g_ptr_array_add(entries,(void *)e);
+   }
+   g_free(needle);
+   GList *countries=g_hash_table_get_keys(counts);
+   countries=g_list_sort(countries,(GCompareFunc)g_ascii_strcasecmp);
+   for (GList *it=countries;it;it=it->next) {
+      const char *country=it->data;
+      char *id=g_strdup_printf("country:%s",country);
+      char *label=g_strdup_printf("%s (%u)",country,GPOINTER_TO_UINT(g_hash_table_lookup(counts,country)));
+      rrui_tree_add(sdr_tree,id,NULL,label,0xbad8e8,*sdr_search!=0);
+      g_free(id);g_free(label);
+   }
+   for (unsigned i=0;i<entries->len;i++) {
+      const receiver_directory_entry_t *e=g_ptr_array_index(entries,i);
+      char *id=g_strdup_printf("receiver:%s",e->url);
+      char *parent=g_strdup_printf("country:%s",e->country&&*e->country?e->country:"Unknown country");
+      bool connected=rrclient_receiver_is_connected_any(e->url);
+      char *label=g_strdup_printf("%s%s%s | %s | %d/%d",e->favorite?"* ":"",connected?"[connected] ":"",
+         e->name&&*e->name?e->name:e->url,e->location?e->location:"",e->users,e->users_max);
+      rrui_tree_add(sdr_tree,id,parent,label,connected?0x55dd88:e->offline?0x777777:0xc2d1da,false);
+      g_free(id);g_free(parent);g_free(label);
+   }
+   g_list_free(countries);g_hash_table_unref(counts);g_ptr_array_unref(entries);
+   tui_redraw_request();
+}
+static const char *sdr_selected_url(void) {
+   const char *id=rrui_tree_selected(sdr_tree);
+   return id&&g_str_has_prefix(id,"receiver:")?id+9:NULL;
+}
+static void sdr_draw(tui_window_t *w,int rows,int cols,void *unused) {
+   (void)w;(void)unused;
+   if (rows<8 || cols<24) { return; }
+   int width=cols-1,height=rows-1;sdr_span=height-5;
+   rrui_canvas_t *c=rrui_canvas_new(width,height);
+   if (!c) { return; }
+   char heading[256];
+   g_snprintf(heading,sizeof(heading),"SDR Directory | Search%s: %s | %s%s%s",sdr_searching?"*":"",sdr_search,
+      sdr_favorites?"Favorites ":"",sdr_available?"Available ":"",sdr_connected?"Connected":"");
+   rrui_canvas_text(c,0,0,width,heading,0xbad8e8);
+   size_t count=rrui_tree_count(sdr_tree);
+   const char *selected=rrui_tree_selected(sdr_tree);
+   for (size_t i=0;i<count;i++) {
+      rrui_tree_row_t row;
+      if (rrui_tree_row(sdr_tree,i,&row) && selected && !strcmp(row.id,selected)) {
+         if (i<sdr_top) { sdr_top=(unsigned)i; }
+         if (i>=sdr_top+(unsigned)sdr_span) { sdr_top=(unsigned)i-sdr_span+1; }
+         break;
+      }
+   }
+   if (sdr_top>=count) { sdr_top=count?(unsigned)count-1:0; }
+   for (int y=0;y<sdr_span;y++) {
+      rrui_tree_row_t row;
+      if (!rrui_tree_row(sdr_tree,sdr_top+(unsigned)y,&row)) { break; }
+      bool active=selected&&!strcmp(row.id,selected);
+      uint32_t fg=active?0xffff70:row.color,bg=active?0x263c50:UINT32_MAX;
+      if (active) { for (int x=0;x<width;x++) { rrui_canvas_put_pair(c,x,y+1,' ',fg,bg); } }
+      int x=(int)row.depth*2;
+      rrui_canvas_put_pair(c,x,y+1,row.branch?(row.expanded?0x25be:0x25b8):0x2022,fg,bg);
+      char *valid=g_utf8_make_valid(row.label,-1);
+      const char *p=valid;
+      for (int col=x+2;*p && col<width;col++,p=g_utf8_next_char(p)) {
+         rrui_canvas_put_pair(c,col,y+1,g_utf8_get_char(p),fg,bg);
+      }
+      g_free(valid);
+   }
+   rrui_canvas_text(c,0,height-4,width,receiver_directory_status(),0x92a6b3);
+   rrui_canvas_text(c,0,height-3,width,sdr_notice,0xc2d1da);
+   rrui_canvas_text(c,0,height-2,width,"Arrows / Enter expand or connect | / search | F favorites | A available",0xbad8e8);
+   rrui_canvas_text(c,0,height-1,width,"C connected | * favorite | I info | R refresh | Esc clear search",0xbad8e8);
+   rrui_canvas_draw(c,2,1);rrui_canvas_free(c);
+}
+static bool sdr_key(tui_window_t *w,unsigned key,unsigned mods,void *unused) {
+   (void)w;(void)unused;
+   if (mods&(TERMKEY_KEYMOD_CTRL|TERMKEY_KEYMOD_ALT)) { return false; }
+   if (sdr_searching) {
+      size_t len=strlen(sdr_search);
+      if (key==TERMKEY_SYM_ENTER) { sdr_searching=false; }
+      else if (key==TERMKEY_SYM_ESCAPE) { sdr_searching=false;sdr_search[0]=0; }
+      else if (key==TERMKEY_SYM_BACKSPACE || key==127) { if (len) { sdr_search[len-1]=0; } }
+      else if (key>=32 && key<=126 && len<sizeof(sdr_search)-1) { sdr_search[len]=(char)key;sdr_search[len+1]=0; }
+      sdr_project();return true;
+   }
+   if (key==TERMKEY_SYM_UP || key==TERMKEY_SYM_DOWN) { rrui_tree_move(sdr_tree,key==TERMKEY_SYM_UP?-1:1); }
+   else if (key==TERMKEY_SYM_LEFT || key==TERMKEY_SYM_RIGHT) { rrui_tree_horizontal(sdr_tree,key==TERMKEY_SYM_LEFT?-1:1); }
+   else if (key=='/') { sdr_searching=true; }
+   else if (key==TERMKEY_SYM_ESCAPE) { sdr_search[0]=0;sdr_project(); }
+   else if (key=='f' || key=='F') { sdr_favorites=!sdr_favorites;sdr_project(); }
+   else if (key=='a' || key=='A') { sdr_available=!sdr_available;sdr_project(); }
+   else if (key=='c' || key=='C') { sdr_connected=!sdr_connected;sdr_project(); }
+   else if (key=='r' || key=='R') { rrclient_receiver_catalog_request(true); }
+   else if (key==TERMKEY_SYM_ENTER || key=='*' || key=='i' || key=='I') {
+      const char *selected=sdr_selected_url();
+      if (!selected) {
+         if (key==TERMKEY_SYM_ENTER) { rrui_tree_toggle(sdr_tree,rrui_tree_selected(sdr_tree)); }
+      } else {
+         char *url=g_strdup(selected);
+         const receiver_directory_entry_t *e=receiver_directory_find_url(url);
+         if (key=='*' && e) { receiver_directory_set_favorite(url,!e->favorite); }
+         else if ((key=='i' || key=='I') && e) {
+            g_snprintf(sdr_notice,sizeof(sdr_notice),"%s | %s | %s",e->url,e->antenna?e->antenna:"",e->hardware?e->hardware:"");
+         } else if (key==TERMKEY_SYM_ENTER) {
+            bool ok=rrclient_receiver_is_connected(url)?rrclient_receiver_disconnect(url):rrclient_receiver_connect_room_ex(url,false,NULL,true);
+            g_strlcpy(sdr_notice,ok?"Receiver request submitted":"Receiver request failed",sizeof(sdr_notice));
+         }
+         g_free(url);sdr_project();
+      }
+   } else { return false; }
+   tui_redraw_request();return true;
+}
+static bool sdr_mouse(tui_window_t *w,int row,int col,int button,int action,unsigned mods,void *unused) {
+   (void)w;(void)mods;(void)unused;
+   if (action!=TERMKEY_MOUSE_PRESS) { return false; }
+   if (button==4 || button==5) {
+      for (int i=0;i<3;i++) { rrui_tree_move(sdr_tree,button==4?-1:1); }
+   } else if (button==1 && row>=3 && row<3+sdr_span) {
+      rrui_tree_row_t r;
+      if (rrui_tree_row(sdr_tree,sdr_top+(unsigned)(row-3),&r)) {
+         rrui_tree_select(sdr_tree,r.id);
+         if (r.branch && col<=(int)r.depth*2+2) { rrui_tree_toggle(sdr_tree,r.id); }
+      }
+   } else { return false; }
+   tui_redraw_request();return true;
+}
+static void sdr_show(const char *event,const char *payload,rrconn_t *conn,void *unused) {
+   (void)event;(void)payload;(void)conn;(void)unused;
+   if (!sdr_tree) { return; }
+   tui_window_t *w=tui_window_find("SDR Directory");
+   if (!w) { w=tui_window_create("SDR Directory"); }
+   if (!w) { return; }
+   w->view_draw=sdr_draw;w->view_key=sdr_key;w->view_mouse=sdr_mouse;w->view_full_height=true;
+   sdr_project();tui_window_focus("SDR Directory");
+}
+static void sdr_changed(const char *event,const char *payload,rrconn_t *conn,void *unused) {
+   (void)event;(void)payload;(void)conn;(void)unused;
+   sdr_project();
+}
+static void sdr_init(void) {
+   sdr_tree=rrui_tree_new();
+   sdr_show_token=event_on_domain_token("client.receiver-directory.show",sdr_show,NULL,"core");
+   sdr_change_token=event_on_domain_token("client.receiver-directory.changed",sdr_changed,NULL,"core");
+}
+static void sdr_shutdown(void) {
+   if (sdr_show_token) { event_off_token(sdr_show_token);sdr_show_token=0; }
+   if (sdr_change_token) { event_off_token(sdr_change_token);sdr_change_token=0; }
+   tui_window_t *w=tui_window_find("SDR Directory");
+   if (w && w->view_draw==sdr_draw) { w->view_draw=NULL;w->view_key=NULL;w->view_mouse=NULL; }
+   rrui_tree_free(sdr_tree);sdr_tree=NULL;
+}
+
 static void views_init(void){
+   sdr_init();
    explorer_init();
    rr_logic_model_init();
    logic_ptt_token=event_on_message_domain_token(RRCLIENT_ROUTING_PTT_SIGNAL,logic_ptt_event,NULL,"core");
@@ -1993,6 +2174,7 @@ static void views_init(void){
    }
 }
 static void views_shutdown(void){
+   sdr_shutdown();
    explorer_shutdown();
    if (logic_ptt_token) { event_off_token(logic_ptt_token);logic_ptt_token=0; }
    if (logic_disconnect_token) { event_off_token(logic_disconnect_token);logic_disconnect_token=0; }

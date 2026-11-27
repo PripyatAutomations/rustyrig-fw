@@ -666,7 +666,7 @@ bool cmd_receivers(int argc, char **args) {
    }
    const rr_frontend_ops_t *ops = frontend_ops();
 
-   if (ops && !strcmp(ops->name, "gtk")) {
+   if ((ops && !strcmp(ops->name, "gtk")) || tui_is_enabled) {
       event_emit("client.receiver-directory.show", NULL, NULL);
    } else {
       ui_print(ui_active_window_name(), "%s", receiver_directory_status());
