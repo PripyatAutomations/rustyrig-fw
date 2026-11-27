@@ -5,6 +5,7 @@
 #include <rrclient/database.h>
 #include <rrclient/cmd.h>
 #include <rrclient/audio.h>
+#include <rrclient/receiver.connect.h>
 #include <librustyaxe/event-bus.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/frontend.h>
@@ -20,6 +21,31 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <stdio.h>
+
+static rrs_value_t *native_sdr_favorite(rrs_vm_t *vm, int argc, const rrs_value_t *const argv[], void *unused) {
+   (void)unused;
+   if (argc != 2 || rrs_value_type(argv[0]) != RRS_INT || rrs_value_type(argv[1]) != RRS_STRING ||
+       rrs_value_int(argv[0]) <= 0 || rrs_value_int(argv[0]) > 30000000) {
+      rrs_vm_raise(vm, "sdr.connect_favorite(frequency_hz, mode): expected 1..30000000 Hz");
+      return NULL;
+   }
+   char *mode = g_ascii_strup(rrs_value_string(argv[1]), -1);
+   const char *modes[] = {"AM","SAM","USB","LSB","CW","CWR","FM","NFM","IQ"};
+   bool valid = false;
+   for (unsigned i = 0; i < G_N_ELEMENTS(modes); i++) {
+      if (!strcmp(mode,modes[i])) { valid = true; break; }
+   }
+   if (!valid) {
+      g_free(mode);
+      rrs_vm_raise(vm, "Unsupported SDR mode");
+      return NULL;
+   }
+   char *url = rrclient_receiver_connect_favorite(rrs_value_int(argv[0]),mode);
+   g_free(mode);
+   rrs_value_t *result = url ? rrs_string(url) : rrs_null();
+   g_free(url);
+   return result;
+}
 
 /* Generic script bindings, reusable by IRC and station automation. */
 static rrs_value_t *native_script_settings(rrs_vm_t *vm,int argc,
@@ -665,7 +691,8 @@ static rrs_value_t *native_routing_block(rrs_vm_t *vm,int argc,
    return rrs_boolean(true); /* submitted, not a synchronous processing ack */
 }
 static bool register_window_api(rrs_vm_t *vm) {
-   return rrs_vm_register_native(vm,"setting.get",native_script_settings,GINT_TO_POINTER(0)) &&
+   return rrs_vm_register_native(vm,"sdr.connect_favorite",native_sdr_favorite,NULL) &&
+      rrs_vm_register_native(vm,"setting.get",native_script_settings,GINT_TO_POINTER(0)) &&
       rrs_vm_register_native(vm,"setting.set",native_script_settings,GINT_TO_POINTER(1)) &&
       rrs_vm_register_native(vm,"chat.send",native_script_chat,GINT_TO_POINTER(0)) &&
       rrs_vm_register_native(vm,"chat.cancel",native_script_chat,GINT_TO_POINTER(1)) &&
