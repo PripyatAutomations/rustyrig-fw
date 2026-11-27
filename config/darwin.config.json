@@ -114,7 +114,7 @@
    },
    "build": {
       "strict-warnings": false,
-      "cflags": "-fPIC -g -O1 -std=gnu23",
+      "cflags": "-fPIC -g -O1 -std=gnu2x",
       "cflags_warn": "-Wall -Wno-unused",
       "ldflags": "",
       "platform": "posix",
