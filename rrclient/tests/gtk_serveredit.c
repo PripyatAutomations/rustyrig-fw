@@ -23,6 +23,7 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
 }
 GtkWidget *rr_floating_panel_widget(RRFloatPanel *p) { return p->frame; }
 GtkWidget *rr_floating_panel_body(RRFloatPanel *p) { return p->body; }
+void rr_floating_panel_set_floating_only(RRFloatPanel *p) { (void)p; }
 void rr_floating_panel_present(RRFloatPanel *p) { gtk_widget_show_all(p->frame); }
 void rr_floating_panel_set_close_callback(RRFloatPanel *p, void (*callback)(gpointer), gpointer data) {
    (void)p; (void)callback; (void)data;
