@@ -3,7 +3,7 @@
 # Usage: grant-remote-superadmin.sh [database] username@origin-site
 # Examples:
 #   sudo ./tools/grant-remote-superadmin.sh /var/lib/rustyrig/db/master.db 'admin@*'
-#   sudo ./tools/grant-remote-superadmin.sh 'admin@rplywv00'
+#   sudo ./tools/grant-remote-superadmin.sh 'admin@dsmiia00'
 # WARNING: Development/demo use only; hardware/PTT safety remains enforced.
 set -euo pipefail
 
