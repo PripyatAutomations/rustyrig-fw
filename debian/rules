@@ -81,7 +81,8 @@ endif
 	install -Dm755 bin/rrserver-gps-nmea.so debian/rustyrig-server$(MODULEDIR)/rrserver/rrserver-gps-nmea.so
 	install -Dm755 bin/rrserver-gpsd.so debian/rustyrig-server-gpsd$(MODULEDIR)/rrserver/rrserver-gpsd.so
 	install -Dm755 bin/rrclient debian/rustyrig-client$(BINDIR)/rrclient
-	install -Dm644 doc/examples/scripts/hf-conditions.rrs debian/rustyrig-client/usr/share/rustyrig/scripts/client/autoload/hf-conditions.rrs
+	install -d debian/rustyrig-client/usr/share/rustyrig/scripts/client/autoload
+	install -m644 doc/examples/scripts/hf-conditions.rrs doc/examples/scripts/ascii-art.rrs debian/rustyrig-client/usr/share/rustyrig/scripts/client/autoload/
 	install -d debian/rustyrig-client/usr/share/rustyrig/scripts/client/ui
 	install -m644 doc/examples/scripts/ui/*.rrs doc/examples/scripts/ui/default.theme debian/rustyrig-client/usr/share/rustyrig/scripts/client/ui/
 	install -d debian/rustyrig-client$(CONF_DIR)/scripts/client/ui
