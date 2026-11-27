@@ -1,6 +1,6 @@
 // IRC color-art collector and playback example.
 //
-// Install in ~/.config/rustyrig/scripts/autoload/ascii-art.rrs
+// Shipped as a client autoload script; a user copy overrides the packaged version.
 // Type /artwork to open the script-created manager.
 //
 // A colored line starts a capture. Only artwork lines from the same nick
