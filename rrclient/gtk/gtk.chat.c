@@ -1258,7 +1258,12 @@ static gboolean on_chat_entry_keypress(GtkWidget *entry, GdkEventKey *event, gpo
    }
 
    if (event->keyval == GDK_KEY_Tab && (modifiers & GDK_CONTROL_MASK) && !(modifiers & (GDK_MOD1_MASK | GDK_SHIFT_MASK))) {
-      return rrclient_connection_cycle_status(gtk_chat_status_active());
+      if (gtk_chat_status_active()) {
+         event_emit("client.server.cycle-request", NULL, "");
+         return TRUE;
+      }
+
+      return FALSE;
    }
 
    if (event->keyval == GDK_KEY_Tab) {

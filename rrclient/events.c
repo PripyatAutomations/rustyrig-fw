@@ -1368,6 +1368,14 @@ static void rrclient_admin_profile_request(const char *event, const char *payloa
    }
 }
 
+static void rrclient_server_cycle_request(const char *event, const char *payload, rrconn_t *connection, void *unused) {
+   (void)event;
+   (void)payload;
+   (void)connection;
+   (void)unused;
+   rrclient_connection_cycle();
+}
+
 static void rrclient_admin_select_profile(const char *event, const char *profile, rrconn_t *unused_connection, void *unused) {
    (void)event;
    (void)unused_connection;
@@ -2260,6 +2268,7 @@ void rrclient_register_events(void) {
    event_on_domain_token("client.admin.command-request", rrclient_handle_admin_command_request, NULL, "core");
    event_on_domain_token("client.admin.profile-request", rrclient_admin_profile_request, NULL, "core");
    event_on_domain_token("client.admin.select-profile", rrclient_admin_select_profile, NULL, "core");
+   event_on_domain_token("client.server.cycle-request", rrclient_server_cycle_request, NULL, "core");
    event_on_domain_token("client.admin.sites-request", rrclient_admin_sites_request, NULL, "core");
    event_on("ws.msg.ping", rrclient_handle_ping, NULL);
    event_on("ws.msg.ptt.tot-expired", rrclient_handle_ptt_tot, NULL);

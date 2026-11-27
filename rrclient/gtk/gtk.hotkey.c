@@ -180,22 +180,17 @@ static gboolean gtk_server_cycle_page_active(void) {
    }
 
    return gtk_chat_status_active() || page == admin_tab || page == config_tab ||
-          page == log_tab || page == host_log_tab || g_object_get_data(G_OBJECT(page), "rr-tab-hidden") != NULL;
+          page == log_tab || page == host_log_tab || g_object_get_data(G_OBJECT(page), "rr-room-tab") == NULL ||
+          g_object_get_data(G_OBJECT(page), "rr-tab-hidden") != NULL;
 }
 
 static gboolean gtk_server_cycle_hotkey(void) {
    if (!gtk_server_cycle_page_active()) {
       return FALSE;
    }
-   gboolean changed = rrclient_connection_cycle();
-
-   if (changed && GTK_IS_NOTEBOOK(main_notebook)) {
-      GtkWidget *page = gtk_notebook_get_nth_page(GTK_NOTEBOOK(main_notebook), gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook)));
-
-      if (page == admin_tab) {
-         gtk_admin_refresh();
-      }
-   }
+   /* Connection selection belongs to the core event domain. The selected
+    * event refreshes Admin and Status after the switch completes. */
+   event_emit("client.server.cycle-request", NULL, "");
 
    /* Consume the key in shared views even with just one online server. */
    return TRUE;
@@ -219,6 +214,12 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
       return FALSE;
    }
 
+   if (event->type == GDK_KEY_PRESS &&
+       (event->keyval == GDK_KEY_Tab || event->keyval == GDK_KEY_KP_Tab) &&
+       (event->state & GDK_CONTROL_MASK) && !(event->state & (GDK_MOD1_MASK | GDK_SHIFT_MASK))) {
+      return gtk_server_cycle_hotkey();
+   }
+
    if (event->type == GDK_KEY_PRESS && gtk_ui_zoom_key(widget, event, user_data)) {
       gtk_escape_prefix = FALSE;
 
@@ -232,10 +233,6 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
    bool admin_active = GTK_IS_NOTEBOOK(main_notebook) && admin_tab
       && gtk_notebook_get_nth_page(GTK_NOTEBOOK(main_notebook), gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook))) == admin_tab;
 
-   if (event->type == GDK_KEY_PRESS && event->keyval == GDK_KEY_Tab && (event->state & GDK_CONTROL_MASK) && !(event->state & (GDK_MOD1_MASK | GDK_SHIFT_MASK)))
-   {
-      return gtk_server_cycle_hotkey();
-   }
    gui_window_t *wp = gui_find_window(NULL, "main");
    GtkWidget *main_win = wp ? wp->gtk_win : NULL;
 
