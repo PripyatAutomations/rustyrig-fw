@@ -84,6 +84,8 @@ typedef struct rr_chat_docks {
    gdouble drag_root_x, drag_root_y;
    gboolean drag_corner, drag_moved;
    GtkWidget *line[RR_DOCK_COUNT], *scroll[RR_DOCK_COUNT], *slot[RR_DOCK_COUNT];
+   GtkWidget *section_root[RR_DOCK_COUNT];
+   GPtrArray *sections[RR_DOCK_COUNT];
    gint extent[RR_DOCK_COUNT];
    gboolean collapsed[RR_DOCK_COUNT], user_collapsed[RR_DOCK_COUNT];
    guint width_bucket;
@@ -92,6 +94,7 @@ typedef struct rr_chat_docks {
 static RRChatDocks *active_chat_docks;
 static char *active_chat_room, *active_chat_server;
 static void panel_dock_attach(RRFloatPanel *p, RRChatDocks *dock, gint edge);
+static void panel_dock_attach_slot(RRFloatPanel *p, RRChatDocks *dock, gint edge, GtkWidget *slot);
 static void panel_dock_detach(RRFloatPanel *p, gint root_x, gint root_y);
 static void panel_dock_glow(RRChatDocks *d, gboolean dragging, gint target);
 static gint panel_dock_hit(RRChatDocks *d, gint x_root, gint y_root);
@@ -184,19 +187,20 @@ static void dock_edge_refresh(RRChatDocks *d, guint edge) {
    if (!d || edge >= RR_DOCK_COUNT) {
       return;
    }
-   GList *children = gtk_container_get_children(GTK_CONTAINER(d->slot[edge]));
-   gboolean occupied = FALSE;
-
-   for (GList *it = children ; it ; it = it->next) {
-      if (gtk_widget_get_visible(GTK_WIDGET(it->data))) {
-         occupied = TRUE;
-         break;
+   gboolean occupied = d->sections[edge]->len > 1;
+   for (guint i = 0; !occupied && i < d->sections[edge]->len; i++) {
+      GtkWidget *slot = g_ptr_array_index(d->sections[edge], i);
+      GList *children = gtk_container_get_children(GTK_CONTAINER(slot));
+      for (GList *it = children; it; it = it->next) {
+         if (gtk_widget_get_visible(it->data)) {
+            occupied = TRUE;
+            break;
+         }
       }
+      g_list_free(children);
    }
-
-   g_list_free(children);
    d->collapsed[edge] = d->user_collapsed[edge] || !occupied;
-   gtk_widget_set_visible(d->scroll[edge], !d->collapsed[edge]);
+   gtk_widget_set_visible(d->section_root[edge], !d->collapsed[edge]);
    dock_edge_set_extent(d, edge, d->collapsed[edge] ? 12 : d->extent[edge]);
 }
 
@@ -543,8 +547,230 @@ static void dock_slot_constrain(GtkWidget *viewport, GtkAllocation *allocation, 
    g_list_free(children);
 }
 
+/* Each leaf is an ordinary dock canvas. Splitting reparents its wrapper,
+ * never the panels inside it. A stable leaf ID follows the original canvas. */
+static gboolean dock_section_menu(GtkWidget *widget, GdkEventButton *event, gpointer data);
+static GtkWidget *dock_section_new(RRChatDocks *d, guint edge, guint id) {
+   GtkWidget *slot = gtk_fixed_new();
+   GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
+   GtkWidget *surface = gtk_event_box_new();
+   gtk_event_box_set_visible_window(GTK_EVENT_BOX(surface), FALSE);
+   gtk_container_add(GTK_CONTAINER(surface), slot);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_EXTERNAL, GTK_POLICY_EXTERNAL);
+   gtk_scrolled_window_set_propagate_natural_width(GTK_SCROLLED_WINDOW(scroll), FALSE);
+   gtk_scrolled_window_set_propagate_natural_height(GTK_SCROLLED_WINDOW(scroll), FALSE);
+   gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(scroll), 1);
+   gtk_scrolled_window_set_min_content_height(GTK_SCROLLED_WINDOW(scroll), 1);
+   gtk_container_add(GTK_CONTAINER(scroll), surface);
+   g_object_set_data(G_OBJECT(slot), "rr-docks", d);
+   g_object_set_data(G_OBJECT(slot), "rr-dock-edge", GUINT_TO_POINTER(edge + 1));
+   g_object_set_data(G_OBJECT(slot), "rr-section-id", GUINT_TO_POINTER(id + 1));
+   g_object_set_data(G_OBJECT(slot), "rr-section-scroll", scroll);
+   g_object_set_data(G_OBJECT(scroll), "rr-dock-slot", slot);
+   g_signal_connect(scroll, "size-allocate", G_CALLBACK(dock_slot_constrain), NULL);
+   gtk_widget_add_events(surface, GDK_BUTTON_PRESS_MASK);
+   g_signal_connect(surface, "button-press-event", G_CALLBACK(dock_section_menu), slot);
+   gtk_widget_show_all(scroll);
+   g_ptr_array_add(d->sections[edge], slot);
+   return scroll;
+}
+
+static char *dock_tree_key(RRChatDocks *d, guint edge) {
+   return g_strdup_printf("ui.chat.workspace.%s.%s.sections", d->scope ? d->scope : "global", dock_edge_name(edge));
+}
+
+static void dock_tree_encode(GtkWidget *widget, GString *out) {
+   if (GTK_IS_PANED(widget)) {
+      GtkPaned *pane = GTK_PANED(widget);
+      gboolean horizontal = gtk_orientable_get_orientation(GTK_ORIENTABLE(pane)) == GTK_ORIENTATION_HORIZONTAL;
+      gint size = horizontal ? gtk_widget_get_allocated_width(widget) : gtk_widget_get_allocated_height(widget);
+      gint ratio = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(widget), "rr-section-ratio"));
+      if (size > 20 && gtk_widget_get_mapped(widget)) {
+         ratio = CLAMP(gtk_paned_get_position(pane) * 1000 / size, 50, 950);
+      }
+      g_string_append_printf(out, "%c%d(", horizontal ? 'H' : 'V', ratio ? ratio : 500);
+      dock_tree_encode(gtk_paned_get_child1(pane), out);
+      g_string_append_c(out, ',');
+      dock_tree_encode(gtk_paned_get_child2(pane), out);
+      g_string_append_c(out, ')');
+   } else {
+      GtkWidget *slot = g_object_get_data(G_OBJECT(widget), "rr-dock-slot");
+      g_string_append_printf(out, "L%u", GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(slot), "rr-section-id")) - 1);
+   }
+}
+
+static void dock_tree_save(RRChatDocks *d, guint edge) {
+   GString *out = g_string_new(NULL);
+   dock_tree_encode(d->section_root[edge], out);
+   char *key = dock_tree_key(d, edge);
+   rrclient_database_setting_defer(key, out->str);
+   g_free(key);
+   g_string_free(out, TRUE);
+}
+
+static void dock_split_allocate(GtkWidget *widget, GtkAllocation *allocation, gpointer unused) {
+   (void)unused;
+   gint size = gtk_orientable_get_orientation(GTK_ORIENTABLE(widget)) == GTK_ORIENTATION_HORIZONTAL ?
+      allocation->width : allocation->height;
+   if (size > 20 && !g_object_get_data(G_OBJECT(widget), "rr-section-sized")) {
+      gint ratio = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(widget), "rr-section-ratio"));
+      g_object_set_data(G_OBJECT(widget), "rr-section-sized", GINT_TO_POINTER(1));
+      gtk_paned_set_position(GTK_PANED(widget), size * ratio / 1000);
+   }
+}
+
+static gboolean dock_split_release(GtkWidget *widget, GdkEventButton *event, gpointer data) {
+   RRChatDocks *d = data;
+   if (event->button == GDK_BUTTON_PRIMARY) {
+      guint edge = GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(widget), "rr-dock-edge")) - 1;
+      dock_tree_save(d, edge);
+   }
+   return FALSE;
+}
+
+static GtkWidget *dock_split_pane(RRChatDocks *d, guint edge, gboolean horizontal, gint ratio) {
+   GtkWidget *pane = gtk_paned_new(horizontal ? GTK_ORIENTATION_HORIZONTAL : GTK_ORIENTATION_VERTICAL);
+   gtk_paned_set_wide_handle(GTK_PANED(pane), TRUE);
+   g_object_set_data(G_OBJECT(pane), "rr-dock-edge", GUINT_TO_POINTER(edge + 1));
+   g_object_set_data(G_OBJECT(pane), "rr-section-ratio", GINT_TO_POINTER(ratio));
+   gtk_widget_add_events(pane, GDK_BUTTON_RELEASE_MASK);
+   g_signal_connect(pane, "size-allocate", G_CALLBACK(dock_split_allocate), NULL);
+   g_signal_connect(pane, "button-release-event", G_CALLBACK(dock_split_release), d);
+   gtk_widget_show(pane);
+   return pane;
+}
+
+/* Validate the complete serialized tree before allocating any GTK objects.
+ * At most four nested splits and sixteen leaves per edge. */
+static gboolean dock_tree_validate(const char **cursor, guint depth, guint *seen) {
+   char kind = *(*cursor)++;
+   if (kind != 'L' && kind != 'H' && kind != 'V') {
+      return FALSE;
+   }
+   if (!g_ascii_isdigit(**cursor)) {
+      return FALSE;
+   }
+   char *end;
+   guint64 n = g_ascii_strtoull(*cursor, &end, 10);
+   *cursor = end;
+   if (kind == 'L') {
+      if (n >= 16 || (*seen & (1u << n))) {
+         return FALSE;
+      }
+      *seen |= 1u << n;
+      return TRUE;
+   }
+   if (depth >= 4 || n < 50 || n > 950 || **cursor != '(') {
+      return FALSE;
+   }
+   ++*cursor;
+   if (!dock_tree_validate(cursor, depth + 1, seen) || **cursor != ',') {
+      return FALSE;
+   }
+   ++*cursor;
+   if (!dock_tree_validate(cursor, depth + 1, seen) || **cursor != ')') {
+      return FALSE;
+   }
+   ++*cursor;
+   return TRUE;
+}
+
+static GtkWidget *dock_tree_decode(RRChatDocks *d, guint edge, const char **cursor) {
+   char kind = *(*cursor)++;
+   char *end;
+   guint n = (guint)g_ascii_strtoull(*cursor, &end, 10);
+   *cursor = end;
+   if (kind == 'L') {
+      return dock_section_new(d, edge, n);
+   }
+   GtkWidget *pane = dock_split_pane(d, edge, kind == 'H', n);
+   ++*cursor;
+   GtkWidget *first = dock_tree_decode(d, edge, cursor);
+   ++*cursor;
+   GtkWidget *second = dock_tree_decode(d, edge, cursor);
+   ++*cursor;
+   gtk_paned_pack1(GTK_PANED(pane), first, TRUE, TRUE);
+   gtk_paned_pack2(GTK_PANED(pane), second, TRUE, TRUE);
+   return pane;
+}
+
+static void dock_section_split(GtkMenuItem *item, gpointer data) {
+   GtkWidget *slot = data;
+   RRChatDocks *d = g_object_get_data(G_OBJECT(slot), "rr-docks");
+   guint edge = GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(slot), "rr-dock-edge")) - 1;
+   guint direction = GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(item), "rr-split-direction"));
+   GtkWidget *old = g_object_get_data(G_OBJECT(slot), "rr-section-scroll");
+   GtkWidget *parent = gtk_widget_get_parent(old);
+   guint depth = 0, used = 0;
+   for (GtkWidget *w = parent; GTK_IS_PANED(w); w = gtk_widget_get_parent(w)) {
+      depth++;
+   }
+   if (depth >= 4 || d->sections[edge]->len >= 16) {
+      return;
+   }
+   for (guint i = 0; i < d->sections[edge]->len; i++) {
+      GtkWidget *leaf = g_ptr_array_index(d->sections[edge], i);
+      used |= 1u << (GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(leaf), "rr-section-id")) - 1);
+   }
+   guint id = 0;
+   while (used & (1u << id)) {
+      id++;
+   }
+   gboolean first = GTK_IS_PANED(parent) && gtk_paned_get_child1(GTK_PANED(parent)) == old;
+   GtkWidget *pane = dock_split_pane(d, edge, direction >= 2, 500);
+   GtkWidget *empty = dock_section_new(d, edge, id);
+   g_object_ref(old);
+   gtk_container_remove(GTK_CONTAINER(parent), old);
+   if (direction == 0 || direction == 2) {
+      gtk_paned_pack1(GTK_PANED(pane), empty, TRUE, TRUE);
+      gtk_paned_pack2(GTK_PANED(pane), old, TRUE, TRUE);
+   } else {
+      gtk_paned_pack1(GTK_PANED(pane), old, TRUE, TRUE);
+      gtk_paned_pack2(GTK_PANED(pane), empty, TRUE, TRUE);
+   }
+   g_object_unref(old);
+   if (GTK_IS_PANED(parent)) {
+      if (first) {
+         gtk_paned_pack1(GTK_PANED(parent), pane, TRUE, TRUE);
+      } else {
+         gtk_paned_pack2(GTK_PANED(parent), pane, TRUE, TRUE);
+      }
+   } else {
+      d->section_root[edge] = pane;
+      gtk_box_pack_start(GTK_BOX(parent), pane, TRUE, TRUE, 0);
+      if (edge == RR_DOCK_LEFT || edge == RR_DOCK_TOP) {
+         gtk_box_reorder_child(GTK_BOX(parent), pane, 0);
+      }
+   }
+   gtk_widget_set_no_show_all(d->section_root[edge], TRUE);
+   gtk_widget_show(pane);
+   dock_edge_refresh(d, edge);
+   dock_tree_save(d, edge);
+}
+
+static gboolean dock_section_menu(GtkWidget *widget, GdkEventButton *event, gpointer data) {
+   GtkWidget *slot = data;
+   /* Do not steal context menus from a panel or its descendants. */
+   GtkWidget *target = gtk_get_event_widget((GdkEvent *)event);
+   if (event->button != GDK_BUTTON_SECONDARY || event->type != GDK_BUTTON_PRESS ||
+       (target != widget && target != slot)) {
+      return FALSE;
+   }
+   GtkWidget *menu = gtk_menu_new();
+   const char *labels[] = {"Split Up", "Split Down", "Split Left", "Split Right"};
+   for (guint i = 0; i < G_N_ELEMENTS(labels); i++) {
+      GtkWidget *item = gtk_menu_item_new_with_label(labels[i]);
+      g_object_set_data(G_OBJECT(item), "rr-split-direction", GUINT_TO_POINTER(i));
+      g_signal_connect(item, "activate", G_CALLBACK(dock_section_split), slot);
+      gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
+   }
+   g_signal_connect_swapped(menu, "selection-done", G_CALLBACK(gtk_widget_destroy), menu);
+   gtk_widget_show_all(menu);
+   gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *)event);
+   return TRUE;
+}
+
 static void dock_edge_create(RRChatDocks *d, guint edge) {
-   /* A thin inner-edge target, not a full-height header button. */
    GtkWidget *region = gtk_box_new(edge < 2 ? GTK_ORIENTATION_HORIZONTAL : GTK_ORIENTATION_VERTICAL, 0);
    gtk_style_context_add_class(gtk_widget_get_style_context(region), "rr-chat-dock-region");
    GtkWidget *line = gtk_event_box_new();
@@ -555,46 +781,42 @@ static void dock_edge_create(RRChatDocks *d, guint edge) {
    g_object_set_data(G_OBJECT(line), "rr-dock-edge", GUINT_TO_POINTER(edge + 1));
    g_signal_connect(line, "button-press-event", G_CALLBACK(dock_edge_line_press), NULL);
    gtk_style_context_add_class(gtk_widget_get_style_context(line), "rr-chat-dock-line");
-   /* Fixed positioning preserves independent panel sizes and chrome. */
-   GtkWidget *slot = gtk_fixed_new();
-   GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
-   /* The dock does not scroll: overflowing children must resize to fit
-    * its allocation, never enlarge its scrolling canvas. */
-   /* EXTERNAL allocates a viewport without creating scrollbars and, unlike
-    * NEVER, does not demand the child's entire natural width.  The dock
-    * therefore remains shrinkable even when GtkFixed holds wide children. */
-   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_EXTERNAL, GTK_POLICY_EXTERNAL);
-   gtk_scrolled_window_set_propagate_natural_width(GTK_SCROLLED_WINDOW(scroll), FALSE);
-   gtk_scrolled_window_set_propagate_natural_height(GTK_SCROLLED_WINDOW(scroll), FALSE);
-   gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(scroll), 1);
-   gtk_scrolled_window_set_min_content_height(GTK_SCROLLED_WINDOW(scroll), 1);
-   gtk_container_add(GTK_CONTAINER(scroll), slot);
-   /* Show the viewport and empty slot BEFORE suppressing parent show_all. Otherwise gtk_widget_show(scroll) displays an empty scrolled window:
-    * its GTK viewport and the slot below remain invisible forever. */
-   gtk_widget_show_all(scroll);
-   g_object_set_data(G_OBJECT(slot), "rr-docks", d);
-   g_object_set_data(G_OBJECT(scroll), "rr-dock-slot", slot);
-   g_signal_connect(scroll, "size-allocate", G_CALLBACK(dock_slot_constrain), NULL);
-   g_object_set_data(G_OBJECT(slot), "rr-dock-edge", GUINT_TO_POINTER(edge + 1));
-   /* Parent show_all must not reveal an empty dock or its saved contents. */
-   gtk_widget_set_no_show_all(scroll, TRUE);
-
+   d->sections[edge] = g_ptr_array_new();
+   char *tree_key = dock_tree_key(d, edge);
+   char *saved = rrclient_database_setting_get(tree_key);
+   g_free(tree_key);
+   const char *cursor = saved;
+   guint seen = 0;
+   GtkWidget *tree;
+   if (saved && *saved && dock_tree_validate(&cursor, 0, &seen) && !*cursor && (seen & 1)) {
+      cursor = saved;
+      tree = dock_tree_decode(d, edge, &cursor);
+   } else {
+      tree = dock_section_new(d, edge, 0);
+   }
+   g_free(saved);
+   for (guint i = 0; i < d->sections[edge]->len; i++) {
+      GtkWidget *slot = g_ptr_array_index(d->sections[edge], i);
+      if (GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(slot), "rr-section-id")) == 1) {
+         d->slot[edge] = slot;
+         d->scroll[edge] = g_object_get_data(G_OBJECT(slot), "rr-section-scroll");
+      }
+   }
+   d->section_root[edge] = tree;
    if (edge == RR_DOCK_RIGHT || edge == RR_DOCK_BOTTOM) {
       gtk_box_pack_start(GTK_BOX(region), line, FALSE, FALSE, 0);
    }
-   gtk_box_pack_start(GTK_BOX(region), scroll, TRUE, TRUE, 0);
-
+   gtk_box_pack_start(GTK_BOX(region), tree, TRUE, TRUE, 0);
    if (edge == RR_DOCK_LEFT || edge == RR_DOCK_TOP) {
       gtk_box_pack_end(GTK_BOX(region), line, FALSE, FALSE, 0);
    }
    gtk_widget_set_hexpand(region, TRUE);
    gtk_widget_set_vexpand(region, TRUE);
    gtk_widget_show_all(region);
-   gtk_widget_hide(scroll);
+   gtk_widget_set_no_show_all(tree, TRUE);
+   gtk_widget_hide(tree);
    d->region[edge] = region;
    d->line[edge] = line;
-   d->scroll[edge] = scroll;
-   d->slot[edge] = slot;
    d->collapsed[edge] = TRUE;
    char *key = g_strdup_printf("ui.chat.dock.%s.size", dock_edge_name(edge));
    char *val = rrclient_database_setting_get(key);
@@ -628,6 +850,9 @@ static void dock_workspace_destroy(GtkWidget *widget, gpointer data) {
 
 static void dock_workspace_free(gpointer data) {
    RRChatDocks *d = data;
+   for (guint edge = 0; edge < RR_DOCK_COUNT; edge++) {
+      g_ptr_array_unref(d->sections[edge]);
+   }
    g_free(d->scope);
    g_free(d);
 }
@@ -834,36 +1059,11 @@ static gint panel_dock_hit(RRChatDocks *d, gint x_root, gint y_root) {
 }
 
 static void dock_hide_if_empty(GtkWidget *slot) {
-   if (!GTK_IS_CONTAINER(slot)) {
+   if (!GTK_IS_FIXED(slot)) {
       return;
-   }
-   GList *children = gtk_container_get_children(GTK_CONTAINER(slot));
-   gboolean visible = FALSE;
-
-   for (GList *it = children ; it ; it = it->next) {
-      if (gtk_widget_get_visible(it->data)) {
-         visible = TRUE;
-         break;
-      }
-   }
-
-   g_list_free(children);
-
-   if (visible) {
-      return;
-   }
-   GtkWidget *outer = gtk_widget_get_parent(slot);
-
-   if (GTK_IS_VIEWPORT(outer)) {
-      outer = gtk_widget_get_parent(outer);
-   }
-
-   if (GTK_IS_SCROLLED_WINDOW(outer)) {
-      gtk_widget_hide(outer);
    }
    RRChatDocks *d = g_object_get_data(G_OBJECT(slot), "rr-docks");
    guint edge = GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(slot), "rr-dock-edge")) - 1;
-
    if (d && edge < RR_DOCK_COUNT) {
       dock_edge_refresh(d, edge);
    }
@@ -889,7 +1089,7 @@ static void dock_reveal_panel(RRFloatPanel *p) {
    char *key = dock_collapsed_key(d, edge, d->width_bucket ? d->width_bucket : 2);
    rrclient_database_setting_set(key, "false");
    g_free(key);
-   gtk_widget_show(d->scroll[edge]);
+   gtk_widget_show(d->section_root[edge]);
    dock_edge_set_extent(d, edge, d->extent[edge]);
 }
 
@@ -936,12 +1136,34 @@ static gboolean panel_dock_contains(RRChatDocks *d, guint edge, gint x_root, gin
    return x >= 0 && y >= 0 && x < gtk_widget_get_allocated_width(d->region[edge]) && y < gtk_widget_get_allocated_height(d->region[edge]);
 }
 
+static char *panel_section_key(RRFloatPanel *p, RRChatDocks *d, gint edge) {
+   return g_strdup_printf("ui.chat.workspace.%s.%s.panel-section.%s", d->scope ? d->scope : "global", dock_edge_name(edge), p->id);
+}
+
 static void panel_dock_attach(RRFloatPanel *p, RRChatDocks *d, gint edge) {
-   if (!p || !p->frame || !d || edge < 0 || edge >= RR_DOCK_COUNT || p->modal || p->floating_only) {
+   if (!p || !d || edge < 0 || edge >= RR_DOCK_COUNT) {
       return;
    }
    GtkWidget *slot = d->slot[edge];
+   char *key = panel_section_key(p, d, edge);
+   char *saved = rrclient_database_setting_get(key);
+   g_free(key);
+   guint id = saved ? (guint)g_ascii_strtoull(saved, NULL, 10) : 0;
+   g_free(saved);
+   for (guint i = 0; i < d->sections[edge]->len; i++) {
+      GtkWidget *candidate = g_ptr_array_index(d->sections[edge], i);
+      if (GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(candidate), "rr-section-id")) == id + 1) {
+         slot = candidate;
+         break;
+      }
+   }
+   panel_dock_attach_slot(p, d, edge, slot);
+}
 
+static void panel_dock_attach_slot(RRFloatPanel *p, RRChatDocks *d, gint edge, GtkWidget *slot) {
+   if (!p || !p->frame || !d || edge < 0 || edge >= RR_DOCK_COUNT || p->modal || p->floating_only) {
+      return;
+   }
    if (gtk_widget_get_parent(p->frame) == slot) {
       return;
    }
@@ -1748,9 +1970,9 @@ static int panel_dock_snap_axis(RRFloatPanel *p, int raw, int other_raw, gboolea
 static void panel_drag_position(RRFloatPanel *p, double x_root, double y_root) {
    if (p->dock_edge >= 0 && GTK_IS_FIXED(gtk_widget_get_parent(p->frame))) {
       GtkWidget *slot = gtk_widget_get_parent(p->frame);
-      RRChatDocks *d = g_object_get_data(G_OBJECT(slot), "rr-docks");
-      gint available_w = d ? gtk_widget_get_allocated_width(d->scroll[p->dock_edge]) : 0;
-      gint available_h = d ? gtk_widget_get_allocated_height(d->scroll[p->dock_edge]) : 0;
+      GtkWidget *scroll = g_object_get_data(G_OBJECT(slot), "rr-section-scroll");
+      gint available_w = scroll ? gtk_widget_get_allocated_width(scroll) : 0;
+      gint available_h = scroll ? gtk_widget_get_allocated_height(scroll) : 0;
       gint raw_x = MAX(0, p->start_x + (gint) (x_root - p->drag_x));
       gint raw_y = MAX(0, p->start_y + (gint) (y_root - p->drag_y));
       gint x = raw_x, y = raw_y;
@@ -2334,6 +2556,27 @@ static gboolean drag_move(GtkWidget *widget, GdkEventMotion *event, gpointer dat
    return TRUE;
 }
 
+static GtkWidget *dock_section_at(RRChatDocks *d, gint edge, gint root_x, gint root_y) {
+   for (guint i = 0; i < d->sections[edge]->len; i++) {
+      GtkWidget *slot = g_ptr_array_index(d->sections[edge], i);
+      GtkWidget *scroll = g_object_get_data(G_OBJECT(slot), "rr-section-scroll");
+      GtkWidget *top = gtk_widget_get_toplevel(scroll);
+      GdkWindow *win = gtk_widget_get_window(top);
+      gint ox, oy, x, y;
+      if (!win || !gtk_widget_get_mapped(scroll) ||
+          !gtk_widget_translate_coordinates(scroll, top, 0, 0, &x, &y)) {
+         continue;
+      }
+      gdk_window_get_origin(win, &ox, &oy);
+      if (root_x >= ox+x && root_y >= oy+y &&
+          root_x < ox+x+gtk_widget_get_allocated_width(scroll) &&
+          root_y < oy+y+gtk_widget_get_allocated_height(scroll)) {
+         return slot;
+      }
+   }
+   return d->slot[edge];
+}
+
 /* A user drop is relative to where they grabbed the title, not the
  * destination dock's origin or the existing automatic placement pattern. */
 static void panel_dock_drop_at(RRFloatPanel *p, RRChatDocks *d, gint edge,
@@ -2341,7 +2584,7 @@ static void panel_dock_drop_at(RRFloatPanel *p, RRChatDocks *d, gint edge,
    if (!p || !d || edge < 0 || edge >= RR_DOCK_COUNT) {
       return;
    }
-   GtkWidget *slot = d->slot[edge];
+   GtkWidget *slot = dock_section_at(d, edge, root_x, root_y);
    GtkWidget *top = gtk_widget_get_toplevel(slot);
    GdkWindow *win = gtk_widget_get_window(top);
    gint ox = 0, oy = 0, sx = 0, sy = 0;
@@ -2367,7 +2610,12 @@ static void panel_dock_drop_at(RRFloatPanel *p, RRChatDocks *d, gint edge,
    p->dock_x = MAX(0, root_x - ox - sx - p->grab_x);
    p->dock_y = MAX(0, root_y - oy - sy - p->grab_y);
    p->dock_drop_positioned = TRUE;
-   panel_dock_attach(p, d, edge);
+   panel_dock_attach_slot(p, d, edge, slot);
+   char *key = panel_section_key(p, d, edge);
+   char *value = g_strdup_printf("%u", GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(slot), "rr-section-id")) - 1);
+   rrclient_database_setting_defer(key, value);
+   g_free(key);
+   g_free(value);
    p->dock_drop_positioned = FALSE;
    panel_dock_coords_save(p);
 }
@@ -2399,7 +2647,8 @@ static gboolean drag_release(GtkWidget *widget, GdkEventButton *event, gpointer 
 
    if (p->dock_edge >= 0) {
       if (edge >= 0) {
-         if (edge != p->dock_edge) {
+         if (edge != p->dock_edge || gtk_widget_get_parent(p->frame) !=
+             dock_section_at(active_chat_docks, edge, (gint)event->x_root, (gint)event->y_root)) {
             panel_dock_drop_at(p, active_chat_docks, edge,
                (gint)event->x_root, (gint)event->y_root);
          }
