@@ -5,6 +5,8 @@
 #include <assert.h>
 #include "rrclient/gtk/gtk.core.c"
 time_t now;
+const char *server_name = "test";
+struct rr_user *global_userlist;
 bool dying, restarting;
 static unsigned quit_calls, refresh_calls, roster_paints;
 void userlist_redraw_gtk(void) {
@@ -142,6 +144,28 @@ int main(void) {
       g_main_context_iteration(NULL, false);
    }
    assert(roster_paints == 1 && !frontend_gtk_roster_source);
+   struct rr_user member = {0};
+   g_strlcpy(member.name, "alice", sizeof(member.name));
+   GtkRosterHeader header = {0};
+   g_strlcpy(header.profile, "alpha", sizeof(header.profile));
+   GByteArray *packet = g_byte_array_new();
+   g_byte_array_append(packet, (const guint8 *)&header, sizeof(header));
+   g_byte_array_append(packet, (const guint8 *)&member, sizeof(member));
+   rr_event_message_t message = {.payload = packet->data, .length = packet->len};
+   frontend_gtk_roster_redraw_event(&message, NULL);
+   g_strlcpy(header.profile, "beta", sizeof(header.profile));
+   g_strlcpy(member.name, "bob", sizeof(member.name));
+   memcpy(packet->data, &header, sizeof(header));
+   memcpy(packet->data + sizeof(header), &member, sizeof(member));
+   frontend_gtk_roster_redraw_event(&message, NULL);
+   g_byte_array_unref(packet);
+   size_t count;
+   assert(!strcmp(gtk_roster_members("alpha", &count)->name, "alice") && count == 1);
+   assert(!strcmp(gtk_roster_members("beta", &count)->name, "bob") && count == 1);
+   flush_ui();
+   assert(roster_paints == 2);
+   roster_paints = 1;
+   g_clear_pointer(&gtk_roster_snapshots, g_hash_table_unref);
    frontend_gtk_userlist_redraw();
    dying = true;
    while (g_main_context_pending(NULL)) {

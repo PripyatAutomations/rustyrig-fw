@@ -2010,7 +2010,9 @@ static void rrclient_server_selected(const char *event, const char *data, rrconn
    vfo_update_ui();
 
    if (frontend_ops()) {
-      (!rrclient_gtk_event_frontend() ? frontend_ops()->userlist_redraw() : (void)0);
+      if (frontend_ops()->userlist_redraw) {
+         frontend_ops()->userlist_redraw();
+      }
       rrclient_notify_ptt_online(cptr && cptr->is_ws && ws_connected == 1);
    }
 }

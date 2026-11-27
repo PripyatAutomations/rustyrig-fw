@@ -549,17 +549,23 @@ static bool userlist_set_columns(GtkWidget *view, const char *room) {
 }
 
 static void userlist_redraw_view(GtkWidget *view, const char *room) {
-   if (!view || !GTK_IS_TREE_VIEW(view) || userlist_names_pending(room)) {
+   if (!view || !GTK_IS_TREE_VIEW(view)) {
       return;
    }
    const char *profile = g_object_get_data(G_OBJECT(view), "rr-roster-server");
+   if (!profile || !*profile) {
+      profile = rrclient_selected_server();
+   }
    const rrconn_t *view_connection = userlist_view_connection(view);
-
-   if (view != cul_view && profile && view_connection && rrclient_active_connection() && view_connection != rrclient_active_connection()) {
+   size_t member_count = 0;
+   const struct rr_user *members_snapshot = gtk_roster_members(profile, &member_count);
+   if (!members_snapshot) {
       return;
    }
    /* Keep an inactive/offline channel roster readable, but visibly muted. It re-enables automatically on the next active-room refresh. */
-   gtk_widget_set_sensitive(view, room && *room && !rrclient_room_offline(room));
+   bool offline = view_connection && !view_connection->is_ws ? rrclient_connection_state(profile) <= 0 :
+      !g_strcmp0(profile, rrclient_selected_server()) && rrclient_room_offline(room);
+   gtk_widget_set_sensitive(view, room && *room && !offline);
    bool changed = userlist_set_columns(view, room);
    GtkListStore *store = GTK_LIST_STORE(gtk_tree_view_get_model(GTK_TREE_VIEW(view)));
 
@@ -567,7 +573,7 @@ static void userlist_redraw_view(GtkWidget *view, const char *room) {
       return;
    }
 
-   if (rrclient_room_offline(room)) {
+   if (offline) {
       gtk_list_store_clear(store);
       GtkTreeIter offline;
       gtk_list_store_append(store, &offline);
@@ -581,9 +587,11 @@ static void userlist_redraw_view(GtkWidget *view, const char *room) {
    };
    GHashTable *members = g_hash_table_new(g_str_hash, g_str_equal);
 
-   for (struct rr_user *c = global_userlist ; c ; c = c->next) {
+   for (size_t i = 0; i < member_count; i++) {
+      struct rr_user row_copy = members_snapshot[i];
+      struct rr_user *c = &row_copy;
       if (!room || !*room || !strcasecmp(c->room, room)) {
-         g_hash_table_add(members, c->name);
+         g_hash_table_add(members, (gpointer)members_snapshot[i].name);
       }
    }
 
@@ -605,7 +613,9 @@ static void userlist_redraw_view(GtkWidget *view, const char *room) {
    g_hash_table_destroy(members);
    valid = gtk_tree_model_get_iter_first(model, &cursor);
 
-   for (struct rr_user *c = global_userlist ; c ; c = c->next) {
+   for (size_t i = 0; i < member_count; i++) {
+      struct rr_user row_copy = members_snapshot[i];
+      struct rr_user *c = &row_copy;
       if (room && *room && strcasecmp(c->room, room) != 0) {
          continue;
       }

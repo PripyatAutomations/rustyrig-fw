@@ -36,7 +36,7 @@ static void observe_protocol_disconnect(const char *event, const char *data, rrc
 
 bool userlist_names_pending(const char *room) {
    (void)room;
-   return names_begins > names_ends;
+   return names_begins > 0 && names_ends == 0;
 }
 void userlist_names_begin(const char *room) {
    assert(!strcmp(room, "#room"));
@@ -559,6 +559,8 @@ int main(void) {
    assert(names_begins == 1 && names_ends == 0);
    assert(!irc_process_message(&client, ":server 353 tester = #room :charlie"));
    assert(names_begins == 2 && names_ends == 0);
+   assert(!irc_process_message(&client, ":server 366 tester #room :End of NAMES list"));
+   assert(names_ends == 1);
    assert(!irc_process_message(&client, ":server 366 tester #room :End of NAMES list"));
    assert(names_ends == 1);
    irc_process_message(&client, ":staff MODE #room +ov bob bob");

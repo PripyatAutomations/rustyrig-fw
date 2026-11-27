@@ -369,6 +369,25 @@ static void frontend_gtk_webcam_show_owner(bool show) {
    gtk_webcam_show(show);
 }
 
+/* Immutable per-profile membership snapshots, owned exclusively by GTK.
+ * Never traverse the core's linked list from a widget callback. */
+typedef struct {
+   char profile[512];
+} GtkRosterHeader;
+static GHashTable *gtk_roster_snapshots;
+
+const struct rr_user *gtk_roster_members(const char *profile, size_t *count) {
+   *count = 0;
+   GBytes *bytes = gtk_roster_snapshots && profile ? g_hash_table_lookup(gtk_roster_snapshots, profile) : NULL;
+   if (!bytes) {
+      return NULL;
+   }
+   gsize length;
+   const char *data = g_bytes_get_data(bytes, &length);
+   *count = (length - sizeof(GtkRosterHeader)) / sizeof(struct rr_user);
+   return (const void *)(data + sizeof(GtkRosterHeader));
+}
+
 static guint frontend_gtk_roster_source;
 static gboolean frontend_gtk_roster_queued;
 static gboolean frontend_gtk_flush_roster(gpointer unused) {
@@ -385,21 +404,44 @@ static gboolean frontend_gtk_flush_roster(gpointer unused) {
 }
 
 static void frontend_gtk_userlist_redraw(void) {
-   // One network sweep can deliver many observations. Core callers publish a
-   // single event; GTK-thread listeners coalesce and schedule the widget paint.
-   if (!dying) {
-      event_emit_message(&(rr_event_message_t) {
-         .name = "client.ui.roster.redraw", .sender = "core", .payload = NULL, .length = 0
-      });
+   extern const char *server_name;
+   if (dying || !server_name || !*server_name) {
+      return;
    }
+   GtkRosterHeader header = {0};
+   g_strlcpy(header.profile, server_name, sizeof(header.profile));
+   GByteArray *snapshot = g_byte_array_new();
+   g_byte_array_append(snapshot, (const guint8 *)&header, sizeof(header));
+   for (const struct rr_user *u = global_userlist; u; u = u->next) {
+      struct rr_user row = *u;
+      row.next = NULL;
+      g_byte_array_append(snapshot, (const guint8 *)&row, sizeof(row));
+   }
+   event_emit_message(&(rr_event_message_t) {
+      .name = "client.ui.roster.redraw", .sender = "core",
+      .payload = snapshot->data, .length = snapshot->len
+   });
+   g_byte_array_unref(snapshot);
 }
 
 static void frontend_gtk_roster_redraw_event(const rr_event_message_t *message, void *unused) {
-   (void)message;
    (void)unused;
    frontend_gtk_assert_owner();
 
-   if (dying || frontend_gtk_roster_queued) {
+   if (dying) {
+      return;
+   }
+   if (message && message->payload && message->length >= sizeof(GtkRosterHeader) &&
+       (message->length - sizeof(GtkRosterHeader)) % sizeof(struct rr_user) == 0) {
+      const GtkRosterHeader *header = message->payload;
+      if (memchr(header->profile, 0, sizeof(header->profile)) && header->profile[0]) {
+         if (!gtk_roster_snapshots) {
+            gtk_roster_snapshots = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, (GDestroyNotify)g_bytes_unref);
+         }
+         g_hash_table_replace(gtk_roster_snapshots, g_strdup(header->profile), g_bytes_new(message->payload, message->length));
+      }
+   }
+   if (frontend_gtk_roster_queued) {
       return;
    }
    frontend_gtk_roster_queued = true;
@@ -2008,6 +2050,7 @@ void gtk_frontend_stop(void) {
       frontend_gtk_update_source = 0;
    }
 
+   g_clear_pointer(&gtk_roster_snapshots, g_hash_table_unref);
    if (frontend_gtk_roster_source) {
       g_source_remove(frontend_gtk_roster_source);
       frontend_gtk_roster_source = 0;

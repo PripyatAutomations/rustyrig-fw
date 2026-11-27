@@ -901,6 +901,7 @@ static void rrclient_irc_message(const char *event, const char *data, rrconn_t *
             userlist_remove_by_name_room(from, room);
             dict_add(d, "talk.room", room);
             dict_add(d, "talk.user", arg1);
+            dict_add_int(d, "talk.sessions", 1);
             event_emit_dict("userinfo", cptr, d);
          }
       }
@@ -935,6 +936,14 @@ static void rrclient_irc_message(const char *event, const char *data, rrconn_t *
                name++;
             }
             modes[length] = '\0';
+            /* userhost-in-names may append !ident@host to each nick. */
+            char *host = strchr(name, '!');
+            if (host) {
+               *host = '\0';
+            }
+            if (!*name) {
+               continue;
+            }
             dict_add(d, "talk.privs", modes);
             dict_add(d, "talk.user", name);
             dict_add_int(d, "talk.sessions", 1);
@@ -959,11 +968,11 @@ static void rrclient_irc_message(const char *event, const char *data, rrconn_t *
          }
       }
    } else if (!strcmp(cmd, "366") && argc >= 3) {
-      /* An empty channel gets 366 without any preceding 353. Complete an
-       * empty snapshot rather than leaving stale users visible indefinitely. */
-      if (!userlist_names_pending(arg2) && rrclient_room_is_joined(arg2))
-         userlist_names_begin(arg2);
-      userlist_names_end(arg2);
+      /* An unsolicited or duplicate terminator is not a membership
+       * snapshot. Never delete a joined channel's roster on 366 alone. */
+      if (userlist_names_pending(arg2)) {
+         userlist_names_end(arg2);
+      }
    } else if (!strcasecmp(cmd, "MODE") && argc >= 3 && (arg1[0] == '#' || arg1[0] == '&')) {
       GString *details = g_string_new(arg2);
 

@@ -298,7 +298,7 @@ void userlist_mark_oper(const char *nick, bool oper) {
       }
    }
 
-   if (frontend_ops() && rrclient_present_context()) {
+   if (frontend_ops()) {
       frontend_ops()->userlist_redraw();
    }
 }
@@ -552,10 +552,8 @@ void userlist_clear_all(void) {
       return;
    }
 
-   if (frontend_ops()) {
-      if (rrclient_present_context()) {
-         frontend_ops()->userlist_redraw();
-      }
+   if (frontend_ops() && frontend_ops()->userlist_redraw) {
+      frontend_ops()->userlist_redraw();
    }
    userlist_refresh_ptt_status();
 }

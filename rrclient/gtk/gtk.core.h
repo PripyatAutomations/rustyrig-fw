@@ -122,6 +122,8 @@ extern GtkWidget *ptt_button;
 extern GtkWidget *freq_entry;
 extern GtkWidget *mode_combo;
 
+/* GTK-owned snapshot; valid until the next GTK roster delivery. */
+extern const struct rr_user *gtk_roster_members(const char *profile, size_t *count);
 extern bool ui_print_gtk(const char *window, const char *fmt, va_list ap);
 extern char *gtk_colorize_string(const char *in);
 extern const char *gtk_mirc_color_name(unsigned int n);
