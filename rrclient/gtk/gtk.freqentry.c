@@ -110,17 +110,6 @@ static void freqentry_finalize(GtkFreqEntry *fe);
 
 
 
-static int digit_group(int i) {
-   if (i == 0) {
-      return 0;                 // Ghz
-   } else if (i >= 1 && i <= 3) {
-      return 1;                 // Mhz
-   } else if (i >= 4 && i <= 6) {
-      return 2;                 // kHz
-   } else {
-      return 3;                 // Hz
-   }
-}
 
 static GtkWidget *get_prev_widget(GtkWidget *widget) {
    if (!widget) {
