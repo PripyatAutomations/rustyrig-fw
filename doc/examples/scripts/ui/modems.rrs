@@ -10,6 +10,7 @@ ui.add(dict {kind="button";id="start";parent="controls";label="Start";action="st
 ui.add(dict {kind="button";id="stop";parent="controls";label="Stop";action="stop";});
 ui.add(dict {kind="button";id="route";parent="controls";label="Set RX source";action="route";});
 ui.add(dict {kind="button";id="refresh";parent="controls";label="Refresh";action="refresh";});
+ui.add(dict {kind="button";id="decoder";parent="controls";label="Open decoder";action="decoder";});
 ui.add(dict {kind="checkbox";id="tx";parent="modems";label="TX enabled (requires audio/PTT wires)";action="tx";});
 ui.add(dict {kind="list";id="decoded";parent="modems";label="Received text";height_rows=6;expand_y=true;});
 ui.add(dict {kind="entry";id="text";parent="modems";label="Transmit text (Enter)";max_length=255;action="send";});

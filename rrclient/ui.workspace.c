@@ -20,6 +20,7 @@
 #include <rrclient/logic.model.h>
 #include <rrclient/local.bridge.h>
 #include <rrclient/local.modem.h>
+#include <rrclient/spectrum.af.h>
 #include <rrclient/config.layers.h>
 #include <rrclient/objects.h>
 #include <rrclient/media.h>
@@ -403,9 +404,6 @@ static patch_path_t patch_branch(int x1,int y1,int x2,int y2,const GArray *used,
       }
    }
    return best;
-}
-static unsigned patch_dir(patch_point_t from,patch_point_t to){
-   return to.x>from.x?2:to.x<from.x?8:to.y>from.y?4:to.y<from.y?1:0;
 }
 static uint32_t patch_corner(unsigned mask){
    switch(mask){
@@ -1251,6 +1249,283 @@ static void modem_request_snapshot(void) {
    modem_requested=g_get_monotonic_time();
    rr_local_modem_request(&(rr_local_modem_request_t){.action=RR_LOCAL_MODEM_SNAPSHOT});
 }
+/* Decoder views share the modem core; only the visible expanded view
+ * holds an AF analyzer subscription. */
+#define DECODER_HISTORY 96
+typedef struct {
+   char title[32],source[64],engine[16];
+   GString *rx;
+   char input[256];
+   size_t input_len;
+   int height,divider,rows,scroll;
+   bool collapsed,dragging,editing,stream_owned;
+} decoder_view_t;
+static decoder_view_t decoders[RR_LOCAL_MODEM_MAX];
+static rr_event_token_t decoder_af_token,decoder_stream_token;
+static guint decoder_timer;
+static unsigned decoder_listening;
+static guint64 decoder_request_id,decoder_pending;
+static gint64 decoder_requested;
+static float decoder_waterfall[DECODER_HISTORY][RR_AF_BINS];
+static unsigned decoder_head,decoder_count;
+static uint32_t decoder_max_hz;
+static char decoder_af_source[64];
+
+static unsigned decoder_active(void) {
+   tui_window_t *w=tui_active_window();
+   if (!w) { return 0; }
+   for (unsigned i=0;i<RR_LOCAL_MODEM_MAX;i++) {
+      if (*decoders[i].title && !strcmp(w->title,decoders[i].title) && w->view_data==&decoders[i]) { return i+1; }
+   }
+   return 0;
+}
+static void decoder_request(unsigned slot,rr_local_modem_action_t action,const char *text) {
+   rr_local_modem_request_t req={.slot=slot,.action=action};
+   if (text) { g_strlcpy(req.text,text,sizeof(req.text)); }
+   rr_local_modem_request(&req);
+}
+static void decoder_abort(unsigned slot) {
+   decoder_view_t *d=&decoders[slot-1];
+   if (d->stream_owned) {
+      d->stream_owned=false;
+      decoder_request(slot,RR_LOCAL_MODEM_STREAM_ABORT,NULL);
+   }
+}
+static void decoder_update_listener(void) {
+   unsigned slot=decoder_active();
+   for (unsigned i=1;i<=RR_LOCAL_MODEM_MAX;i++) {
+      if (i!=slot) { decoder_abort(i); }
+   }
+   const rr_local_modem_entry_t *e=slot?&modem_snapshot.entries[slot-1]:NULL;
+   unsigned wanted=e && e->running && *e->source && !decoders[slot-1].collapsed?slot:0;
+   const char *source=wanted?e->source:"";
+   if (wanted!=decoder_listening || strcmp(source,decoder_af_source)) {
+      if (decoder_listening) { rr_af_spectrum_listen(false); }
+      decoder_listening=wanted;
+      decoder_pending=0;decoder_count=decoder_head=0;decoder_max_hz=0;
+      g_strlcpy(decoder_af_source,source,sizeof(decoder_af_source));
+      if (wanted) { rr_af_spectrum_listen(true); }
+   }
+}
+static gboolean decoder_tick(gpointer unused) {
+   (void)unused;
+   decoder_update_listener();
+   unsigned slot=decoder_active();
+   gint64 now=g_get_monotonic_time();
+   if (slot && now-modem_requested>=1000000) { modem_request_snapshot(); }
+   if (decoder_listening && (!decoder_pending || now-decoder_requested>=G_USEC_PER_SEC)) {
+      rrclient_af_spectrum_request_t req={.request_id=++decoder_request_id,.source='S'};
+      g_strlcpy(req.stream,decoder_af_source,sizeof(req.stream));
+      decoder_pending=req.request_id;decoder_requested=now;
+      event_emit_message(&(rr_event_message_t){.name=RRCLIENT_AF_SPECTRUM_REQUEST,.payload=&req,.length=sizeof(req)});
+   }
+   return G_SOURCE_CONTINUE;
+}
+static void decoder_af(const rr_event_message_t *m,void *unused) {
+   (void)unused;
+   if (!m || !m->payload || m->length!=sizeof(rrclient_af_spectrum_result_t)) { return; }
+   const rrclient_af_spectrum_result_t *r=m->payload;
+   if (!decoder_listening || !decoder_pending || r->request_id!=decoder_pending) { return; }
+   decoder_pending=0;
+   if (!r->ready || decoder_active()!=decoder_listening) { return; }
+   decoder_max_hz=r->max_hz?MIN(r->max_hz,RR_AF_MAX_HZ):RR_AF_MAX_HZ;
+   memcpy(decoder_waterfall[decoder_head],r->bins,sizeof(r->bins));
+   decoder_head=(decoder_head+1)%DECODER_HISTORY;
+   decoder_count=MIN(decoder_count+1,DECODER_HISTORY);
+   tui_redraw_request();
+}
+static void decoder_append(decoder_view_t *d,const char *data,size_t len) {
+   if (!d->rx) { d->rx=g_string_new(""); }
+   char *valid=g_utf8_make_valid(data,len);
+   for (const char *p=valid;*p;p=g_utf8_next_char(p)) {
+      gunichar ch=g_utf8_get_char(p);
+      if (ch=='\n') { g_string_append_c(d->rx,'\n'); }
+      else if (ch=='\r') { continue; }
+      else if (!g_unichar_iscntrl(ch)) { g_string_append_unichar(d->rx,ch); }
+   }
+   g_free(valid);
+   if (d->rx->len>65536) {
+      const char *p=d->rx->str+d->rx->len-49152;
+      const char *nl=strchr(p,'\n');
+      if (nl) { p=nl+1; }
+      else { while ((*p&0xc0)==0x80) { p++; } }
+      g_string_erase(d->rx,0,p-d->rx->str);
+   }
+}
+static void decoder_stream(const rr_event_message_t *m,void *unused) {
+   (void)unused;
+   if (!m || !m->payload || m->length!=sizeof(rr_local_modem_stream_rx_t)) { return; }
+   const rr_local_modem_stream_rx_t *r=m->payload;
+   if (!r->slot || r->slot>RR_LOCAL_MODEM_MAX || r->length>sizeof(r->bytes)) { return; }
+   decoder_view_t *d=&decoders[r->slot-1];
+   decoder_append(d,r->bytes,r->length);
+   if (decoder_active()==r->slot) { tui_redraw_request(); }
+}
+static void decoder_message(const rr_local_modem_decode_t *r) {
+   if (!r->slot || r->slot>RR_LOCAL_MODEM_MAX || !memchr(r->engine,0,sizeof(r->engine)) ||
+       !memchr(r->line,0,sizeof(r->line)) || !strcmp(r->engine,"psk")) { return; }
+   decoder_view_t *d=&decoders[r->slot-1];
+   GDateTime *now=g_date_time_new_now_utc();
+   char *time=g_date_time_format(now,"%H:%M:%S");
+   decoder_append(d,time,strlen(time));decoder_append(d,"  ",2);
+   decoder_append(d,r->line,strlen(r->line));decoder_append(d,"\n",1);
+   g_free(time);g_date_time_unref(now);
+   if (decoder_active()==r->slot) { tui_redraw_request(); }
+}
+static uint32_t decoder_color(float db) {
+   if (!isfinite(db)) { return 0x101020; }
+   float x=CLAMP((db+100.f)/80.f,0.f,1.f);
+   unsigned r=(unsigned)(255.f*CLAMP(x*3.f-1.f,0.f,1.f));
+   unsigned g=(unsigned)(255.f*CLAMP(x*3.f-0.7f,0.f,1.f));
+   unsigned b=(unsigned)(60.f+195.f*CLAMP(x*3.f,0.f,1.f)*(1.f-x));
+   return (r<<16)|(g<<8)|b;
+}
+static void decoder_draw(tui_window_t *w,int rows,int cols,void *data) {
+   (void)w;
+   decoder_view_t *d=data;unsigned slot=(unsigned)(d-decoders)+1;
+   const rr_local_modem_entry_t *e=&modem_snapshot.entries[slot-1];
+   if (rows<8 || cols<20) { return; }
+   int width=cols-1,height=rows-1;
+   rrui_canvas_t *c=rrui_canvas_new(width,height);
+   if (!c) { return; }
+   d->rows=rows;
+   int waterfall=d->collapsed?0:CLAMP(d->height?d->height:height/4,1,MAX(1,height-6));
+   d->divider=waterfall+2;
+   char header[180];
+   g_snprintf(header,sizeof(header),"%s AF | %s | %s | %s",d->collapsed?"[+]":"[-]",e->engine,e->source,e->tx_on?"ON AIR":e->tx_enabled?"TX enabled":"RX");
+   rrui_canvas_text(c,0,0,width,header,e->tx_on?0xff6060:0xbad8e8);
+   unsigned hz=decoder_max_hz?decoder_max_hz:RR_AF_MAX_HZ;
+   unsigned maxbin=MIN(RR_AF_BINS-1,(unsigned)((uint64_t)hz*RR_AF_FFT_N/RR_AF_SAMPLE_RATE));
+   for (int y=0;y<waterfall;y++) {
+      for (int x=0;x<width;x++) {
+         if ((unsigned)y>=decoder_count || decoder_listening!=slot) {
+            rrui_canvas_put(c,x,y+1,0x2588,0x101020);continue;
+         }
+         unsigned row=(decoder_head+DECODER_HISTORY-1-(unsigned)y)%DECODER_HISTORY;
+         unsigned lo=(unsigned)((uint64_t)x*maxbin/width),hi=(unsigned)((uint64_t)(x+1)*maxbin/width);
+         float peak=-140.f;
+         for (unsigned k=lo;k<=hi;k++) { peak=MAX(peak,decoder_waterfall[row][k]); }
+         rrui_canvas_put(c,x,y+1,0x2588,decoder_color(peak));
+      }
+   }
+   if (!d->collapsed) {
+      for (int x=0;x<width;x++) { rrui_canvas_put(c,x,waterfall+1,0x2500,0x7396a8); }
+      g_snprintf(header,sizeof(header),"0 Hz  /  %u Hz  [drag to resize]",hz);
+      rrui_canvas_text(c,0,waterfall+1,width,header,0xbad8e8);
+   }
+   int top=d->collapsed?1:waterfall+2;
+   const char *raw=d->rx?d->rx->str:"";
+   gchar **lines=g_strsplit(raw,"\n",-1);
+   /* Wrap long PSK lines by Unicode characters, keeping a bounded screen list. */
+   GPtrArray *display=g_ptr_array_new_with_free_func(g_free);
+   for (unsigned i=0;lines[i];i++) {
+      const char *p=lines[i];
+      do {
+         glong len=g_utf8_strlen(p,-1);
+         const char *end=g_utf8_offset_to_pointer(p,MIN((glong)width,len));
+         g_ptr_array_add(display,g_strndup(p,end-p));p=end;
+      } while (*p);
+   }
+   int visible=MAX(0,height-top-3);
+   int end=MAX(0,(int)display->len-d->scroll);
+   int first=MAX(0,end-visible);
+   for (int i=first;i<end;i++) {
+      const char *line=g_ptr_array_index(display,i);
+      rrui_canvas_text(c,0,top+i-first,width,line,strstr(line,"CQ ")?0x55dd88:0xc2d1da);
+   }
+   g_ptr_array_unref(display);g_strfreev(lines);
+   g_snprintf(header,sizeof(header),"%s %s",d->editing?"TX >":"TX :",d->input);
+   rrui_canvas_text(c,0,height-3,width,header,d->editing?0xffff70:0x92a6b3);
+   rrui_canvas_text(c,0,height-2,width,"Ctrl+T edit / send with Enter | Ctrl+G PSK live | Esc abort",0xbad8e8);
+   rrui_canvas_text(c,0,height-1,width,"Ctrl+W waterfall | PgUp/PgDn scroll | click header to collapse",0xbad8e8);
+   rrui_canvas_draw(c,2,1);rrui_canvas_free(c);
+}
+static bool decoder_key(tui_window_t *w,unsigned key,unsigned mods,void *data) {
+   (void)w;
+   decoder_view_t *d=data;unsigned slot=(unsigned)(d-decoders)+1;
+   const rr_local_modem_entry_t *e=&modem_snapshot.entries[slot-1];
+   if (mods&TERMKEY_KEYMOD_CTRL) {
+      if (key=='w' || key=='W') { d->collapsed=!d->collapsed;decoder_update_listener();tui_redraw_request();return true; }
+      if (key=='t' || key=='T') {
+         if (e->running && e->tx_enabled && strcmp(e->engine,"ft8") && !d->stream_owned) { d->editing=!d->editing; }
+         tui_redraw_request();return true;
+      }
+      if (key=='g' || key=='G') {
+         if (d->stream_owned) {
+            d->stream_owned=false;decoder_request(slot,RR_LOCAL_MODEM_STREAM_END,NULL);
+         } else if (e->running && e->tx_enabled && !e->stream_active && !strcmp(e->engine,"psk")) {
+            d->editing=false;d->stream_owned=true;decoder_request(slot,RR_LOCAL_MODEM_STREAM_BEGIN,NULL);
+         }
+         tui_redraw_request();return true;
+      }
+      return false;
+   }
+   if (mods&TERMKEY_KEYMOD_ALT) { return false; }
+   if (key==TERMKEY_SYM_ESCAPE) {
+      decoder_abort(slot);d->editing=false;d->input_len=0;d->input[0]=0;
+   } else if (key==TERMKEY_SYM_PAGEUP) { d->scroll=MIN(d->scroll+10,65536); }
+   else if (key==TERMKEY_SYM_PAGEDOWN) { d->scroll=MAX(0,d->scroll-10); }
+   else if (d->stream_owned) {
+      if (!e->running || !e->tx_enabled) { decoder_abort(slot); }
+      else if (e->stream_active && key==TERMKEY_SYM_ENTER) { decoder_request(slot,RR_LOCAL_MODEM_STREAM_DATA,"\n"); }
+      else if (e->stream_active && key>=32 && key<=126) {
+         char text[2]={(char)key,0};decoder_request(slot,RR_LOCAL_MODEM_STREAM_DATA,text);
+      }
+   } else if (d->editing) {
+      if (key==TERMKEY_SYM_ENTER) {
+         if (e->running && e->tx_enabled && d->input_len) { decoder_request(slot,RR_LOCAL_MODEM_SEND_TEXT,d->input); }
+         d->input_len=0;d->input[0]=0;d->editing=false;
+      } else if (key==TERMKEY_SYM_BACKSPACE || key==127) {
+         if (d->input_len) { d->input[--d->input_len]=0; }
+      } else if (key>=32 && key<=126 && d->input_len<sizeof(d->input)-1) {
+         d->input[d->input_len++]=(char)key;d->input[d->input_len]=0;
+      }
+   } else { return false; }
+   tui_redraw_request();return true;
+}
+static bool decoder_mouse(tui_window_t *w,int row,int col,int button,int action,unsigned mods,void *data) {
+   (void)w;(void)col;(void)mods;
+   decoder_view_t *d=data;
+   if (action==TERMKEY_MOUSE_PRESS && button==1 && row==2) { d->collapsed=!d->collapsed;decoder_update_listener(); }
+   else if (action==TERMKEY_MOUSE_PRESS && button==1 && !d->collapsed && row==d->divider+1) { d->dragging=true; }
+   else if (action==TERMKEY_MOUSE_DRAG && d->dragging) {
+      d->height=CLAMP(row-3,0,MAX(1,d->rows-7));d->collapsed=d->height==0;decoder_update_listener();
+   } else if (action==TERMKEY_MOUSE_RELEASE && d->dragging) { d->dragging=false; }
+   else if (action==TERMKEY_MOUSE_PRESS && (button==4 || button==5)) { d->scroll=CLAMP(d->scroll+(button==4?3:-3),0,65536); }
+   else { return false; }
+   tui_redraw_request();return true;
+}
+static void decoder_open(unsigned slot) {
+   decoder_view_t *d=&decoders[slot-1];
+   g_snprintf(d->title,sizeof(d->title),"Decoder %u",slot);
+   tui_window_t *w=tui_window_find(d->title);
+   if (!w) { w=tui_window_create(d->title); }
+   if (!w) { return; }
+   if (!d->rx) {
+      d->rx=g_string_new("");
+      const char *raw=modem_snapshot.entries[slot-1].text;
+      decoder_append(d,raw,strnlen(raw,RR_LOCAL_MODEM_TEXT));
+   }
+   w->view_data=d;w->view_draw=decoder_draw;w->view_key=decoder_key;
+   w->view_mouse=decoder_mouse;w->view_full_height=true;
+   tui_window_focus(d->title);decoder_update_listener();tui_redraw_request();
+}
+static void decoder_shutdown(void) {
+   if (decoder_timer) { g_source_remove(decoder_timer);decoder_timer=0; }
+   if (decoder_af_token) { event_off_token(decoder_af_token);decoder_af_token=0; }
+   if (decoder_stream_token) { event_off_token(decoder_stream_token);decoder_stream_token=0; }
+   if (decoder_listening) { rr_af_spectrum_listen(false);decoder_listening=0; }
+   decoder_pending=0;
+   for (unsigned i=0;i<RR_LOCAL_MODEM_MAX;i++) {
+      decoder_view_t *d=&decoders[i];
+      decoder_abort(i+1);
+      tui_window_t *w=*d->title?tui_window_find(d->title):NULL;
+      if (w && w->view_data==d) { w->view_draw=NULL;w->view_key=NULL;w->view_mouse=NULL;w->view_data=NULL; }
+      if (d->rx) { g_string_free(d->rx,TRUE); }
+      memset(d,0,sizeof(*d));
+   }
+}
+
 static void modem_show_selected(rrui_form_t *f) {
    unsigned slot=modem_selected_slot(f);
    if (!slot) { return; }
@@ -1274,9 +1549,13 @@ static void modem_result(const rr_event_message_t *m,void *user) {
    bool first=modem_snapshot.count==0;
    modem_snapshot=*snapshot;
    for (unsigned i=0;i<RR_LOCAL_MODEM_MAX;i++) {
-      char source[64];g_snprintf(source,sizeof(source),"modem%u.ptt",i+1);
+      decoder_view_t *d=&decoders[i];
       const rr_local_modem_entry_t *e=&snapshot->entries[i];
-      rr_logic_signal(source,e->running,e->tx_on);
+      if (!e->running || !e->tx_enabled) { decoder_abort(i+1); }
+      if (strcmp(d->source,e->source) || strcmp(d->engine,e->engine)) {
+         if (d->rx) { g_string_truncate(d->rx,0);decoder_append(d,e->text,strnlen(e->text,sizeof(e->text))); }
+         g_strlcpy(d->source,e->source,sizeof(d->source));g_strlcpy(d->engine,e->engine,sizeof(d->engine));d->scroll=0;
+      }
    }
    unsigned selected=modem_selected_slot(modem_view);
    rrui_form_list_clear(modem_view,"slots");
@@ -1290,6 +1569,7 @@ static void modem_result(const rr_event_message_t *m,void *user) {
    }
    rrui_form_select(modem_view,view_field(modem_view,"slots"),selected?selected-1:0);
    if (first) { modem_show_selected(modem_view); }
+   else if (selected) { rrui_form_set_checked(modem_view,"tx",snapshot->entries[selected-1].tx_enabled); }
    rrui_form_set_value(modem_view,"message",snapshot->status);
    /* The core keeps a bounded text history, including partial PSK lines.
     * Split it for a scrollable text list instead of treating it as markup. */
@@ -1313,6 +1593,7 @@ static void modem_result(const rr_event_message_t *m,void *user) {
 static void modem_decode(const rr_event_message_t *m,void *user) {
    (void)user;
    if (!m || !m->payload || m->length!=sizeof(rr_local_modem_decode_t)) { return; }
+   decoder_message(m->payload);
    if (modem_tab && tui_active_window()==modem_tab &&
        g_get_monotonic_time()-modem_requested>250000) { modem_request_snapshot(); }
 }
@@ -1323,6 +1604,7 @@ static void modem_action(rrui_form_t *f,const char *id,const char *action,void *
    unsigned slot=modem_selected_slot(f);
    if (!slot) { view_notice(f,"Select a modem slot.");return; }
    const rr_local_modem_entry_t *e=&modem_snapshot.entries[slot-1];
+   if (!strcmp(action,"decoder")) { decoder_open(slot);return; }
    rr_local_modem_request_t req={.slot=slot};
    if (!strcmp(action,"start")) {
       if (e->running) { view_notice(f,"Stop the existing modem before replacing it.");return; }
@@ -1371,9 +1653,13 @@ static void modem_init(void) {
    rrui_form_on_selection(modem_view,modem_selection);
    modem_snapshot_token=event_on_message_domain_token(RR_LOCAL_MODEM_RESULT,modem_result,NULL,"core");
    modem_decode_token=event_on_message_domain_token(RR_LOCAL_MODEM_DECODE,modem_decode,NULL,"core");
+   decoder_stream_token=event_on_message_domain_token(RR_LOCAL_MODEM_STREAM_RX,decoder_stream,NULL,"core");
+   decoder_af_token=event_on_message_domain_token(RRCLIENT_AF_SPECTRUM_RESULT,decoder_af,NULL,"core");
+   decoder_timer=g_timeout_add(250,decoder_tick,NULL);
    modem_request_snapshot();
 }
 static void modem_shutdown(void) {
+   decoder_shutdown();
    if (modem_snapshot_token) { event_off_token(modem_snapshot_token);modem_snapshot_token=0; }
    if (modem_decode_token) { event_off_token(modem_decode_token);modem_decode_token=0; }
    if (modem_tab) { rrui_tui_tab_detach(modem_tab); }
