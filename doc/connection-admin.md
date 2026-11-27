@@ -116,7 +116,7 @@ before the bottom main-tab navigation to reduce accidental clicks.
 The server editor has two short, independent checkboxes:
 
 - **Ignore TLS hostname** (default off): use the configured **Node Name**
-  (such as `rplywv00.ham.istabpeople.com`) as the certificate DNS SAN identity
+  (such as `dsmiia00.ham.example.net`) as the certificate DNS SAN identity
   instead of the dialed URL hostname/IP address. It does **not** disable
   certificate trust checks or SPKI verification. With no expected Node Name
   yet, the client may learn one from an explicitly approved first-use key
