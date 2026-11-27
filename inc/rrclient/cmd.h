@@ -7,6 +7,7 @@
 //
 #ifndef __rrclient_cmd_h
 #define __rrclient_cmd_h
+#include <stdint.h>
 #include <librustyaxe/core.h>
 #include <librustyaxe/config.h>
 #include <librustyaxe/struct.h>
