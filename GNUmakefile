@@ -171,13 +171,13 @@ license-migrate:
 .PHONY: test-hamlib-ipc
 test-hamlib-ipc:
 	@mkdir -p $(BUILD_DIR)/tests
-	$(CC) -std=gnu23 -Wall -Wextra -Werror -O2 -o $(BUILD_DIR)/tests/test-hamlib-ipc tests/rrserver/test_hamlib_ipc.c
+	$(CC) -std=gnu23 -Wall -Wextra $(RR_WARNING_FLAGS) -O2 -o $(BUILD_DIR)/tests/test-hamlib-ipc tests/rrserver/test_hamlib_ipc.c
 	$(BUILD_DIR)/tests/test-hamlib-ipc
 
 .PHONY: test-hamlib-transport
 test-hamlib-transport:
 	@mkdir -p $(BUILD_DIR)/tests
-	$(CC) -std=gnu23 -Wall -Wextra -Werror -O2 -pthread -o $(BUILD_DIR)/tests/test-hamlib-transport tests/rrserver/test_hamlib_transport.c rrserver/hamlib.transport.c
+	$(CC) -std=gnu23 -Wall -Wextra $(RR_WARNING_FLAGS) -O2 -pthread -o $(BUILD_DIR)/tests/test-hamlib-transport tests/rrserver/test_hamlib_transport.c rrserver/hamlib.transport.c
 	$(BUILD_DIR)/tests/test-hamlib-transport
 
 .PHONY: test-hamlib-leak-probe
@@ -191,7 +191,7 @@ test-hamlib-subprocess: bin/rrhamlib
 .PHONY: test-hamlib-dummy
 test-hamlib-dummy: bin/rrhamlib
 	@mkdir -p $(BUILD_DIR)/tests
-	$(CC) -std=gnu23 -Wall -Wextra -Werror -O2 -pthread -o $(BUILD_DIR)/tests/test-hamlib-dummy tests/rrserver/test_hamlib_dummy.c rrserver/hamlib.transport.c
+	$(CC) -std=gnu23 -Wall -Wextra $(RR_WARNING_FLAGS) -O2 -pthread -o $(BUILD_DIR)/tests/test-hamlib-dummy tests/rrserver/test_hamlib_dummy.c rrserver/hamlib.transport.c
 	python3 tests/rrserver/run_hamlib_dummy.py $(PROFILE)
 
 # Full regression suites for both transport implementations. Disposable

@@ -113,6 +113,7 @@
       "hamlib-port": "localhost:4532"
    },
    "build": {
+      "strict-warnings": false,
       "cflags": "-fPIC -g -O1 -std=gnu23",
       "cflags_warn": "-Wall -Wno-unused",
       "ldflags": "",

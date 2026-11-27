@@ -15,5 +15,5 @@ ${librrsdrutils}: ${librrsdrutils_objs}
 .PHONY: test-rrsdrutils
 test-rrsdrutils: ${librrsdrutils}
 	@mkdir -p ${BUILD_DIR}/librrsdrutils
-	@${CC} ${MEDIA_CFLAGS} -Wall -Wextra -Werror -I. -o ${BUILD_DIR}/librrsdrutils/test-descriptor librrsdrutils/tests/descriptor.c -L. -Wl,-rpath,"$(CURDIR)" -lrrsdrutils
+	@${CC} ${MEDIA_CFLAGS} -Wall -Wextra $(RR_WARNING_FLAGS) -I. -o ${BUILD_DIR}/librrsdrutils/test-descriptor librrsdrutils/tests/descriptor.c -L. -Wl,-rpath,"$(CURDIR)" -lrrsdrutils
 	@${BUILD_DIR}/librrsdrutils/test-descriptor
