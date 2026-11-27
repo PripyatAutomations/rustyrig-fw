@@ -6,6 +6,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 //
 #include <rrclient/database.h>
+#include <reset.files.h>
 #include <rrclient/backup.h>
 #include <getopt.h>
 #include <stddef.h>
@@ -1986,14 +1987,47 @@ bool rrclient_cleanup(void) {
    return false;
 }
 
+static int rrclient_reset_local(const char *option,bool factory) {
+   char *identity=g_build_filename(g_get_user_config_dir(),"rustyrig","identity",NULL);
+   char *config=g_build_filename(g_get_user_config_dir(),"rustyrig",NULL);
+   char *state=g_build_filename(g_get_user_state_dir(),"rustyrig",NULL);
+   char *cache=g_build_filename(g_get_user_cache_dir(),"rustyrig",NULL);
+   char *data=g_build_filename(g_get_user_data_dir(),"rustyrig",NULL);
+   char *legacy_config=g_build_filename(g_get_home_dir(),".config","rrclient.cfg",NULL);
+   char *legacy_data=g_build_filename(g_get_home_dir(),".local","share","rustyrig",NULL);
+   char *legacy_app_config=g_build_filename(g_get_home_dir(),".config","rustyrig",NULL);
+   char *recordings=g_build_filename(g_get_home_dir(),"rrclient-recordings",NULL);
+   rr_reset_t reset={.preview=true};
+   bool ok=true;
+   for (unsigned pass=0;pass<2 && ok;pass++) {
+      reset.preview=pass==0;
+      if (factory) {
+         const char *trees[]={config,state,cache,data,legacy_data,legacy_app_config,recordings};
+         for (unsigned i=0;i<G_N_ELEMENTS(trees) && ok;i++) {
+            ok=rr_reset_target(&reset,trees[i],true);
+         }
+         if (ok) { ok=rr_reset_target(&reset,legacy_config,false); }
+      } else {
+         ok=rr_reset_target(&reset,identity,true);
+      }
+      if (pass==0 && ok) { ok=rr_reset_confirm(option,"rrclient"); }
+   }
+   fprintf(stderr,ok?"Reset complete: %u files removed.\n":"Reset incomplete or cancelled: %u files removed.\n",reset.removed);
+   g_free(identity);g_free(config);g_free(state);g_free(cache);g_free(data);
+   g_free(legacy_config);g_free(legacy_data);g_free(legacy_app_config);g_free(recordings);
+   return ok?EXIT_SUCCESS:EXIT_FAILURE;
+}
+
 void show_arg_help(int argc, char **argv) {
-   printf("%s [-T] [-f config] [-s server] [-S] [--ignore-db-config] [--reset-db] [-h]\n", argv[0]);
+   printf("%s [-T] [-f config] [-s server] [-S] [--ignore-db-config] [--reset-db|--reset-certs|--factory-reset] [-h]\n", argv[0]);
    printf("\t-S\t\tssh mode (implies -T; throttle screen updates)\n");
    printf("\t-T\t\tTUI only mode (no X11)\n");
    printf("\t-f config\tChose an alternative configuration file\n");
    printf("\t-s server\tServer profile to autoconnect to on start\n");
    printf("\t--ignore-db-config\tSkip saved configuration overrides (still load profiles and themes)\n");
    printf("\t--reset-db\tReset client SQLite database (interactive confirmation) and exit\n");
+   printf("\t--reset-certs / --reset-identity\tDelete local client identity keys and exit\n");
+   printf("\t--factory-reset\tDelete local configuration, databases, identities, caches and recordings and exit\n");
    printf("\t-h\t\tHelp\n");
 }
 
@@ -2040,7 +2074,7 @@ static gpointer rr_gtk_frontend_thread(gpointer data) {
 int main(int argc, char *argv[]) {
    char *display = getenv("DISPLAY");
    char *autoconnect_server = NULL; // -s: server profile to connect to on start
-   bool reset_db = false;
+   const char *reset_option=NULL;
 
    // Apply the hard-coded defaults from defconfig.c FIRST, so keys missing
    // from the user's config fall back to them.
@@ -2100,6 +2134,9 @@ int main(int argc, char *argv[]) {
          {
             "reset-db", no_argument, 0, 1001
          },
+         {"reset-certs", no_argument, 0, 1002},
+         {"reset-identity", no_argument, 0, 1003},
+         {"factory-reset", no_argument, 0, 1004},
          {
             "help", no_argument, 0, 'h'
          },
@@ -2115,8 +2152,14 @@ int main(int argc, char *argv[]) {
       }
 
       switch (c) {
-         case 1001: {
-            reset_db = true;
+         case 1001: case 1002: case 1003: case 1004: {
+            const char *option=c==1001?"--reset-db":c==1002?"--reset-certs":
+               c==1003?"--reset-identity":"--factory-reset";
+            if (reset_option || !this_option_optind || strcmp(argv[this_option_optind],option)) {
+               fprintf(stderr,"Specify exactly one full reset option.\n");
+               return EXIT_FAILURE;
+            }
+            reset_option=option;
             break;
          }
          case 1000: {
@@ -2173,8 +2216,13 @@ int main(int argc, char *argv[]) {
    }
 
    /* Maintenance exits without config, UI, transport or database startup. */
-   if (reset_db) {
-      return rrclient_database_reset();
+   if (reset_option) {
+      if (config_file || autoconnect_server) {
+         fprintf(stderr,"Reset uses standard local paths; do not combine with -f or -s.\n");
+         return EXIT_FAILURE;
+      }
+      if (!strcmp(reset_option,"--reset-db")) { return rrclient_database_reset(); }
+      return rrclient_reset_local(reset_option,!strcmp(reset_option,"--factory-reset"));
    }
    event_init();
    host_init();

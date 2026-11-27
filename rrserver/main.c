@@ -626,6 +626,8 @@ int main(int argc, char **argv) {
       {
          "reset-certs", no_argument, NULL, 1012
       },
+      {"factory-reset", no_argument, NULL, 1013},
+      {"reset-identity", no_argument, NULL, 1014},
       {
          "help", no_argument, NULL, 'h'
       },
@@ -675,13 +677,16 @@ int main(int argc, char **argv) {
          }
          case 1010:
          case 1011:
-         case 1012: {
+         case 1012:
+         case 1013:
+         case 1014: {
             if (maintenance != RR_MAINT_NONE || mesh_join) {
                fprintf(stderr, "Specify only one maintenance operation.\\n");
 
                return EXIT_FAILURE;
             }
-            maintenance = opt == 1010 ? RR_MAINT_ROTATE_CERTS : opt == 1011 ? RR_MAINT_REVOKE_CERTS : RR_MAINT_RESET_CERTS;
+            maintenance = opt == 1010 ? RR_MAINT_ROTATE_CERTS : opt == 1011 ? RR_MAINT_REVOKE_CERTS :
+               opt == 1012 ? RR_MAINT_RESET_CERTS : opt == 1013 ? RR_MAINT_FACTORY_RESET : RR_MAINT_RESET_IDENTITY;
             break;
          }
          case 1001:
@@ -725,6 +730,8 @@ int main(int argc, char **argv) {
             puts("  --rotate-certs      Retire identity and queue signed revocation");
             puts("  --revoke-certs      Retire identity and queue signed revocation");
             puts("  --reset-certs       Archive TLS/Ed25519 keys for fresh mesh (no revocation)");
+            puts("  --reset-identity    Alias for --reset-certs");
+            puts("  --factory-reset     DELETE non-packaged local server configuration and state");
             puts("\nRequires an interactive terminal and YES <full-option> confirmation.");
             puts("Only one full maintenance option per invocation; no --force.");
             puts("Commands exit without starting rrserver. Back up data first.");
@@ -768,6 +775,10 @@ int main(int argc, char **argv) {
          Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", fullpath);
       }
       free(fullpath);
+   }
+
+   if (maintenance == RR_MAINT_FACTORY_RESET) {
+      return rrserver_maintenance_run(maintenance);
    }
 
    if (!config_file) {

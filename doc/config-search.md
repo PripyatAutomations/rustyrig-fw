@@ -43,3 +43,9 @@ database first if you need to preserve those settings.
 
 If you only need to disregard saved configuration overrides temporarily,
 use `rrclient --ignore-db-config` instead.
+
+### Identity and factory reset
+
+`rrclient --reset-certs` (alias `--reset-identity`) deletes the local identity directory's contents. Existing profile certificate references are not rewritten; select a new identity in the editor.
+
+`rrclient --factory-reset` removes local RustyRig configuration, state/database, cache, data, identity and default recording files, including legacy HOME paths. It leaves system configuration and packaged files alone. Both operations list targets and require `YES <full-option>` on the controlling terminal. Stop all instances first. Custom external paths are not followed.

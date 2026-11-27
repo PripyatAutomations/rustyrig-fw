@@ -47,3 +47,7 @@ Transient connections and temporary SDR bridge instances use fresh UUIDs and are
 ## Troubleshooting
 
 A maintenance command fails without changes when it cannot open its configured target, another v1 server holds the database lock, no terminal is available for confirmation, or the exact confirmation is not entered. For admin password reset, make sure `/dev/tty` is available, password and confirmation match, and the admin account exists. An existing temporary admin password file does not block this reset. If a reset fails after writing has started, inspect the reported error and restore from backup rather than repeating it blindly.
+
+### Factory reset
+
+`rrserver --factory-reset` lists and permanently removes non-package-owned files in /etc/rustyrig, /var/lib/rustyrig and /var/log/rustyrig. Package ownership is checked using Debian's installed file lists; the operation refuses to run without that index. Package-owned conffiles (including local edits), directory permissions, lock files, and shared client subtrees are retained. Custom paths outside those roots and exported shares are not erased. Stop the service first, then enter `YES --factory-reset`. The next normal startup provisions a database and identity; this does not notify peers of retired keys. `--reset-identity` is an alias for the existing archival `--reset-certs` operation.

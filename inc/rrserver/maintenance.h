@@ -5,6 +5,7 @@
 #ifndef RR_SERVER_MAINTENANCE_H
 #define RR_SERVER_MAINTENANCE_H
 #include <glib.h>
+#include <reset.files.h>
 #include <stdio.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -71,7 +72,8 @@ enum rr_maintenance_action {
    RR_MAINT_NONE, RR_MAINT_PURGE_RECORDINGS, RR_MAINT_RESET_DB,
    RR_MAINT_RESET_ROOMS, RR_MAINT_RESET_LOGS, RR_MAINT_RESET_AUDIT,
    RR_MAINT_RESET_ADMINPW, RR_MAINT_RESET_UUIDS,
-   RR_MAINT_ROTATE_CERTS, RR_MAINT_REVOKE_CERTS, RR_MAINT_RESET_CERTS
+   RR_MAINT_ROTATE_CERTS, RR_MAINT_REVOKE_CERTS, RR_MAINT_RESET_CERTS,
+   RR_MAINT_FACTORY_RESET, RR_MAINT_RESET_IDENTITY
 };
 
 static const char *rr_maintenance_name(enum rr_maintenance_action action) {
@@ -106,6 +108,8 @@ static const char *rr_maintenance_name(enum rr_maintenance_action action) {
       case RR_MAINT_RESET_CERTS: {
          return "--reset-certs";
       }
+      case RR_MAINT_FACTORY_RESET: { return "--factory-reset"; }
+      case RR_MAINT_RESET_IDENTITY: { return "--reset-identity"; }
       default: {
          return "unknown";
       }
@@ -296,7 +300,7 @@ extern bool db_reset_admin_password(sqlite3 *db, const char *password);
 
 /* A mesh rebuild deliberately abandons local trust. Archive private keys rather than deleting them, and only unlock identity generation after every active file
  * has been retired. This does NOT notify other mesh members. */
-static int rr_maintenance_reset_certs(void) {
+static int rr_maintenance_reset_certs(enum rr_maintenance_action action) {
    const char *dir = cfg_get("path.identity");
 
    if (!dir || !*dir) {
@@ -313,7 +317,7 @@ static int rr_maintenance_reset_certs(void) {
    char *signing = g_build_filename(dir, "server-ed25519.pem", NULL);
    char *marker = g_build_filename(dir, "revoked.lock", NULL);
 
-   if (!signing || !marker || !rrserver_maintenance_lock() || !rr_maintenance_confirm(RR_MAINT_RESET_CERTS, dir)) {
+   if (!signing || !marker || !rrserver_maintenance_lock() || !rr_maintenance_confirm(action, dir)) {
       g_free(signing);
       g_free(marker);
 
@@ -592,9 +596,31 @@ static int rr_maintenance_certs(enum rr_maintenance_action action) {
 #endif
 }
 
+static int rr_maintenance_factory_reset(void) {
+   rr_reset_t reset={.server=true,.preview=true,.packaged=rr_reset_packages()};
+   if (!reset.packaged) {
+      fprintf(stderr,"Cannot verify package ownership; refusing system factory reset.\n");
+      return EXIT_FAILURE;
+   }
+   const char *roots[]={"/etc/rustyrig","/var/lib/rustyrig","/var/log/rustyrig"};
+   bool ok=true;
+   for (unsigned pass=0;pass<2 && ok;pass++) {
+      reset.preview=pass==0;
+      for (unsigned i=0;i<G_N_ELEMENTS(roots) && ok;i++) {
+         ok=rr_reset_target(&reset,roots[i],true);
+      }
+      if (pass==0 && ok) {
+         ok=rr_reset_confirm("--factory-reset","rrserver") && rrserver_maintenance_lock();
+      }
+   }
+   fprintf(stderr,ok?"Factory reset complete: %u files removed.\n":"Factory reset incomplete or cancelled: %u files removed.\n",reset.removed);
+   g_hash_table_unref(reset.packaged);
+   return ok?EXIT_SUCCESS:EXIT_FAILURE;
+}
 static int rrserver_maintenance_run(enum rr_maintenance_action action) {
-   if (action == RR_MAINT_RESET_CERTS) {
-      return rr_maintenance_reset_certs();
+   if (action == RR_MAINT_FACTORY_RESET) { return rr_maintenance_factory_reset(); }
+   if (action == RR_MAINT_RESET_CERTS || action == RR_MAINT_RESET_IDENTITY) {
+      return rr_maintenance_reset_certs(action);
    }
 
    if (action == RR_MAINT_ROTATE_CERTS || action == RR_MAINT_REVOKE_CERTS) {
