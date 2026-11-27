@@ -34,6 +34,7 @@ typedef void (*rr_logic_canvas_block_cb)(const char *id,double x,double y,
 void rr_logic_canvas_foreach_block(rr_logic_canvas_block_cb cb,gpointer user);
 const char *rr_logic_canvas_hit_block(double x,double y);
 gboolean rr_logic_canvas_remove_block(const char *id);
+gboolean rr_logic_canvas_pin_at(double x,double y);
 gboolean rr_logic_canvas_move_block(const char *id,double x,double y);
 void rr_logic_canvas_save_positions(void);
 typedef gboolean (*rr_logic_canvas_selected_cb)(const char *id,gpointer user);
