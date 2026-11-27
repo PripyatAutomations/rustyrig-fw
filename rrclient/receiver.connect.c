@@ -323,6 +323,22 @@ char *rrclient_receiver_connect_favorite(uint64_t hz, const char *mode) {
    return url;
 }
 
+bool rrclient_receiver_disconnect_target(const char *target) {
+   if (!target || !*target) {
+      return false;
+   }
+   if (target[0]!='#') {
+      return rrclient_receiver_disconnect(target);
+   }
+   const char *key=receiver_rooms?g_hash_table_lookup(receiver_rooms,target):NULL;
+   const char *profile=rrclient_selected_server();
+   const char *sep=key?strchr(key,'\n'):NULL;
+   if (!profile || !sep || strlen(profile)!=(size_t)(sep-key) || strncmp(key,profile,sep-key)) {
+      return false;
+   }
+   return rrclient_receiver_disconnect(sep+1);
+}
+
 bool rrclient_receiver_disconnect(const char *url) {
    rrconn_t *connection = rrclient_active_connection();
    const char *profile = connection ? rrclient_connection_name(connection) : NULL;

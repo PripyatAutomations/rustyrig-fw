@@ -15,6 +15,7 @@ bool rrclient_receiver_is_connected(const char *url);
 /* Directory overview: connected on any authenticated online server profile. */
 bool rrclient_receiver_is_connected_any(const char *url);
 bool rrclient_receiver_disconnect(const char *url);
+bool rrclient_receiver_disconnect_target(const char *target);
 void rrclient_receiver_connect_init(void);
 void rrclient_receiver_connect_shutdown(void);
 #endif

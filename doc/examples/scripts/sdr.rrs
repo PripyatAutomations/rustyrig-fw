@@ -1,0 +1,29 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// /script load sdr.rrs
+script("/sdr", {
+    dict request = sdr.parse(event.args)
+    if (request.action == "open" && request.hz > 0) {
+        char receiver = sdr.connect_favorite(request.hz, request.mode)
+        if (receiver == null) {
+            chat.print("SDR: no eligible favorite or connection request rejected")
+        } else {
+            chat.print("SDR requested: " + receiver + " (" + string.str(request.hz) + " Hz " + request.mode + ")")
+        }
+    } else if (request.action == "favorites") {
+        char favorites = sdr.favorites()
+        if (favorites == "") { chat.print("No favorite receivers") }
+        else { chat.print(favorites) }
+    } else if (request.action == "list") {
+        char connected = sdr.list()
+        if (connected == "") { chat.print("No connected directory receivers on this server") }
+        else { chat.print(connected) }
+    } else if (request.action == "close") {
+        if (sdr.disconnect(request.target)) {
+            chat.print("SDR disconnect requested")
+        } else {
+            chat.print("SDR disconnect rejected; check receiver and selected server")
+        }
+    } else {
+        chat.print("/sdr [open] <Hz> [mode] | favorites | list | close <URL or #room>")
+    }
+});

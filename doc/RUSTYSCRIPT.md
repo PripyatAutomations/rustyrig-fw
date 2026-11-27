@@ -807,3 +807,11 @@ rather than busy-waiting. There are four outstanding requests per script, 1 MiB
 request/response limits, 5-second connect and 15-second total timeouts. TLS
 verification is mandatory; redirects are not followed automatically. Unloading
 a script cancels and joins its outstanding workers. WebSockets are not yet exposed.
+
+### SDR manager example
+
+Install `doc/examples/scripts/sdr.rrs` under the script root, then
+`/script load sdr.rrs`. The script implements `/sdr`, `/sdr open Hz MODE`,
+`/sdr Hz MODE`, `/sdr favorites`, `/sdr list`, and `/sdr close URL-or-room`.
+The list and close operations are scoped to the selected RustyRig server.
+`chat.print(text)` writes locally to the active chat, never to the server.

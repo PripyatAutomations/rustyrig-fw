@@ -6,6 +6,9 @@
 #include <rrclient/cmd.h>
 #include <rrclient/audio.h>
 #include <rrclient/receiver.connect.h>
+#include <rrclient/receiver.directory.h>
+#include <rrclient/rrclient.h>
+#include <rrclient/ui.h>
 #include <librustyaxe/event-bus.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/frontend.h>
@@ -45,6 +48,87 @@ static rrs_value_t *native_sdr_favorite(rrs_vm_t *vm, int argc, const rrs_value_
    rrs_value_t *result = url ? rrs_string(url) : rrs_null();
    g_free(url);
    return result;
+}
+
+/* Command parsing is deliberately separate from SDR lifecycle operations. */
+static rrs_value_t *native_sdr_args(rrs_vm_t *vm,int argc,const rrs_value_t *const argv[],void *unused) {
+   (void)unused;
+   if (argc!=1 || rrs_value_type(argv[0])!=RRS_STRING) {
+      rrs_vm_raise(vm,"sdr.parse(args)");
+      return NULL;
+   }
+   gchar **words=g_strsplit_set(rrs_value_string(argv[0])," \t",-1);
+   const char *parts[4]={0};
+   unsigned count=0;
+   for (unsigned i=0;words[i];i++) {
+      if (*words[i]) {
+         if (count==4) { break; }
+         parts[count++]=words[i];
+      }
+   }
+   rrs_value_t *out=rrs_dictionary();
+   const char *op=count?parts[0]:"help";
+   const char *target=count>1?parts[1]:"";
+   const char *mode=count>2?parts[2]:"USB";
+   const char *freq=target;
+   if (g_ascii_isdigit(*op)) {
+      freq=op;
+      mode=count>1?parts[1]:"USB";
+      op="open";
+      if (count>2) { op="help"; }
+   } else if (!g_ascii_strcasecmp(op,"open")) {
+      if (count<2 || count>3) { op="help"; }
+   } else if ((!g_ascii_strcasecmp(op,"close") && count!=2) ||
+              (g_ascii_strcasecmp(op,"close") && count>1)) {
+      op="help";
+   }
+   char *end=NULL;
+   guint64 hz=g_ascii_strtoull(freq,&end,10);
+   if (!*freq || !end || *end || hz>30000000) { hz=0; }
+   char *lower=g_ascii_strdown(op,-1);
+   rrs_value_t *v=rrs_string(lower);
+   rrs_dict_put(out,"action",v);rrs_value_free(v);
+   v=rrs_integer(hz);rrs_dict_put(out,"hz",v);rrs_value_free(v);
+   v=rrs_string(mode);rrs_dict_put(out,"mode",v);rrs_value_free(v);
+   v=rrs_string(target);rrs_dict_put(out,"target",v);rrs_value_free(v);
+   g_free(lower);g_strfreev(words);
+   return out;
+}
+static rrs_value_t *native_sdr_manage(rrs_vm_t *vm,int argc,const rrs_value_t *const argv[],void *user) {
+   int op=GPOINTER_TO_INT(user);
+   if (argc!=(op==2?1:0) || (op==2 && rrs_value_type(argv[0])!=RRS_STRING)) {
+      rrs_vm_raise(vm,"sdr.favorites(), sdr.list(), sdr.disconnect(url_or_room)");
+      return NULL;
+   }
+   if (!g_main_context_is_owner(rrclient_core_context())) {
+      rrs_vm_raise(vm,"SDR management requires the core execution context");
+      return NULL;
+   }
+   if (op==2) {
+      return rrs_boolean(rrclient_receiver_disconnect_target(rrs_value_string(argv[0])));
+   }
+   GString *out=g_string_new("");
+   for (size_t i=0;i<receiver_directory_count();i++) {
+      const receiver_directory_entry_t *r=receiver_directory_receiver(i);
+      if (!r || (op==0?!r->favorite:!rrclient_receiver_is_connected(r->url))) {
+         continue;
+      }
+      g_string_append_printf(out,"%s — %s%s\n",r->url,r->name?r->name:"",
+         op==0&&!receiver_directory_entry_accessible(r)?" [unavailable]":"");
+   }
+   rrs_value_t *result=rrs_string(out->str);
+   g_string_free(out,TRUE);
+   return result;
+}
+
+static rrs_value_t *native_sdr_print(rrs_vm_t *vm,int argc,const rrs_value_t *const argv[],void *unused) {
+   (void)unused;
+   if (argc!=1 || rrs_value_type(argv[0])!=RRS_STRING) {
+      rrs_vm_raise(vm,"chat.print(text)");
+      return NULL;
+   }
+   ui_print(ui_active_window_name(),"%s",rrs_value_string(argv[0]));
+   return rrs_null();
 }
 
 /* Generic script bindings, reusable by IRC and station automation. */
@@ -692,6 +776,11 @@ static rrs_value_t *native_routing_block(rrs_vm_t *vm,int argc,
 }
 static bool register_window_api(rrs_vm_t *vm) {
    return rrs_vm_register_native(vm,"sdr.connect_favorite",native_sdr_favorite,NULL) &&
+      rrs_vm_register_native(vm,"sdr.parse",native_sdr_args,NULL) &&
+      rrs_vm_register_native(vm,"sdr.favorites",native_sdr_manage,GINT_TO_POINTER(0)) &&
+      rrs_vm_register_native(vm,"sdr.list",native_sdr_manage,GINT_TO_POINTER(1)) &&
+      rrs_vm_register_native(vm,"sdr.disconnect",native_sdr_manage,GINT_TO_POINTER(2)) &&
+      rrs_vm_register_native(vm,"chat.print",native_sdr_print,NULL) &&
       rrs_vm_register_native(vm,"setting.get",native_script_settings,GINT_TO_POINTER(0)) &&
       rrs_vm_register_native(vm,"setting.set",native_script_settings,GINT_TO_POINTER(1)) &&
       rrs_vm_register_native(vm,"chat.send",native_script_chat,GINT_TO_POINTER(0)) &&
