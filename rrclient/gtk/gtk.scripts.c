@@ -3,6 +3,8 @@
 #include <gtk/gtk.h>
 #include <glib/gstdio.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <unistd.h>
 #include <librustyaxe/event-bus.h>
 #include <rrclient/script.gui.h>
 #include <string.h>
@@ -44,7 +46,8 @@ static gboolean valid_script_name(const char *name) {
        g_path_is_absolute(name) || strstr(name, "..") || strchr(name, '\\'))
       return FALSE;
    const char *base = name;
-   if (g_str_has_prefix(name, "autoload/")) base = name + strlen("autoload/");
+   if (g_str_has_prefix(name, "autoload/")) { base = name + strlen("autoload/"); }
+   else if (g_str_has_prefix(name, "client/ui/")) { base = name + strlen("client/ui/"); }
    if (!*base || strchr(base, '/') || strlen(base) <= 4) return FALSE;
    /* Mirror rrscript/host.c's filename contract so the manager never
     * offers operations the runtime cannot resolve. */
@@ -66,6 +69,113 @@ static char *script_file_path(const char *name) {
    return path;
 }
 
+/* UI layouts are deliberately separate from ordinary script VMs. */
+static gboolean script_is_layout(const char *name) {
+   return name && g_str_has_prefix(name,"client/ui/");
+}
+static char *script_effective_path(const char *name, unsigned *layer) {
+   if (!valid_script_name(name)) {
+      return NULL;
+   }
+   char *local=script_is_layout(name)?
+      g_build_filename(g_get_user_config_dir(),"rustyrig","scripts",name,NULL):
+      script_file_path(name);
+   if (local && g_file_test(local,G_FILE_TEST_IS_REGULAR)) {
+      if (layer) { *layer=0; }
+      return local;
+   }
+   g_free(local);
+   const char *roots[]={"/etc/rustyrig/scripts/client","/usr/share/rustyrig/scripts/client"};
+   const char *relative=script_is_layout(name)?name+strlen("client/"):name;
+   for (unsigned i=0;i<G_N_ELEMENTS(roots);i++) {
+      char *path=g_build_filename(roots[i],relative,NULL);
+      if (g_file_test(path,G_FILE_TEST_IS_REGULAR)) {
+         if (layer) { *layer=i+1; }
+         return path;
+      }
+      g_free(path);
+   }
+   return NULL;
+}
+static char *script_local_path(const char *name) {
+   if (!valid_script_name(name)) { return NULL; }
+   if (!script_is_layout(name)) { return script_file_path(name); }
+   char *path=g_build_filename(g_get_user_config_dir(),"rustyrig","scripts",name,NULL);
+   char *parent=g_path_get_dirname(path);
+   char *ancestor=g_path_get_dirname(parent);
+   gboolean safe=!g_file_test(path,G_FILE_TEST_IS_SYMLINK) &&
+      !g_file_test(parent,G_FILE_TEST_IS_SYMLINK) &&
+      !g_file_test(ancestor,G_FILE_TEST_IS_SYMLINK);
+   g_free(parent);g_free(ancestor);
+   if (!safe) { g_free(path); return NULL; }
+   return path;
+}
+static char *script_editable_path(const char *name) {
+   char *local=script_local_path(name);
+   if (!local) { return NULL; }
+   if (g_file_test(local,G_FILE_TEST_IS_REGULAR)) { return local; }
+   char *source=script_effective_path(name,NULL);
+   char *parent=g_path_get_dirname(local);
+   char *body=NULL;
+   gsize length=0;
+   bool ok=false;
+   if (source && g_mkdir_with_parents(parent,0700)==0 &&
+       g_file_get_contents(source,&body,&length,NULL)) {
+      int fd=g_open(local,O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC,0600);
+      if (fd>=0) {
+         size_t done=0;
+         while (done<length) {
+            ssize_t n=write(fd,body+done,length-done);
+            if (n<0 && errno==EINTR) { continue; }
+            if (n<=0) { break; }
+            done+=(size_t)n;
+         }
+         ok=close(fd)==0 && done==length;
+         if (!ok) { g_unlink(local); }
+      }
+   }
+   g_free(source);g_free(parent);g_free(body);
+   if (!ok) { g_free(local); return NULL; }
+   return local;
+}
+static void script_catalog_scan(const char *root,const char *subdir,
+                                const char *prefix,GHashTable *seen) {
+   char *dirpath=g_build_filename(root,subdir,NULL);
+   GDir *dir=g_dir_open(dirpath,0,NULL);
+   if (dir) {
+      const char *entry;
+      while ((entry=g_dir_read_name(dir))) {
+         char *name=g_strconcat(prefix,entry,NULL);
+         char *path=g_build_filename(dirpath,entry,NULL);
+         if (valid_script_name(name) && g_file_test(path,G_FILE_TEST_IS_REGULAR)) {
+            g_hash_table_add(seen,name);
+         } else { g_free(name); }
+         g_free(path);
+      }
+      g_dir_close(dir);
+   }
+   g_free(dirpath);
+}
+static void script_catalog(GPtrArray *files,gpointer unused) {
+   (void)unused;
+   GHashTable *seen=g_hash_table_new_full(g_str_hash,g_str_equal,g_free,NULL);
+   char *user=g_build_filename(g_get_user_config_dir(),"rustyrig","scripts","client",NULL);
+   const char *roots[]={script_root,"/etc/rustyrig/scripts/client","/usr/share/rustyrig/scripts/client"};
+   for (unsigned i=0;i<G_N_ELEMENTS(roots);i++) {
+      script_catalog_scan(roots[i],"","",seen);
+      script_catalog_scan(roots[i],"autoload","autoload/",seen);
+      script_catalog_scan(i?roots[i]:user,"ui","client/ui/",seen);
+   }
+   GHashTableIter iter;
+   gpointer key;
+   g_hash_table_iter_init(&iter,seen);
+   while (g_hash_table_iter_next(&iter,&key,NULL)) {
+      g_ptr_array_add(files,g_strdup(key));
+   }
+   g_hash_table_destroy(seen);
+   g_free(user);
+}
+
 #ifdef RR_HAVE_RUSTYSCRIPT
 typedef struct { const char *name; gboolean loaded; } script_lookup_t;
 static void script_lookup(const char *name, bool loaded, void *data) {
@@ -73,7 +183,7 @@ static void script_lookup(const char *name, bool loaded, void *data) {
    if (!strcmp(name, lookup->name)) lookup->loaded = loaded;
 }
 static gboolean script_is_loaded(const char *name) {
-   if (!rrclient_script_host || !valid_script_name(name)) return FALSE;
+   if (!rrclient_script_host || !valid_script_name(name) || script_is_layout(name)) return FALSE;
    script_lookup_t found = { name, FALSE };
    rrscript_host_list(rrclient_script_host, script_lookup, &found);
    return found.loaded;
@@ -85,8 +195,18 @@ static gboolean script_is_loaded(const char *name) { (void)name; return FALSE; }
 static const char *script_status(const char *name, gpointer unused) {
    (void)unused;
 #ifdef RR_HAVE_RUSTYSCRIPT
-   if (!rrclient_script_host) return "Unavailable";
-   return script_is_loaded(name) ? "Loaded" : "Available";
+   unsigned layer=0;
+   char *path=script_effective_path(name,&layer);
+   if (!path) { return "Unavailable"; }
+   g_free(path);
+   if (script_is_layout(name)) {
+      return layer==0?"UI layout · User":layer==1?"UI layout · System":"UI layout · Packaged";
+   }
+   if (!rrclient_script_host) { return "Unavailable"; }
+   if (script_is_loaded(name)) {
+      return layer==0?"Loaded · User":layer==1?"Loaded · System":"Loaded · Packaged";
+   }
+   return layer==0?"Available · User":layer==1?"Available · System":"Available · Packaged";
 #else
    (void)name;
    return "RustyScript unavailable";
@@ -99,7 +219,7 @@ static gboolean selected_any(const char *name, gpointer unused) {
 }
 static gboolean selected_load(const char *name, gpointer unused) {
 #ifdef RR_HAVE_RUSTYSCRIPT
-   return rrclient_script_host && selected_any(name, unused) && !script_is_loaded(name);
+   return rrclient_script_host && selected_any(name, unused) && !script_is_layout(name) && !script_is_loaded(name);
 #else
    (void)name; (void)unused;
    return FALSE;
@@ -107,6 +227,16 @@ static gboolean selected_load(const char *name, gpointer unused) {
 }
 static gboolean selected_loaded(const char *name, gpointer unused) {
    return selected_any(name, unused) && script_is_loaded(name);
+}
+static gboolean selected_local(const char *name,gpointer unused) {
+   (void)unused;
+   char *path=script_local_path(name);
+   gboolean ok=path && g_file_test(path,G_FILE_TEST_IS_REGULAR);
+   g_free(path);
+   return ok;
+}
+static gboolean selected_reload(const char *name,gpointer unused) {
+   return selected_loaded(name,unused) || script_is_layout(name);
 }
 static gboolean always_enabled(const char *name, gpointer unused) {
    (void)name; (void)unused;
@@ -188,6 +318,10 @@ static void script_unload(GtkWidget *browser, const char *name, gpointer unused)
 }
 static void script_reload(GtkWidget *browser, const char *name, gpointer unused) {
    (void)unused;
+   if (script_is_layout(name)) {
+      script_message(browser,"Layout saved",name,"reopen the TUI view or restart the TUI for persistent workspace layouts");
+      return;
+   }
    script_runtime_action(browser, name, "reload");
 }
 
@@ -199,9 +333,9 @@ static void script_refresh(GtkWidget *browser, const char *name, gpointer unused
 
 static void script_edit(GtkWidget *browser, const char *name, gpointer unused) {
    (void)unused;
-   char *path = script_file_path(name);
+   char *path = script_editable_path(name);
    if (!path || !g_file_test(path, G_FILE_TEST_IS_REGULAR))
-      script_message(browser, "Cannot edit", name, "not a regular local script");
+      script_message(browser, "Cannot edit", name, "unable to create a local override");
    else {
       gui_file_editor_open(path);
       script_message(browser, "Editing", name, NULL);
@@ -214,8 +348,8 @@ static void script_move(GtkWidget *browser, const char *name, gpointer unused) {
    if (!valid_script_name(name)) return;
    char *dest = script_prompt("Move / Rename Script", name);
    if (!dest) return;
-   char *old_path = script_file_path(name);
-   char *new_path = script_file_path(dest);
+   char *old_path = script_local_path(name);
+   char *new_path = script_local_path(dest);
    if (!old_path || !new_path || !strcmp(name, dest) ||
        !g_file_test(old_path, G_FILE_TEST_IS_REGULAR) ||
        g_file_test(new_path, G_FILE_TEST_EXISTS)) {
@@ -262,7 +396,7 @@ done:
 static void script_delete(GtkWidget *browser, const char *name, gpointer unused) {
    (void)unused;
    if (!valid_script_name(name) || !confirm_script("Delete", name)) return;
-   char *path = script_file_path(name);
+   char *path = script_local_path(name);
    if (!path || !g_file_test(path, G_FILE_TEST_IS_REGULAR)) {
       script_message(browser, "Cannot delete", name, "not a regular local script");
       g_free(path); return;
@@ -275,9 +409,24 @@ static void script_delete(GtkWidget *browser, const char *name, gpointer unused)
       g_free(error); g_free(path); return;
    }
 #endif
-   if (g_remove(path) == 0)
-      script_message(browser, "Deleted", name, NULL);
-   else {
+   if (g_remove(path) == 0) {
+      char *fallback=script_effective_path(name,NULL);
+#ifdef RR_HAVE_RUSTYSCRIPT
+      if (loaded && fallback) {
+         char *reload_error=NULL;
+         if (!rrscript_host_load(rrclient_script_host,name,&reload_error)) {
+            script_message(browser,"Override deleted, fallback load failed",name,reload_error);
+         } else {
+            script_message(browser,"Override deleted; restored fallback",name,NULL);
+         }
+         g_free(reload_error);
+      } else
+#endif
+      {
+         script_message(browser,fallback?"Override deleted; fallback available":"Deleted",name,NULL);
+      }
+      g_free(fallback);
+   } else {
       script_message(browser, "Delete failed", name, g_strerror(errno));
 #ifdef RR_HAVE_RUSTYSCRIPT
       if (loaded) {
@@ -585,15 +734,16 @@ void gtk_scripts_open(void) {
       {"Refresh", "view-refresh", always_enabled, script_refresh},
       {"Load", "media-playback-start", selected_load, script_load},
       {"Unload", "media-playback-stop", selected_loaded, script_unload},
-      {"Reload", "view-refresh", selected_loaded, script_reload},
+      {"Reload", "view-refresh", selected_reload, script_reload},
       {"Edit", "document-edit", selected_any, script_edit},
-      {"Move / Rename", "document-save-as", selected_any, script_move},
-      {"Delete", "edit-delete", selected_any, script_delete}
+      {"Move / Rename", "document-save-as", selected_local, script_move},
+      {"Delete", "edit-delete", selected_local, script_delete}
    };
    GtkWidget *body = rr_floating_panel_body(script_panel);
    gtk_widget_set_size_request(body, 640, 370);
    script_browser = rr_local_browser_new(script_root, ".rrs", actions,
                                         G_N_ELEMENTS(actions), script_status, NULL);
+   rr_local_browser_set_provider(script_browser,script_catalog,NULL);
    gtk_box_pack_start(GTK_BOX(body), script_browser, TRUE, TRUE, 0);
    gtk_widget_show_all(script_browser);
    rr_floating_panel_present(script_panel);
