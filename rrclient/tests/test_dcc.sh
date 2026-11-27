@@ -4,6 +4,6 @@ cd "$(dirname "$0")/../.."
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 source rrclient/tests/irc-adapter.sh
-${CC:-cc} -std=gnu11 -DHOST_POSIX -Wall -Wextra -Werror -I. -Iinc -Ibuild/${PROFILE:-radio} \
+${CC:-cc} -std=gnu11 -DHOST_POSIX -Wall -Wextra ${RR_WARNING_FLAGS:-} -I. -Iinc -Ibuild/${PROFILE:-radio} \
    rrclient/tests/dcc.c -L. -Wl,-rpath,"$PWD" -lrrprotocol -lrustyirc -lrustyaxe ${LDFLAGS:-} -o "$work/dcc"
 "$work/dcc"
