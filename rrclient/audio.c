@@ -1568,6 +1568,41 @@ static gboolean audio_lv2_factory_safe(const char *factory) {
 
 static gboolean audio_lv2_feed(const char *source, const void *samples, size_t bytes);
 
+/* X/Y/Z are TX left/right/both. RX routes retain their legacy L/R/S encoding. */
+static gboolean audio_lv2_tx_route(char route) {
+   return route=='X' || route=='Y' || route=='Z';
+}
+static gboolean audio_lv2_apply_output(const char *id,char route) {
+   gboolean tx=audio_lv2_tx_route(route);
+   if (!rx_engine || (tx && !tx_engine)) { return FALSE; }
+   if (tx) {
+      if (!rr_audio_engine_add_stream(tx_engine,id)) { return FALSE; }
+      if (!rr_audio_engine_route(tx_engine,id,route=='X'?'L':route=='Y'?'R':'S')) { return FALSE; }
+   } else if (tx_engine) {
+      rr_audio_engine_remove_stream(tx_engine,id);
+   }
+   return rr_audio_engine_route(rx_engine,id,tx?'M':route);
+}
+static void audio_lv2_push_output(const char *id,char route,const int16_t *pcm,size_t frames) {
+   if (audio_lv2_tx_route(route)) {
+      /* TX audio is never a PTT request. Wait for the selected encoder and
+       * actual transmit state; do not mix processed speech into modem TX. */
+      if (!rr_local_modem_tx_in_progress() && tx_engine && tx_codec[0]) {
+         char vfo[2]={vfo_state_get_active(),0};
+         const char *selected=rrclient_media_current_codec(true);
+         char target[64];
+         audio_mic_tx_target_copy(target);
+         if (selected && !strncmp(selected,tx_codec,4) &&
+             vfo_state_get_bool(vfo,"cat.state.ptt",false) &&
+             strcmp(target,"none") &&
+             (!strcmp(target,"auto") || rrclient_media_rx_is_active_tx(target))) {
+            rr_audio_engine_push(tx_engine,id,pcm,frames);
+         }
+      }
+   } else if (route!='M') {
+      rr_audio_engine_push(rx_engine,id,pcm,frames);
+   }
+}
 static void audio_lv2_result(const char *name, const void *samples, size_t bytes, void *user) {
    (void)name;
    rr_lv2_effect_t *fx = user;
@@ -1582,9 +1617,7 @@ static void audio_lv2_result(const char *name, const void *samples, size_t bytes
    if (!g_atomic_int_get(&last->active) || !last->output_stream[0][0]) return;
    if (fx->channels == 1) {
       audio_lv2_feed(last->output_stream[0],samples,bytes);
-      if(last->output[0]!='M')
-         rr_audio_engine_push(rx_engine,last->output_stream[0],
-                              (const int16_t *)samples,bytes/sizeof(int16_t));
+      audio_lv2_push_output(last->output_stream[0],last->output[0],samples,bytes/sizeof(int16_t));
    } else {
       if (!last->output_stream[1][0] || (bytes % (2 * sizeof(int16_t)))) return;
       const int16_t *pcm = samples;
@@ -1600,11 +1633,9 @@ static void audio_lv2_result(const char *name, const void *samples, size_t bytes
          }
 
          audio_lv2_feed(last->output_stream[0],left,n*sizeof(int16_t));
-         if(last->output[0]!='M')
-            rr_audio_engine_push(rx_engine,last->output_stream[0],left,n);
+         audio_lv2_push_output(last->output_stream[0],last->output[0],left,n);
          audio_lv2_feed(last->output_stream[1],right,n*sizeof(int16_t));
-         if(last->output[1]!='M')
-            rr_audio_engine_push(rx_engine,last->output_stream[1],right,n);
+         audio_lv2_push_output(last->output_stream[1],last->output[1],right,n);
       }
    }
 }
@@ -1794,6 +1825,7 @@ static void audio_lv2_stop(unsigned slot, gboolean forget) {
          for (guint ch = 0 ; ch < (fx->channels ? fx->channels : 1) ; ch++) {
             if (fx->output_stream[ch][0]) {
                rr_audio_engine_remove_stream(rx_engine, fx->output_stream[ch]);
+               if (tx_engine) { rr_audio_engine_remove_stream(tx_engine,fx->output_stream[ch]); }
             }
          }
       }
@@ -1901,7 +1933,7 @@ static gboolean audio_lv2_start(const rr_audio_effect_request_t *req) {
    for (guint ch = 0 ; ch < fx->channels ; ch++) {
       char *key = g_strdup_printf(ch ? "audio.lv2.%u.output-right" : "audio.lv2.%u.output", slot);
       char *saved = rrclient_database_setting_get(key);
-      fx->output[ch] = saved && strchr("LRS", saved[0]) && !saved[1] ? saved[0] : 'M';
+      fx->output[ch] = saved && strchr("LRSXYZ", saved[0]) && !saved[1] ? saved[0] : 'M';
       g_free(saved);
       g_free(key);
 
@@ -1973,7 +2005,7 @@ static gboolean audio_lv2_start(const rr_audio_effect_request_t *req) {
    g_atomic_int_set(&fx->active, TRUE);
 
    for (guint ch = 0 ; ch < fx->channels ; ch++) {
-      rr_audio_engine_route(rx_engine, fx->output_stream[ch], fx->output[ch]);
+      audio_lv2_apply_output(fx->output_stream[ch],fx->output[ch]);
    }
 
    struct rrclient_rx_stream streams[128];
@@ -2087,7 +2119,7 @@ static gboolean audio_lv2_launch_chain(const rr_lv2_chain_config_t *cfg, const g
          g_strlcpy(fx->source[ch], cfg[slot - 1].source[ch], sizeof(fx->source[ch]));
          fx->output[ch] = cfg[slot - 1].output[ch];
          if (!audio_local_rx_start(fx->output_stream[ch])) goto failed;
-         rr_audio_engine_route(rx_engine, fx->output_stream[ch], fx->output[ch]);
+         audio_lv2_apply_output(fx->output_stream[ch],fx->output[ch]);
       }
    }
 
@@ -2118,8 +2150,10 @@ failed:
       close(lv2_effects[root_slot - 1].input_fd);
    for (guint j = 0 ; j < count ; j++)
       for (guint ch = 0 ; ch < channels ; ch++)
-         if (lv2_effects[slots[j] - 1].output_stream[ch][0])
+         if (lv2_effects[slots[j] - 1].output_stream[ch][0]) {
             audio_local_rx_stop(lv2_effects[slots[j] - 1].output_stream[ch]);
+            if (tx_engine) { rr_audio_engine_remove_stream(tx_engine,lv2_effects[slots[j] - 1].output_stream[ch]); }
+         }
    for (guint j = 0 ; j < count ; j++) {
       rr_lv2_effect_t *fx = &lv2_effects[slots[j] - 1];
       memset(fx->source, 0, sizeof(fx->source));
@@ -2297,9 +2331,9 @@ static void audio_lv2_request(const rr_event_message_t *msg, void *unused) {
    } else if (req.action == 'O' && req.slot && req.slot <= RR_AUDIO_EFFECT_MAX) {
       rr_lv2_effect_t *fx = &lv2_effects[req.slot - 1];
 
-      if (g_atomic_int_get(&fx->active) && req.channel < fx->channels && strchr("MLRS", req.output)) {
+      if (g_atomic_int_get(&fx->active) && req.channel < fx->channels && req.output && strchr("MLRSXYZ", req.output) &&
+          audio_lv2_apply_output(fx->output_stream[req.channel],req.output)) {
          fx->output[req.channel] = req.output;
-         rr_audio_engine_route(rx_engine, fx->output_stream[req.channel], req.output);
          char *key = g_strdup_printf(req.channel ? "audio.lv2.%u.output-right" : "audio.lv2.%u.output", req.slot);
          char value[] = {
             req.output, 0
@@ -3205,19 +3239,12 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
                ch ? RR_AG_CHANNEL_RIGHT : RR_AG_CHANNEL_LEFT);
          }
          if (ch >= fx->channels) continue; /* Mono has one output only. */
-         unsigned mask = fx->output[ch] == 'L' ? RR_AG_CHANNEL_LEFT :
-            fx->output[ch] == 'R' ? RR_AG_CHANNEL_RIGHT : fx->output[ch] == 'S' ? RR_AG_CHANNEL_STEREO : 0;
+         unsigned mask = (fx->output[ch] == 'L' || fx->output[ch]=='X') ? RR_AG_CHANNEL_LEFT :
+            (fx->output[ch] == 'R' || fx->output[ch]=='Y') ? RR_AG_CHANNEL_RIGHT : (fx->output[ch] == 'S' || fx->output[ch]=='Z') ? RR_AG_CHANNEL_STEREO : 0;
 
          if (mask) {
-            gboolean chained = FALSE;
-            for (guint next = 0 ; next < RR_AUDIO_EFFECT_MAX ; next++) {
-               rr_lv2_effect_t *down = &lv2_effects[next];
-               if (next == slot - 1 || !g_atomic_int_get(&down->active) || g_atomic_int_get(&down->failed)) continue;
-               for (guint input = 0 ; input < 2 ; input++) {
-                  if (!strcmp(down->source[input], fx->output_stream[ch])) chained = TRUE;
-               }
-            }
-            if (!chained) rr_audio_graph_add_channel_link(graph, fx->name, "rx.mix", RR_AG_NORMAL, mask);
+            rr_audio_graph_add_port_link(graph,fx->name,audio_lv2_tx_route(fx->output[ch])?"tx.mix":"rx.mix",RR_AG_NORMAL,
+               ch?RR_AG_CHANNEL_RIGHT:RR_AG_CHANNEL_LEFT,mask);
          }
       }
    }
