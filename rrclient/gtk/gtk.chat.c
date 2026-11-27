@@ -144,6 +144,7 @@ static void gtk_chat_server_selected(const char *event, const char *data, rrconn
    }
    /* Update selected-server status immediately, not at the next sample. */
    status_network_tick(NULL);
+   userlist_redraw_gtk();
 }
 
 int next_chat_tab = 5;
@@ -288,6 +289,15 @@ bool gtk_chat_room_widgets(const char *room, GtkTextBuffer **buffer, GtkWidget *
    }
 
    return true;
+}
+
+const char *gtk_chat_current_server(void) {
+   if (!main_notebook) {
+      return NULL;
+   }
+   GtkWidget *page = gtk_notebook_get_nth_page(GTK_NOTEBOOK(main_notebook), gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook)));
+   GtkRoomTab *tab = page ? g_object_get_data(G_OBJECT(page), "rr-room-tab") : NULL;
+   return tab && tab->server[0] ? tab->server : NULL;
 }
 
 const char *gtk_chat_current_room(void) {

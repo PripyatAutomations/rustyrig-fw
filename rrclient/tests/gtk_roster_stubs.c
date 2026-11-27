@@ -7,3 +7,6 @@ __attribute__((weak)) void rr_floating_panel_set_title(RRFloatPanel *panel, cons
 __attribute__((weak)) void rr_floating_panel_hide(RRFloatPanel *panel) {
    (void)panel;
 }
+
+__attribute__((weak)) const char *gtk_chat_current_server(void) { return NULL; }
+__attribute__((weak)) const char *gtk_chat_current_room(void) { return NULL; }

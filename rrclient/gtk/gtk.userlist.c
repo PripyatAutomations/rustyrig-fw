@@ -416,7 +416,8 @@ static void userlist_view_set_server(GtkWidget *view, const char *server) {
 
 static const rrconn_t *userlist_view_connection(GtkWidget *view) {
    if (view == cul_view) {
-      return rrclient_active_connection();
+      const char *profile = gtk_chat_current_server();
+      return profile ? rrclient_connection_find(profile) : rrclient_active_connection();
    }
    const char *profile = g_object_get_data(G_OBJECT(view), "rr-roster-server");
    rrconn_t *connection = profile && *profile ? rrclient_connection_find(profile) : NULL;
@@ -552,7 +553,7 @@ static void userlist_redraw_view(GtkWidget *view, const char *room) {
    if (!view || !GTK_IS_TREE_VIEW(view)) {
       return;
    }
-   const char *profile = g_object_get_data(G_OBJECT(view), "rr-roster-server");
+   const char *profile = view == cul_view ? gtk_chat_current_server() : g_object_get_data(G_OBJECT(view), "rr-roster-server");
    if (!profile || !*profile) {
       profile = rrclient_selected_server();
    }
@@ -1286,7 +1287,10 @@ static GtkWidget *room_vfo_strip_create(room_userlist_entry_t *entry) {
 // Redraw the active and all room-specific user lists.
 void userlist_redraw_gtk(void) {
    if (cul_view) {
-      userlist_redraw_view(cul_view, rrclient_current_room());
+      const char *room = gtk_chat_current_room();
+      if (room && *room) {
+         userlist_redraw_view(cul_view, room);
+      }
    }
 
    if (room_userlist_views) {
