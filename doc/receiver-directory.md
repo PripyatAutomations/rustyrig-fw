@@ -182,3 +182,9 @@ exposing those requires an additional connected-resource inventory from the
 mesh/catalog. The same receiver can be selected under either tree group.
 
 Group labels are displayed exclusively in the Location column; Receiver and Country cells remain blank on group rows. The connected group is pinned first and country groups sort alphabetically.
+
+User favorites, marks and last-connected history are stored in persistent
+`$XDG_STATE_HOME/rustyrig/client.db` (normally `~/.local/state/rustyrig/client.db`).
+Existing user metadata is copied once from the legacy cache database, including
+entries missing from the current catalog. Clearing the receiver cache does not
+remove these preferences. Explicitly clearing a mark or favorite is permanent.
