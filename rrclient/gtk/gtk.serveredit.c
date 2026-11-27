@@ -546,6 +546,7 @@ GtkWidget *gtk_show_server_editor(const char *profile) {
    if (!server_editor_panel) {
       return NULL;
    }
+   rr_floating_panel_set_floating_only(server_editor_panel);
    rr_floating_panel_set_close_callback(server_editor_panel, server_editor_close, NULL);
    GtkWidget *window = rr_floating_panel_widget(server_editor_panel);
    server_editor_frame = window;
