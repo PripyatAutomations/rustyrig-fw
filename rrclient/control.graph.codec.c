@@ -47,6 +47,9 @@ bool rr_control_graph_text_validate(const char *snapshot,char **error) {
    gboolean valid=FALSE;
    int ng=0,nw=0,serial=0;
    int version=0;
+   char signs[RR_CONTROL_MAX_GATES][RR_CONTROL_NAME_LEN]={{0}};
+   bool sign_wired[RR_CONTROL_MAX_GATES]={0};
+   unsigned sign_count=0;
    if(!g || !g_key_file_load_from_data(kf,snapshot,-1,G_KEY_FILE_NONE,NULL) ||
       !graph_int(kf,"control","version",2,2,&version) ||
       !graph_int(kf,"control","gates",0,RR_CONTROL_MAX_GATES,&ng) ||
@@ -59,15 +62,29 @@ bool rr_control_graph_text_validate(const char *snapshot,char **error) {
       int inputs=0;
       double x=0,y=0;
       rr_gate_kind_t gate=RR_GATE_AND;
+      gboolean sign=kind && !strcmp(kind,"SIGN");
       gboolean constant=kind && (!strcmp(kind,"TRUE") || !strcmp(kind,"FALSE"));
       gboolean ok=graph_id_ok(id) && kind &&
-         (constant ? g_str_has_prefix(id,"constant.") :
+         (sign ? g_str_has_prefix(id,"sign.") : constant ? g_str_has_prefix(id,"constant.") :
                      g_str_has_prefix(id,"gate.")) &&
          graph_int(kf,group,"inputs",0,32,&inputs) &&
          graph_number(kf,group,"x",&x) &&
          graph_number(kf,group,"y",&y);
       if(ok) {
-         if(constant) {
+         if (sign) {
+            char *label=g_key_file_get_string(kf,group,"label",NULL);
+            int color=0;
+            ok=inputs==1 && label && *label && strlen(label)<64 && g_utf8_validate(label,-1,NULL) &&
+               graph_int(kf,group,"color",0,0xffffff,&color);
+            for (const char *p=label;ok && *p;p=g_utf8_next_char(p)) {
+               if (g_unichar_iscntrl(g_utf8_get_char(p))) { ok=FALSE; }
+            }
+            for (unsigned j=0;ok && j<sign_count;j++) {
+               if (!strcmp(signs[j],id)) { ok=FALSE; }
+            }
+            if (ok) { g_strlcpy(signs[sign_count++],id,RR_CONTROL_NAME_LEN); }
+            g_free(label);
+         } else if(constant) {
             ok=inputs==0 && rr_control_graph_source_add(g,id);
             if(ok)ok=rr_control_graph_source_set(g,id,true,!strcmp(kind,"TRUE"));
          } else ok=rr_gate_kind_parse(kind,&gate) &&
@@ -89,13 +106,21 @@ bool rr_control_graph_text_validate(const char *snapshot,char **error) {
          source_is_output && source_index==0 &&
          rr_control_graph_port_index(dst_port,&destination_is_output,&destination_index) &&
          !destination_is_output;
+      if (ok && g_str_has_prefix(src,"sign.")) { ok=FALSE; }
       if(ok && !g_str_has_prefix(src,"gate.") &&
          !g_str_has_prefix(src,"constant.")) {
          /* Reused hardware/remote inputs are inert placeholders during
           * validation. Runtime binding requires separate authorization. */
          rr_control_graph_source_add(g,src);
       }
-      if(ok)ok=rr_control_graph_connect_ports(g,src,src_port,dst,dst_port);
+      if (ok && g_str_has_prefix(dst,"sign.")) {
+         bool valid_input=false,high=false;
+         unsigned j=0;
+         while (j<sign_count && strcmp(signs[j],dst)) { j++; }
+         ok=j<sign_count && !sign_wired[j] && destination_index==0 &&
+            rr_control_graph_output(g,src,&valid_input,&high);
+         if (ok) { sign_wired[j]=true; }
+      } else if (ok) { ok=rr_control_graph_connect_ports(g,src,src_port,dst,dst_port); }
       g_free(src_port);g_free(dst_port);
       g_free(src);g_free(dst);
       if(!ok)goto done;

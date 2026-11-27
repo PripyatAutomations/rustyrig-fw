@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-only
 ui.add(dict {kind="dialog";id="editor";label="Routing block / connections";});
-ui.add(dict {kind="entry";id="kind";parent="editor";label="Type (oscillator / control / lv2 / modem / gate / constant)";max_length=16;});
-ui.add(dict {kind="entry";id="name";parent="editor";label="Name / LV2 factory / modem engine / gate kind";max_length=95;});
+ui.add(dict {kind="entry";id="kind";parent="editor";label="Type (oscillator / control / lv2 / modem / gate / constant / sign)";max_length=16;});
+ui.add(dict {kind="entry";id="name";parent="editor";label="Name / LV2 factory / modem engine / gate kind / sign label";max_length=95;});
 ui.add(dict {kind="entry";id="source";parent="editor";label="Initial audio source (optional)";max_length=63;});
-ui.add(dict {kind="entry";id="option";parent="editor";label="Modem mode / tones";max_length=23;});
+ui.add(dict {kind="entry";id="option";parent="editor";label="Modem mode / tones / sign RGB";max_length=23;});
 ui.add(dict {kind="entry";id="value";parent="editor";label="Value / frequency / modem Hz / gate inputs / constant 0-1";max_length=32;});
 ui.add(dict {kind="entry";id="level";parent="editor";label="Oscillator level (dB)";max_length=32;});
 ui.add(dict {kind="entry";id="wave";parent="editor";label="Waveform 0..3 / LV2 channels 1..2";max_length=8;});

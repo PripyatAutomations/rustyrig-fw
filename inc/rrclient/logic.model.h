@@ -11,6 +11,9 @@ typedef struct {
    unsigned inputs;
    gboolean constant, level; /* Constant nodes are ordinary reusable sources. */
    double x,y;
+   gboolean sign;
+   char label[64];
+   uint32_t color;
 } gate_view_t;
 typedef struct {
    char from[RR_CONTROL_NAME_LEN],to[RR_CONTROL_NAME_LEN];
@@ -28,6 +31,9 @@ gboolean rr_logic_connect(const char *src,const char *dst,unsigned pin,gboolean 
 gboolean rr_logic_disconnect_index(unsigned i);
 gboolean rr_logic_remove(const char *id);
 gate_view_t *rr_logic_add(rr_gate_kind_t kind,unsigned inputs,bool constant,bool level);
+gate_view_t *rr_logic_add_sign(const char *label,uint32_t color);
+gboolean rr_logic_sign_configure(const char *id,const char *label,uint32_t color);
+gboolean rr_logic_sign_state(const char *id,bool *valid,bool *high);
 gboolean rr_logic_configure(const char *id,rr_gate_kind_t kind,unsigned inputs);
 gboolean rr_logic_output(const char *name,bool *valid,bool *high);
 void rr_logic_signal(const char *name,bool valid,bool high);

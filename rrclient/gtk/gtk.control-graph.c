@@ -48,7 +48,7 @@ static void placement(gate_view_t *b) {
  * the containing layout cell. For OR-family gates the recessed input
  * boundary curves as Y changes. Inverter outputs follow their bubble. */
 static double input_x(const gate_view_t *b,unsigned pin) {
-   if(b->constant)return b->x;
+   if(b->constant || b->sign) { return b->x; }
    const gboolean curved=b->kind==RR_GATE_OR || b->kind==RR_GATE_XOR ||
       b->kind==RR_GATE_NOR || b->kind==RR_GATE_XNOR;
    double fraction=.22;
@@ -130,7 +130,7 @@ static gboolean pin_hit(double x,double y,gate_view_t **target,unsigned *pin) {
 static gboolean output_hit(double x,double y,char out[RR_CONTROL_NAME_LEN]) {
    for (unsigned i=0;i<rr_logic_block_count;i++) {
       gate_view_t *b=&rr_logic_blocks[i];
-      if (hypot(x-output_x(b),y-b->y-56.)<connection_snap_radius) {
+      if (!b->sign && hypot(x-output_x(b),y-b->y-56.)<connection_snap_radius) {
          g_strlcpy(out,b->id,RR_CONTROL_NAME_LEN);
          return TRUE;
       }
@@ -168,7 +168,7 @@ void rr_logic_canvas_init(rr_logic_source_position_cb position,
 }
 gboolean rr_logic_canvas_output_position(const char *name,double *x,double *y) {
    gate_view_t *b=rr_logic_find(name);
-   if (!b || !x || !y) return FALSE;
+   if (!b || b->sign || !x || !y) { return FALSE; }
    *x=output_x(b);*y=b->y+56.;
    return TRUE;
 }
@@ -254,7 +254,8 @@ skip_preview:;
    for (unsigned i=0;i<rr_logic_block_count;i++) {
       gate_view_t *b=&rr_logic_blocks[i];
       bool valid=false,high=false;
-      rr_control_graph_output(rr_logic_model,b->id,&valid,&high);
+      if (b->sign) { rr_logic_sign_state(b->id,&valid,&high); }
+      else { rr_logic_output(b->id,&valid,&high); }
       rr_gtk_graph_port_t ports[33];
       char names[32][8];
       for(unsigned j=0;j<b->inputs;j++) {
@@ -268,9 +269,9 @@ skip_preview:;
       ports[b->inputs]=(rr_gtk_graph_port_t){"OUT",RR_GTK_GRAPH_SIGNAL_BOOLEAN,TRUE,
                                       output_x(b)-b->x,56.};
       rr_gtk_graph_node_t view={.x=b->x,.y=b->y,
-         .title=b->constant ? (b->level?"TRUE":"FALSE") : rr_gate_kind_name(b->kind),
-         .shape=b->constant ? RR_GTK_GRAPH_SHAPE_UTILITY : shape_for(b->kind),
-         .ports=ports,.port_count=b->inputs+1,
+         .title=b->sign?b->label:b->constant ? (b->level?"TRUE":"FALSE") : rr_gate_kind_name(b->kind),
+         .shape=(b->constant || b->sign) ? RR_GTK_GRAPH_SHAPE_UTILITY : shape_for(b->kind),
+         .ports=ports,.port_count=b->inputs+(b->sign?0:1),
          .io=RR_GTK_GRAPH_IO_BOTH,.selected=selected_cb && selected_cb(b->id,selected_user)};
       rr_gtk_graph_draw(cr,&view,1,NULL,0);
       cairo_set_source_rgb(cr,.96,.20,.20);
@@ -298,6 +299,13 @@ skip_preview:;
       cairo_set_source_rgb(cr,.94,.94,.94);
       cairo_select_font_face(cr,"Sans",CAIRO_FONT_SLANT_NORMAL,CAIRO_FONT_WEIGHT_BOLD);
       cairo_set_font_size(cr,9.);
+      if (b->sign) {
+         uint32_t rgb=valid&&high?b->color:0x555555;
+         cairo_set_source_rgb(cr,((rgb>>16)&255)/255.,((rgb>>8)&255)/255.,(rgb&255)/255.);
+         cairo_rectangle(cr,b->x+28.,b->y+43.,RR_GTK_GRAPH_NODE_W-56.,28.);
+         cairo_fill(cr);
+         continue;
+      }
       cairo_move_to(cr,output_x(b)-41.,b->y+43.);
       cairo_show_text(cr,"OUT");
       logic_status_light(cr,output_x(b)-13.,b->y+56.,valid,high);
@@ -312,11 +320,7 @@ static void remove_wire(GtkMenuItem *item,gpointer unused) {
    for(unsigned i=0;i<rr_logic_wire_count;i++)
       if (!strcmp(rr_logic_wires[i].from,from) && !strcmp(rr_logic_wires[i].to,to) &&
           rr_logic_wires[i].pin==pin) {
-         if (rr_control_graph_disconnect(rr_logic_model,from,to,pin)) {
-            memmove(&rr_logic_wires[i],&rr_logic_wires[i+1],(rr_logic_wire_count-i-1)*sizeof(rr_logic_wires[0]));
-            rr_logic_wire_count--;
-            save_model();
-         }
+         remove_wire_index(i);
          break;
       }
 }
@@ -344,6 +348,24 @@ gboolean rr_logic_canvas_remove_block(const char *id) {
    drag_block=drag_wire=-1;changed();return TRUE;
 }
 static void properties(gate_view_t *b,GtkWidget *parent) {
+   if (b->sign) {
+      GtkWidget *dialog=gtk_dialog_new_with_buttons("Sign properties",GTK_IS_WINDOW(parent)?GTK_WINDOW(parent):NULL,
+         GTK_DIALOG_MODAL,"_Cancel",GTK_RESPONSE_CANCEL,"_Remove",GTK_RESPONSE_REJECT,"_Apply",GTK_RESPONSE_ACCEPT,NULL);
+      GtkWidget *box=gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+      GtkWidget *entry=gtk_entry_new(),*color=gtk_color_button_new();
+      gtk_entry_set_max_length(GTK_ENTRY(entry),63);gtk_entry_set_text(GTK_ENTRY(entry),b->label);
+      GdkRGBA rgb={((b->color>>16)&255)/255.,((b->color>>8)&255)/255.,(b->color&255)/255.,1.};
+      gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(color),&rgb);
+      gtk_box_pack_start(GTK_BOX(box),entry,FALSE,FALSE,5);gtk_box_pack_start(GTK_BOX(box),color,FALSE,FALSE,5);
+      gtk_widget_show_all(dialog);
+      int result=gtk_dialog_run(GTK_DIALOG(dialog));
+      if (result==GTK_RESPONSE_ACCEPT) {
+         gtk_color_chooser_get_rgba(GTK_COLOR_CHOOSER(color),&rgb);
+         uint32_t packed=((uint32_t)lround(rgb.red*255.)<<16)|((uint32_t)lround(rgb.green*255.)<<8)|(uint32_t)lround(rgb.blue*255.);
+         rr_logic_sign_configure(b->id,gtk_entry_get_text(GTK_ENTRY(entry)),packed);changed();
+      } else if (result==GTK_RESPONSE_REJECT) { rr_logic_canvas_remove_block(b->id); }
+      gtk_widget_destroy(dialog);return;
+   }
    GtkWidget *dialog=gtk_dialog_new_with_buttons(
       b->constant ? "Boolean constant properties" : "Gate properties",
       GTK_IS_WINDOW(parent)?GTK_WINDOW(parent):NULL,
@@ -490,7 +512,7 @@ gboolean rr_logic_canvas_press(double x,double y,GdkEventButton *event) {
       }
       if (event->button!=GDK_BUTTON_PRIMARY || event->type!=GDK_BUTTON_PRESS)
          continue;
-      if (hypot(x-output_x(b),y-b->y-56.)<connection_snap_radius) {
+      if (!b->sign && hypot(x-output_x(b),y-b->y-56.)<connection_snap_radius) {
          drag_wire=i;
          reverse_drag=FALSE;
          g_strlcpy(drag_from,b->id,sizeof(drag_from));
@@ -507,7 +529,7 @@ gboolean rr_logic_canvas_press(double x,double y,GdkEventButton *event) {
             return TRUE;
          }
       if (x>=b->x && y>=b->y &&
-          rr_gtk_graph_shape_contains(b->constant ? RR_GTK_GRAPH_SHAPE_UTILITY :
+          rr_gtk_graph_shape_contains((b->constant || b->sign) ? RR_GTK_GRAPH_SHAPE_UTILITY :
                                       shape_for(b->kind),x-b->x,y-b->y)) {
          drag_block=i;drag_dx=x-b->x;drag_dy=y-b->y;
          return TRUE;

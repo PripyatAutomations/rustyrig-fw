@@ -30,9 +30,13 @@ void rr_logic_save(void) {
       g_snprintf(group,sizeof(group),"gate.%u",i);
       g_key_file_set_string(k,group,"id",rr_logic_blocks[i].id);
       g_key_file_set_string(k,group,"kind",
-         rr_logic_blocks[i].constant ? (rr_logic_blocks[i].level ? "TRUE" : "FALSE") :
+         rr_logic_blocks[i].sign ? "SIGN" : rr_logic_blocks[i].constant ? (rr_logic_blocks[i].level ? "TRUE" : "FALSE") :
                               rr_gate_kind_name(rr_logic_blocks[i].kind));
       g_key_file_set_integer(k,group,"inputs",(int)rr_logic_blocks[i].inputs);
+      if (rr_logic_blocks[i].sign) {
+         g_key_file_set_string(k,group,"label",rr_logic_blocks[i].label);
+         g_key_file_set_integer(k,group,"color",(int)rr_logic_blocks[i].color);
+      }
       g_ascii_formatd(x,sizeof(x),"%.2f",rr_logic_blocks[i].x);
       g_ascii_formatd(y,sizeof(y),"%.2f",rr_logic_blocks[i].y);
       g_key_file_set_string(k,group,"x",x);
@@ -56,14 +60,20 @@ void rr_logic_save(void) {
    g_key_file_unref(k);
 }
 gboolean rr_logic_connect(const char *src,const char *dst,unsigned pin,gboolean save) {
-   if (!rr_logic_model || !rr_logic_find(dst) ||
-       rr_logic_wire_count>=MAX_UI_WIRES ||
-       !rr_control_graph_connect(rr_logic_model,src,dst,pin)) return FALSE;
+   gate_view_t *target=rr_logic_find(dst),*source=rr_logic_find(src);
+   if (!rr_logic_model || !src || !target || target->constant ||
+       (source && source->sign) || rr_logic_wire_count>=MAX_UI_WIRES) { return FALSE; }
+   if (target->sign) {
+      bool valid=false,high=false;
+      if (pin || !rr_control_graph_output(rr_logic_model,src,&valid,&high)) { return FALSE; }
+      for (unsigned i=0;i<rr_logic_wire_count;i++) {
+         if (!strcmp(rr_logic_wires[i].to,dst)) { return FALSE; }
+      }
+   } else if (!rr_control_graph_connect(rr_logic_model,src,dst,pin)) { return FALSE; }
    wire_view_t *w=&rr_logic_wires[rr_logic_wire_count++];
    g_strlcpy(w->from,src,sizeof(w->from));
-   g_strlcpy(w->to,dst,sizeof(w->to));
-   w->pin=pin;
-   if (save) rr_logic_save();
+   g_strlcpy(w->to,dst,sizeof(w->to));w->pin=pin;
+   if (save) { rr_logic_save(); }
    return TRUE;
 }
 static void restore_model(const gchar *saved) {
@@ -85,20 +95,26 @@ static void restore_model(const gchar *saved) {
       rr_gate_kind_t type=RR_GATE_AND;
       int inputs=g_key_file_get_integer(k,group,"inputs",NULL);
       double x=xs?g_ascii_strtod(xs,NULL):-1.,y=ys?g_ascii_strtod(ys,NULL):-1.;
+      gboolean sign=kind && !strcmp(kind,"SIGN");
       gboolean constant = kind && (!strcmp(kind,"TRUE") || !strcmp(kind,"FALSE"));
       gboolean level = kind && !strcmp(kind,"TRUE");
       if (name && (g_str_has_prefix(name,"gate.") ||
-                    g_str_has_prefix(name,"constant.")) && kind &&
-          (constant || rr_gate_kind_parse(kind,&type)) &&
+                    g_str_has_prefix(name,"constant.") || g_str_has_prefix(name,"sign.")) && kind &&
+          (sign || constant || rr_gate_kind_parse(kind,&type)) &&
           isfinite(x) && isfinite(y) && x>=0 && x<=100000 &&
           y>=0 && y<=100000 &&
-          (constant ? rr_control_graph_source_add(rr_logic_model,name) :
-                      rr_control_graph_gate_add(rr_logic_model,name,type,(unsigned)inputs))) {
+          (sign || (constant ? rr_control_graph_source_add(rr_logic_model,name) :
+                      rr_control_graph_gate_add(rr_logic_model,name,type,(unsigned)inputs)))) {
          gate_view_t *b=&rr_logic_blocks[rr_logic_block_count++];
          g_strlcpy(b->id,name,sizeof(b->id));
          b->kind=constant?RR_GATE_AND:type;
          b->inputs=constant?0u:(unsigned)inputs;
-         b->constant=constant;b->level=level;b->x=x;b->y=y;
+         b->constant=constant;b->level=level;b->x=x;b->y=y;b->sign=sign;
+         if (sign) {
+            char *label=g_key_file_get_string(k,group,"label",NULL);
+            g_strlcpy(b->label,label?label:"ON AIR",sizeof(b->label));g_free(label);
+            b->color=(uint32_t)g_key_file_get_integer(k,group,"color",NULL);
+         }
          if (constant) rr_control_graph_source_set(rr_logic_model,name,true,level);
       }
       g_free(name);g_free(kind);g_free(xs);g_free(ys);
@@ -115,7 +131,7 @@ static void restore_model(const gchar *saved) {
           out && src_index==0 &&
           rr_control_graph_port_index(to_port,&in,&dst_index) && !in) {
          if (!g_str_has_prefix(from,"gate.") &&
-             !g_str_has_prefix(from,"constant."))
+             !g_str_has_prefix(from,"constant.") && !g_str_has_prefix(from,"sign."))
             rr_control_graph_source_add(rr_logic_model,from);
          rr_logic_connect(from,to,dst_index,FALSE);
       }
@@ -160,7 +176,7 @@ void rr_logic_reset_sources(void) {
 gboolean rr_logic_remove(const char *id) {
    gate_view_t *b=rr_logic_find(id);
    if (!b) return FALSE;
-   if (!(b->constant ? rr_control_graph_source_remove(rr_logic_model,id) :
+   if (!b->sign && !(b->constant ? rr_control_graph_source_remove(rr_logic_model,id) :
                        rr_control_graph_gate_remove(rr_logic_model,id)))
       return FALSE;
    for (unsigned i=0;i<rr_logic_wire_count;)
@@ -178,7 +194,8 @@ gboolean rr_logic_remove(const char *id) {
 gboolean rr_logic_disconnect_index(unsigned i) {
    if(i>=rr_logic_wire_count) return FALSE;
    wire_view_t w=rr_logic_wires[i];
-   if(!rr_control_graph_disconnect(rr_logic_model,w.from,w.to,w.pin))return FALSE;
+   gate_view_t *target=rr_logic_find(w.to);
+   if (!(target && target->sign) && !rr_control_graph_disconnect(rr_logic_model,w.from,w.to,w.pin)) { return FALSE; }
    memmove(&rr_logic_wires[i],&rr_logic_wires[i+1],(rr_logic_wire_count-i-1)*sizeof(rr_logic_wires[0]));
    rr_logic_wire_count--;
    rr_logic_save();
@@ -205,8 +222,42 @@ gate_view_t *rr_logic_add(rr_gate_kind_t kind,unsigned inputs,bool constant,bool
 }
 gboolean rr_logic_configure(const char *id,rr_gate_kind_t kind,unsigned inputs) {
    gate_view_t *b=rr_logic_find(id);
-   if (!b || b->constant || !rr_control_graph_gate_configure(rr_logic_model,id,kind,inputs)) { return FALSE; }
+   if (!b || b->constant || b->sign || !rr_control_graph_gate_configure(rr_logic_model,id,kind,inputs)) { return FALSE; }
    b->kind=kind;b->inputs=inputs;rr_logic_save();return TRUE;
+}
+static bool sign_properties_ok(const char *label,uint32_t color) {
+   if (!label || !*label || strlen(label)>=64 || !g_utf8_validate(label,-1,NULL) || color>0xffffff) { return false; }
+   for (const char *p=label;*p;p=g_utf8_next_char(p)) {
+      if (g_unichar_iscntrl(g_utf8_get_char(p))) { return false; }
+   }
+   return true;
+}
+gate_view_t *rr_logic_add_sign(const char *label,uint32_t color) {
+   rr_logic_model_init();
+   if (!rr_logic_model || rr_logic_block_count>=MAX_UI_GATES || !sign_properties_ok(label,color)) { return NULL; }
+   char id[RR_CONTROL_NAME_LEN];
+   do { g_snprintf(id,sizeof(id),"sign.%u",++rr_logic_serial); } while (rr_logic_find(id));
+   gate_view_t *b=&rr_logic_blocks[rr_logic_block_count++];
+   *b=(gate_view_t){.sign=TRUE,.inputs=1,.color=color,
+      .x=100.+(rr_logic_block_count%3)*240.,.y=600.+(rr_logic_block_count/3)*165.};
+   g_strlcpy(b->id,id,sizeof(b->id));g_strlcpy(b->label,label,sizeof(b->label));rr_logic_save();return b;
+}
+gboolean rr_logic_sign_configure(const char *id,const char *label,uint32_t color) {
+   gate_view_t *b=rr_logic_find(id);
+   if (!b || !b->sign || !sign_properties_ok(label,color)) { return FALSE; }
+   g_strlcpy(b->label,label,sizeof(b->label));b->color=color;rr_logic_save();return TRUE;
+}
+gboolean rr_logic_sign_state(const char *id,bool *valid,bool *high) {
+   if (!valid || !high) { return FALSE; }
+   *valid=*high=false;
+   gate_view_t *b=rr_logic_find(id);
+   if (!b || !b->sign) { return FALSE; }
+   for (unsigned i=0;i<rr_logic_wire_count;i++) {
+      if (!strcmp(rr_logic_wires[i].to,id)) {
+         return rr_logic_output(rr_logic_wires[i].from,valid,high);
+      }
+   }
+   return TRUE;
 }
 gchar *rr_logic_export(void) {
    /* Stable versioned keyfile syntax; no GTK pointer or PTT state. */

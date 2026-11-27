@@ -48,7 +48,7 @@ static char *config_key;
 static rr_audio_graph_snapshot_t route_snapshot;
 static bool route_ready;
 static gint64 route_requested;
-static rr_event_token_t route_event;
+static rr_event_token_t route_event,logic_ptt_token,logic_disconnect_token;
 extern defconfig_t defcfg[];
 static size_t view_field(rrui_form_t *f,const char *id){
    for(size_t i=0;i<rrui_form_count(f);i++){
@@ -129,7 +129,7 @@ static void routing_request(void){
 #define PATCH_W 22
 #define PATCH_H 7
 typedef struct {char id[64];int x,y;} patch_pos_t;
-static patch_pos_t patch_pos[RR_AUDIO_GRAPH_MAX_NODES+MAX_UI_GATES];
+static patch_pos_t patch_pos[RR_AUDIO_GRAPH_MAX_NODES+MAX_UI_GATES+1];
 static unsigned patch_count;
 static int patch_x,patch_y,patch_drag=-1,patch_dx,patch_dy;
 static bool patch_panning;
@@ -149,10 +149,14 @@ static int patch_find(const char *id){
 }
 static const rr_ag_view_node_t *patch_node(const char *id){
    for(unsigned i=0;i<route_snapshot.node_count;i++)if(!strcmp(route_snapshot.nodes[i].id,id))return &route_snapshot.nodes[i];
+   if (!strcmp(id,RRCLIENT_ROUTING_PTT_LOCAL)) {
+      static rr_ag_view_node_t ptt={.id=RRCLIENT_ROUTING_PTT_LOCAL,.type=RR_AG_SOURCE,.health=RR_AG_HEALTHY,.read_only=TRUE};
+      return &ptt;
+   }
    gate_view_t *gate=rr_logic_find(id);
    if (gate) {
       static rr_ag_view_node_t view;
-      view=(rr_ag_view_node_t){.type=gate->constant?RR_AG_SOURCE:RR_AG_PROCESSOR,.health=RR_AG_HEALTHY};
+      view=(rr_ag_view_node_t){.type=gate->sign?RR_AG_SINK:gate->constant?RR_AG_SOURCE:RR_AG_PROCESSOR,.health=RR_AG_HEALTHY};
       g_strlcpy(view.id,id,sizeof(view.id));
       return &view;
    }
@@ -184,6 +188,8 @@ static bool patch_output(int pin){
 static bool patch_pin_valid(const rr_ag_view_node_t *n,int pin){
    if (!n || pin<0 || pin>=PIN_COUNT) { return false; }
    gate_view_t *gate=rr_logic_find(n->id);
+   if (!strcmp(n->id,RRCLIENT_ROUTING_PTT_LOCAL)) { return pin==PIN_PTT_OUT; }
+   if (gate && gate->sign) { return pin==PIN_PTT_IN; }
    if (gate) { return pin==PIN_PTT_OUT || (pin>=PIN_GATE_A && (unsigned)(pin-PIN_GATE_A)<gate->inputs); }
    if (pin>=PIN_GATE_A) { return false; }
    bool control=g_str_has_prefix(n->id,"control.");
@@ -256,13 +262,13 @@ static void patch_save(const patch_pos_t *p){
    rrclient_database_setting_set(key,value);g_free(key);
 }
 static void patch_layout(bool reset){
-   patch_pos_t old[RR_AUDIO_GRAPH_MAX_NODES+MAX_UI_GATES];
+   patch_pos_t old[RR_AUDIO_GRAPH_MAX_NODES+MAX_UI_GATES+1];
    unsigned old_count=patch_count;
    memcpy(old,patch_pos,sizeof(old));patch_count=0;
    int lane[4]={0};
-   for(unsigned i=0;i<route_snapshot.node_count+rr_logic_block_count;i++){
+   for(unsigned i=0;i<route_snapshot.node_count+rr_logic_block_count+1;i++){
       const rr_ag_view_node_t *n=i<route_snapshot.node_count?&route_snapshot.nodes[i]:
-         patch_node(rr_logic_blocks[i-route_snapshot.node_count].id);
+         i<route_snapshot.node_count+rr_logic_block_count?patch_node(rr_logic_blocks[i-route_snapshot.node_count].id):patch_node(RRCLIENT_ROUTING_PTT_LOCAL);
       if (!n) { continue; }
       unsigned type=(unsigned)n->type<=RR_AG_SINK?n->type:0;
       patch_pos_t *p=&patch_pos[patch_count++];
@@ -464,7 +470,7 @@ static void patch_draw(tui_window_t *w,int rows,int cols,void *unused){
       if (a<0 || b<0 || wire->pin>3) { continue; }
       int x1,y1,x2,y2;
       if (patch_pin_point(&patch_pos[a],PIN_PTT_OUT,&x1,&y1) &&
-          patch_pin_point(&patch_pos[b],PIN_GATE_A+(int)wire->pin,&x2,&y2)) {
+          patch_pin_point(&patch_pos[b],rr_logic_find(wire->to)&&rr_logic_find(wire->to)->sign?PIN_PTT_IN:PIN_GATE_A+(int)wire->pin,&x2,&y2)) {
          patch_paint_wire(c,patch_route(x1+1,y1,x2-1,y2,used),0xf06060,used);
       }
    }
@@ -507,7 +513,15 @@ static void patch_draw(tui_window_t *w,int rows,int cols,void *unused){
       g_snprintf(info,sizeof(info),"L %.0f R %.0f dB",n->input_gain_db[0],n->input_gain_db[1]);
       rrui_canvas_text(c,x+1,y+3,PATCH_W-2,info,0xc2d1da);
       gate_view_t *gate=rr_logic_find(p->id);
-      if (gate) {
+      if (gate && gate->sign) {
+         bool valid=false,high=false;rr_logic_sign_state(gate->id,&valid,&high);
+         rrui_canvas_text(c,x+1,y+2,PATCH_W-2,gate->label,valid&&high?gate->color:0x777777);
+         rrui_canvas_text(c,x+1,y+3,PATCH_W-2,valid&&high?"======== ON ========":"        OFF",valid&&high?gate->color:0x777777);
+      } else if (!strcmp(p->id,RRCLIENT_ROUTING_PTT_LOCAL)) {
+         bool valid=false,high=false;rr_logic_output(p->id,&valid,&high);
+         rrui_canvas_text(c,x+1,y+2,PATCH_W-2,"Local PTT",color);
+         rrui_canvas_text(c,x+1,y+3,PATCH_W-2,valid&&high?"HIGH":"LOW",valid&&high?0xf06060:0x777777);
+      } else if (gate) {
          bool valid=false,high=false;
          rr_logic_output(gate->id,&valid,&high);
          rrui_canvas_text(c,x+1,y+2,PATCH_W-2,gate->constant?(gate->level?"TRUE":"FALSE"):rr_gate_kind_name(gate->kind),color);
@@ -554,12 +568,13 @@ static bool patch_connect(const char *source,const char *target,int out,int in){
       routing_request(); return true;
    }
    if (patch_ports[out].type==PATCH_BOOLEAN) {
-      if (in>=PIN_GATE_A && rr_logic_find(target)) {
+      gate_view_t *gate=rr_logic_find(target);
+      if (gate && (in>=PIN_GATE_A || (gate->sign && in==PIN_PTT_IN))) {
          char id[64];g_strlcpy(id,source,sizeof(id));
          if (!rr_logic_find(source) && g_str_has_prefix(source,"modem") && g_str_has_suffix(source,".tx")) {
             char *suffix=strrchr(id,'.');if (suffix) { strcpy(suffix,".ptt"); }
          }
-         bool ok=rr_logic_connect(id,target,(unsigned)(in-PIN_GATE_A),TRUE);
+         bool ok=rr_logic_connect(id,target,gate->sign?0:(unsigned)(in-PIN_GATE_A),TRUE);
          patch_notice(ok?"Boolean wire connected.":"Invalid or cyclic boolean wire.");return ok;
       }
       if (rr_logic_find(source)) { patch_notice("Gate-to-transmitter routing is not enabled in TUI.");return false; }
@@ -764,7 +779,19 @@ static void patch_editor_action(rrui_form_t *f,const char *id,const char *action
          return;
       }
    }else if(!strcmp(action,"save")&&kind){
-      if (!g_ascii_strcasecmp(kind,"gate") || !g_ascii_strcasecmp(kind,"constant")) {
+      if (!g_ascii_strcasecmp(kind,"sign") || !g_ascii_strcasecmp(kind,"onair")) {
+         const char *label=name&&*name?name:"ON AIR";
+         const char *rgb=rrui_form_value(f,"option");
+         char *end=NULL;unsigned long color=rgb&&*rgb?strtoul(rgb[0]=='#'?rgb+1:rgb,&end,16):0xff3030;
+         if ((end && (*end || end==rgb || (rgb[0]=='#' && end==rgb+1))) || color>0xffffff) {
+            view_notice(f,"Color: hexadecimal RRGGBB, e.g. FF3030.");return;
+         }
+         gate_view_t *existing=rr_logic_find(patch_edit_id);
+         bool ok=existing?rr_logic_sign_configure(existing->id,label,(uint32_t)color):
+            rr_logic_add_sign(label,(uint32_t)color)!=NULL;
+         if (!ok) { view_notice(f,"Cannot create or edit sign.");return; }
+         patch_layout(false);
+      } else if (!g_ascii_strcasecmp(kind,"gate") || !g_ascii_strcasecmp(kind,"constant")) {
          bool constant=!g_ascii_strcasecmp(kind,"constant");
          rr_gate_kind_t type=RR_GATE_AND;
          if (!constant && (!name || !rr_gate_kind_parse(name,&type))) { view_notice(f,"Gate name: AND OR XOR NAND NOR XNOR NOT.");return; }
@@ -877,8 +904,9 @@ static void patch_editor_open(bool add){
    }else if(rr_logic_find(patch_edit_id)){
       gate_view_t *gate=rr_logic_find(patch_edit_id);
       char value[24];g_snprintf(value,sizeof(value),"%u",gate->constant?(unsigned)gate->level:gate->inputs);
-      rrui_form_set_value(patch_editor,"kind",gate->constant?"constant":"gate");
-      rrui_form_set_value(patch_editor,"name",rr_gate_kind_name(gate->kind));
+      rrui_form_set_value(patch_editor,"kind",gate->sign?"sign":gate->constant?"constant":"gate");
+      rrui_form_set_value(patch_editor,"name",gate->sign?gate->label:rr_gate_kind_name(gate->kind));
+      if (gate->sign) { char rgb[16];g_snprintf(rgb,sizeof(rgb),"%06X",gate->color);rrui_form_set_value(patch_editor,"option",rgb); }
       rrui_form_set_value(patch_editor,"value",value);
    }else if(g_str_has_prefix(patch_edit_id,"control.")){
       rrui_form_set_value(patch_editor,"kind","control");
@@ -940,7 +968,7 @@ static bool patch_key(tui_window_t *w,unsigned key,unsigned mods,void *unused){
    if(dx||dy){
       if(mods&TERMKEY_KEYMOD_CTRL){patch_x=CLAMP(patch_x+dx*8,0,4000);patch_y=CLAMP(patch_y+dy*3,0,4000);}
       else if(i>=0){
-         rrui_rect_t rects[RR_AUDIO_GRAPH_MAX_NODES+MAX_UI_GATES];
+         rrui_rect_t rects[RR_AUDIO_GRAPH_MAX_NODES+MAX_UI_GATES+1];
          for(unsigned j=0;j<patch_count;j++)rects[j]=(rrui_rect_t){patch_pos[j].x,patch_pos[j].y,PATCH_W,PATCH_H};
          size_t next=rrui_workspace_nearest(rects,patch_count,i,dx,dy);
          if(next<patch_count){
@@ -1307,7 +1335,21 @@ static void modem_shutdown(void) {
    memset(&modem_snapshot,0,sizeof(modem_snapshot));
 }
 
+static void logic_ptt_event(const rr_event_message_t *m,void *unused) {
+   (void)unused;
+   if (!m || !m->payload || m->length!=sizeof(rrclient_routing_ptt_signal_t)) { return; }
+   const rrclient_routing_ptt_signal_t *signal=m->payload;
+   if (!memchr(signal->source,0,sizeof(signal->source))) { return; }
+   rr_logic_signal(signal->source,true,signal->raised);tui_redraw_request();
+}
+static void logic_connection_lost(const char *event,const char *data,rrconn_t *conn,void *unused) {
+   (void)event;(void)data;(void)conn;(void)unused;
+   rr_logic_reset_sources();tui_redraw_request();
+}
 static void views_init(void){
+   rr_logic_model_init();
+   logic_ptt_token=event_on_message_domain_token(RRCLIENT_ROUTING_PTT_SIGNAL,logic_ptt_event,NULL,"core");
+   logic_disconnect_token=event_on_domain_token("disconnected",logic_connection_lost,NULL,"core");
    modem_init();
    const rrclient_ui_required_t c[]={{"filter",RRUI_ENTRY,false},{"keys",RRUI_LIST,false},{"value",RRUI_ENTRY,false},{"secret",RRUI_ENTRY,true},{"selected",RRUI_LABEL,false}};
    const rrclient_ui_required_t a[]={{"nodes",RRUI_LIST,false},{"links",RRUI_LIST,false}};
@@ -1325,6 +1367,9 @@ static void views_init(void){
    }
 }
 static void views_shutdown(void){
+   if (logic_ptt_token) { event_off_token(logic_ptt_token);logic_ptt_token=0; }
+   if (logic_disconnect_token) { event_off_token(logic_disconnect_token);logic_disconnect_token=0; }
+   if (route_event) { event_off_token(route_event);route_event=0; }
    modem_shutdown();
    patch_editor_close();
    if(config_tab)rrui_tui_tab_detach(config_tab);
