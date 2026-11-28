@@ -560,6 +560,9 @@ bool audio_local_rx_start(const char *id) {
 
 bool audio_local_rx_push_pcm(const char *id, const void *interleaved, size_t frames) {
    rr_pcm_stream_format_t fmt;
+   if (id && interleaved && frames && rr_audio_engine_stream_format(audio_stream_engine(id),id,&fmt)) {
+      rr_vrig_rx_feed(id,interleaved,frames,&fmt);
+   }
 
    if (id && interleaved && frames && frames <= 2048 &&
       audio_stream_engine(id) &&
@@ -577,6 +580,8 @@ bool audio_local_rx_push(const char *id, const int16_t *pcm, size_t frames) {
       return false;
    }
    /* Only the old 16 kHz mono API may enter legacy FFT/modem analysis. */
+   const rr_pcm_stream_format_t format={16000,1,RR_PCM_S16LE};
+   rr_vrig_rx_feed(id,pcm,frames,&format);
    rr_af_spectrum_push(id, pcm, frames);
    rr_local_modem_feed(id, pcm, frames);
 
@@ -1000,6 +1005,8 @@ static void client_mic_pcm(const char *name, const void *samples, size_t len, vo
    /* Capture is already 16 kHz mono S16 here. Feed LV2 before TX gating so
     * monitoring/processing is not conditional on PTT. The normal microphone
     * TX path remains unchanged until a processed-TX output is explicitly wired. */
+   const rr_pcm_stream_format_t format={16000,1,RR_PCM_S16LE};
+   rr_vrig_rx_feed("src.client.dsp0",samples,len/sizeof(int16_t),&format);
    audio_lv2_feed("src.client.dsp0", samples, len);
 
    /* A modem owns the encoder while its waveform is being transmitted. Do not mix live microphone speech into digital-mode samples. */
@@ -1586,6 +1593,8 @@ static gboolean audio_lv2_apply_output(const char *id,char route) {
    return rr_audio_engine_route(rx_engine,id,tx?'M':route);
 }
 static void audio_lv2_push_output(const char *id,char route,const int16_t *pcm,size_t frames) {
+   const rr_pcm_stream_format_t format={16000,1,RR_PCM_S16LE};
+   rr_vrig_rx_feed(id,pcm,frames,&format);
    if (audio_lv2_tx_route(route)) {
       /* TX audio is never a PTT request. Wait for the selected encoder and
        * actual transmit state; do not mix processed speech into modem TX. */
@@ -2650,6 +2659,8 @@ static void client_channel_pcm(const char *name, const void *samples, size_t len
    rr_af_spectrum_push(route->identity, samples, len / sizeof(int16_t));
    rr_local_modem_feed(route->identity, samples, len / sizeof(int16_t));
 
+   const rr_pcm_stream_format_t format={16000,1,RR_PCM_S16LE};
+   rr_vrig_rx_feed(route->identity,samples,len/sizeof(int16_t),&format);
    audio_lv2_feed(route->identity,samples,len);
    /* The RX route remains independently owned by the operator. Adding
     * an effect input must not silently disconnect or replace it. */

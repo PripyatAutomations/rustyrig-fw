@@ -676,6 +676,13 @@ static rrs_value_t *native_routing_block(rrs_vm_t *vm,int argc,
       const char *src=rrs_value_string(args[0]), *dst=rrs_value_string(args[1]);
       unsigned v=0,m=0;
       int a=0,b=0;
+      if (sscanf(dst,"vrig%u.pcm_rx%n",&v,&a)==1 && a && !dst[a] && v<RR_SERCOM_VRIG_MAX && strlen(src)<64) {
+         rr_vrig_rx_route_t route={.slot=v,.connect=op==4};
+         g_strlcpy(route.source,src,sizeof(route.source));
+         rr_vrig_rx_request(&route);
+         return rrs_boolean(true);
+      }
+      a=0;
       bool tx=sscanf(src,"vrig%u.serial_tx%n",&v,&a)==1 && a && !src[a] &&
               sscanf(dst,"modem%u.serial_rx%n",&m,&b)==1 && b && !dst[b];
       a=b=0;

@@ -17,4 +17,13 @@ typedef struct {
 void rr_vrig_audio_init(void);
 void rr_vrig_audio_shutdown(void);
 void rr_vrig_audio_request(const rr_vrig_audio_request_t *request);
+#include <rrclient/audio.engine.h>
+#define RR_VRIG_RX_ROUTE "client.routing.vrig.rx.route"
+typedef struct {
+   unsigned slot;
+   char source[64];
+   bool connect;
+} rr_vrig_rx_route_t;
+void rr_vrig_rx_request(const rr_vrig_rx_route_t *request);
+void rr_vrig_rx_feed(const char *source,const void *pcm,size_t frames,const rr_pcm_stream_format_t *format);
 #endif

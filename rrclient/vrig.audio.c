@@ -14,18 +14,23 @@
 #include <rrclient/vrig.audio.h>
 #include <rrclient/vrig.mix.h>
 #include <fwdsp-mgr.h>
+#include <unistd.h>
 
 typedef struct {
    uint32_t modules[3];
    bool enabled, pending, pcm_started;
    unsigned stage;
+   rr_audio_engine_t *rx_mix;
+   int rx_fd;
+   char rx_source[64];
    char rx[64], tx[64], mic[64];
 } device_t;
 static device_t devices[RR_SERCOM_VRIG_MAX];
 static pa_mainloop *loop;
 static pa_context *context;
 static GSource *timer;
-static rr_event_token_t token;
+static rr_event_token_t token,rx_token;
+static GMutex rx_lock;
 static bool stopping;
 static gint64 retry_at;
 static void reconcile(device_t *d);
@@ -41,6 +46,52 @@ static void capture_pcm(const char *name,const void *pcm,size_t bytes,void *user
       rr_vrig_mix_feed((unsigned)(d-devices),"external.tx",pcm,bytes/sizeof(int16_t));
    }
 }
+static void rx_output(const int16_t *pcm,size_t frames,void *user) {
+   device_t *d=user;
+   /* fd belongs to this worker until its mixer thread joins. */
+   if (d->rx_fd>=0) {
+      fwdsp_pcm_write_fd(d->rx_fd,pcm,frames*2*sizeof(int16_t));
+   }
+}
+void rr_vrig_rx_feed(const char *source,const void *pcm,size_t frames,const rr_pcm_stream_format_t *format) {
+   if (!source || !pcm || !frames || !format || !rr_pcm_stream_format_valid(format)) { return; }
+   g_mutex_lock(&rx_lock);
+   for (unsigned i=0;i<RR_SERCOM_VRIG_MAX;i++) {
+      device_t *d=&devices[i];
+      if (!d->rx_mix || strcmp(source,d->rx_source)) { continue; }
+      rr_pcm_stream_format_t old;
+      if (!rr_audio_engine_stream_format(d->rx_mix,source,&old) ||
+          old.sample_rate_hz!=format->sample_rate_hz || old.channels!=format->channels || old.format!=format->format) {
+         rr_audio_engine_remove_stream(d->rx_mix,source);
+         if (!rr_audio_engine_add_stream_format(d->rx_mix,source,format) ||
+             !rr_audio_engine_route(d->rx_mix,source,'S')) { continue; }
+      }
+      rr_audio_engine_push_pcm(d->rx_mix,source,pcm,frames);
+   }
+   g_mutex_unlock(&rx_lock);
+}
+static void rx_route_received(const rr_event_message_t *message,void *unused) {
+   (void)unused;
+   if (!message || !message->payload || message->length!=sizeof(rr_vrig_rx_route_t)) { return; }
+   const rr_vrig_rx_route_t *r=message->payload;
+   if (r->slot>=RR_SERCOM_VRIG_MAX || !memchr(r->source,0,sizeof(r->source)) ||
+       !r->source[0] || !strcmp(r->source,"rig.src")) { return; }
+   device_t *d=&devices[r->slot];
+   g_mutex_lock(&rx_lock);
+   if (!r->connect && strcmp(r->source,d->rx_source)) { g_mutex_unlock(&rx_lock);return; }
+   char key[80];
+   snprintf(key,sizeof(key),"audio.vrig.%u.rx.source",r->slot);
+   if (rrclient_database_setting_set(key,r->connect?r->source:"")) {
+      if (d->rx_mix && d->rx_source[0]) { rr_audio_engine_remove_stream(d->rx_mix,d->rx_source); }
+      g_strlcpy(d->rx_source,r->connect?r->source:"",sizeof(d->rx_source));
+   }
+   g_mutex_unlock(&rx_lock);
+}
+void rr_vrig_rx_request(const rr_vrig_rx_route_t *req) {
+   if (req) {
+      event_emit_message(&(rr_event_message_t){.name=RR_VRIG_RX_ROUTE,.payload=req,.length=sizeof(*req)});
+   }
+}
 static void pcm_stop(device_t *d) {
    unsigned slot=(unsigned)(d-devices);
    char name[64];
@@ -48,6 +99,13 @@ static void pcm_stop(device_t *d) {
    d->pcm_started=false;
    fwdsp_processor_stop(name);
    rr_vrig_mix_close(slot);
+   g_mutex_lock(&rx_lock);
+   rr_audio_engine_free(d->rx_mix);
+   d->rx_mix=NULL;
+   if (d->rx_fd>=0) { close(d->rx_fd);d->rx_fd=-1; }
+   g_mutex_unlock(&rx_lock);
+   snprintf(name,sizeof(name),"sink.vrig%u",slot);
+   fwdsp_processor_stop(name);
 }
 static bool pcm_start(device_t *d) {
    if (d->pcm_started) { return true; }
@@ -63,6 +121,16 @@ static bool pcm_start(device_t *d) {
       pcm_stop(d);
       return false;
    }
+   snprintf(name,sizeof(name),"sink.vrig%u",slot);
+   snprintf(pipeline,sizeof(pipeline),
+      "appsrc name=processor-src is-live=true format=time ! audio/x-raw,format=S16LE,rate=48000,channels=2 ! audioconvert ! audioresample ! pulsesink device=%s sync=false",d->rx);
+   if (!fwdsp_audio_playback_start_rate(name,pipeline,48000)) { pcm_stop(d);return false; }
+   g_mutex_lock(&rx_lock);
+   d->rx_fd=fwdsp_processor_dup_input(name);
+   d->rx_mix=rr_audio_engine_new_rate(48000,rx_output,d);
+   bool ok=d->rx_fd>=0 && d->rx_mix && rr_audio_engine_start(d->rx_mix);
+   g_mutex_unlock(&rx_lock);
+   if (!ok) { pcm_stop(d);return false; }
    d->pcm_started=true;
    return true;
 }
@@ -206,7 +274,7 @@ void rr_vrig_audio_init(void) {
    if (!loop) { return; }
    for (unsigned i=0;i<RR_SERCOM_VRIG_MAX;i++) {
       device_t *d=&devices[i];
-      *d=(device_t){.modules={PA_INVALID_INDEX,PA_INVALID_INDEX,PA_INVALID_INDEX}};
+      *d=(device_t){.modules={PA_INVALID_INDEX,PA_INVALID_INDEX,PA_INVALID_INDEX},.rx_fd=-1};
       snprintf(d->rx,sizeof(d->rx),"rustyrig.vrig%u.rx_internal",i);
       snprintf(d->tx,sizeof(d->tx),"rustyrig.vrig%u.tx",i);
       snprintf(d->mic,sizeof(d->mic),"rustyrig.vrig%u.rx",i);
@@ -215,8 +283,13 @@ void rr_vrig_audio_init(void) {
       char *saved=rrclient_database_setting_get(key);
       d->enabled=saved && !strcmp(saved,"true");
       g_free(saved);
+      snprintf(key,sizeof(key),"audio.vrig.%u.rx.source",i);
+      saved=rrclient_database_setting_get(key);
+      if (saved && strcmp(saved,"rig.src")) { g_strlcpy(d->rx_source,saved,sizeof(d->rx_source)); }
+      g_free(saved);
    }
    token=event_on_message_domain_token(RR_VRIG_AUDIO_REQUEST,request_received,NULL,"core");
+   rx_token=event_on_message_domain_token(RR_VRIG_RX_ROUTE,rx_route_received,NULL,"core");
    timer=g_timeout_source_new(20);
    g_source_set_callback(timer,poll_pulse,NULL,NULL);
    g_source_attach(timer,rrclient_core_context());
@@ -225,6 +298,7 @@ void rr_vrig_audio_shutdown(void) {
    if (!loop) { return; }
    stopping=true;
    if (token) { event_off_token(token);token=0; }
+   if (rx_token) { event_off_token(rx_token);rx_token=0; }
    if (timer) { g_source_destroy(timer);g_source_unref(timer);timer=NULL; }
    for (unsigned i=0;i<RR_SERCOM_VRIG_MAX;i++) { devices[i].enabled=false;reconcile(&devices[i]); }
    gint64 deadline=g_get_monotonic_time()+1000000;

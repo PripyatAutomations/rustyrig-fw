@@ -63,3 +63,5 @@ Right-click a virtual rig and select Export virtual sound device, or use `routin
 ### Per-virtual-rig TX mixers
 
 Each slot has an independent 48 kHz stereo mixer with explicit named input registration, rate conversion and input gain. The virtual speaker monitor is captured through fwdsp into that slot's `external.tx` input. No samples are forwarded to the global TX encoder: the output is deliberately discarded until an explicit destination-specific transport is installed. RX graph snapshots now retain actual stream identities rather than substituting `rig.src` based on focus.
+
+The virtual RX microphone now has a dedicated 48 kHz playback mixer and a persisted, explicit PCM source. In GTK drag the virtual rig PCM RX IN pin to a radio or local microphone output. Scripts can use `routing.connect("<stable-source-id>", "vrig0.pcm_rx")` and the corresponding disconnect. The first implementation supports one RX source per virtual rig; it does not use UI focus. TX transport is not yet connected.
