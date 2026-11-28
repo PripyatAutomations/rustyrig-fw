@@ -796,8 +796,23 @@ static rrs_value_t *native_routing_block(rrs_vm_t *vm,int argc,
    audio_request_oscillator(&req);
    return rrs_boolean(true); /* submitted, not a synchronous processing ack */
 }
+static rrs_value_t *native_client_command(rrs_vm_t *vm,int argc,const rrs_value_t *const args[],void *unused) {
+   (void)unused;
+   if (argc!=1 || rrs_value_type(args[0])!=RRS_STRING) {
+      rrs_vm_raise(vm,"command.run(/command arguments)");
+      return NULL;
+   }
+   const char *line=rrs_value_string(args[0]);
+   if (line[0]!='/' || !line[1] || strlen(line)>4096 || strpbrk(line,"\r\n")) {
+      rrs_vm_raise(vm,"Expected one slash command");
+      return NULL;
+   }
+   /* Use the normal command parser and its privilege/offline checks. */
+   return rrs_boolean(!parse_chat_input_real(line));
+}
 static bool register_window_api(rrs_vm_t *vm) {
-   return rrs_vm_register_native(vm,"sdr.connect_favorite",native_sdr_favorite,NULL) &&
+   return rrs_vm_register_native(vm,"command.run",native_client_command,NULL) &&
+      rrs_vm_register_native(vm,"sdr.connect_favorite",native_sdr_favorite,NULL) &&
       rrs_vm_register_native(vm,"sdr.parse",native_sdr_args,NULL) &&
       rrs_vm_register_native(vm,"sdr.favorites",native_sdr_manage,GINT_TO_POINTER(0)) &&
       rrs_vm_register_native(vm,"sdr.list",native_sdr_manage,GINT_TO_POINTER(1)) &&

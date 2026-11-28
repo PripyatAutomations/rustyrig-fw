@@ -877,7 +877,8 @@ static void routing_serial_refresh(void) {
          g_free(value);
          g_free(key);
       }
-      if (bound || modem_wire[0] || modem_wire[1] || i == 0) {
+      {
+         (void)bound;
          char id[64];
          g_snprintf(id, sizeof(id), "serial.vrig%u", i);
          routing_serial_add(id, "", "", i, TRUE, vindex++);

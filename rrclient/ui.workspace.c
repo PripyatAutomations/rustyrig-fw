@@ -22,6 +22,7 @@
 #include <rrclient/logic.model.h>
 #include <rrclient/local.bridge.h>
 #include <rrclient/local.modem.h>
+#include <rrclient/sercom.h>
 #include <rrclient/spectrum.af.h>
 #include <rrclient/config.layers.h>
 #include <rrclient/objects.h>
@@ -54,7 +55,7 @@ static char *config_key;
 static rr_audio_graph_snapshot_t route_snapshot;
 static bool route_ready;
 static gint64 route_requested;
-static rr_event_token_t route_event,logic_ptt_token,logic_disconnect_token;
+static rr_event_token_t route_event,logic_ptt_token,logic_disconnect_token,serial_wire_event;
 extern defconfig_t defcfg[];
 static size_t view_field(rrui_form_t *f,const char *id){
    for(size_t i=0;i<rrui_form_count(f);i++){
@@ -139,9 +140,9 @@ static void routing_request(void){
 #define PATCH_W 22
 #define PATCH_H 7
 typedef struct {char id[64];int x,y;bool selected;} patch_pos_t;
-static patch_pos_t patch_pos[RR_AUDIO_GRAPH_MAX_NODES+MAX_UI_GATES+1];
+static patch_pos_t patch_pos[RR_AUDIO_GRAPH_MAX_NODES+MAX_UI_GATES+1+RR_SERCOM_VRIG_MAX+RR_LOCAL_MODEM_MAX];
 static unsigned patch_count;
-static int patch_origin_x[RR_AUDIO_GRAPH_MAX_NODES+MAX_UI_GATES+1],patch_origin_y[RR_AUDIO_GRAPH_MAX_NODES+MAX_UI_GATES+1];
+static int patch_origin_x[RR_AUDIO_GRAPH_MAX_NODES+MAX_UI_GATES+1+RR_SERCOM_VRIG_MAX+RR_LOCAL_MODEM_MAX],patch_origin_y[RR_AUDIO_GRAPH_MAX_NODES+MAX_UI_GATES+1+RR_SERCOM_VRIG_MAX+RR_LOCAL_MODEM_MAX];
 static int patch_x,patch_y,patch_drag=-1,patch_dx,patch_dy;
 static bool patch_panning;
 static int patch_pan_col,patch_pan_row,patch_pan_x,patch_pan_y;
@@ -158,7 +159,43 @@ static int patch_find(const char *id){
    for(unsigned i=0;i<patch_count;i++)if(!strcmp(patch_pos[i].id,id))return (int)i;
    return -1;
 }
+static unsigned patch_serial_wires[RR_SERCOM_VRIG_MAX][2];
+static int patch_serial_slot(const char *id, bool vrig) {
+   unsigned slot=0;
+   int n=0;
+   if (sscanf(id,vrig?"vrig%u%n":"serial.modem%u%n",&slot,&n)!=1 || !n || id[n] ||
+       (vrig ? slot>=RR_SERCOM_VRIG_MAX : !slot || slot>RR_LOCAL_MODEM_MAX)) {
+      return -1;
+   }
+   return (int)slot;
+}
+static bool patch_modem_present(unsigned slot) {
+   char id[64];
+   g_snprintf(id,sizeof(id),"modem%u.rx",slot);
+   for (unsigned i=0;i<route_snapshot.node_count;i++) {
+      if (!strcmp(id,route_snapshot.nodes[i].id)) { return true; }
+   }
+   return false;
+}
+static void patch_serial_refresh(void) {
+   for (unsigned i=0;i<RR_SERCOM_VRIG_MAX;i++) {
+      for (unsigned k=0;k<2;k++) {
+         char key[80];
+         g_snprintf(key,sizeof(key),"serial.vrig.%u.modem.%s",i,k?"rx":"tx");
+         char *v=rrclient_database_setting_get(key);
+         patch_serial_wires[i][k]=v?(unsigned)g_ascii_strtoull(v,NULL,10):0;
+         g_free(v);
+      }
+   }
+}
 static const rr_ag_view_node_t *patch_node(const char *id){
+   int vrig=patch_serial_slot(id,true),modem=patch_serial_slot(id,false);
+   if (vrig>=0 || (modem>0 && patch_modem_present((unsigned)modem))) {
+      static rr_ag_view_node_t serial;
+      serial=(rr_ag_view_node_t){.type=RR_AG_PROCESSOR,.health=RR_AG_HEALTHY};
+      g_strlcpy(serial.id,id,sizeof(serial.id));
+      return &serial;
+   }
    for(unsigned i=0;i<route_snapshot.node_count;i++)if(!strcmp(route_snapshot.nodes[i].id,id))return &route_snapshot.nodes[i];
    if (!strcmp(id,RRCLIENT_ROUTING_PTT_LOCAL)) {
       static rr_ag_view_node_t ptt={.id=RRCLIENT_ROUTING_PTT_LOCAL,.type=RR_AG_SOURCE,.health=RR_AG_HEALTHY,.read_only=TRUE};
@@ -174,9 +211,9 @@ static const rr_ag_view_node_t *patch_node(const char *id){
    return NULL;
 }
 /* Stable named ports; signal compatibility is independent of channel index. */
-enum { PATCH_AUDIO=1, PATCH_NUMBER, PATCH_BOOLEAN };
+enum { PATCH_AUDIO=1, PATCH_NUMBER, PATCH_BOOLEAN, PATCH_SERIAL };
 enum { PIN_IN_L, PIN_IN_R, PIN_OUT_L, PIN_OUT_R, PIN_FREQ, PIN_LEVEL,
-       PIN_WAVE, PIN_VALUE, PIN_PTT_IN, PIN_PTT_OUT, PIN_GATE_A, PIN_GATE_B, PIN_GATE_C, PIN_GATE_D, PIN_COUNT };
+       PIN_WAVE, PIN_VALUE, PIN_PTT_IN, PIN_PTT_OUT, PIN_GATE_A, PIN_GATE_B, PIN_GATE_C, PIN_GATE_D, PIN_SERIAL_RX, PIN_SERIAL_TX, PIN_COUNT };
 static const rrui_pin_t patch_ports[PIN_COUNT]={
    {"in_l",PATCH_AUDIO,RRUI_PIN_INPUT,RRUI_PIN_LEFT,1./(PATCH_H-1)},
    {"in_r",PATCH_AUDIO,RRUI_PIN_INPUT,RRUI_PIN_LEFT,2./(PATCH_H-1)},
@@ -191,13 +228,19 @@ static const rrui_pin_t patch_ports[PIN_COUNT]={
    {"in_a",PATCH_BOOLEAN,RRUI_PIN_INPUT,RRUI_PIN_LEFT,1./(PATCH_H-1)},
    {"in_b",PATCH_BOOLEAN,RRUI_PIN_INPUT,RRUI_PIN_LEFT,2./(PATCH_H-1)},
    {"in_c",PATCH_BOOLEAN,RRUI_PIN_INPUT,RRUI_PIN_LEFT,3./(PATCH_H-1)},
-   {"in_d",PATCH_BOOLEAN,RRUI_PIN_INPUT,RRUI_PIN_LEFT,4./(PATCH_H-1)}
+   {"in_d",PATCH_BOOLEAN,RRUI_PIN_INPUT,RRUI_PIN_LEFT,4./(PATCH_H-1)},
+   {"serial_rx",PATCH_SERIAL,RRUI_PIN_INPUT,RRUI_PIN_LEFT,4./(PATCH_H-1)},
+   {"serial_tx",PATCH_SERIAL,RRUI_PIN_OUTPUT,RRUI_PIN_RIGHT,4./(PATCH_H-1)}
 };
 static bool patch_output(int pin){
    return pin>=0 && pin<PIN_COUNT && patch_ports[pin].direction==RRUI_PIN_OUTPUT;
 }
 static bool patch_pin_valid(const rr_ag_view_node_t *n,int pin){
    if (!n || pin<0 || pin>=PIN_COUNT) { return false; }
+   if (patch_serial_slot(n->id,true)>=0 || patch_serial_slot(n->id,false)>0) {
+      return pin==PIN_SERIAL_RX || pin==PIN_SERIAL_TX;
+   }
+   if (pin==PIN_SERIAL_RX || pin==PIN_SERIAL_TX) { return false; }
    gate_view_t *gate=rr_logic_find(n->id);
    if (!strcmp(n->id,RRCLIENT_ROUTING_PTT_LOCAL)) { return pin==PIN_PTT_OUT; }
    if (gate && gate->sign) { return pin==PIN_PTT_IN; }
@@ -246,6 +289,7 @@ static int patch_pin_hit(const patch_pos_t *p,int x,int y,bool output){
    return best;
 }
 static uint32_t patch_pin_color(int pin){
+   if (patch_ports[pin].type==PATCH_SERIAL) { return 0xc0c0c0; }
    if (patch_ports[pin].type==PATCH_NUMBER) { return 0x55cc66; }
    if (patch_ports[pin].type==PATCH_BOOLEAN) { return 0xf06060; }
    return pin%2?0xd070cf:0x53cbd5;
@@ -329,13 +373,27 @@ static void patch_group_save(void) {
    }
 }
 static void patch_layout(bool reset){
-   patch_pos_t old[RR_AUDIO_GRAPH_MAX_NODES+MAX_UI_GATES+1];
+   patch_pos_t old[RR_AUDIO_GRAPH_MAX_NODES+MAX_UI_GATES+1+RR_SERCOM_VRIG_MAX+RR_LOCAL_MODEM_MAX];
    unsigned old_count=patch_count;
    memcpy(old,patch_pos,sizeof(old));patch_count=0;
    int lane[4]={0};
-   for(unsigned i=0;i<route_snapshot.node_count+rr_logic_block_count+1;i++){
-      const rr_ag_view_node_t *n=i<route_snapshot.node_count?&route_snapshot.nodes[i]:
-         i<route_snapshot.node_count+rr_logic_block_count?patch_node(rr_logic_blocks[i-route_snapshot.node_count].id):patch_node(RRCLIENT_ROUTING_PTT_LOCAL);
+   unsigned base=route_snapshot.node_count+rr_logic_block_count;
+   for(unsigned i=0;i<base+1+RR_SERCOM_VRIG_MAX+RR_LOCAL_MODEM_MAX;i++){
+      const rr_ag_view_node_t *n=NULL;
+      char serial_id[64];
+      if (i<route_snapshot.node_count) {
+         n=&route_snapshot.nodes[i];
+      } else if (i<base) {
+         n=patch_node(rr_logic_blocks[i-route_snapshot.node_count].id);
+      } else if (i==base) {
+         n=patch_node(RRCLIENT_ROUTING_PTT_LOCAL);
+      } else if (i<=base+RR_SERCOM_VRIG_MAX) {
+         g_snprintf(serial_id,sizeof(serial_id),"vrig%u",i-base-1);
+         n=patch_node(serial_id);
+      } else {
+         g_snprintf(serial_id,sizeof(serial_id),"serial.modem%u",i-base-RR_SERCOM_VRIG_MAX);
+         n=patch_node(serial_id);
+      }
       if (!n) { continue; }
       unsigned type=(unsigned)n->type<=RR_AG_SINK?n->type:0;
       patch_pos_t *p=&patch_pos[patch_count++];
@@ -624,6 +682,21 @@ static void patch_draw(tui_window_t *w,int rows,int cols,void *unused){
          patch_paint_wire(c,cells,patch_branch(x1+1,y1,x2-1,y2,used,net),0xf06060,used,net,(patch_point_t){x1+1,y1});
       }
    }
+   for (unsigned v=0;v<RR_SERCOM_VRIG_MAX;v++) {
+      for (unsigned k=0;k<2;k++) {
+         unsigned m=patch_serial_wires[v][k];
+         if (!m) { continue; }
+         char vrig[64],modem[64];
+         g_snprintf(vrig,sizeof(vrig),"vrig%u",v);
+         g_snprintf(modem,sizeof(modem),"serial.modem%u",m);
+         int a=patch_find(k?modem:vrig),b=patch_find(k?vrig:modem);
+         int x1,y1,x2,y2;
+         if (a<0 || b<0 || !patch_pin_point(&patch_pos[a],PIN_SERIAL_TX,&x1,&y1) ||
+             !patch_pin_point(&patch_pos[b],PIN_SERIAL_RX,&x2,&y2)) { continue; }
+         unsigned net=patch_net(a,PIN_SERIAL_TX);
+         patch_paint_wire(c,cells,patch_branch(x1+1,y1,x2-1,y2,used,net),0xc0c0c0,used,net,(patch_point_t){x1+1,y1});
+      }
+   }
    int origin=patch_find(patch_source),target=patch_find(patch_selected);
    if(origin>=0&&patch_output(patch_source_pin)){
       int x1=patch_pos[origin].x+PATCH_W-1,y1=patch_pos[origin].y;
@@ -665,7 +738,11 @@ static void patch_draw(tui_window_t *w,int rows,int cols,void *unused){
       g_snprintf(info,sizeof(info),"L %.0f R %.0f dB",n->input_gain_db[0],n->input_gain_db[1]);
       rrui_canvas_text(c,x+1,y+3,PATCH_W-2,info,0xc2d1da);
       gate_view_t *gate=rr_logic_find(p->id);
-      if (gate && gate->sign) {
+      if (patch_serial_slot(p->id,true)>=0 || patch_serial_slot(p->id,false)>0) {
+         rrui_canvas_text(c,x+1,y+2,PATCH_W-2,"Serial interface",color);
+         rrui_canvas_text(c,x+1,y+3,PATCH_W-2,"                    ",color);
+         rrui_canvas_text(c,x+1,y+4,PATCH_W-2,"RX                TX",0xc0c0c0);
+      } else if (gate && gate->sign) {
          bool valid=false,high=false;rr_logic_sign_state(gate->id,&valid,&high);
          uint32_t fg=valid&&high?gate->on_fg:gate->off_fg,bg=valid&&high?gate->color:gate->off_bg;
          int length=(int)g_utf8_strlen(gate->label,-1);
@@ -734,6 +811,21 @@ static bool patch_connect(const char *source,const char *target,int out,int in){
        !patch_output(out) || patch_output(in) ||
        !rrui_shape_pins_compatible(&patch_ports[out],&patch_ports[in])) {
       patch_notice("Select compatible output and input ports."); return false;
+   }
+   if (patch_ports[out].type==PATCH_SERIAL) {
+      int v=patch_serial_slot(source,true),m=patch_serial_slot(target,false);
+      bool tx=v>=0 && m>0;
+      if (!tx) {
+         v=patch_serial_slot(target,true);
+         m=patch_serial_slot(source,false);
+      }
+      if (v<0 || m<=0) {
+         patch_notice("Connect a virtual rig serial pin to a modem serial pin.");
+         return false;
+      }
+      rr_sercom_serial_wire_t wire={.vrig=(unsigned)v,.modem=(unsigned)m,.to_modem=tx};
+      event_emit_message(&(rr_event_message_t){.name=RR_SERCOM_SERIAL_WIRE_REQUEST,.payload=&wire,.length=sizeof(wire)});
+      return true;
    }
    if (patch_ports[out].type==PATCH_NUMBER) {
       unsigned slot=patch_slot(target,"osc.%u%n",RR_AUDIO_OSC_MAX);
@@ -905,6 +997,13 @@ static void patch_editor_action(rrui_form_t *f,const char *id,const char *action
       const char *key=rrui_form_value(f,"wires");
       char src[64],dst[64],extra;
       unsigned out,in,type,property;
+      unsigned v,k;
+      if (key && sscanf(key,"serial|%u|%u%c",&v,&k,&extra)==2 && v<RR_SERCOM_VRIG_MAX && k<2) {
+         rr_sercom_serial_wire_t wire={.vrig=v,.to_modem=k==0};
+         event_emit_message(&(rr_event_message_t){.name=RR_SERCOM_SERIAL_WIRE_REQUEST,.payload=&wire,.length=sizeof(wire)});
+         patch_editor_close();
+         return;
+      }
       if (key && sscanf(key,"logic|%63[^|]|%63[^|]|%u%c",src,dst,&in,&extra)==3) {
          for (unsigned i=0;i<rr_logic_wire_count;i++) {
             if (!strcmp(src,rr_logic_wires[i].from) && !strcmp(dst,rr_logic_wires[i].to) && in==rr_logic_wires[i].pin && rr_logic_disconnect_index(i)) {
@@ -1151,6 +1250,19 @@ static void patch_editor_open(bool add){
       g_snprintf(label,sizeof(label),"%s -> %s input %u",wire->from,wire->to,wire->pin+1);
       rrui_form_list_append(patch_editor,"wires",key,label);
    }
+   for (unsigned v=0;!add && v<RR_SERCOM_VRIG_MAX;v++) {
+      for (unsigned k=0;k<2;k++) {
+         unsigned m=patch_serial_wires[v][k];
+         if (!m) { continue; }
+         char vrig[64],modem[64],key[64],label[128];
+         g_snprintf(vrig,sizeof(vrig),"vrig%u",v);
+         g_snprintf(modem,sizeof(modem),"serial.modem%u",m);
+         if (strcmp(vrig,patch_edit_id) && strcmp(modem,patch_edit_id)) { continue; }
+         g_snprintf(key,sizeof(key),"serial|%u|%u",v,k);
+         g_snprintf(label,sizeof(label),"%s TX -> %s RX",k?modem:vrig,k?vrig:modem);
+         rrui_form_list_append(patch_editor,"wires",key,label);
+      }
+   }
    if(!rrui_tui_open(patch_editor)){
       patch_editor_close();
    }
@@ -1166,7 +1278,7 @@ static bool patch_key(tui_window_t *w,unsigned key,unsigned mods,void *unused){
    if(dx||dy){
       if(mods&TERMKEY_KEYMOD_CTRL){patch_x=CLAMP(patch_x+dx*8,0,4000);patch_y=CLAMP(patch_y+dy*3,0,4000);}
       else if(i>=0){
-         rrui_rect_t rects[RR_AUDIO_GRAPH_MAX_NODES+MAX_UI_GATES+1];
+         rrui_rect_t rects[RR_AUDIO_GRAPH_MAX_NODES+MAX_UI_GATES+1+RR_SERCOM_VRIG_MAX+RR_LOCAL_MODEM_MAX];
          for(unsigned j=0;j<patch_count;j++)rects[j]=(rrui_rect_t){patch_pos[j].x,patch_pos[j].y,PATCH_W,PATCH_H};
          size_t next=rrui_workspace_nearest(rects,patch_count,i,dx,dy);
          if(next<patch_count){
@@ -1356,6 +1468,14 @@ static void patch_toggle_list(void){
    if(rrui_tui_tab_attach(routing_tab,routing_view))patch_lists=true;else patch_enable();
    tui_redraw_request();
 }
+static void patch_serial_result(const rr_event_message_t *message,void *unused) {
+   (void)unused;
+   if (!message || !message->payload || message->length!=sizeof(rr_sercom_serial_wire_result_t)) { return; }
+   const rr_sercom_serial_wire_result_t *result=message->payload;
+   patch_serial_refresh();
+   patch_notice(result->success?"Serial routing updated.":"Serial routing rejected.");
+   tui_redraw_request();
+}
 static void routing_result(const rr_event_message_t *m,void *unused){
    (void)unused;
    if(!routing_view||!m||!m->payload||m->length!=sizeof(route_snapshot))return;
@@ -1366,6 +1486,7 @@ static void routing_result(const rr_event_message_t *m,void *unused){
    bool topology=!route_ready||route_snapshot.node_count!=q->node_count;
    if(!topology)for(unsigned i=0;i<q->node_count;i++)if(strcmp(route_snapshot.nodes[i].id,q->nodes[i].id)){topology=true;break;}
    route_snapshot=*q;route_ready=true;
+   patch_serial_refresh();
    if(topology)patch_layout(false);
    rrui_form_list_clear(routing_view,"nodes");
    rrui_form_list_clear(routing_view,"links");
@@ -2355,7 +2476,12 @@ static void views_init(void){
    if(routing_view){
       routing_tab=tui_window_create("Routing");
       if(!routing_tab||!rrui_tui_tab_attach(routing_tab,routing_view)){rrui_form_free(routing_view);routing_view=NULL;}
-      else {route_event=event_on_message_domain_token(RRCLIENT_AUDIO_GRAPH_RESULT,routing_result,NULL,"core");patch_enable();}
+      else {
+         route_event=event_on_message_domain_token(RRCLIENT_AUDIO_GRAPH_RESULT,routing_result,NULL,"core");
+         serial_wire_event=event_on_message_domain_token(RR_SERCOM_SERIAL_WIRE_RESULT,patch_serial_result,NULL,"core");
+         patch_serial_refresh();
+         patch_enable();
+      }
    }
 }
 static void views_shutdown(void){
@@ -2364,6 +2490,7 @@ static void views_shutdown(void){
    if (logic_ptt_token) { event_off_token(logic_ptt_token);logic_ptt_token=0; }
    if (logic_disconnect_token) { event_off_token(logic_disconnect_token);logic_disconnect_token=0; }
    if (route_event) { event_off_token(route_event);route_event=0; }
+   if (serial_wire_event) { event_off_token(serial_wire_event);serial_wire_event=0; }
    modem_shutdown();
    patch_editor_close();
    if(config_tab)rrui_tui_tab_detach(config_tab);

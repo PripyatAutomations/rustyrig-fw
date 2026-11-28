@@ -35,7 +35,7 @@ For the shared Routing pin/wire legend (including yellow COS and red PTT), see
 
 Each virtual rig has independent serial TX (application to modem) and RX (modem to application) connections. The common core owns these wires, persists them and creates ttyMODEMN only while at least one exists. Modem inputs accept one producer; outputs may fan out. The current PSK adapter forwards decoded bytes and accepts input during an explicitly armed keyboard TX stream; serial wiring itself does not grant transmit permission or key the radio.
 
-GTK exposes Serial TX/RX on the virtual rig and on a dedicated modem serial face. Drag TX to RX; double-click the wire to remove it. The equivalent RustyScript calls are:
+GTK and TUI expose Serial TX/RX on the virtual rig and on a dedicated modem serial face. TUI also permits keyboard patching and wire removal from Properties. Drag TX to RX; double-click the wire to remove it. The equivalent RustyScript calls are:
 
 ```
 routing.connect("vrig0.serial_tx", "modem1.serial_rx");
@@ -53,3 +53,5 @@ The command-line equivalents are:
 ```
 
 The first two commands connect both directions between vrig0 and modem1; the last two remove the individual wires. The transport is length-delimited and preserves NUL and high-bit bytes; individual modem protocols may impose additional restrictions.
+
+RustyScript also provides `command.run("/sercom wire 0 tx 1")` through the normal client command parser. Prefer the typed routing API for scripts that need to manipulate graph connections directly.
