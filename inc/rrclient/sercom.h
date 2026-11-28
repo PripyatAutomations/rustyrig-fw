@@ -15,6 +15,16 @@ bool rr_sercom_info(const char *name, rr_sercom_info_t *info);
 #define RR_SERCOM_VRIG_BIND_REQUEST "client.serial.vrig.bind.request"
 #define RR_SERCOM_VRIG_BIND_RESULT "client.serial.vrig.bind.result"
 #define RR_SERCOM_VRIG_MAX 8
+/* Persistent graph block inventory. Legacy populated slots are imported. */
+bool rr_vrig_present(unsigned slot);
+/* Core only: close numbered PTYs and erase saved serial connections. */
+bool rr_sercom_vrig_remove(unsigned slot);
+#define RR_VRIG_BLOCK_REQUEST "client.routing.vrig.block.request"
+typedef struct {
+   unsigned slot; /* RR_SERCOM_VRIG_MAX selects first free slot on creation */
+   bool create;
+} rr_vrig_block_request_t;
+void rr_vrig_block_request(const rr_vrig_block_request_t *request);
 #define RR_SERCOM_VRIG_CAT 1u
 #define RR_SERCOM_VRIG_GPS 2u
 #define RR_SERCOM_VRIG_BOTH 3u

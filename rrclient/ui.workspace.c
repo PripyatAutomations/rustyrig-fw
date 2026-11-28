@@ -199,7 +199,7 @@ static void patch_serial_refresh(void) {
 }
 static const rr_ag_view_node_t *patch_node(const char *id){
    int vrig=patch_serial_slot(id,true),modem=patch_serial_slot(id,false);
-   if (vrig>=0 || (modem>0 && patch_modem_present((unsigned)modem))) {
+   if ((vrig>=0 && rr_vrig_present((unsigned)vrig)) || (modem>0 && patch_modem_present((unsigned)modem))) {
       static rr_ag_view_node_t serial;
       serial=(rr_ag_view_node_t){.type=RR_AG_PROCESSOR,.health=RR_AG_HEALTHY};
       g_strlcpy(serial.id,id,sizeof(serial.id));
@@ -1099,7 +1099,9 @@ static void patch_editor_action(rrui_form_t *f,const char *id,const char *action
       }
    }else if(!strcmp(action,"remove")){
       const char *n=patch_edit_id;
-      if (rr_logic_find(n)) {
+      if (patch_serial_slot(n,true)>=0) {
+         rr_vrig_block_request(&(rr_vrig_block_request_t){.slot=(unsigned)patch_serial_slot(n,true),.create=false});
+      } else if (rr_logic_find(n)) {
          if (!rr_logic_remove(n)) { view_notice(f,"Cannot remove gate.");return; }
          patch_layout(false);
       } else if((slot=patch_slot(n,"osc.%u%n",RR_AUDIO_OSC_MAX))){
@@ -1117,7 +1119,9 @@ static void patch_editor_action(rrui_form_t *f,const char *id,const char *action
          return;
       }
    }else if(!strcmp(action,"save")&&kind){
-      if (!g_ascii_strcasecmp(kind,"sign") || !g_ascii_strcasecmp(kind,"onair")) {
+      if (!g_ascii_strcasecmp(kind,"vrig") || !g_ascii_strcasecmp(kind,"virtual rig")) {
+         rr_vrig_block_request(&(rr_vrig_block_request_t){.slot=RR_SERCOM_VRIG_MAX,.create=true});
+      } else if (!g_ascii_strcasecmp(kind,"sign") || !g_ascii_strcasecmp(kind,"onair")) {
          const char *label=name&&*name?name:"ON AIR";
          const char *font=rrui_form_value(f,"sign_font");
          const char *fields[]={"sign_on_fg","option","sign_off_fg","sign_off_bg"};

@@ -69,3 +69,7 @@ The virtual RX microphone now has a dedicated 48 kHz playback mixer and a persis
 RX PCM inputs now accept up to 32 explicit sources per virtual rig. Each source is persisted independently and mixed at the virtual microphone; GTK block context menu removes individual connections. TUI supports the PCM RX pin and connection drawing. Oscillator output is rendered whenever explicitly patched to a virtual RX input.
 
 TX mixers now exist independently of sound export, with up to 32 persisted graph inputs. Use `routing.connect(source, "vrig0.pcm_tx")` or the PCM TX IN pin. Both GTK and TUI can remove individual inputs. The exported speaker is an additional internal input; transport output remains intentionally disabled pending destination-specific encoding.
+
+### Block lifecycle
+
+Add a Virtual Rig from the routing Add menu (TUI: block kind `vrig`). The first free numbered slot is used; existing slots are never renumbered. Remove Virtual Rig closes its numbered serial endpoints, disables the exported sound device, and clears PCM and serial connections. Existing populated slots migrate automatically; unused placeholders no longer appear. CAT/GPS are wired from the graph rather than configured through the virtual rig context menu.

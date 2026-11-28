@@ -876,6 +876,7 @@ static void routing_serial_refresh(void) {
    unsigned vindex = 0, tindex = 0;
 
    for (unsigned i = 0; i < RR_SERCOM_VRIG_MAX; i++) {
+      if (!rr_vrig_present(i)) { continue; }
       char *profile[2], *rig[2];
       gboolean bound = FALSE;
       for (unsigned k = 0; k < 2; k++) {
@@ -3136,24 +3137,9 @@ static void routing_serial_menu_action(GtkMenuItem *item, gpointer unused) {
       return;
    }
 
-   if (action <= 1) {
-      char name[32];
-      g_snprintf(name, sizeof(name), "tty%s%u", action ? "GPS" : "CAT", slot);
-      GtkWidget *window = gtk_widget_get_toplevel(graph_canvas);
-
-      if (GTK_IS_WINDOW(window)) {
-         gtk_serial_configure(GTK_WINDOW(window), name);
-      }
-   } else {
-      rr_sercom_vrig_bind_t req = {
-         .slot = slot
-      };
-      rr_event_message_t msg = {
-         .name = RR_SERCOM_VRIG_BIND_REQUEST,
-         .payload = &req, .length = sizeof(req)
-      };
-      event_emit_message(&msg);
-   }
+   (void)action;
+   rr_vrig_block_request(&(rr_vrig_block_request_t){.slot=slot,.create=FALSE});
+   routing_queue();
 }
 
 static void routing_serial_wire_remove(GtkMenuItem *item, gpointer unused) {
@@ -3230,9 +3216,7 @@ static gboolean routing_serial_context_menu(GdkEventButton *event, double x, dou
          }
          }
          gtk_menu_shell_append(GTK_MENU_SHELL(menu), gtk_separator_menu_item_new());
-         const char *labels[] = {
-            "Configure CAT PTY…", "Configure GPS PTY…", "Disconnect Virtual Rig"
-         };
+         const char *labels[] = { "Remove Virtual Rig" };
 
          for (guint action = 0 ; action < G_N_ELEMENTS(labels) ; action++) {
             GtkWidget *item = gtk_menu_item_new_with_label(labels[action]);
@@ -7127,6 +7111,9 @@ static void routing_canvas_add_action(GtkMenuItem *item,gpointer unused) {
       routing_add_numeric_control((GtkButton *)item,NULL);
    } else if(!strcmp(kind,"modem")) {
       routing_new_modem((GtkButton *)item,NULL);
+   } else if (!strcmp(kind,"vrig")) {
+      rr_vrig_block_request(&(rr_vrig_block_request_t){.slot=RR_SERCOM_VRIG_MAX,.create=TRUE});
+      routing_queue();
    } else if(!strcmp(kind,"true") || !strcmp(kind,"false")) {
       routing_create_position_logic();
       rr_logic_canvas_add_constant(!strcmp(kind,"true"));
@@ -7185,6 +7172,7 @@ static GtkWidget *routing_add_menu_items(void) {
    routing_add_subitem(menu,"Oscillator (I/Q)…","oscillator");
    routing_add_subitem(menu,"Numeric Control…","numeric");
    routing_add_subitem(menu,"Modem…","modem");
+   routing_add_subitem(menu,"Virtual Rig","vrig");
    GtkWidget *gate_item=gtk_menu_item_new_with_label("Gate");
    GtkWidget *gate_menu=gtk_menu_new();
    for(unsigned g=0;g<=RR_GATE_XNOR;g++) {

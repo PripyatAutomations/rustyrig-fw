@@ -1694,6 +1694,52 @@ bool rr_sercom_disconnect(const char *name) {
 
 /* Store numbered, pinned PTYs as real serial attachments. Their profile is independent of the GUI-selected rrclient connection. */
 static rr_event_token_t remote_modem_token, vrig_bind_token;
+bool rr_vrig_present(unsigned slot) {
+   if (slot>=RR_SERCOM_VRIG_MAX) { return false; }
+   char key[96];
+   g_snprintf(key,sizeof(key),"routing.vrig.%u.present",slot);
+   char *value=rrclient_database_setting_get(key);
+   if (value) {
+      bool present=!strcmp(value,"true");
+      g_free(value);
+      return present;
+   }
+   /* Old releases displayed eight unconditional placeholders. Import only
+    * slots with actual saved connections or an enabled export. */
+   const char *fields[]={"cat.profile","gps.profile","profile","modem.tx","modem.rx"};
+   for (unsigned i=0;i<G_N_ELEMENTS(fields);i++) {
+      g_snprintf(key,sizeof(key),"serial.vrig.%u.%s",slot,fields[i]);
+      value=rrclient_database_setting_get(key);
+      bool present=value && *value && strcmp(value,"0");
+      g_free(value);
+      if (present) { return true; }
+   }
+   g_snprintf(key,sizeof(key),"audio.vrig.%u.export",slot);
+   value=rrclient_database_setting_get(key);
+   bool present=value && !strcmp(value,"true");
+   g_free(value);
+   if (present) { return true; }
+   g_snprintf(key,sizeof(key),"audio.vrig.%u.rx.source",slot);
+   value=rrclient_database_setting_get(key);
+   present=value && *value;
+   g_free(value);
+   if (present) { return true; }
+   for (unsigned i=0;i<32;i++) {
+      for (unsigned tx=0;tx<2;tx++) {
+         g_snprintf(key,sizeof(key),"audio.vrig.%u.%s.source.%u",slot,tx?"tx":"rx",i);
+         value=rrclient_database_setting_get(key);
+         present=value && *value;
+         g_free(value);
+         if (present) { return true; }
+      }
+   }
+   return false;
+}
+void rr_vrig_block_request(const rr_vrig_block_request_t *request) {
+   if (request) {
+      event_emit_message(&(rr_event_message_t){.name=RR_VRIG_BLOCK_REQUEST,.payload=request,.length=sizeof(*request)});
+   }
+}
 static bool vrig_valid(const char *rig) {
    if (!rig || strncmp(rig, "rig", 3) || !rig[3]) {
       return false;
@@ -1730,9 +1776,18 @@ static void vrig_save(unsigned slot, unsigned pin, const char *field, const char
 
 /* Only persisted graph bindings may create numbered exports. The bound
  * profile is installed before opening the port or notifying observers. */
+static bool vrig_removed(unsigned slot) {
+   char key[80];
+   g_snprintf(key,sizeof(key),"routing.vrig.%u.present",slot);
+   char *saved=rrclient_database_setting_get(key);
+   bool removed=saved && !strcmp(saved,"false");
+   g_free(saved);
+   return removed;
+}
 static bool vrig_restore(void) {
    bool ok = true;
    for (unsigned i = 0; i < RR_SERCOM_VRIG_MAX; i++) {
+      if (vrig_removed(i)) { continue; }
       for (unsigned j = 0; j < 2; j++) {
          char *profile = vrig_setting(i, j, "profile");
          char *rig = vrig_setting(i, j, "rig");
@@ -1766,7 +1821,7 @@ static void vrig_bind_request(const rr_event_message_t *message, void *unused) {
       goto reply;
    }
    bool disconnect = !req->profile[0] && !req->rig[0];
-   if (!disconnect && (!req->profile[0] || !vrig_valid(req->rig) || !rrclient_connection_find(req->profile))) {
+   if (!disconnect && (vrig_removed(req->slot) || !req->profile[0] || !vrig_valid(req->rig) || !rrclient_connection_find(req->profile))) {
       g_strlcpy(result.detail, "Invalid virtual rig or server profile", sizeof(result.detail));
       goto reply;
    }
@@ -1881,7 +1936,7 @@ reply:
 }
 
 static bool serial_wire_apply(const rr_sercom_serial_wire_t *wire, bool persist) {
-   if (wire->vrig >= RR_SERCOM_VRIG_MAX || wire->modem > RR_LOCAL_MODEM_MAX) {
+   if (wire->vrig >= RR_SERCOM_VRIG_MAX || wire->modem > RR_LOCAL_MODEM_MAX || (wire->modem && vrig_removed(wire->vrig))) {
       return false;
    }
    unsigned *edge = wire->to_modem ? &vrig_modem_tx[wire->vrig] : &vrig_modem_rx[wire->vrig];
@@ -1920,6 +1975,28 @@ static bool serial_wire_apply(const rr_sercom_serial_wire_t *wire, bool persist)
    return true;
 }
 
+bool rr_sercom_vrig_remove(unsigned slot) {
+   if (slot>=RR_SERCOM_VRIG_MAX) { return false; }
+   bool ok=true;
+   for (unsigned j=0;j<2;j++) {
+      char name[32],key[96];
+      g_snprintf(name,sizeof(name),"tty%s%u",j?"GPS":"CAT",slot);
+      if (binding(name)) { serial_disconnect(name); }
+      g_snprintf(key,sizeof(key),"serial.%s",name);
+      dict_del(cfg,key);
+      for (unsigned field=0;field<2;field++) {
+         g_snprintf(key,sizeof(key),"serial.vrig.%u.%s.%s",slot,j?"gps":"cat",field?"rig":"profile");
+         if (!rrclient_database_setting_set(key,"")) { ok=false; }
+      }
+      if (!serial_wire_apply(&(rr_sercom_serial_wire_t){.vrig=slot,.to_modem=j==0},true)) { ok=false; }
+   }
+   char key[80];
+   g_snprintf(key,sizeof(key),"serial.vrig.%u.profile",slot);
+   if (!rrclient_database_setting_set(key,"")) { ok=false; }
+   g_snprintf(key,sizeof(key),"serial.vrig.%u.rig",slot);
+   if (!rrclient_database_setting_set(key,"")) { ok=false; }
+   return ok;
+}
 static void serial_wire_request(const rr_event_message_t *message, void *unused) {
    (void)unused;
    if (!message || !message->payload || message->length != sizeof(rr_sercom_serial_wire_t)) {
@@ -1961,6 +2038,7 @@ static void serial_modem_output(const rr_event_message_t *message, void *unused)
 static bool serial_wire_restore(void) {
    bool ok = true;
    for (unsigned i = 0; i < RR_SERCOM_VRIG_MAX; i++) {
+      if (vrig_removed(i)) { continue; }
       for (unsigned direction = 0; direction < 2; direction++) {
          char key[80];
          g_snprintf(key, sizeof(key), "serial.vrig.%u.modem.%s", i, direction ? "tx" : "rx");

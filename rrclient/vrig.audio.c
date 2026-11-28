@@ -32,7 +32,7 @@ static device_t devices[RR_SERCOM_VRIG_MAX];
 static pa_mainloop *loop;
 static pa_context *context;
 static GSource *timer;
-static rr_event_token_t token,rx_token;
+static rr_event_token_t token,rx_token,block_token;
 static GMutex rx_lock;
 static bool stopping;
 static gint64 retry_at;
@@ -135,6 +135,7 @@ static void rx_route_received(const rr_event_message_t *message,void *unused) {
    const rr_vrig_rx_route_t *r=message->payload;
    if (r->slot>=RR_SERCOM_VRIG_MAX || !memchr(r->source,0,sizeof(r->source)) ||
        !r->source[0] || !strcmp(r->source,"rig.src")) { return; }
+   if (r->connect && !rr_vrig_present(r->slot)) { return; }
    device_t *d=&devices[r->slot];
    g_mutex_lock(&rx_lock);
    if (!strcmp(r->source,"external.tx")) { g_mutex_unlock(&rx_lock);return; }
@@ -323,7 +324,7 @@ static void request_received(const rr_event_message_t *message,void *unused) {
    (void)unused;
    if (!message || !message->payload || message->length!=sizeof(rr_vrig_audio_request_t)) { return; }
    const rr_vrig_audio_request_t *req=message->payload;
-   if (req->slot>=RR_SERCOM_VRIG_MAX || stopping) { return; }
+   if (req->slot>=RR_SERCOM_VRIG_MAX || stopping || (req->enabled && !rr_vrig_present(req->slot))) { return; }
    device_t *d=&devices[req->slot];
    char key[80];
    snprintf(key,sizeof(key),"audio.vrig.%u.export",req->slot);
@@ -337,6 +338,57 @@ void rr_vrig_audio_request(const rr_vrig_audio_request_t *req) {
       event_emit_message(&(rr_event_message_t){.name=RR_VRIG_AUDIO_REQUEST,.payload=req,.length=sizeof(*req)});
    }
 }
+static void block_received(const rr_event_message_t *message,void *unused) {
+   (void)unused;
+   if (!message || !message->payload || message->length!=sizeof(rr_vrig_block_request_t) || stopping) { return; }
+   const rr_vrig_block_request_t *req=message->payload;
+   unsigned slot=req->slot;
+   if (req->create && slot==RR_SERCOM_VRIG_MAX) {
+      for (slot=0;slot<RR_SERCOM_VRIG_MAX;slot++) {
+         if (!rr_vrig_present(slot) && !devices[slot].pending &&
+             devices[slot].modules[0]==PA_INVALID_INDEX &&
+             devices[slot].modules[1]==PA_INVALID_INDEX &&
+             devices[slot].modules[2]==PA_INVALID_INDEX) { break; }
+      }
+   }
+   if (slot>=RR_SERCOM_VRIG_MAX) { return; }
+   device_t *d=&devices[slot];
+   char key[96];
+   g_snprintf(key,sizeof(key),"routing.vrig.%u.present",slot);
+   if (req->create) {
+      if (rr_vrig_present(slot) || d->pending || d->modules[0]!=PA_INVALID_INDEX ||
+          d->modules[1]!=PA_INVALID_INDEX || d->modules[2]!=PA_INVALID_INDEX) { return; }
+      if (!rr_vrig_mix_open(slot,tx_mix_output,NULL)) { return; }
+      if (!rrclient_database_setting_set(key,"true")) { rr_vrig_mix_close(slot);return; }
+   } else {
+      if (!rr_vrig_present(slot)) { return; }
+      /* Tombstone first: a failure during cleanup must not restore an old
+       * wire or export on the next launch. */
+      if (!rrclient_database_setting_set(key,"false")) { return; }
+      d->enabled=false;
+      if (d->pcm_started) { pcm_stop(d); }
+      reconcile(d);
+      bool ok=rr_sercom_vrig_remove(slot);
+      g_snprintf(key,sizeof(key),"audio.vrig.%u.export",slot);
+      if (!rrclient_database_setting_set(key,"false")) { ok=false; }
+      g_snprintf(key,sizeof(key),"audio.vrig.%u.rx.source",slot);
+      if (!rrclient_database_setting_set(key,"")) { ok=false; }
+      g_mutex_lock(&rx_lock);
+      for (unsigned j=0;j<RR_VRIG_PCM_INPUT_MAX;j++) {
+         for (unsigned tx=0;tx<2;tx++) {
+            g_snprintf(key,sizeof(key),"audio.vrig.%u.%s.source.%u",slot,tx?"tx":"rx",j);
+            if (!rrclient_database_setting_set(key,"")) { ok=false; }
+         }
+      }
+      memset(d->rx_sources,0,sizeof(d->rx_sources));
+      memset(d->tx_sources,0,sizeof(d->tx_sources));
+      memset(d->tx_formats,0,sizeof(d->tx_formats));
+      rr_vrig_mix_close(slot);
+      g_mutex_unlock(&rx_lock);
+      if (!ok) { Log(LOG_WARN,"vrig.audio","Virtual rig %u removed; some saved settings could not be cleared",slot); }
+   }
+   event_emit("client.audio.route.changed",NULL,NULL);
+}
 void rr_vrig_audio_init(void) {
    if (loop) { return; }
    stopping=false;
@@ -349,6 +401,7 @@ void rr_vrig_audio_init(void) {
       snprintf(d->rx,sizeof(d->rx),"rustyrig.vrig%u.rx_internal",i);
       snprintf(d->tx,sizeof(d->tx),"rustyrig.vrig%u.tx",i);
       snprintf(d->mic,sizeof(d->mic),"rustyrig.vrig%u.rx",i);
+      if (!rr_vrig_present(i)) { continue; }
       char key[80];
       snprintf(key,sizeof(key),"audio.vrig.%u.export",i);
       char *saved=rrclient_database_setting_get(key);
@@ -378,6 +431,7 @@ void rr_vrig_audio_init(void) {
    }
    token=event_on_message_domain_token(RR_VRIG_AUDIO_REQUEST,request_received,NULL,"core");
    rx_token=event_on_message_domain_token(RR_VRIG_RX_ROUTE,rx_route_received,NULL,"core");
+   block_token=event_on_message_domain_token(RR_VRIG_BLOCK_REQUEST,block_received,NULL,"core");
    timer=g_timeout_source_new(20);
    g_source_set_callback(timer,poll_pulse,NULL,NULL);
    g_source_attach(timer,rrclient_core_context());
@@ -387,6 +441,7 @@ void rr_vrig_audio_shutdown(void) {
    stopping=true;
    if (token) { event_off_token(token);token=0; }
    if (rx_token) { event_off_token(rx_token);rx_token=0; }
+   if (block_token) { event_off_token(block_token);block_token=0; }
    if (timer) { g_source_destroy(timer);g_source_unref(timer);timer=NULL; }
    for (unsigned i=0;i<RR_SERCOM_VRIG_MAX;i++) { devices[i].enabled=false;reconcile(&devices[i]); }
    gint64 deadline=g_get_monotonic_time()+1000000;
