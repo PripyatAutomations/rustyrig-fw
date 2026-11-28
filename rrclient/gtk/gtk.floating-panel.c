@@ -56,6 +56,7 @@ struct rr_floating_panel {
    gboolean drag_pending;
    int resize_width, resize_height, resize_start_x, resize_start_y;
    guint resize_edges;
+   gint resize_dock_extent, resize_leaf_extent, resize_region_extent;
    int start_x, start_y;
    int snap_x, snap_y;
    gboolean snapped_x, snapped_y;
@@ -539,14 +540,8 @@ static void dock_slot_constrain(GtkWidget *viewport, GtkAllocation *allocation, 
       gtk_widget_get_size_request(frame, &req_w, &req_h);
       if (req_w != width || req_h != height)
          gtk_widget_set_size_request(frame, width, height);
-      /* Repair saved sizes that are impossible in the current dock rather
-       * than letting them expand again on every layout pass. */
-      if (p->dock_width > max_w || (!p->rolled && p->dock_height > max_h)) {
-         p->dock_width = width;
-         if (p->dock_height > max_h)
-            p->dock_height = height;
-         panel_dock_size_save(p);
-      }
+      /* A temporary viewport allocation (including the first pass after
+       * growing a dock) must not overwrite the user's preferred size. */
    }
    g_list_free(children);
 }
@@ -2732,6 +2727,19 @@ static gboolean panel_resize_press(GtkWidget *widget, GdkEventButton *event, gpo
    p->resize_height = gtk_widget_get_allocated_height(p->frame);
    p->resize_start_x = p->dock_edge >= 0 ? p->dock_x : gtk_widget_get_margin_start(p->frame);
    p->resize_start_y = p->dock_edge >= 0 ? p->dock_y : gtk_widget_get_margin_top(p->frame);
+   p->resize_dock_extent = p->resize_leaf_extent = p->resize_region_extent = 0;
+   if (p->dock_edge >= 0) {
+      GtkWidget *slot = gtk_widget_get_parent(p->frame);
+      RRChatDocks *d = g_object_get_data(G_OBJECT(slot), "rr-docks");
+      GtkWidget *scroll = g_object_get_data(G_OBJECT(slot), "rr-section-scroll");
+      if (d && scroll) {
+         gint edge = p->dock_edge;
+         gboolean horizontal = edge < 2;
+         p->resize_dock_extent = d->extent[edge];
+         p->resize_leaf_extent = horizontal ? gtk_widget_get_allocated_width(scroll) : gtk_widget_get_allocated_height(scroll);
+         p->resize_region_extent = horizontal ? gtk_widget_get_allocated_width(d->region[edge]) : gtk_widget_get_allocated_height(d->region[edge]);
+      }
+   }
    panel_raise(p);
    return TRUE;
 }
@@ -2801,9 +2809,15 @@ static gboolean panel_resize_to(RRFloatPanel *p, double x_root, double y_root, g
       return FALSE;
    gint area_w = gtk_widget_get_allocated_width(area);
    gint area_h = gtk_widget_get_allocated_height(area);
-   if (p->dock_edge >= 0 && active_chat_docks) {
-      area_w = gtk_widget_get_allocated_width(active_chat_docks->scroll[p->dock_edge]);
-      area_h = gtk_widget_get_allocated_height(active_chat_docks->scroll[p->dock_edge]);
+   RRChatDocks *dock = NULL;
+   GtkWidget *leaf = NULL;
+   if (p->dock_edge >= 0) {
+      dock = g_object_get_data(G_OBJECT(area), "rr-docks");
+      leaf = g_object_get_data(G_OBJECT(area), "rr-section-scroll");
+      if (leaf) {
+         area_w = gtk_widget_get_allocated_width(leaf);
+         area_h = gtk_widget_get_allocated_height(leaf);
+      }
    } else {
       area_w -= GPOINTER_TO_INT(g_object_get_data(G_OBJECT(p->overlay), "rr-panel-right-inset"));
    }
@@ -2854,6 +2868,51 @@ static gboolean panel_resize_to(RRFloatPanel *p, double x_root, double y_root, g
       } else
          h = CLAMP(edge - y, min_h, MAX(min_h, area_h - y));
    }
+   /* The inward-facing edge of a docked widget may pull its entire
+    * containing dock wider/taller. Compute from the press geometry, not
+    * the changing allocation, so repeated motion/release is idempotent.
+    * A split leaf gets a proportional share of the enlarged region. */
+   if (dock && leaf && p->resize_leaf_extent > 0 && p->resize_region_extent > 0) {
+      gint edge = p->dock_edge;
+      gboolean horizontal = edge < 2;
+      gboolean reverse = edge == RR_DOCK_RIGHT || edge == RR_DOCK_BOTTOM;
+      guint inward = edge == RR_DOCK_LEFT ? PANEL_RESIZE_RIGHT :
+                     edge == RR_DOCK_RIGHT ? PANEL_RESIZE_LEFT :
+                     edge == RR_DOCK_TOP ? PANEL_RESIZE_BOTTOM : PANEL_RESIZE_TOP;
+      if (p->resize_edges & inward) {
+         gint start = horizontal ? p->resize_start_x : p->resize_start_y;
+         gint initial = horizontal ? p->resize_width : p->resize_height;
+         gint minimum = horizontal ? min_w : min_h;
+         gint delta = horizontal ? dx : dy;
+         gint wanted = MAX(minimum, initial + (reverse ? -delta : delta));
+         gint needed = reverse ? MAX(0, wanted - initial - start) :
+                                MAX(0, start + wanted + 4 - p->resize_leaf_extent);
+         gint opposite = edge ^ 1;
+         gint total = horizontal ? gtk_widget_get_allocated_width(dock->root) : gtk_widget_get_allocated_height(dock->root);
+         gint other = dock->collapsed[opposite] ? 12 : dock->extent[opposite];
+         gint center = horizontal ? MIN(120, total / 2) : MIN(100, total / 2);
+         gint limit = MAX(p->resize_dock_extent, MIN(1400, total - center - other));
+         gint growth = (gint)(((gint64)needed * p->resize_region_extent + p->resize_leaf_extent - 1) / p->resize_leaf_extent);
+         gint extent = MIN(limit, p->resize_dock_extent + growth);
+         gint available_growth = (gint)(((gint64)(extent - p->resize_dock_extent) * p->resize_leaf_extent) / p->resize_region_extent);
+         if (dock->extent[edge] != extent) {
+            dock->extent[edge] = extent;
+            gtk_widget_queue_resize(dock->root);
+         }
+         if (needed || extent != p->resize_dock_extent || reverse) {
+            gint size = MIN(wanted, reverse ? initial + start + available_growth :
+                            MAX(minimum, p->resize_leaf_extent + available_growth - start - 4));
+            gint pos = reverse ? MAX(0, start + initial - size) : start;
+            if (horizontal) {
+               x = pos;
+               w = size;
+            } else {
+               y = pos;
+               h = size;
+            }
+         }
+      }
+   }
    gtk_widget_set_size_request(p->frame, w, h);
    if (p->dock_edge >= 0 && GTK_IS_FIXED(area)) {
       if (x != p->dock_x || y != p->dock_y)
@@ -2888,6 +2947,15 @@ static gboolean panel_resize_release(GtkWidget *widget, GdkEventButton *event, g
       p->dock_height = h;
       panel_dock_size_save(p);
       panel_dock_coords_save(p);
+      GtkWidget *slot = gtk_widget_get_parent(p->frame);
+      RRChatDocks *d = g_object_get_data(G_OBJECT(slot), "rr-docks");
+      if (d && p->resize_dock_extent && d->extent[p->dock_edge] != p->resize_dock_extent) {
+         char *key = dock_extent_key(d, p->dock_edge, d->width_bucket ? d->width_bucket : 2);
+         char *value = g_strdup_printf("%d", d->extent[p->dock_edge]);
+         rrclient_database_setting_defer(key, value);
+         g_free(value);
+         g_free(key);
+      }
    } else {
       panel_position_save(p, gtk_widget_get_margin_start(p->frame),
                           gtk_widget_get_margin_top(p->frame));
