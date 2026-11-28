@@ -23,6 +23,7 @@
 #include <librrprotocol/ws.serial.h>
 #include <rrclient/cat.h>
 #include <rrclient/sercom.h>
+#include <rrclient/local.modem.h>
 #include <rrclient/database.h>
 #include <rrclient/rrclient.h>
 #include <rrclient/objects.h>
@@ -59,6 +60,27 @@ typedef struct serial_binding {
 } serial_binding_t;
 static serial_binding_t *bindings, *cat_context;
 static int pty_directory_lock = -1;
+static unsigned vrig_modem_tx[RR_SERCOM_VRIG_MAX], vrig_modem_rx[RR_SERCOM_VRIG_MAX];
+static rr_event_token_t serial_wire_token, serial_modem_output_token;
+static void serial_modem_input(serial_binding_t *b, const char *data, size_t len) {
+   unsigned slot;
+   int consumed = 0;
+   if (sscanf(b->name, "ttyMODEM%u%n", &slot, &consumed) != 1 ||
+       b->name[consumed] || slot >= RR_SERCOM_VRIG_MAX || !vrig_modem_tx[slot]) {
+      return;
+   }
+   while (len) {
+      rr_sercom_serial_bytes_t packet = {.modem = vrig_modem_tx[slot]};
+      packet.length = (unsigned)MIN(len, sizeof(packet.bytes));
+      memcpy(packet.bytes, data, packet.length);
+      rr_event_message_t msg = {
+         .name = RR_SERCOM_SERIAL_MODEM_INPUT, .payload = &packet, .length = sizeof(packet)
+      };
+      event_emit_message(&msg);
+      data += packet.length;
+      len -= packet.length;
+   }
+}
 
 /* Protect the default PTY namespace against concurrent rrclient instances. Clean only symlinks to devpts within HOME/dev, and do so before registering any
  * serial endpoint. A stale link may point at a PTY number that the kernel has reassigned to another program. */
@@ -1197,6 +1219,10 @@ static void receive(rr_serial_t *port, const char *data, size_t len, void *user)
    if (!strcmp(b->service, "local.raw")) {
       return;
    }
+   if (!strcmp(b->service, "vrig.modem")) {
+      serial_modem_input(b, data, len);
+      return;
+   }
 
    if (host_binding(b)) {
       if (b->failed) {
@@ -1467,7 +1493,7 @@ static bool serial_attach(const char *name, const char *service, const char *dev
 
    if (!service_radio(b->service, b->radio, sizeof(b->radio)) && strcmp(gps_service(b), "gps-in") &&
       strcmp(gps_service(b), "gps-out") && strcmp(gps_service(b), "nmea-out") && strncmp(b->service, "host:", 5) && strcmp(b->service, "local.raw") &&
-      strcmp(b->service, "rig.modem")) {
+      strcmp(b->service, "rig.modem") && strcmp(b->service, "vrig.modem")) {
       goto failed;
    }
 
@@ -1854,7 +1880,116 @@ reply:
    event_emit_message(&response);
 }
 
+static bool serial_wire_apply(const rr_sercom_serial_wire_t *wire, bool persist) {
+   if (wire->vrig >= RR_SERCOM_VRIG_MAX || wire->modem > RR_LOCAL_MODEM_MAX) {
+      return false;
+   }
+   unsigned *edge = wire->to_modem ? &vrig_modem_tx[wire->vrig] : &vrig_modem_rx[wire->vrig];
+   /* A modem input has one producer. Output may fan out to listeners. */
+   if (wire->to_modem && wire->modem) {
+      for (unsigned i = 0; i < RR_SERCOM_VRIG_MAX; i++) {
+         if (i != wire->vrig && vrig_modem_tx[i] == wire->modem) {
+            return false;
+         }
+      }
+   }
+   char name[32], key[80], value[16];
+   g_snprintf(name, sizeof(name), "ttyMODEM%u", wire->vrig);
+   bool created = false;
+   if (wire->modem && !binding(name)) {
+      /* No remote profile is used by this local byte endpoint. */
+      if (!serial_attach(name, "vrig.modem", NULL, "local-graph")) {
+         return false;
+      }
+      created = true;
+   }
+   if (persist) {
+      g_snprintf(key, sizeof(key), "serial.vrig.%u.modem.%s", wire->vrig, wire->to_modem ? "tx" : "rx");
+      g_snprintf(value, sizeof(value), "%u", wire->modem);
+      if (!rrclient_database_setting_set(key, value)) {
+         if (created) {
+            serial_disconnect(name);
+         }
+         return false;
+      }
+   }
+   *edge = wire->modem;
+   if (!vrig_modem_tx[wire->vrig] && !vrig_modem_rx[wire->vrig] && binding(name)) {
+      serial_disconnect(name);
+   }
+   return true;
+}
+
+static void serial_wire_request(const rr_event_message_t *message, void *unused) {
+   (void)unused;
+   if (!message || !message->payload || message->length != sizeof(rr_sercom_serial_wire_t)) {
+      return;
+   }
+   const rr_sercom_serial_wire_t *wire = message->payload;
+   rr_sercom_serial_wire_result_t result = {.wire = *wire, .success = serial_wire_apply(wire, true)};
+   rr_event_message_t reply = {
+      .name = RR_SERCOM_SERIAL_WIRE_RESULT, .payload = &result, .length = sizeof(result)
+   };
+   event_emit_message(&reply);
+}
+
+static void serial_modem_output(const rr_event_message_t *message, void *unused) {
+   (void)unused;
+   if (!message || !message->payload || message->length != sizeof(rr_sercom_serial_bytes_t)) {
+      return;
+   }
+   const rr_sercom_serial_bytes_t *packet = message->payload;
+   if (!packet->modem || packet->modem > RR_LOCAL_MODEM_MAX || !packet->length ||
+       packet->length > sizeof(packet->bytes)) {
+      return;
+   }
+   for (unsigned i = 0; i < RR_SERCOM_VRIG_MAX; i++) {
+      if (vrig_modem_rx[i] != packet->modem) {
+         continue;
+      }
+      char name[32];
+      g_snprintf(name, sizeof(name), "ttyMODEM%u", i);
+      serial_binding_t *b = binding(name);
+      if (b && rr_serial_write(b->port, (const char *)packet->bytes, packet->length)) {
+         console_notify(b->name, (const char *)packet->bytes, packet->length, true);
+      } else {
+         Log(LOG_WARN, "serial", "%s: modem serial output dropped (unavailable or full)", name);
+      }
+   }
+}
+
+static bool serial_wire_restore(void) {
+   bool ok = true;
+   for (unsigned i = 0; i < RR_SERCOM_VRIG_MAX; i++) {
+      for (unsigned direction = 0; direction < 2; direction++) {
+         char key[80];
+         g_snprintf(key, sizeof(key), "serial.vrig.%u.modem.%s", i, direction ? "tx" : "rx");
+         char *value = rrclient_database_setting_get(key);
+         if (value && *value) {
+            char *end = NULL;
+            unsigned long modem = strtoul(value, &end, 10);
+            if (*end || modem > RR_LOCAL_MODEM_MAX ||
+                !serial_wire_apply(&(rr_sercom_serial_wire_t){.vrig=i, .modem=(unsigned)modem, .to_modem=direction != 0}, false)) {
+               ok = false;
+            }
+         }
+         g_free(value);
+      }
+   }
+   return ok;
+}
+
 void rr_sercom_shutdown(void) {
+   if (serial_wire_token) {
+      event_off_token(serial_wire_token);
+      serial_wire_token = NULL;
+   }
+   if (serial_modem_output_token) {
+      event_off_token(serial_modem_output_token);
+      serial_modem_output_token = NULL;
+   }
+   memset(vrig_modem_tx, 0, sizeof(vrig_modem_tx));
+   memset(vrig_modem_rx, 0, sizeof(vrig_modem_rx));
    if (remote_modem_token) {
       event_off_token(remote_modem_token);
    }
@@ -2013,7 +2148,13 @@ bool rr_sercom_init(void) {
          }
       }
    }
-   if (!vrig_restore()) {
+   if (!serial_wire_token) {
+      serial_wire_token = event_on_message_domain_token(RR_SERCOM_SERIAL_WIRE_REQUEST, serial_wire_request, NULL, "core");
+   }
+   if (!serial_modem_output_token) {
+      serial_modem_output_token = event_on_message_domain_token(RR_SERCOM_SERIAL_MODEM_OUTPUT, serial_modem_output, NULL, "core");
+   }
+   if (!vrig_restore() || !serial_wire_restore()) {
       ok = false;
    }
 
@@ -2088,6 +2229,21 @@ bool cmd_sercom(int argc, char **args) {
       return !sent;
    }
 
+   if (argc == 5 && !strcasecmp(args[1], "wire")) {
+      char *end_slot = NULL, *end_modem = NULL;
+      unsigned long slot = strtoul(args[2], &end_slot, 10);
+      unsigned long modem = strtoul(args[4], &end_modem, 10);
+      bool tx = !strcmp(args[3], "tx");
+      if (!*args[2] || !*args[4] || *end_slot || *end_modem ||
+          slot >= RR_SERCOM_VRIG_MAX || modem > RR_LOCAL_MODEM_MAX ||
+          (!tx && strcmp(args[3], "rx"))) {
+         return true;
+      }
+      rr_sercom_serial_wire_t wire = {.vrig=(unsigned)slot, .modem=(unsigned)modem, .to_modem=tx};
+      event_emit_message(&(rr_event_message_t){.name=RR_SERCOM_SERIAL_WIRE_REQUEST, .payload=&wire, .length=sizeof(wire)});
+      return false;
+   }
+
    if (argc == 3 && !strcasecmp(args[1], "modem")) {
       bool ok = rr_sercom_select_modem(args[2]);
       ui_print(NULL, "ttyMODEM: %s", ok ? "selected" : "invalid modem port or no active rig");
@@ -2108,7 +2264,7 @@ bool cmd_sercom(int argc, char **args) {
 
       return !ok;
    }
-   ui_print(NULL, "Usage: /sercom [list | remote | modem ttyMODEMN | attach <name> "
+   ui_print(NULL, "Usage: /sercom [list | remote | wire <vrig> <tx|rx> <modem-or-0> | modem ttyMODEMN | attach <name> "
       "<rigN.cat|rig.gps-out|rigN.gps-in/out|station.gps-in/out|rig.nmea-out|rigN.nmea-out|station.nmea-out|host:port[@baud,mode]> [device] | disconnect "
       "<name>]");
 

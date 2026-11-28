@@ -209,6 +209,50 @@ static void vrig_request(unsigned pins, const char *rig) {
    event_emit_message(&msg);
    pump();
 }
+static rr_sercom_serial_bytes_t serial_received;
+static void serial_test_input(const rr_event_message_t *msg, void *unused) {
+   (void)unused;
+   assert(msg->length == sizeof(serial_received));
+   memcpy(&serial_received, msg->payload, sizeof(serial_received));
+}
+static void test_serial_wire(const char *directory) {
+   char path[512];
+   g_snprintf(path, sizeof(path), "%s/ttyMODEM7", directory);
+   dict_add(cfg, "serial:ttyMODEM7.path", path);
+   rr_event_token_t token = event_on_message_domain_token(RR_SERCOM_SERIAL_MODEM_INPUT, serial_test_input, NULL, "core");
+   rr_sercom_serial_wire_t wire = {.vrig=7,.modem=2,.to_modem=true};
+   rr_event_message_t request = {.name=RR_SERCOM_SERIAL_WIRE_REQUEST,.payload=&wire,.length=sizeof(wire)};
+   event_emit_message(&request);
+   pump();
+   int fd = open(path, O_RDWR | O_NOCTTY | O_NONBLOCK);
+   assert(fd >= 0);
+   const unsigned char bytes[] = {0xc0,0,0xdb,0xff};
+   assert(write(fd, bytes, sizeof(bytes)) == sizeof(bytes));
+   pump();
+   assert(serial_received.modem == 2 && serial_received.length == sizeof(bytes));
+   assert(!memcmp(serial_received.bytes, bytes, sizeof(bytes)));
+   wire.to_modem = false;
+   wire.modem = 3;
+   event_emit_message(&request);
+   pump();
+   rr_sercom_serial_bytes_t output = {.modem=3,.length=sizeof(bytes)};
+   memcpy(output.bytes, bytes, sizeof(bytes));
+   event_emit_message(&(rr_event_message_t){.name=RR_SERCOM_SERIAL_MODEM_OUTPUT,.payload=&output,.length=sizeof(output)});
+   pump();
+   unsigned char result[sizeof(bytes)];
+   assert(read(fd,result,sizeof(result)) == sizeof(result));
+   assert(!memcmp(result,bytes,sizeof(bytes)));
+   wire.modem = 0;
+   event_emit_message(&request);
+   pump();
+   assert(rr_sercom_binding("ttyMODEM7"));
+   wire.to_modem = true;
+   event_emit_message(&request);
+   pump();
+   assert(!rr_sercom_binding("ttyMODEM7"));
+   close(fd);
+   event_off_token(token);
+}
 static void test_vrig_connections(const char *directory) {
    char cat[512], gps[512];
    g_snprintf(cat, sizeof(cat), "%s/ttyCAT7", directory);
@@ -245,6 +289,7 @@ static void test_vrig_connections(const char *directory) {
    assert(!strcmp(rr_sercom_binding("ttyCAT7"), "rig0.cat"));
    assert(!strcmp(rr_sercom_binding("ttyGPS7"), "rig1.gps-out"));
    vrig_request(0, "");
+   test_serial_wire(directory);
    assert(!rr_sercom_binding("ttyCAT7"));
    assert(!rr_sercom_binding("ttyGPS7"));
    rr_sercom_shutdown();

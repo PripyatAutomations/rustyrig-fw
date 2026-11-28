@@ -18,6 +18,27 @@ bool rr_sercom_info(const char *name, rr_sercom_info_t *info);
 #define RR_SERCOM_VRIG_CAT 1u
 #define RR_SERCOM_VRIG_GPS 2u
 #define RR_SERCOM_VRIG_BOTH 3u
+
+/* Separate directed serial wires: vrig TX -> modem RX, modem TX -> vrig RX.
+ * Slot zero is a valid virtual rig; modem zero disconnects the selected wire.
+ * Byte events are length-delimited, never C strings. */
+#define RR_SERCOM_SERIAL_WIRE_REQUEST "client.routing.serial.wire"
+#define RR_SERCOM_SERIAL_WIRE_RESULT "client.routing.serial.wire.result"
+#define RR_SERCOM_SERIAL_MODEM_INPUT "client.routing.serial.modem.input"
+#define RR_SERCOM_SERIAL_MODEM_OUTPUT "client.routing.serial.modem.output"
+#define RR_SERCOM_SERIAL_BYTES 256
+typedef struct {
+   unsigned vrig, modem;
+   bool to_modem;
+} rr_sercom_serial_wire_t;
+typedef struct {
+   rr_sercom_serial_wire_t wire;
+   bool success;
+} rr_sercom_serial_wire_result_t;
+typedef struct {
+   unsigned modem, length;
+   unsigned char bytes[RR_SERCOM_SERIAL_BYTES];
+} rr_sercom_serial_bytes_t;
 typedef struct {
    unsigned slot;
    char profile[128];

@@ -6,7 +6,7 @@
 
 ## Numbered endpoint ownership
 
-Local `ttyCATN`, `ttyGPSN` and `ttyMODEMN` names are reserved for virtual rigs. Direct `[serial]` mappings and `/sercom attach` cannot create these names; disconnect through the routing graph. Custom non-reserved serial names remain available. Numbered modem exports are reserved but not yet implemented. The unnumbered active-rig aliases remain unchanged.
+Local `ttyCATN`, `ttyGPSN` and `ttyMODEMN` names are reserved for virtual rigs. Direct `[serial]` mappings and `/sercom attach` cannot create these names; disconnect through the routing graph. Custom non-reserved serial names remain available. Numbered modem exports are created by directed serial graph wires. The unnumbered active-rig aliases remain unchanged.
 
 ## Virtual Rigs manager
 
@@ -30,3 +30,18 @@ Per-virtual-rig PipeWire/PulseAudio input/output devices, independent CAT/VFO ar
 
 For the shared Routing pin/wire legend (including yellow COS and red PTT), see
 [Routing pin colors](routing-pin-colors.md).
+
+## Modem serial wiring
+
+Each virtual rig has independent serial TX (application to modem) and RX (modem to application) connections. The common core owns these wires, persists them and creates ttyMODEMN only while at least one exists. Modem inputs accept one producer; outputs may fan out. The current PSK adapter forwards decoded bytes and accepts input during an explicitly armed keyboard TX stream; serial wiring itself does not grant transmit permission or key the radio.
+
+Until the graphical pin editors are connected to the common wire API, use:
+
+```
+/sercom wire 0 tx 1
+/sercom wire 0 rx 1
+/sercom wire 0 tx 0
+/sercom wire 0 rx 0
+```
+
+The first two commands connect both directions between vrig0 and modem1; the last two remove the individual wires. The transport is length-delimited and preserves NUL and high-bit bytes; individual modem protocols may impose additional restrictions.

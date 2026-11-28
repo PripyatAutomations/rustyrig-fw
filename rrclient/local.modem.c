@@ -14,6 +14,7 @@
 #include <rrclient/objects.h>
 #include <rrclient/local.bridge.h>
 #include <rrclient/local.modem.h>
+#include <rrclient/sercom.h>
 #include <rrclient/modem.callsign.h>
 #include <rrclient/watch.h>
 #include <rrclient/database.h>
@@ -53,7 +54,7 @@ static bool modem_tx_wired(const decoder_t *d) {
 static GMutex decoder_lock;
 static guint poll_id;
 static bool initialized;
-static rr_event_token_t request_token;
+static rr_event_token_t request_token, serial_input_token;
 static char last_status[192];
 static volatile gint modem_tx_active;
 bool rr_local_modem_tx_in_progress(void) {
@@ -425,6 +426,11 @@ static gboolean poll_decoders(gpointer unused) {
                   .name=RR_LOCAL_MODEM_STREAM_RX,.payload=&rx,.length=sizeof(rx)
                };
                event_emit_message(&msg);
+               rr_sercom_serial_bytes_t packet = {.modem=i+1, .length=(unsigned)n};
+               memcpy(packet.bytes, bytes, (size_t)n);
+               event_emit_message(&(rr_event_message_t){
+                  .name=RR_SERCOM_SERIAL_MODEM_OUTPUT, .payload=&packet, .length=sizeof(packet)
+               });
             }
          } else if (n == 0) {
             ended = true;
@@ -937,6 +943,30 @@ static void request_received(const rr_event_message_t *message, void *unused) {
    }
 }
 
+/* Serial input supplies data to an explicitly armed keyboard TX stream.
+ * A wire alone cannot key a transmitter. Other protocol workers can later
+ * implement their own byte handlers without changing the graph transport. */
+static void serial_modem_input_received(const rr_event_message_t *message, void *unused) {
+   (void)unused;
+   if (!message || !message->payload || message->length != sizeof(rr_sercom_serial_bytes_t)) {
+      return;
+   }
+   const rr_sercom_serial_bytes_t *packet = message->payload;
+   if (!packet->modem || packet->modem > RR_LOCAL_MODEM_MAX || !packet->length ||
+       packet->length > sizeof(packet->bytes)) {
+      return;
+   }
+   decoder_t *d = &decoders[packet->modem - 1];
+   if (!d->active || strcmp(d->engine, "psk") || !d->tx_enabled ||
+       !d->stream_active || !d->ptt_owned || d->stream_ending ||
+       packet->length > sizeof(d->stream_queue) - d->stream_len) {
+      Log(LOG_WARN, "modem", "Modem %u: serial input rejected (stream inactive or queue full)", packet->modem);
+      return;
+   }
+   memcpy(d->stream_queue + d->stream_len, packet->bytes, packet->length);
+   d->stream_len += packet->length;
+}
+
 void rr_local_modem_init(void) {
    if (initialized) {
       return;
@@ -948,6 +978,7 @@ void rr_local_modem_init(void) {
    }
 
    request_token = event_on_message_domain_token(RR_LOCAL_MODEM_REQUEST, request_received, NULL, "core");
+   serial_input_token = event_on_message_domain_token(RR_SERCOM_SERIAL_MODEM_INPUT, serial_modem_input_received, NULL, "core");
    GSource *timer = g_timeout_source_new(20);
    g_source_set_callback(timer, poll_decoders, NULL, NULL);
    poll_id = g_source_attach(timer, rrclient_core_context());
@@ -982,6 +1013,10 @@ void rr_local_modem_shutdown(void) {
       event_off_token(request_token);
    }
    request_token = 0;
+   if (serial_input_token) {
+      event_off_token(serial_input_token);
+      serial_input_token = NULL;
+   }
 
    for (unsigned i = 0 ; i < RR_LOCAL_MODEM_MAX ; i++) {
       stop_one(i);
