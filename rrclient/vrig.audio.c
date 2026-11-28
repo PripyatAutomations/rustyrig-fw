@@ -23,6 +23,8 @@ typedef struct {
    rr_audio_engine_t *rx_mix;
    int rx_fd;
    char rx_sources[RR_VRIG_PCM_INPUT_MAX][64];
+   char tx_sources[RR_VRIG_PCM_INPUT_MAX][64];
+   rr_pcm_stream_format_t tx_formats[RR_VRIG_PCM_INPUT_MAX];
    char rx[64], tx[64], mic[64];
 } device_t;
 static device_t devices[RR_SERCOM_VRIG_MAX];
@@ -65,6 +67,24 @@ size_t rr_vrig_rx_sources(unsigned slot,char (*sources)[64],size_t capacity) {
    g_mutex_unlock(&rx_lock);
    return n;
 }
+size_t rr_vrig_tx_sources(unsigned slot,char (*sources)[64],size_t capacity) {
+   if (slot>=RR_SERCOM_VRIG_MAX) { return 0; }
+   size_t n=0;
+   g_mutex_lock(&rx_lock);
+   for (unsigned j=0;j<RR_VRIG_PCM_INPUT_MAX;j++) {
+      if (!devices[slot].tx_sources[j][0]) { continue; }
+      if (sources && n<capacity) { g_strlcpy(sources[n],devices[slot].tx_sources[j],64); }
+      n++;
+   }
+   g_mutex_unlock(&rx_lock);
+   return n;
+}
+static int tx_find(device_t *d,const char *source) {
+   for (unsigned j=0;j<RR_VRIG_PCM_INPUT_MAX;j++) {
+      if (!strcmp(d->tx_sources[j],source)) { return (int)j; }
+   }
+   return -1;
+}
 static int rx_find(device_t *d,const char *source) {
    for (unsigned j=0;j<RR_VRIG_PCM_INPUT_MAX;j++) {
       if (!strcmp(d->rx_sources[j],source)) { return (int)j; }
@@ -76,7 +96,7 @@ bool rr_vrig_rx_wants(const char *source) {
    bool wanted=false;
    g_mutex_lock(&rx_lock);
    for (unsigned i=0;i<RR_SERCOM_VRIG_MAX;i++) {
-      if (rx_find(&devices[i],source)>=0) { wanted=true;break; }
+      if (rx_find(&devices[i],source)>=0 || tx_find(&devices[i],source)>=0) { wanted=true;break; }
    }
    g_mutex_unlock(&rx_lock);
    return wanted;
@@ -86,6 +106,16 @@ void rr_vrig_rx_feed(const char *source,const void *pcm,size_t frames,const rr_p
    g_mutex_lock(&rx_lock);
    for (unsigned i=0;i<RR_SERCOM_VRIG_MAX;i++) {
       device_t *d=&devices[i];
+      int j=tx_find(d,source);
+      if (j>=0) {
+         rr_pcm_stream_format_t *old=&d->tx_formats[j];
+         if (old->sample_rate_hz!=format->sample_rate_hz || old->channels!=format->channels || old->format!=format->format) {
+            rr_vrig_mix_disconnect(i,source);
+            memset(old,0,sizeof(*old));
+            if (rr_vrig_mix_connect(i,source,format)) { *old=*format; }
+         }
+         if (old->sample_rate_hz) { rr_vrig_mix_feed(i,source,pcm,frames); }
+      }
       if (!d->rx_mix || rx_find(d,source)<0) { continue; }
       rr_pcm_stream_format_t old;
       if (!rr_audio_engine_stream_format(d->rx_mix,source,&old) ||
@@ -106,16 +136,23 @@ static void rx_route_received(const rr_event_message_t *message,void *unused) {
        !r->source[0] || !strcmp(r->source,"rig.src")) { return; }
    device_t *d=&devices[r->slot];
    g_mutex_lock(&rx_lock);
-   int j=rx_find(d,r->source);
+   if (!strcmp(r->source,"external.tx")) { g_mutex_unlock(&rx_lock);return; }
+   int j=r->tx?tx_find(d,r->source):rx_find(d,r->source);
    if ((r->connect && j>=0) || (!r->connect && j<0)) { g_mutex_unlock(&rx_lock);return; }
-   if (r->connect) { j=rx_find(d,""); }
+   if (r->connect) { j=r->tx?tx_find(d,""):rx_find(d,""); }
    if (j<0) { g_mutex_unlock(&rx_lock);return; }
    char key[80];
-   snprintf(key,sizeof(key),"audio.vrig.%u.rx.source.%d",r->slot,j);
+   snprintf(key,sizeof(key),"audio.vrig.%u.%s.source.%d",r->slot,r->tx?"tx":"rx",j);
    bool ok=rrclient_database_setting_set(key,r->connect?r->source:"");
    if (ok) {
-      if (!r->connect && d->rx_mix) { rr_audio_engine_remove_stream(d->rx_mix,r->source); }
-      g_strlcpy(d->rx_sources[j],r->connect?r->source:"",64);
+      if (r->tx) {
+         if (!r->connect) { rr_vrig_mix_disconnect(r->slot,r->source); }
+         memset(&d->tx_formats[j],0,sizeof(d->tx_formats[j]));
+         g_strlcpy(d->tx_sources[j],r->connect?r->source:"",64);
+      } else {
+         if (!r->connect && d->rx_mix) { rr_audio_engine_remove_stream(d->rx_mix,r->source); }
+         g_strlcpy(d->rx_sources[j],r->connect?r->source:"",64);
+      }
    }
    g_mutex_unlock(&rx_lock);
    if (ok) { event_emit("client.audio.route.changed",NULL,NULL); }
@@ -131,8 +168,8 @@ static void pcm_stop(device_t *d) {
    snprintf(name,sizeof(name),"src.vrig%u",slot);
    d->pcm_started=false;
    fwdsp_processor_stop(name);
-   rr_vrig_mix_close(slot);
    g_mutex_lock(&rx_lock);
+   rr_vrig_mix_disconnect(slot,"external.tx");
    rr_audio_engine_free(d->rx_mix);
    d->rx_mix=NULL;
    if (d->rx_fd>=0) { close(d->rx_fd);d->rx_fd=-1; }
@@ -327,6 +364,15 @@ void rr_vrig_audio_init(void) {
             g_strlcpy(d->rx_sources[j],saved,64);
          }
          g_free(saved);
+         snprintf(key,sizeof(key),"audio.vrig.%u.tx.source.%u",i,j);
+         saved=rrclient_database_setting_get(key);
+         if (saved && *saved && strlen(saved)<64 && strcmp(saved,"rig.src") && strcmp(saved,"external.tx") && tx_find(d,saved)<0) {
+            g_strlcpy(d->tx_sources[j],saved,64);
+         }
+         g_free(saved);
+      }
+      if (!rr_vrig_mix_open(i,tx_mix_output,NULL)) {
+         Log(LOG_WARN,"vrig.audio","Unable to open virtual rig %u TX mixer",i);
       }
    }
    token=event_on_message_domain_token(RR_VRIG_AUDIO_REQUEST,request_received,NULL,"core");

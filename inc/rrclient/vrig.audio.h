@@ -27,7 +27,9 @@ typedef struct {
    unsigned slot;
    char source[64];
    bool connect;
+   bool tx; /* false: virtual microphone, true: slot TX mixer */
 } rr_vrig_rx_route_t;
+size_t rr_vrig_tx_sources(unsigned slot,char (*sources)[64],size_t capacity);
 void rr_vrig_rx_request(const rr_vrig_rx_route_t *request);
 void rr_vrig_rx_feed(const char *source,const void *pcm,size_t frames,const rr_pcm_stream_format_t *format);
 #endif
