@@ -215,9 +215,20 @@ static void test_vrig_connections(const char *directory) {
    g_snprintf(gps, sizeof(gps), "%s/ttyGPS7", directory);
    dict_add(cfg, "serial:ttyCAT7.path", cat);
    dict_add(cfg, "serial:ttyGPS7.path", gps);
+   dict_add(cfg, "serial.ttyCAT6", "rig0.cat");
+   dict_add(cfg, "serial.ttyGPS6", "rig0.gps-out");
+   dict_add(cfg, "serial.ttyMODEM6", "rig.modem");
+   assert(!rr_sercom_attach("ttyCAT6", "rig0.cat", NULL));
+   assert(!rr_sercom_attach("ttyGPS6", "rig0.gps-out", NULL));
+   assert(!rr_sercom_attach("ttyMODEM6", "rig.modem", NULL));
+   assert(!rr_sercom_attach("ttyCAT99", "rig0.cat", NULL));
    rrclient_database_setting_set("serial.vrig.7.profile", "test");
    rrclient_database_setting_set("serial.vrig.7.rig", "rig0");
    assert(rr_sercom_init());
+   assert(!rr_sercom_binding("ttyCAT6"));
+   assert(!rr_sercom_binding("ttyGPS6"));
+   assert(!rr_sercom_binding("ttyMODEM6"));
+   assert(!rr_sercom_disconnect("ttyCAT7"));
    assert(!strcmp(rr_sercom_binding("ttyCAT7"), "rig0.cat"));
    assert(!strcmp(rr_sercom_binding("ttyGPS7"), "rig0.gps-out"));
    vrig_request(RR_SERCOM_VRIG_GPS, "rig1");
@@ -267,19 +278,19 @@ int main(int argc, char **argv) {
    }
 
    char path0[512], path1[512], input[512], output[512];
-   snprintf(path0, sizeof(path0), "%s/ttyCAT0", argv[1]);
-   snprintf(path1, sizeof(path1), "%s/ttyCAT1", argv[1]);
-   snprintf(input, sizeof(input), "%s/ttyGPS0", argv[1]);
-   snprintf(output, sizeof(output), "%s/ttyGPS1", argv[1]);
+   snprintf(path0, sizeof(path0), "%s/testCAT0", argv[1]);
+   snprintf(path1, sizeof(path1), "%s/testCAT1", argv[1]);
+   snprintf(input, sizeof(input), "%s/testGPS0", argv[1]);
+   snprintf(output, sizeof(output), "%s/testGPS1", argv[1]);
    /* Numbered PTYs are explicit bindings; the production defaults only
     * create the unnumbered floating ttyCAT/ttyGPS/ttyMODEM endpoints. */
-   dict_add(cfg, "serial.ttyCAT0", "rig0.cat");
-   dict_add(cfg, "serial:ttyCAT0.path", path0);
-   dict_add(cfg, "serial:ttyCAT1.path", path1);
-   dict_add(cfg, "serial:ttyGPS0.path", input);
-   dict_add(cfg, "serial:ttyGPS1.path", output);
-   assert(rr_sercom_init());    // Unconfigured mapping defaults rig0 -> ttyCAT0.
-   assert(!strcmp(rr_sercom_binding("ttyCAT0"), "rig0.cat"));
+   dict_add(cfg, "serial.testCAT0", "rig0.cat");
+   dict_add(cfg, "serial:testCAT0.path", path0);
+   dict_add(cfg, "serial:testCAT1.path", path1);
+   dict_add(cfg, "serial:testGPS0.path", input);
+   dict_add(cfg, "serial:testGPS1.path", output);
+   assert(rr_sercom_init());
+   assert(!strcmp(rr_sercom_binding("testCAT0"), "rig0.cat"));
    char *list_args[] = {
       "sercom", "list"
    }, *remote_args[] = {
@@ -305,10 +316,10 @@ int main(int argc, char **argv) {
    assert(cmd_sercom(2, remote_args));
    serial_send_ok = true;
    ws_conn = NULL;
-   assert(rr_sercom_attach("ttyCAT1", "rig1.cat@38400", NULL));
+   assert(rr_sercom_attach("testCAT1", "rig1.cat@38400", NULL));
    /* PTY creation is local; CAT dispatch requires the bound connection. */
    ws_conn = &connection;
-   assert(!rr_sercom_attach("ttyCAT1", "rig0.cat", NULL));
+   assert(!rr_sercom_attach("testCAT1", "rig0.cat", NULL));
    assert(!rr_sercom_attach("../bad", "rig0.cat", NULL));
    int fd0 = open(path0, O_RDWR | O_NOCTTY | O_NONBLOCK);
    int fd1 = open(path1, O_RDWR | O_NOCTTY | O_NONBLOCK);
@@ -349,9 +360,9 @@ int main(int argc, char **argv) {
    expect(fd1, "FA145000000;");
    assert(sends == 1);
    rr_serial_settings_t inline_settings;
-   assert(rr_serial_get_settings(rr_serial_find("ttyCAT1"), &inline_settings) && inline_settings.baud == 38400);
-   assert(rr_sercom_attach("ttyGPS0", "gps-in", NULL));
-   assert(rr_sercom_attach("ttyGPS1", "gps-out", NULL));
+   assert(rr_serial_get_settings(rr_serial_find("testCAT1"), &inline_settings) && inline_settings.baud == 38400);
+   assert(rr_sercom_attach("testGPS0", "gps-in", NULL));
+   assert(rr_sercom_attach("testGPS1", "gps-out", NULL));
    event_on("serial.gps.input", gps_input, NULL);
    int in = open(input, O_RDWR | O_NOCTTY | O_NONBLOCK), out = open(output, O_RDWR | O_NOCTTY | O_NONBLOCK);
    assert(in >= 0 && out >= 0);
@@ -413,10 +424,10 @@ int main(int argc, char **argv) {
    rr_serial_close(device);
    rr_serial_close(wire);
    assert(access(wire_path, F_OK) < 0);
-   assert(rr_sercom_disconnect("ttyCAT1"));
+   assert(rr_sercom_disconnect("testCAT1"));
    assert(access(path1, F_OK) < 0);
-   dict_add(cfg, "serial:ttyCAT1.vfo", "B");
-   assert(rr_sercom_attach("ttyCAT1", "rig0.cat", NULL));
+   dict_add(cfg, "serial:testCAT1.vfo", "B");
+   assert(rr_sercom_attach("testCAT1", "rig0.cat", NULL));
    close(fd1);
    fd1 = open(path1, O_RDWR | O_NOCTTY | O_NONBLOCK);
    assert(write(fd1, "FA;", 3) == 3);
@@ -439,7 +450,7 @@ int main(int argc, char **argv) {
    assert(!cmd_sercom(4, attach_args) && rr_serial_find("runtime"));
    assert(!cmd_sercom(3, disconnect_args) && !rr_serial_find("runtime"));
    rr_sercom_shutdown();
-   assert(!rr_serial_find("ttyCAT0") && access(path0, F_OK) < 0);
+   assert(!rr_serial_find("testCAT0") && access(path0, F_OK) < 0);
    close(fd0);
    close(fd1);
    close(in);
@@ -448,18 +459,13 @@ int main(int argc, char **argv) {
    int file = open(path1, O_CREAT | O_WRONLY, 0600);
    assert(file >= 0);
    close(file);
-   assert(!rr_sercom_attach("ttyCAT1", "rig0.cat", NULL));
+   assert(!rr_sercom_attach("testCAT1", "rig0.cat", NULL));
    assert(access(path1, F_OK) == 0);
    unlink(path1);
-   // Legacy disable flag and explicit none both suppress the default endpoint.
-   dict_add(cfg, "cat.pty.enable", "false");
+   // Explicit none suppresses a custom endpoint.
+   dict_add(cfg, "serial.testCAT0", "none");
    assert(rr_sercom_init());
-   assert(!rr_serial_find("ttyCAT0"));
-   rr_sercom_shutdown();
-   dict_add(cfg, "cat.pty.enable", "true");
-   dict_add(cfg, "serial.ttyCAT0", "none");
-   assert(rr_sercom_init());
-   assert(!rr_serial_find("ttyCAT0"));
+   assert(!rr_serial_find("testCAT0"));
    rr_sercom_shutdown();
    assert(rr_sercom_init());
    // Captures append without truncation, with no input interpreted as commands.

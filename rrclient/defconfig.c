@@ -188,7 +188,7 @@ defconfig_t defcfg[] = {
       "webcam.device", "/dev/video0", "v4l2 device to grab frames from"
    },
    {
-      "serial.ttyCAT0", NULL, "Optional pinned CAT endpoint; numbered ports are never created automatically"
+      "serial.ttyCAT0", NULL, "Reserved virtual rig CAT endpoint; configure bindings in routing"
    },
    {
       "serial.ttyHOST0", NULL, "Optional remote serial binding: host:<server endpoint>"

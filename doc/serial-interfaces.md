@@ -1,5 +1,7 @@
 # Serial endpoints and rig GPS for loggers
 
+**Local numbered exports:** `ttyCATN`, `ttyGPSN`, and `ttyMODEMN` are reserved for virtual rig routing. Older direct client mapping examples below must use custom names instead (server-side names are unchanged). Numbered modem exports are not yet implemented in the virtual rig.
+
 The server owns the rig's location. Native client PTYs expose CAT, server serial
 ports, and generated GPS data to local logging programs. These services work in
 both GTK and TUI; their transport and routing live in common client code.

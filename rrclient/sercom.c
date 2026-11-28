@@ -498,7 +498,7 @@ void rr_sercom_focus_room(const char *profile, const char *room) {
    alias[length] = 0;
 
    for (serial_binding_t *b = bindings ; b ; b = b->next) {
-      /* Only the three unnumbered default PTYs float with the active rig. Numbered ports (ttyGPS0, ttyCAT1, ttyMODEM2, etc.) are manually bound. */
+      /* Only the three unnumbered default PTYs float with the active rig. Numbered ports belong to virtual rig routing. */
       bool cat = !strcmp(b->name, "ttyCAT") && !strcmp(b->service, "rig.cat");
       bool modem = !strcmp(b->name, "ttyMODEM") && !strcmp(b->service, "rig.modem");
       bool gps = !strcmp(b->name, "ttyGPS") && (!strcmp(b->service, "rig.gps-out") || !strcmp(b->service, "rig.nmea-out"));
@@ -1393,7 +1393,36 @@ static bool service_radio(const char *service, char *radio, size_t len) {
    return true;
 }
 
-bool rr_sercom_attach(const char *name, const char *service, const char *device) {
+/* Numbered local exports are reserved for graph-owned virtual rigs.
+ * Reserve even out-of-range numbers so they cannot masquerade as a vrig. */
+static bool vrig_reserved_name(const char *name) {
+   const char *prefixes[] = {"ttyCAT", "ttyGPS", "ttyMODEM"};
+   if (!name) {
+      return false;
+   }
+   for (unsigned i = 0; i < G_N_ELEMENTS(prefixes); i++) {
+      if (g_str_has_prefix(name, prefixes[i])) {
+         const char *p = name + strlen(prefixes[i]);
+         if (!*p) {
+            continue;
+         }
+         while (g_ascii_isdigit(*p)) {
+            p++;
+         }
+         if (!*p) {
+            return true;
+         }
+      }
+   }
+   return false;
+}
+
+static bool serial_attach(const char *name, const char *service, const char *device,
+                          const char *vrig_profile) {
+   if (vrig_reserved_name(name) && (!vrig_profile || !*vrig_profile)) {
+      Log(LOG_WARN, "serial", "%s is reserved for virtual rig routing", name);
+      return false;
+   }
    if (!name_valid(name) || !service || strlen(service) >= 96 || binding(name)) {
       return false;
    }
@@ -1454,7 +1483,7 @@ bool rr_sercom_attach(const char *name, const char *service, const char *device)
    }
 
    if (host_binding(b) || b->radio[0] || !strcmp(gps_service(b), "gps-out") || !strcmp(gps_service(b), "nmea-out")) {
-      const char *profile = rrclient_connection_name(rrclient_active_connection());
+      const char *profile = vrig_profile ? vrig_profile : rrclient_connection_name(rrclient_active_connection());
 
       if (profile) {
          strlcpy(b->profile, profile, sizeof(b->profile));
@@ -1598,7 +1627,11 @@ failed:
    return false;
 }
 
-bool rr_sercom_disconnect(const char *name) {
+bool rr_sercom_attach(const char *name, const char *service, const char *device) {
+   return serial_attach(name, service, device, NULL);
+}
+
+static bool serial_disconnect(const char *name) {
    serial_binding_t **link = &bindings;
    while (*link && strcmp((*link)->name, name)) {
       link = &(*link)->next;
@@ -1623,6 +1656,14 @@ bool rr_sercom_disconnect(const char *name) {
    gps_outputs_changed();
 
    return true;
+}
+
+bool rr_sercom_disconnect(const char *name) {
+   if (vrig_reserved_name(name)) {
+      Log(LOG_WARN, "serial", "%s must be disconnected through virtual rig routing", name);
+      return false;
+   }
+   return serial_disconnect(name);
 }
 
 /* Store numbered, pinned PTYs as real serial attachments. Their profile is independent of the GUI-selected rrclient connection. */
@@ -1661,43 +1702,27 @@ static void vrig_save(unsigned slot, unsigned pin, const char *field, const char
    g_free(key);
 }
 
-static void vrig_restore(void) {
+/* Only persisted graph bindings may create numbered exports. The bound
+ * profile is installed before opening the port or notifying observers. */
+static bool vrig_restore(void) {
+   bool ok = true;
    for (unsigned i = 0; i < RR_SERCOM_VRIG_MAX; i++) {
       for (unsigned j = 0; j < 2; j++) {
          char *profile = vrig_setting(i, j, "profile");
          char *rig = vrig_setting(i, j, "rig");
          if (profile && *profile && vrig_valid(rig)) {
-            char key[64], service[96];
-            g_snprintf(key, sizeof(key), "serial.tty%s%u", j ? "GPS" : "CAT", i);
+            char name[32], service[96];
+            g_snprintf(name, sizeof(name), "tty%s%u", j ? "GPS" : "CAT", i);
             g_snprintf(service, sizeof(service), "%s.%s@%u", rig, j ? "gps-out" : "cat", j ? 4800 : 38400);
-            if (!cfg_get(key) || !strcmp(cfg_get(key), service)) {
-               dict_add(cfg, key, service);
+            if (!binding(name) && !serial_attach(name, service, NULL, profile)) {
+               ok = false;
             }
          }
          g_free(profile);
          g_free(rig);
       }
    }
-}
-
-static void vrig_apply_profiles(void) {
-   for (unsigned i = 0; i < RR_SERCOM_VRIG_MAX; i++) {
-      for (unsigned j = 0; j < 2; j++) {
-         char *profile = vrig_setting(i, j, "profile");
-         char *rig = vrig_setting(i, j, "rig");
-         if (profile && *profile && vrig_valid(rig)) {
-            char port[32], service[80];
-            g_snprintf(port, sizeof(port), "tty%s%u", j ? "GPS" : "CAT", i);
-            g_snprintf(service, sizeof(service), "%s.%s", rig, j ? "gps-out" : "cat");
-            serial_binding_t *b = binding(port);
-            if (b && !strcmp(b->service, service)) {
-               g_strlcpy(b->profile, profile, sizeof(b->profile));
-            }
-         }
-         g_free(profile);
-         g_free(rig);
-      }
-   }
+   return ok;
 }
 
 static void vrig_bind_request(const rr_event_message_t *message, void *unused) {
@@ -1748,7 +1773,7 @@ static void vrig_bind_request(const rr_event_message_t *message, void *unused) {
          continue;
       }
       if (b) {
-         rr_sercom_disconnect(names[j]);
+         serial_disconnect(names[j]);
       }
       changed[j] = true;
       if (disconnect) {
@@ -1756,7 +1781,7 @@ static void vrig_bind_request(const rr_event_message_t *message, void *unused) {
       }
       char full[96];
       g_snprintf(full, sizeof(full), "%s@%u", services[j], j ? 4800 : 38400);
-      if (!rr_sercom_attach(names[j], full, NULL)) {
+      if (!serial_attach(names[j], full, NULL, req->profile)) {
          g_snprintf(result.detail, sizeof(result.detail), "Could not attach %s (PTY/config error)", names[j]);
          goto rollback;
       }
@@ -1800,12 +1825,12 @@ rollback:
          continue;
       }
       if (binding(names[j])) {
-         rr_sercom_disconnect(names[j]);
+         serial_disconnect(names[j]);
       }
       if (owned[j]) {
          char full[96];
          g_snprintf(full, sizeof(full), "%s.%s@%u", rigs[j], j ? "gps-out" : "cat", j ? 4800 : 38400);
-         if (rr_sercom_attach(names[j], full, NULL)) {
+         if (serial_attach(names[j], full, NULL, profiles[j])) {
             serial_binding_t *b = binding(names[j]);
             if (b) {
                g_strlcpy(b->profile, profiles[j], sizeof(b->profile));
@@ -1843,7 +1868,7 @@ void rr_sercom_shutdown(void) {
       rr_sercom_unobserve(console_observers);
    }
    while (bindings) {
-      rr_sercom_disconnect(bindings->name);
+      serial_disconnect(bindings->name);
    }
 
    if (host_timer) {
@@ -1919,9 +1944,6 @@ bool rr_sercom_init(void) {
       vrig_bind_token = event_on_message_domain_token(RR_SERCOM_VRIG_BIND_REQUEST, vrig_bind_request, NULL, "core");
    }
 
-   /* Restore saved per-rig serial mappings before enumerating PTYs. */
-   vrig_restore();
-
    /* Must precede opening any PTYs, including configured ones. */
    if (!serial_pty_startup_cleanup()) {
       return false;
@@ -1977,7 +1999,10 @@ bool rr_sercom_init(void) {
       }
       const char *name = key + 7;
 
-      if (!strcmp(name, "ttyCAT0") && !cfg_get_bool("cat.pty.enable", true)) {
+      if (vrig_reserved_name(name)) {
+         if (value && *value && strcmp(value, "none")) {
+            Log(LOG_WARN, "serial", "Ignoring direct mapping for %s; use virtual rig routing", name);
+         }
          continue;
       }
       const char *service = cfg_get(key);
@@ -1988,7 +2013,9 @@ bool rr_sercom_init(void) {
          }
       }
    }
-   vrig_apply_profiles();
+   if (!vrig_restore()) {
+      ok = false;
+   }
 
    /* Built-in floating PTYs are permanent. Explicit service mappings win, but "none" must not remove one of these reserved endpoints. */
    if (!binding("ttyCAT")) {
