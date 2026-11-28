@@ -185,6 +185,62 @@ static void expect(int fd, const char *text) {
    assert(!strcmp(buffer, text));
 }
 
+/* In-memory database fixture preserves explicit empty per-pin overrides. */
+static GHashTable *vrig_settings;
+char *rrclient_database_setting_get(const char *key) {
+   return vrig_settings ? g_strdup(g_hash_table_lookup(vrig_settings, key)) : NULL;
+}
+bool rrclient_database_setting_set(const char *key, const char *value) {
+   if (!vrig_settings) {
+      vrig_settings = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
+   }
+   g_hash_table_replace(vrig_settings, g_strdup(key), g_strdup(value));
+   return true;
+}
+static void vrig_request(unsigned pins, const char *rig) {
+   rr_sercom_vrig_bind_t req = {.slot = 7, .pins = pins};
+   if (*rig) {
+      g_strlcpy(req.profile, "test", sizeof(req.profile));
+      g_strlcpy(req.rig, rig, sizeof(req.rig));
+   }
+   rr_event_message_t msg = {
+      .name = RR_SERCOM_VRIG_BIND_REQUEST, .payload = &req, .length = sizeof(req)
+   };
+   event_emit_message(&msg);
+   pump();
+}
+static void test_vrig_connections(const char *directory) {
+   char cat[512], gps[512];
+   g_snprintf(cat, sizeof(cat), "%s/ttyCAT7", directory);
+   g_snprintf(gps, sizeof(gps), "%s/ttyGPS7", directory);
+   dict_add(cfg, "serial:ttyCAT7.path", cat);
+   dict_add(cfg, "serial:ttyGPS7.path", gps);
+   rrclient_database_setting_set("serial.vrig.7.profile", "test");
+   rrclient_database_setting_set("serial.vrig.7.rig", "rig0");
+   assert(rr_sercom_init());
+   assert(!strcmp(rr_sercom_binding("ttyCAT7"), "rig0.cat"));
+   assert(!strcmp(rr_sercom_binding("ttyGPS7"), "rig0.gps-out"));
+   vrig_request(RR_SERCOM_VRIG_GPS, "rig1");
+   assert(!strcmp(rr_sercom_binding("ttyCAT7"), "rig0.cat"));
+   assert(!strcmp(rr_sercom_binding("ttyGPS7"), "rig1.gps-out"));
+   vrig_request(RR_SERCOM_VRIG_CAT, "");
+   assert(!rr_sercom_binding("ttyCAT7"));
+   assert(!strcmp(rr_sercom_binding("ttyGPS7"), "rig1.gps-out"));
+   rr_sercom_shutdown();
+   assert(rr_sercom_init());
+   assert(!rr_sercom_binding("ttyCAT7"));
+   assert(!strcmp(rr_sercom_binding("ttyGPS7"), "rig1.gps-out"));
+   vrig_request(RR_SERCOM_VRIG_CAT, "rig0");
+   assert(!strcmp(rr_sercom_binding("ttyCAT7"), "rig0.cat"));
+   assert(!strcmp(rr_sercom_binding("ttyGPS7"), "rig1.gps-out"));
+   vrig_request(0, "");
+   assert(!rr_sercom_binding("ttyCAT7"));
+   assert(!rr_sercom_binding("ttyGPS7"));
+   rr_sercom_shutdown();
+   g_hash_table_destroy(vrig_settings);
+   vrig_settings = NULL;
+}
+
 static void gps_input(const char *event, const char *data, rrconn_t *client, void *user) {
    (void)event;
    (void)client;
@@ -434,6 +490,8 @@ int main(int argc, char **argv) {
    unlink(link);
    unlink(capture);
    rr_sercom_shutdown();
+   ws_conn = &connection;
+   test_vrig_connections(argv[1]);
    dict_free(cfg);
    cfg = NULL;
 
