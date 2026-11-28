@@ -59,3 +59,7 @@ RustyScript also provides `command.run("/sercom wire 0 tx 1")` through the norma
 ## Virtual audio exports
 
 Right-click a virtual rig and select Export virtual sound device, or use `routing.vrig.audio(0, true)`. The core requests 48 kHz stereo PulseAudio-compatible null sinks and a remapped microphone. External applications select `rustyrig.vrig0.rx` for capture and `rustyrig.vrig0.tx` for playback. The internal RX sink is `rustyrig.vrig0.rx_internal`; the TX capture source is `rustyrig.vrig0.tx.monitor`. The manager does not set default devices. PCM patching is a separate step; until those routes are implemented, the virtual devices carry no radio audio.
+
+### Per-virtual-rig TX mixers
+
+Each slot has an independent 48 kHz stereo mixer with explicit named input registration, rate conversion and input gain. The virtual speaker monitor is captured through fwdsp into that slot's `external.tx` input. No samples are forwarded to the global TX encoder: the output is deliberately discarded until an explicit destination-specific transport is installed. RX graph snapshots now retain actual stream identities rather than substituting `rig.src` based on focus.

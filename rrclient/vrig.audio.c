@@ -12,10 +12,12 @@
 #include <rrclient/database.h>
 #include <rrclient/sercom.h>
 #include <rrclient/vrig.audio.h>
+#include <rrclient/vrig.mix.h>
+#include <fwdsp-mgr.h>
 
 typedef struct {
    uint32_t modules[3];
-   bool enabled, pending;
+   bool enabled, pending, pcm_started;
    unsigned stage;
    char rx[64], tx[64], mic[64];
 } device_t;
@@ -27,6 +29,43 @@ static rr_event_token_t token;
 static bool stopping;
 static gint64 retry_at;
 static void reconcile(device_t *d);
+static void tx_mix_output(unsigned slot,const int16_t *pcm,size_t frames,void *user) {
+   /* Deliberately no fallback to the focus-selected radio. The eventual
+    * explicit destination transport must consume this slot's output. */
+   (void)slot;(void)pcm;(void)frames;(void)user;
+}
+static void capture_pcm(const char *name,const void *pcm,size_t bytes,void *user) {
+   (void)name;
+   device_t *d=user;
+   if (d->pcm_started && pcm && !(bytes%sizeof(int16_t))) {
+      rr_vrig_mix_feed((unsigned)(d-devices),"external.tx",pcm,bytes/sizeof(int16_t));
+   }
+}
+static void pcm_stop(device_t *d) {
+   unsigned slot=(unsigned)(d-devices);
+   char name[64];
+   snprintf(name,sizeof(name),"src.vrig%u",slot);
+   d->pcm_started=false;
+   fwdsp_processor_stop(name);
+   rr_vrig_mix_close(slot);
+}
+static bool pcm_start(device_t *d) {
+   if (d->pcm_started) { return true; }
+   unsigned slot=(unsigned)(d-devices);
+   char name[64],pipeline[512];
+   snprintf(name,sizeof(name),"src.vrig%u",slot);
+   snprintf(pipeline,sizeof(pipeline),
+      "pulsesrc device=%s.monitor ! audioconvert ! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1 ! appsink name=processor-sink sync=false",d->tx);
+   const rr_pcm_stream_format_t format={16000,1,RR_PCM_S16LE};
+   if (!rr_vrig_mix_open(slot,tx_mix_output,NULL) ||
+       !rr_vrig_mix_connect(slot,"external.tx",&format) ||
+       !fwdsp_audio_capture_start_rate(name,pipeline,48000,capture_pcm,d)) {
+      pcm_stop(d);
+      return false;
+   }
+   d->pcm_started=true;
+   return true;
+}
 static void publish(device_t *d,bool success) {
    rr_vrig_audio_result_t result={
       .request={.slot=(unsigned)(d-devices),.enabled=d->enabled},.success=success
@@ -63,6 +102,7 @@ static void reconcile(device_t *d) {
    if (!context || pa_context_get_state(context)!=PA_CONTEXT_READY || d->pending) { return; }
    pa_operation *op=NULL;
    if (!d->enabled || stopping) {
+      if (d->pcm_started) { pcm_stop(d); }
       for (int i=2;i>=0;i--) {
          if (d->modules[i]==PA_INVALID_INDEX) { continue; }
          d->stage=(unsigned)i;
@@ -87,7 +127,11 @@ static void reconcile(device_t *d) {
          break;
       }
       if (!op) {
-         if (d->modules[2]!=PA_INVALID_INDEX) { publish(d,true); }
+         if (d->modules[2]!=PA_INVALID_INDEX) {
+            bool ok=pcm_start(d);
+            if (!ok) { d->enabled=false; }
+            publish(d,ok);
+         }
          else { d->enabled=false;publish(d,false); }
          return;
       }
@@ -102,6 +146,7 @@ static void reset_context(void) {
       context=NULL;
    }
    for (unsigned i=0;i<RR_SERCOM_VRIG_MAX;i++) {
+      if (devices[i].pcm_started) { pcm_stop(&devices[i]); }
       devices[i].pending=false;
       for (unsigned j=0;j<3;j++) { devices[i].modules[j]=PA_INVALID_INDEX; }
    }
@@ -179,7 +224,7 @@ void rr_vrig_audio_init(void) {
 void rr_vrig_audio_shutdown(void) {
    if (!loop) { return; }
    stopping=true;
-   if (token) { event_off_token(token);token=NULL; }
+   if (token) { event_off_token(token);token=0; }
    if (timer) { g_source_destroy(timer);g_source_unref(timer);timer=NULL; }
    for (unsigned i=0;i<RR_SERCOM_VRIG_MAX;i++) { devices[i].enabled=false;reconcile(&devices[i]); }
    gint64 deadline=g_get_monotonic_time()+1000000;

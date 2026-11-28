@@ -39,6 +39,7 @@
 #include <rrclient/dcc.h>
 #include <rrclient/audio.h>
 #include <rrclient/vrig.audio.h>
+#include <rrclient/vrig.mix.h>
 #include <rrclient/local.bridge.h>
 #include <rrclient/spectrum.af.h>
 #include <rrclient/local.modem.h>
@@ -3157,20 +3158,11 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
    }
 
 
-   const char *active_rx_id = NULL;
-
-   for (size_t i = 0 ; i < count ; i++) {
-      if (streams[i].active_rx) {
-         active_rx_id = streams[i].id;
-         break;
-      }
-   }
-
    for (size_t i = 0 ; i < count && i < RR_AUDIO_GRAPH_MAX_NODES - 11 - 4 * RR_LOCAL_MODEM_MAX ; i++) {
       const struct rrclient_rx_stream *stream = &streams[i];
 
       /* rig.src is the stable alias of this decoder, not extra PCM. */
-      const char *source_id = stream->active_rx ? "rig.src" : stream->id;
+      const char *source_id = stream->id;
 
       if (!rr_audio_graph_add_node(graph, source_id, RR_AG_SOURCE)) {
          continue;
@@ -3233,7 +3225,7 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
                from=parent;
             }
             rr_audio_graph_add_port_link(graph,
-               active_rx_id && !strcmp(from,active_rx_id) ? "rig.src" : from,
+               from,
                fx->name, RR_AG_NORMAL,
                osc_slot ? (osc_port?RR_AG_CHANNEL_RIGHT:RR_AG_CHANNEL_LEFT) :
                           (ch ? RR_AG_CHANNEL_RIGHT : RR_AG_CHANNEL_LEFT),
@@ -3274,7 +3266,7 @@ static void audio_publish_graph(const struct rrclient_rx_stream *streams, size_t
                source=parent;
             }
             rr_audio_graph_add_port_link(graph,
-               active_rx_id && !strcmp(source,active_rx_id)?"rig.src":source,
+               source,
                rx_id,RR_AG_NORMAL,
                os && op?RR_AG_CHANNEL_RIGHT:RR_AG_CHANNEL_LEFT,RR_AG_CHANNEL_LEFT);
          }
@@ -4439,6 +4431,7 @@ void audio_stop_codec(bool is_tx) {
 
 void ws_audio_shutdown(void) {
    rr_vrig_audio_shutdown();
+   rr_vrig_mix_shutdown();
    audio_gain_flush(NULL);
    if(osc_pump_source) {
       g_source_destroy(osc_pump_source);
