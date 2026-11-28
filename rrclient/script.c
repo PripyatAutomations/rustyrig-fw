@@ -5,6 +5,8 @@
 #include <rrclient/database.h>
 #include <rrclient/cmd.h>
 #include <rrclient/audio.h>
+#include <rrclient/sercom.h>
+#include <rrclient/local.modem.h>
 #include <rrclient/receiver.connect.h>
 #include <rrclient/receiver.directory.h>
 #include <rrclient/rrclient.h>
@@ -668,6 +670,26 @@ static rrs_value_t *native_routing_block(rrs_vm_t *vm,int argc,
                           const rrs_value_t *const args[],void *userdata) {
    int op=GPOINTER_TO_INT(userdata);
    rr_audio_osc_request_t req={0};
+   if ((op==4 || op==5) && argc==2 && rrs_value_type(args[0])==RRS_STRING &&
+       rrs_value_type(args[1])==RRS_STRING) {
+      const char *src=rrs_value_string(args[0]), *dst=rrs_value_string(args[1]);
+      unsigned v=0,m=0;
+      int a=0,b=0;
+      bool tx=sscanf(src,"vrig%u.serial_tx%n",&v,&a)==1 && a && !src[a] &&
+              sscanf(dst,"modem%u.serial_rx%n",&m,&b)==1 && b && !dst[b];
+      a=b=0;
+      bool rx=!tx && sscanf(src,"modem%u.serial_tx%n",&m,&a)==1 && a && !src[a] &&
+              sscanf(dst,"vrig%u.serial_rx%n",&v,&b)==1 && b && !dst[b];
+      if (tx || rx) {
+         if (v>=RR_SERCOM_VRIG_MAX || !m || m>RR_LOCAL_MODEM_MAX) {
+            rrs_vm_raise(vm,"Invalid virtual rig or modem slot");
+            return NULL;
+         }
+         rr_sercom_serial_wire_t wire={.vrig=v,.modem=op==4?m:0,.to_modem=tx};
+         event_emit_message(&(rr_event_message_t){.name=RR_SERCOM_SERIAL_WIRE_REQUEST,.payload=&wire,.length=sizeof(wire)});
+         return rrs_boolean(true);
+      }
+   }
    if((op==4 || op==5) && argc==2 &&
       rrs_value_type(args[0])==RRS_STRING &&
       rrs_value_type(args[1])==RRS_STRING &&

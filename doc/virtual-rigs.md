@@ -35,7 +35,15 @@ For the shared Routing pin/wire legend (including yellow COS and red PTT), see
 
 Each virtual rig has independent serial TX (application to modem) and RX (modem to application) connections. The common core owns these wires, persists them and creates ttyMODEMN only while at least one exists. Modem inputs accept one producer; outputs may fan out. The current PSK adapter forwards decoded bytes and accepts input during an explicitly armed keyboard TX stream; serial wiring itself does not grant transmit permission or key the radio.
 
-Until the graphical pin editors are connected to the common wire API, use:
+GTK exposes Serial TX/RX on the virtual rig and on a dedicated modem serial face. Drag TX to RX; double-click the wire to remove it. The equivalent RustyScript calls are:
+
+```
+routing.connect("vrig0.serial_tx", "modem1.serial_rx");
+routing.connect("modem1.serial_tx", "vrig0.serial_rx");
+routing.disconnect("vrig0.serial_tx", "modem1.serial_rx");
+```
+
+The command-line equivalents are:
 
 ```
 /sercom wire 0 tx 1

@@ -705,21 +705,22 @@ static void routing_layout_auto(gboolean reset) {
  * stream transported to the server. */
 #define ROUTING_SERIAL_MAX_TARGETS 32
 #define ROUTING_SERIAL_W 210.
-#define ROUTING_SERIAL_H 108.
+#define ROUTING_SERIAL_H 164.
 typedef struct {
    char id[256], profile[128], rig[32], display_path[320];
    char pin_profile[2][128], pin_rig[2][32];
-   unsigned slot;
+   unsigned slot, modem, modem_wire[2];
    gboolean virtual;
    double x, y;
 } routing_serial_node_t;
-static routing_serial_node_t routing_serial_nodes[RR_SERCOM_VRIG_MAX + ROUTING_SERIAL_MAX_TARGETS];
+static routing_serial_node_t routing_serial_nodes[RR_SERCOM_VRIG_MAX + ROUTING_SERIAL_MAX_TARGETS + RR_LOCAL_MODEM_MAX];
 static guint routing_serial_count;
 static gint routing_serial_drag = -1, routing_serial_move = -1;
 static guint routing_serial_kind;   /* 0=CAT, 1=GPS */
 static double routing_serial_dx, routing_serial_dy, routing_serial_end_x, routing_serial_end_y;
 static gboolean routing_serial_moved;
-static rr_event_token_t routing_serial_result_token;
+static rr_event_token_t routing_serial_result_token, routing_serial_wire_token;
+static void routing_serial_refresh(void);
 static rr_event_token_t routing_modem_result_token;
 static gboolean routing_modem_tx_enabled[RR_LOCAL_MODEM_MAX + 1];
 static char routing_modem_engine[RR_LOCAL_MODEM_MAX + 1][16];
@@ -730,6 +731,8 @@ static void routing_modem_snapshot_received(const rr_event_message_t *message, v
       return;
    }
    const rr_local_modem_snapshot_t *snapshot = message->payload;
+   memset(routing_modem_engine, 0, sizeof(routing_modem_engine));
+   memset(routing_modem_tx_enabled, 0, sizeof(routing_modem_tx_enabled));
 
    for (unsigned i = 0 ; i < snapshot->count && i < RR_LOCAL_MODEM_MAX ; i++) {
       const rr_local_modem_entry_t *entry = &snapshot->entries[i];
@@ -742,6 +745,8 @@ static void routing_modem_snapshot_received(const rr_event_message_t *message, v
          g_strlcpy(routing_modem_engine[entry->slot], entry->running ? entry->engine : "", sizeof(routing_modem_engine[entry->slot]));
       }
    }
+   routing_serial_refresh();
+   graph_canvas_update_size();
 }
 
 static gboolean routing_serial_room_rig(const char *room, char out[32]) {
@@ -832,7 +837,7 @@ static void routing_serial_add(const char *id, const char *profile, const char *
    if (pos && !pos->pinned) {
       /* Serial sits in its own lane, away from the PCM topology. */
       pos->x = virtual ? 45. : 485.;
-      pos->y = routing_serial_base_y() + index * 135.;
+      pos->y = routing_serial_base_y() + index * 190.;
    }
    n->x = pos ? pos->x : 45.;
    n->y = pos ? pos->y : 420.;
@@ -864,11 +869,20 @@ static void routing_serial_refresh(void) {
          }
          bound |= profile[k] && *profile[k] && rig[k] && *rig[k];
       }
-      if (bound || i == 0) {
+      unsigned modem_wire[2] = {0};
+      for (unsigned k = 0; k < 2; k++) {
+         char *key = g_strdup_printf("serial.vrig.%u.modem.%s", i, k ? "rx" : "tx");
+         char *value = rrclient_database_setting_get(key);
+         modem_wire[k] = value ? (unsigned)g_ascii_strtoull(value, NULL, 10) : 0;
+         g_free(value);
+         g_free(key);
+      }
+      if (bound || modem_wire[0] || modem_wire[1] || i == 0) {
          char id[64];
          g_snprintf(id, sizeof(id), "serial.vrig%u", i);
          routing_serial_add(id, "", "", i, TRUE, vindex++);
          routing_serial_node_t *n = &routing_serial_nodes[routing_serial_count - 1];
+         memcpy(n->modem_wire, modem_wire, sizeof(modem_wire));
          for (unsigned k = 0; k < 2; k++) {
             g_strlcpy(n->pin_profile[k], profile[k] ? profile[k] : "", sizeof(n->pin_profile[k]));
             g_strlcpy(n->pin_rig[k], rig[k] ? rig[k] : "", sizeof(n->pin_rig[k]));
@@ -880,6 +894,15 @@ static void routing_serial_refresh(void) {
       }
    }
 
+   for (unsigned i = 1; i <= RR_LOCAL_MODEM_MAX; i++) {
+      if (!routing_modem_engine[i][0]) {
+         continue;
+      }
+      char id[64];
+      g_snprintf(id, sizeof(id), "serial.modem%u", i);
+      routing_serial_add(id, "", "", 0, FALSE, tindex++);
+      routing_serial_nodes[routing_serial_count - 1].modem = i;
+   }
    if (!routing_rx_snapshot) {
       return;
    }
@@ -912,6 +935,9 @@ static void routing_serial_refresh(void) {
    }
 }
 
+static gboolean routing_serial_pin_valid(const routing_serial_node_t *n, unsigned k) {
+   return n->virtual ? k < 4 : n->modem ? k >= 2 && k < 4 : k < 2;
+}
 static gboolean routing_serial_pin_hit(double x, double y, gint *index, guint *kind, gboolean *virtual) {
    double radius = routing_pin_radius();
    double closest = radius;
@@ -922,7 +948,8 @@ static gboolean routing_serial_pin_hit(double x, double y, gint *index, guint *k
       const routing_serial_node_t *n = &routing_serial_nodes[i];
       double px = n->x + (n->virtual ? ROUTING_SERIAL_W : 0.);
 
-      for (guint k = 0 ; k < 2 ; k++) {
+      for (guint k = 0 ; k < 4 ; k++) {
+         if (!routing_serial_pin_valid(n, k)) { continue; }
          double py = n->y + 62. + k * 26.;
          double d = hypot(x - px, y - py);
 
@@ -948,7 +975,12 @@ static void routing_serial_bind(guint source, guint dest) {
    const routing_serial_node_t *v = &routing_serial_nodes[source];
    const routing_serial_node_t *r = &routing_serial_nodes[dest];
 
-   if (!v->virtual || r->virtual || !r->profile[0] || !r->rig[0]) {
+   if (v->virtual && r->modem && routing_serial_kind >= 2) {
+      rr_sercom_serial_wire_t wire = {.vrig=v->slot, .modem=r->modem, .to_modem=routing_serial_kind==2};
+      event_emit_message(&(rr_event_message_t){.name=RR_SERCOM_SERIAL_WIRE_REQUEST,.payload=&wire,.length=sizeof(wire)});
+      return;
+   }
+   if (!v->virtual || r->virtual || routing_serial_kind >= 2 || !r->profile[0] || !r->rig[0]) {
       return;
    }
    rr_sercom_vrig_bind_t request = {
@@ -964,8 +996,14 @@ static void routing_serial_bind(guint source, guint dest) {
 }
 
 static void routing_serial_unbind(guint wire) {
+   unsigned k = wire % 4u;
+   if (k >= 2) {
+      rr_sercom_serial_wire_t req = {.vrig=wire/4u,.to_modem=k==2};
+      event_emit_message(&(rr_event_message_t){.name=RR_SERCOM_SERIAL_WIRE_REQUEST,.payload=&req,.length=sizeof(req)});
+      return;
+   }
    rr_sercom_vrig_bind_t req = {
-      .slot = wire / 2u, .pins = 1u << (wire % 2u)
+      .slot = wire / 4u, .pins = 1u << k
    };
    rr_event_message_t msg = {
       .name = RR_SERCOM_VRIG_BIND_REQUEST,
@@ -992,9 +1030,12 @@ static gboolean routing_serial_link_at(double x, double y, guint *slot) {
             continue;
          }
 
-         for (guint k = 0 ; k < 2 ; k++) {
-            if (!n->pin_profile[k][0] || !n->pin_rig[k][0] ||
-                strcmp(n->pin_profile[k], dst->profile) || strcmp(n->pin_rig[k], dst->rig)) {
+         for (guint k = 0 ; k < 4 ; k++) {
+            if (!routing_serial_pin_valid(dst,k)) { continue; }
+            if (k >= 2) {
+               if (!dst->modem || n->modem_wire[k-2] != dst->modem) { continue; }
+            } else if (!n->pin_profile[k][0] || !n->pin_rig[k][0] ||
+                       strcmp(n->pin_profile[k], dst->profile) || strcmp(n->pin_rig[k], dst->rig)) {
                continue;
             }
             double x0 = n->x + ROUTING_SERIAL_W, x1 = dst->x;
@@ -1005,7 +1046,7 @@ static gboolean routing_serial_link_at(double x, double y, guint *slot) {
                                       t,&px,&py);
 
                if (hypot(px - x, py - y) < limit) {
-                  *slot = n->slot * 2u + k;
+                  *slot = n->slot * 4u + k;
 
                   return TRUE;
                }
@@ -1032,6 +1073,14 @@ static void routing_serial_result(const rr_event_message_t *message, void *unuse
    graph_canvas_update_size();
 }
 
+static void routing_serial_wire_result(const rr_event_message_t *message, void *unused) {
+   (void)unused;
+   if (!message || !message->payload || message->length != sizeof(rr_sercom_serial_wire_result_t)) { return; }
+   const rr_sercom_serial_wire_result_t *result = message->payload;
+   if (!result->success) { Log(LOG_WARN, "gtk.routing", "Modem serial wire rejected"); }
+   routing_serial_refresh();
+   graph_canvas_update_size();
+}
 static void routing_serial_line(cairo_t *cr, double ax, double ay, double bx, double by) {
    /* A subtle light underlay makes black serial lines readable in dark GTK themes while retaining the requested dashed black semantics. */
    const double dash[] = {
@@ -1077,9 +1126,12 @@ static void routing_serial_draw(cairo_t *cr) {
             continue;
          }
 
-         for (guint k = 0 ; k < 2 ; k++) {
-            if (!n->pin_profile[k][0] || !n->pin_rig[k][0] ||
-                strcmp(n->pin_profile[k], dst->profile) || strcmp(n->pin_rig[k], dst->rig)) {
+         for (guint k = 0 ; k < 4 ; k++) {
+            if (!routing_serial_pin_valid(dst,k)) { continue; }
+            if (k >= 2) {
+               if (!dst->modem || n->modem_wire[k-2] != dst->modem) { continue; }
+            } else if (!n->pin_profile[k][0] || !n->pin_rig[k][0] ||
+                       strcmp(n->pin_profile[k], dst->profile) || strcmp(n->pin_rig[k], dst->rig)) {
                continue;
             }
             routing_serial_line(cr, n->x + ROUTING_SERIAL_W, n->y + 62. + k * 26., dst->x, dst->y + 62. + k * 26.);
@@ -1105,6 +1157,8 @@ static void routing_serial_draw(cairo_t *cr) {
 
       if (n->virtual) {
          g_snprintf(label, sizeof(label), "vrig%u", n->slot);
+      } else if (n->modem) {
+         g_snprintf(label, sizeof(label), "modem%u", n->modem);
       } else {
          const char *path = routing_serial_full_path(n), *slash = strchr(path, '/');
          g_snprintf(label, sizeof(label), "%.*s", slash ? (int)(slash - path) : (int)strlen(path), *path ? path : "Identity unavailable");
@@ -1122,15 +1176,18 @@ static void routing_serial_draw(cairo_t *cr) {
                     n->pin_profile[0][0] ? "bound" : "free",
                     n->pin_profile[1][0] ? "bound" : "free");
       } else {
-         g_strlcpy(label, "Remote rig controls", sizeof(label));
+         g_strlcpy(label, n->modem ? "Modem serial interface" : "Remote rig controls", sizeof(label));
       }
       cairo_move_to(cr, n->x + 12, n->y + 42);
       cairo_show_text(cr, label);
 
-      for (guint k = 0 ; k < 2 ; k++) {
+      for (guint k = 0 ; k < 4 ; k++) {
+         if (!routing_serial_pin_valid(n,k)) { continue; }
          char port[64];
 
-         if (n->virtual) {
+         if (k >= 2) {
+            g_snprintf(port, sizeof(port), "%s", n->virtual ? (k==2 ? "Serial TX" : "Serial RX") : (k==2 ? "Serial RX" : "Serial TX"));
+         } else if (n->virtual) {
             g_snprintf(port, sizeof(port), "tty%s%u", k ? "GPS" : "CAT", n->slot);
          } else {
             g_snprintf(port, sizeof(port), "%s", k ? "GPS" : "CAT");
@@ -1143,9 +1200,11 @@ static void routing_serial_draw(cairo_t *cr) {
          cairo_set_source_rgb(cr, .88, .92, .94);
          cairo_arc(cr, px, py, 7., 0, 2 * G_PI);
          cairo_fill(cr);
-         cairo_set_source_rgb(cr, .04, .05, .06);
-         cairo_arc(cr, px, py, 5.3, 0, 2 * G_PI);
-         cairo_fill(cr);
+         if (k < 2 || (n->virtual ? k==3 : k==2)) {
+            cairo_set_source_rgb(cr, .04, .05, .06);
+            cairo_arc(cr, px, py, 5.3, 0, 2 * G_PI);
+            cairo_fill(cr);
+         }
       }
    }
 }
@@ -8780,6 +8839,9 @@ void gtk_audio_graph_present(void) {
    if (!routing_serial_result_token) {
       routing_serial_result_token = event_on_message_domain_token(RR_SERCOM_VRIG_BIND_RESULT, routing_serial_result, NULL, "gtk");
    }
+   if (!routing_serial_wire_token) {
+      routing_serial_wire_token = event_on_message_domain_token(RR_SERCOM_SERIAL_WIRE_RESULT, routing_serial_wire_result, NULL, "gtk");
+   }
    routing_queue();             /* Request an up-to-date core graph, not a stale UI cache. */
 
    if (graph_canvas) {
@@ -9142,6 +9204,10 @@ void gtk_audio_routing_shutdown(void) {
    if (routing_serial_result_token) {
       event_off_token(routing_serial_result_token);
       routing_serial_result_token = 0;
+   }
+   if (routing_serial_wire_token) {
+      event_off_token(routing_serial_wire_token);
+      routing_serial_wire_token = 0;
    }
    routing_serial_count = 0;
    routing_serial_drag = routing_serial_move = -1;
