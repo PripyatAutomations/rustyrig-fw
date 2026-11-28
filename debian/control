@@ -17,6 +17,7 @@ Build-Depends:
  librustyirc-dev,
  libcurl4-openssl-dev,
  libflac-dev,
+ libpulse-dev,
  libogg-dev,
  libvorbis-dev,
  libssl-dev,

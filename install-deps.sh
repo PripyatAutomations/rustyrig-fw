@@ -97,7 +97,7 @@ case "$distro" in
          packages+=(perl libjson-perl libhash-merge-perl
             libstring-crc32-perl libmojolicious-perl)
       fi
-      enabled '.components.rrclient' && packages+=(libflac-dev libogg-dev libvorbis-dev)
+      enabled '.components.rrclient' && packages+=(libflac-dev libogg-dev libvorbis-dev libpulse-dev)
       enabled '.backend.hamlib' && packages+=(libhamlib-dev)
       enabled '.features.gtk' && packages+=(libgtk-3-dev libvte-2.91-dev)
       enabled '.features.sqlite' && packages+=(sqlite3 libsqlite3-dev libspatialite-dev)

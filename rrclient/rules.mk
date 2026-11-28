@@ -34,7 +34,9 @@ rrclient_curl_cflags := $(shell pkg-config --cflags libcurl sqlite3)
 rrclient_curl_libs := $(shell pkg-config --libs libcurl sqlite3)
 ${BUILD_DIR}/rrclient/receiver.directory.o: extra_cflags += ${rrclient_curl_cflags}
 
-rrclient_objs += audio.o
+rrclient_objs += audio.o vrig.audio.o
+RRCLIENT_PULSE_LIBS := $(shell pkg-config --libs libpulse)
+${BUILD_DIR}/rrclient/vrig.audio.o: extra_cflags += $(shell pkg-config --cflags libpulse)
 rrclient_objs += recordings.o # Local Ogg/FLAC recording and playback
 rrclient_objs += recordings.codec.o # Native libFLAC and Ogg/Vorbis codec layer
 # rrclient always includes native recording codecs (even without GTK).
@@ -341,7 +343,7 @@ endif
 
 bin/rrclient: ${BUILD_HEADERS} ${libmongoose} ${rrclient_real_objs} ${libfwdspmgr}
 	@echo "[link] $@ from $(words ${rrclient_real_objs}) objects"
-	@${CC} ${LDFLAGS_RRCLI} $(CLIENT_EXPORT_FLAGS) -o $@ ${rrclient_real_objs} ${rrclient_curl_libs} ${recording_codec_libs} $(RRCLIENT_SCRIPT_LIBS) $(RRCLIENT_UI_LIBS) -lrustyaxe -lrrprotocol -lrustyirc -lcrypto -larchive $(RRCLIENT_AS_NEEDED_OFF) -lfwdspmgr $(RRCLIENT_AS_NEEDED_ON) -lm ${LDFLAGS} $(if $(filter true,$(USE_MONGOOSE)),-lmongoose,) || exit 2
+	@${CC} ${LDFLAGS_RRCLI} $(CLIENT_EXPORT_FLAGS) -o $@ ${rrclient_real_objs} ${rrclient_curl_libs} ${recording_codec_libs} $(RRCLIENT_PULSE_LIBS) $(RRCLIENT_SCRIPT_LIBS) $(RRCLIENT_UI_LIBS) -lrustyaxe -lrrprotocol -lrustyirc -lcrypto -larchive $(RRCLIENT_AS_NEEDED_OFF) -lfwdspmgr $(RRCLIENT_AS_NEEDED_ON) -lm ${LDFLAGS} $(if $(filter true,$(USE_MONGOOSE)),-lmongoose,) || exit 2
 	@ls -a1ls $@
 	@file $@
 	@size $@

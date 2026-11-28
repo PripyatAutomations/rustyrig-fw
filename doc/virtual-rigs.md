@@ -55,3 +55,7 @@ The command-line equivalents are:
 The first two commands connect both directions between vrig0 and modem1; the last two remove the individual wires. The transport is length-delimited and preserves NUL and high-bit bytes; individual modem protocols may impose additional restrictions.
 
 RustyScript also provides `command.run("/sercom wire 0 tx 1")` through the normal client command parser. Prefer the typed routing API for scripts that need to manipulate graph connections directly.
+
+## Virtual audio exports
+
+Right-click a virtual rig and select Export virtual sound device, or use `routing.vrig.audio(0, true)`. The core requests 48 kHz stereo PulseAudio-compatible null sinks and a remapped microphone. External applications select `rustyrig.vrig0.rx` for capture and `rustyrig.vrig0.tx` for playback. The internal RX sink is `rustyrig.vrig0.rx_internal`; the TX capture source is `rustyrig.vrig0.tx.monitor`. The manager does not set default devices. PCM patching is a separate step; until those routes are implemented, the virtual devices carry no radio audio.

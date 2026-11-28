@@ -19,6 +19,7 @@
 #include "gtk.canvas-marks.h"
 #include "gtk.floating-panel.h"
 #include "gtk.serial.h"
+#include <rrclient/vrig.audio.h>
 #include "gtk.control-graph.h"
 #include "gtk.routing-pins.h"
 #include "gtk.wire-sag.h"
@@ -3156,6 +3157,12 @@ static gboolean routing_serial_wire_menu(GdkEventButton *event, double x, double
    return TRUE;
 }
 
+static void routing_vrig_export(GtkCheckMenuItem *item,gpointer unused) {
+   (void)unused;
+   rr_vrig_audio_request_t req={.slot=GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(item),"slot")),
+      .enabled=gtk_check_menu_item_get_active(item)};
+   rr_vrig_audio_request(&req);
+}
 static gboolean routing_serial_context_menu(GdkEventButton *event, double x, double y) {
    for (guint i = 0 ; i < routing_serial_count ; i++) {
       const routing_serial_node_t *n = &routing_serial_nodes[i];
@@ -3167,6 +3174,14 @@ static gboolean routing_serial_context_menu(GdkEventButton *event, double x, dou
       routing_block_menu_items(menu, n->id, FALSE);
 
       if (n->virtual) {
+         GtkWidget *export=gtk_check_menu_item_new_with_label("Export virtual sound device");
+         char key[80];g_snprintf(key,sizeof(key),"audio.vrig.%u.export",n->slot);
+         char *saved=rrclient_database_setting_get(key);
+         gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(export),saved && !strcmp(saved,"true"));
+         g_free(saved);
+         g_object_set_data(G_OBJECT(export),"slot",GUINT_TO_POINTER(n->slot));
+         g_signal_connect(export,"toggled",G_CALLBACK(routing_vrig_export),NULL);
+         gtk_menu_shell_append(GTK_MENU_SHELL(menu),export);
          gtk_menu_shell_append(GTK_MENU_SHELL(menu), gtk_separator_menu_item_new());
          const char *labels[] = {
             "Configure CAT PTY…", "Configure GPS PTY…", "Disconnect Virtual Rig"

@@ -6,6 +6,7 @@
 #include <rrclient/cmd.h>
 #include <rrclient/audio.h>
 #include <rrclient/sercom.h>
+#include <rrclient/vrig.audio.h>
 #include <rrclient/local.modem.h>
 #include <rrclient/receiver.connect.h>
 #include <rrclient/receiver.directory.h>
@@ -810,8 +811,20 @@ static rrs_value_t *native_client_command(rrs_vm_t *vm,int argc,const rrs_value_
    /* Use the normal command parser and its privilege/offline checks. */
    return rrs_boolean(!parse_chat_input_real(line));
 }
+static rrs_value_t *native_vrig_audio(rrs_vm_t *vm,int argc,const rrs_value_t *const args[],void *unused) {
+   (void)unused;
+   if (argc!=2 || rrs_value_type(args[0])!=RRS_INT || rrs_value_type(args[1])!=RRS_BOOL ||
+       rrs_value_int(args[0])<0 || rrs_value_int(args[0])>=RR_SERCOM_VRIG_MAX) {
+      rrs_vm_raise(vm,"routing.vrig.audio(slot, enabled)");
+      return NULL;
+   }
+   rr_vrig_audio_request_t req={.slot=(unsigned)rrs_value_int(args[0]),.enabled=rrs_value_bool(args[1])};
+   rr_vrig_audio_request(&req);
+   return rrs_boolean(true);
+}
 static bool register_window_api(rrs_vm_t *vm) {
-   return rrs_vm_register_native(vm,"command.run",native_client_command,NULL) &&
+   return rrs_vm_register_native(vm,"routing.vrig.audio",native_vrig_audio,NULL) &&
+      rrs_vm_register_native(vm,"command.run",native_client_command,NULL) &&
       rrs_vm_register_native(vm,"sdr.connect_favorite",native_sdr_favorite,NULL) &&
       rrs_vm_register_native(vm,"sdr.parse",native_sdr_args,NULL) &&
       rrs_vm_register_native(vm,"sdr.favorites",native_sdr_manage,GINT_TO_POINTER(0)) &&

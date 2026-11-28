@@ -38,6 +38,7 @@
 #include <librrprotocol/connman.h>
 #include <rrclient/dcc.h>
 #include <rrclient/audio.h>
+#include <rrclient/vrig.audio.h>
 #include <rrclient/local.bridge.h>
 #include <rrclient/spectrum.af.h>
 #include <rrclient/local.modem.h>
@@ -4279,6 +4280,7 @@ bool audio_init(void) {
    rx_maintenance_source = maintenance;
    audio_enabled = true;
    gst_active = true;
+   rr_vrig_audio_init();
    audio_lv2_restore();
    /* Restore only explicitly saved oscillator patches. Unpatched blocks
     * remain silent, even if they were enabled at the previous shutdown. */
@@ -4436,6 +4438,7 @@ void audio_stop_codec(bool is_tx) {
 }
 
 void ws_audio_shutdown(void) {
+   rr_vrig_audio_shutdown();
    audio_gain_flush(NULL);
    if(osc_pump_source) {
       g_source_destroy(osc_pump_source);
