@@ -491,7 +491,29 @@ static double routing_snap_coordinate(double value) {
 #define GRAPH_LAYOUT_GAP_X 355.0
 #define GRAPH_LAYOUT_GAP_Y 200.0
 
+/* The RX endpoint owns the one visual position for a modem. */
+static unsigned routing_modem_slot_id(const char *id) {
+   unsigned slot=0;
+   int n=0;
+   char suffix[8];
+   if (id && sscanf(id,"modem%u.%7[a-z]%n",&slot,suffix,&n)==2 && n && !id[n] &&
+       slot>=1 && slot<=RR_LOCAL_MODEM_MAX &&
+       (!strcmp(suffix,"rx") || !strcmp(suffix,"tx"))) {
+      return slot;
+   }
+   return 0;
+}
+static const char *routing_visual_id(const char *id,char out[64]) {
+   unsigned slot=routing_modem_slot_id(id);
+   if (slot) {
+      g_snprintf(out,64,"modem%u.rx",slot);
+      return out;
+   }
+   return id;
+}
 static char *routing_position_key(const char *id) {
+   char canonical[64];
+   id=routing_visual_id(id,canonical);
    char *hash = g_compute_checksum_for_string(G_CHECKSUM_SHA256, id, -1);
    char *key = g_strdup_printf("audio.graph.layout.%s", hash);
    g_free(hash);
@@ -504,6 +526,8 @@ static routing_position_t *routing_position(const char *id) {
       return NULL;
    }
 
+   char canonical[64];
+   id=routing_visual_id(id,canonical);
    if (!graph_positions) {
       graph_positions = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
    }
@@ -675,7 +699,9 @@ static void routing_layout_auto(gboolean reset) {
       const guint col = layer % columns;
       const double x = GRAPH_LAYOUT_MARGIN + col * GRAPH_LAYOUT_GAP_X;
       const double y = band_y[band] + row_index[layer]++ * GRAPH_LAYOUT_GAP_Y;
-      routing_layout_set(node, x, y, reset);
+      if (!(routing_modem_slot_id(node->id) && g_str_has_suffix(node->id,".tx"))) {
+         routing_layout_set(node, x, y, reset);
+      }
    }
    /* Preserve manual positions first. Resolve legacy overlaps and new
     * automatic placements without placing a block over an earlier one. */
@@ -689,6 +715,7 @@ static void routing_layout_auto(gboolean reset) {
             for (guint j=0;j<count;j++) {
                if (i==j) { continue; }
                routing_position_t *q=routing_position(graph_snapshot->nodes[j].id);
+               if (p==q) { continue; }
                if (!q || (!q->pinned && (pass==0 || j>i)) || (pass==0 && j>i)) { continue; }
                if (routing_rect_overlap(p->x,p->y,RR_GTK_GRAPH_NODE_W,RR_GTK_GRAPH_NODE_H,
                                         q->x,q->y,RR_GTK_GRAPH_NODE_W,RR_GTK_GRAPH_NODE_H)) {
@@ -896,13 +923,14 @@ static void routing_serial_refresh(void) {
    }
 
    for (unsigned i = 1; i <= RR_LOCAL_MODEM_MAX; i++) {
-      if (!routing_modem_engine[i][0]) {
+      if (!routing_modems_visible || !routing_modem_engine[i][0]) {
          continue;
       }
       char id[64];
-      g_snprintf(id, sizeof(id), "serial.modem%u", i);
-      routing_serial_add(id, "", "", 0, FALSE, tindex++);
-      routing_serial_nodes[routing_serial_count - 1].modem = i;
+      g_snprintf(id, sizeof(id), "modem%u.rx", i);
+      routing_serial_node_t *n=&routing_serial_nodes[routing_serial_count++];
+      *n=(routing_serial_node_t){.modem=i};
+      g_strlcpy(n->id,id,sizeof(n->id));
    }
    if (!routing_rx_snapshot) {
       return;
@@ -936,8 +964,22 @@ static void routing_serial_refresh(void) {
    }
 }
 
+/* Modem serial pins are overlays on the actual PCM block, never a
+ * separately movable box. Resolve positions live while dragging. */
+static void routing_serial_pin_position(const routing_serial_node_t *n,unsigned k,double *x,double *y) {
+   if (n->modem) {
+      char id[64];
+      g_snprintf(id,sizeof(id),"modem%u.rx",n->modem);
+      routing_position_t *pos=routing_position(id);
+      *x=pos->x+(k==3?RR_GTK_GRAPH_NODE_W:0.);
+      *y=pos->y+43.;
+   } else {
+      *x=n->x+(n->virtual && k!=3?ROUTING_SERIAL_W:0.);
+      *y=n->y+62.+k*26.;
+   }
+}
 static gboolean routing_serial_pin_valid(const routing_serial_node_t *n, unsigned k) {
-   return n->virtual ? k < 4 : n->modem ? k >= 2 && k < 4 : k < 2;
+   return n->virtual ? k < 4 : n->modem ? routing_modems_visible && k >= 2 && k < 4 : k < 2;
 }
 static gboolean routing_serial_pin_hit(double x, double y, gint *index, guint *kind, gboolean *virtual) {
    double radius = routing_pin_radius();
@@ -947,11 +989,10 @@ static gboolean routing_serial_pin_hit(double x, double y, gint *index, guint *k
 
    for (guint i = 0 ; i < routing_serial_count ; i++) {
       const routing_serial_node_t *n = &routing_serial_nodes[i];
-      double px = n->x + (n->virtual ? ROUTING_SERIAL_W : 0.);
-
       for (guint k = 0 ; k < 4 ; k++) {
          if (!routing_serial_pin_valid(n, k)) { continue; }
-         double py = n->y + 62. + k * 26.;
+         double px,py;
+         routing_serial_pin_position(n,k,&px,&py);
          double d = hypot(x - px, y - py);
 
          if (d <= closest) {
@@ -1039,8 +1080,10 @@ static gboolean routing_serial_link_at(double x, double y, guint *slot) {
                        strcmp(n->pin_profile[k], dst->profile) || strcmp(n->pin_rig[k], dst->rig)) {
                continue;
             }
-            double x0 = n->x + ROUTING_SERIAL_W, x1 = dst->x;
-            double y0 = n->y + 62. + k * 26., y1 = dst->y + 62. + k * 26.;
+            double x0,y0,x1,y1;
+            routing_serial_pin_position(n,k,&x0,&y0);
+            routing_serial_pin_position(dst,k,&x1,&y1);
+            if (k==3) { double tmp=x0;x0=x1;x1=tmp;tmp=y0;y0=y1;y1=tmp; }
             for (guint tstep = 0 ; tstep <= 48 ; tstep++) {
                double t = tstep / 48.,px,py;
                rr_patchbay_wire_point(x0,y0,x1,y1,rr_gtk_graph_wire_sag(),
@@ -1135,19 +1178,44 @@ static void routing_serial_draw(cairo_t *cr) {
                        strcmp(n->pin_profile[k], dst->profile) || strcmp(n->pin_rig[k], dst->rig)) {
                continue;
             }
-            routing_serial_line(cr, n->x + ROUTING_SERIAL_W, n->y + 62. + k * 26., dst->x, dst->y + 62. + k * 26.);
+            double x0,y0,x1,y1;
+            routing_serial_pin_position(n,k,&x0,&y0);
+            routing_serial_pin_position(dst,k,&x1,&y1);
+            if (k==3) { routing_serial_line(cr,x1,y1,x0,y0); }
+            else { routing_serial_line(cr,x0,y0,x1,y1); }
          }
       }
    }
 
    if (routing_serial_drag >= 0 && (guint) routing_serial_drag < routing_serial_count) {
       const routing_serial_node_t *n = &routing_serial_nodes[routing_serial_drag];
-      double sx = n->x + (n->virtual ? ROUTING_SERIAL_W : 0.);
-      routing_serial_line(cr, sx, n->y + 62. + routing_serial_kind * 26., routing_serial_end_x, routing_serial_end_y);
+      double sx,sy;
+      routing_serial_pin_position(n,routing_serial_kind,&sx,&sy);
+      routing_serial_line(cr,sx,sy,routing_serial_end_x,routing_serial_end_y);
    }
 
    for (guint i = 0 ; i < routing_serial_count ; i++) {
       const routing_serial_node_t *n = &routing_serial_nodes[i];
+      if (n->modem) {
+         for (unsigned k=2;k<4;k++) {
+            if (!routing_serial_pin_valid(n,k)) { continue; }
+            double px,py;
+            routing_serial_pin_position(n,k,&px,&py);
+            cairo_set_source_rgb(cr,.88,.92,.94);
+            cairo_arc(cr,px,py,5.,0,2*G_PI);
+            cairo_fill(cr);
+            if (k==2) {
+               cairo_set_source_rgb(cr,.04,.05,.06);
+               cairo_arc(cr,px,py,3.5,0,2*G_PI);
+               cairo_fill(cr);
+            }
+            cairo_set_source_rgb(cr,.88,.92,.94);
+            cairo_set_font_size(cr,8.);
+            cairo_move_to(cr,px+(k==2?9.:-50.),py+3.);
+            cairo_show_text(cr,k==2?"SER RX":"SER TX");
+         }
+         continue;
+      }
       cairo_set_source_rgb(cr, .17, .21, .26);
       cairo_rectangle(cr, n->x, n->y, ROUTING_SERIAL_W, ROUTING_SERIAL_H);
       cairo_fill_preserve(cr);
@@ -1196,8 +1264,8 @@ static void routing_serial_draw(cairo_t *cr) {
          cairo_set_source_rgb(cr, .88, .91, .94);
          cairo_move_to(cr, n->x + 14, n->y + 65. + k * 26.);
          cairo_show_text(cr, port);
-         double px = n->x + (n->virtual ? ROUTING_SERIAL_W : 0.);
-         double py = n->y + 62. + k * 26.;
+         double px,py;
+         routing_serial_pin_position(n,k,&px,&py);
          cairo_set_source_rgb(cr, .88, .92, .94);
          cairo_arc(cr, px, py, 7., 0, 2 * G_PI);
          cairo_fill(cr);
@@ -2331,17 +2399,17 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
       nodes[i] = (rr_gtk_graph_node_t) {
          .x = routing_node_x(n), .y = routing_node_y(n),
          /* The stable routing path is the bold headline. Receiver/device description occupies the regular-weight line beneath it. */
-         .title = n->id, .hidden = !routing_pcm_node_visible(n), .subtitle =
+         .title = n->id, .hidden = !routing_pcm_node_visible(n), .ports_only = routing_modem_slot_id(n->id) && g_str_has_suffix(n->id,".tx"), .subtitle =
             lv2_subtitles[i][0] ? lv2_subtitles[i] :
             n->rig[0] ? n->rig :
             g_str_has_prefix(n->id, "modem") ?
-            (source ? "Modem TX audio / PTT" : "Modem RX audio") :
+            (source ? "" : "Modem") :
             g_str_has_prefix(n->id, "rig.") ? "Rig TX audio / PTT" :
             g_str_has_prefix(n->id,"control.") ? "Numeric control" :
             n->type == RR_AG_PROCESSOR ? "Audio processor" :
             n->type == RR_AG_SINK ? "GStreamer playback" :
             n->type == RR_AG_MIXER ? "Core PCM mixer" : "Audio source", .detail =
-            graph_missing_since[i] ? "Disconnected" : format_details[i], .failed = n->health == RR_AG_FAILED, .stale =
+            graph_missing_since[i] ? "Disconnected" : routing_modem_slot_id(n->id) ? "" : format_details[i], .failed = n->health == RR_AG_FAILED, .stale =
             graph_missing_since[i] != 0, .selected = routing_graph_is_selected(n->id)
             || !g_strcmp0(graph_focus_id, n->id), .bypass_pins = FALSE, .stereo_pins = n->channels == 2 || (source
             && !n->read_only), .io =
@@ -3083,7 +3151,7 @@ static gboolean routing_serial_context_menu(GdkEventButton *event, double x, dou
    for (guint i = 0 ; i < routing_serial_count ; i++) {
       const routing_serial_node_t *n = &routing_serial_nodes[i];
 
-      if (x < n->x || x > n->x + ROUTING_SERIAL_W || y < n->y || y > n->y + ROUTING_SERIAL_H) {
+      if (n->modem || x < n->x || x > n->x + ROUTING_SERIAL_W || y < n->y || y > n->y + ROUTING_SERIAL_H) {
          continue;
       }
       GtkWidget *menu = gtk_menu_new();
@@ -5872,7 +5940,7 @@ static gboolean routing_graph_tooltip(GtkWidget *widget, gint px, gint py, gbool
    for (guint i = 0 ; i < routing_serial_count ; i++) {
       const routing_serial_node_t *n = &routing_serial_nodes[i];
 
-      if (x < n->x || x > n->x + ROUTING_SERIAL_W || y < n->y || y > n->y + ROUTING_SERIAL_H) {
+      if (n->modem || x < n->x || x > n->x + ROUTING_SERIAL_W || y < n->y || y > n->y + ROUTING_SERIAL_H) {
          continue;
       }
       const char *path = routing_serial_full_path(n);
@@ -7111,14 +7179,14 @@ static GPtrArray *group_collect(void) {
    if (graph_snapshot) {
       for (guint i=0;i<graph_snapshot->node_count;i++) {
          const rr_ag_view_node_t *n=&graph_snapshot->nodes[i];
-         if (!graph_missing_since[i] && routing_pcm_node_visible(n)) {
+         if (!graph_missing_since[i] && routing_pcm_node_visible(n) && !(routing_modem_slot_id(n->id) && g_str_has_suffix(n->id,".tx"))) {
             group_add(list,n->id,GROUP_PCM,routing_node_x(n),routing_node_y(n),RR_GTK_GRAPH_NODE_W,RR_GTK_GRAPH_NODE_H);
          }
       }
    }
    for (guint i=0;i<routing_serial_count;i++) {
       const routing_serial_node_t *n=&routing_serial_nodes[i];
-      group_add(list,n->id,GROUP_SERIAL,n->x,n->y,ROUTING_SERIAL_W,ROUTING_SERIAL_H);
+      if (!n->modem) { group_add(list,n->id,GROUP_SERIAL,n->x,n->y,ROUTING_SERIAL_W,ROUTING_SERIAL_H); }
    }
    if (routing_effects_visible && routing_effect_blocks) {
       for (guint i=0;i<routing_effect_blocks->len;i++) {
@@ -7418,7 +7486,7 @@ static gboolean routing_graph_clicked(GtkWidget *widget, GdkEventButton *event, 
       for (gint i = (gint) routing_serial_count - 1 ; i >= 0 ; i--) {
          const routing_serial_node_t *n = &routing_serial_nodes[i];
 
-         if (gx < n->x || gx > n->x + ROUTING_SERIAL_W || gy < n->y || gy > n->y + ROUTING_SERIAL_H) {
+         if (n->modem || gx < n->x || gx > n->x + ROUTING_SERIAL_W || gy < n->y || gy > n->y + ROUTING_SERIAL_H) {
             continue;
          }
          routing_serial_move = i;
@@ -7777,6 +7845,7 @@ static gboolean routing_graph_motion(GtkWidget *widget, GdkEventMotion *event, g
             for (guint j=0;j<graph_snapshot->node_count;j++) {
                if (graph_group_member[j]) { continue; }
                const rr_ag_view_node_t *other=&graph_snapshot->nodes[j];
+               if (routing_position(graph_snapshot->nodes[i].id)==routing_position(other->id)) { continue; }
                if (routing_rect_overlap(graph_group_origin_x[i]+dx,graph_group_origin_y[i]+dy,
                        RR_GTK_GRAPH_NODE_W,RR_GTK_GRAPH_NODE_H,routing_node_x(other),routing_node_y(other),
                        RR_GTK_GRAPH_NODE_W,RR_GTK_GRAPH_NODE_H)) { return TRUE; }

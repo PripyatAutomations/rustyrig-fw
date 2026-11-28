@@ -56,6 +56,7 @@ typedef struct {
    const char *title, *subtitle, *detail;
    gboolean selected, failed, stale, bypass_pins, hidden; /* View-only filtering. */
    gboolean stereo_pins, fwdsp, gain_pins;
+   gboolean ports_only; /* Additional backend endpoint on an existing visual block. */
    gboolean ptt_pin, ptt_input; /* Digital control pins, distinct from PCM. */
    gboolean cos_pin, cos_input; /* Yellow COS outputs and compatible control inputs. */
    rr_gtk_graph_io_t io;

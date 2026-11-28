@@ -353,6 +353,8 @@ void rr_gtk_graph_draw(cairo_t *cr, const rr_gtk_graph_node_t *nodes, guint n_no
 
    for (guint i = 0 ; i < n_nodes ; i++) {
       const rr_gtk_graph_node_t *n = &nodes[i];
+      if (n->hidden) { continue; }
+      if (!n->ports_only) {
       cairo_set_source_rgb(cr, n->stale ? .23 : n->failed ? .40 : n->selected ? .20 : .15, n->stale ? .24 : n->failed ? .18 : n->selected ? .38 : .25, n->stale
          ? .26 : n->failed ? .18 : n->selected ? .56 : .34);
 
@@ -404,6 +406,7 @@ void rr_gtk_graph_draw(cairo_t *cr, const rr_gtk_graph_node_t *nodes, guint n_no
          cairo_show_text(cr, n->detail);
       }
 
+      }
       if(n->title && !strncmp(n->title,"osc.",4)) {
          const char *names[]={"FREQ","LEVEL","WAVE"};
          for(unsigned p=0;p<3;p++) {
