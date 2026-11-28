@@ -13,7 +13,8 @@
 #include <rrclient/sercom.h>
 #include <rrclient/vrig.audio.h>
 #include <rrclient/vrig.mix.h>
-#include <fwdsp-mgr.h>
+#include <librrprotocol/rrprotocol.h>
+#include <libfwdspmgr/fwdsp-mgr.h>
 #include <unistd.h>
 
 typedef struct {
