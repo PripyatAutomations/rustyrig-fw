@@ -1586,7 +1586,7 @@ backup_finished:
 
 /* Client-local callsign watch list; SQLite owns the persisted rules. No decoder or QSO-log matching occurs until contact logging is added. */
 enum {
-   WATCH_ID, WATCH_CALL, WATCH_MODE, WATCH_BAND, WATCH_AUTO, WATCH_WORKED, WATCH_TYPE, WATCH_CQ, WATCH_COLUMNS
+   WATCH_ID, WATCH_CALL, WATCH_MODE, WATCH_BAND, WATCH_AUTO, WATCH_WORKED, WATCH_TYPE, WATCH_CQ, WATCH_COMMENT, WATCH_COLUMNS
 };
 static void watched_global_cq_changed(GtkToggleButton *button,gpointer unused) {
    (void)unused;
@@ -1598,11 +1598,12 @@ static void watched_calls_row(const rrclient_watched_call_t *entry, void *user) 
    GtkTreeIter row;
    gtk_list_store_append(store, &row);
    gtk_list_store_set(store, &row, WATCH_ID, entry->id, WATCH_CALL, entry->callsign, WATCH_MODE, entry->mode, WATCH_BAND, entry->band, WATCH_AUTO, entry->
-      auto_mark_worked, WATCH_WORKED, entry->worked, WATCH_TYPE, entry->match_type, WATCH_CQ, entry->cq_only, -1);
+      auto_mark_worked, WATCH_WORKED, entry->worked, WATCH_TYPE, entry->match_type, WATCH_CQ, entry->cq_only, WATCH_COMMENT, entry->comment, -1);
 }
 
 static void watched_calls_reload(GtkWidget *tree) {
-   GtkListStore *store = GTK_LIST_STORE(gtk_tree_view_get_model(GTK_TREE_VIEW(tree)));
+   GtkTreeModelFilter *filter=GTK_TREE_MODEL_FILTER(gtk_tree_view_get_model(GTK_TREE_VIEW(tree)));
+   GtkListStore *store=GTK_LIST_STORE(gtk_tree_model_filter_get_model(filter));
    gtk_list_store_clear(store);
    rrclient_database_watched_calls_foreach(watched_calls_row, store);
 }
@@ -1639,19 +1640,19 @@ static GtkWidget *watched_calls_option(const char *const *items, const char *cho
 static void watched_calls_edit(GtkWidget *button, gpointer user) {
    GtkWidget *tree = user;
    gboolean editing = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(button), "watch-edit")) != 0;
-   GtkListStore *store = GTK_LIST_STORE(gtk_tree_view_get_model(GTK_TREE_VIEW(tree)));
+   GtkTreeModel *model=gtk_tree_view_get_model(GTK_TREE_VIEW(tree));
    GtkTreeIter selected;
 
    if (editing && !watched_calls_selected(tree, &selected)) {
       return;
    }
    gint id = 0;
-   gchar *old_call = NULL, *old_mode = NULL, *old_band = NULL,*old_type=NULL;
+   gchar *old_call = NULL, *old_mode = NULL, *old_band = NULL,*old_type=NULL,*old_comment=NULL;
    gboolean old_auto = FALSE, old_worked = FALSE,old_cq=FALSE;
 
    if (editing) {
-      gtk_tree_model_get(GTK_TREE_MODEL(store), &selected, WATCH_ID, &id, WATCH_CALL, &old_call, WATCH_MODE, &old_mode, WATCH_BAND, &old_band, WATCH_AUTO, &
-         old_auto, WATCH_WORKED, &old_worked, WATCH_TYPE,&old_type,WATCH_CQ,&old_cq,-1);
+      gtk_tree_model_get(model, &selected, WATCH_ID, &id, WATCH_CALL, &old_call, WATCH_MODE, &old_mode, WATCH_BAND, &old_band, WATCH_AUTO, &
+         old_auto, WATCH_WORKED, &old_worked, WATCH_TYPE,&old_type,WATCH_CQ,&old_cq,WATCH_COMMENT,&old_comment,-1);
    }
    GtkWidget *parent = gtk_widget_get_toplevel(tree);
    GtkWidget *dialog = gtk_dialog_new_with_buttons(editing ? "Edit Watched Call" : "Watch Callsign", GTK_IS_WINDOW(parent) ? GTK_WINDOW(parent) : NULL,
@@ -1711,6 +1712,13 @@ static void watched_calls_edit(GtkWidget *button, gpointer user) {
    gtk_grid_attach(GTK_GRID(grid),cq,1,4,1,1);
    gtk_grid_attach(GTK_GRID(grid),auto_mark,1,5,1,1);
    gtk_grid_attach(GTK_GRID(grid), worked, 1, 6, 1, 1);
+   GtkWidget *comment=gtk_entry_new();
+   gtk_entry_set_max_length(GTK_ENTRY(comment),1024);
+   gtk_entry_set_text(GTK_ENTRY(comment),old_comment?old_comment:"");
+   gtk_entry_set_placeholder_text(GTK_ENTRY(comment),"Optional notes");
+   gtk_widget_set_hexpand(comment,TRUE);
+   gtk_grid_attach(GTK_GRID(grid),gtk_label_new("Comment"),0,7,1,1);
+   gtk_grid_attach(GTK_GRID(grid),comment,1,7,1,1);
    gtk_widget_show_all(dialog);
    while (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
       gchar *raw = g_strdup(gtk_entry_get_text(GTK_ENTRY(call)));
@@ -1735,10 +1743,10 @@ static void watched_calls_edit(GtkWidget *button, gpointer user) {
       }
       if(!valid) {
          watched_calls_error(GTK_WIDGET(dialog),"Enter a valid match, mode and band (regex must compile).");
-      } else if(rrclient_database_watched_call_save(id,normalized,m,b,
+      } else if(rrclient_database_watched_call_save_comment(id,normalized,m,b,
          gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(auto_mark)),
          gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(worked)),kind,
-         gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(cq)))) {
+         gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(cq)),gtk_entry_get_text(GTK_ENTRY(comment)))) {
          g_free(normalized);
          watched_calls_reload(tree);
          break;
@@ -1752,6 +1760,7 @@ static void watched_calls_edit(GtkWidget *button, gpointer user) {
    g_free(old_mode);
    g_free(old_band);
    g_free(old_type);
+   g_free(old_comment);
 }
 
 static void watched_calls_remove(GtkButton *button, gpointer user) {
@@ -1796,6 +1805,27 @@ static void watched_calls_row_activated(GtkTreeView *view, GtkTreePath *path, Gt
    watched_calls_edit(GTK_WIDGET(button), g_object_get_data(G_OBJECT(button), "watch-tree"));
 }
 
+static gboolean watched_filter_visible(GtkTreeModel *model,GtkTreeIter *row,gpointer data) {
+   const char *needle=data?g_object_get_data(G_OBJECT(data),"watch-filter-text"):NULL;
+   if (!needle || !*needle) { return TRUE; }
+   const int columns[]={WATCH_CALL,WATCH_MODE,WATCH_BAND,WATCH_TYPE,WATCH_COMMENT};
+   for (unsigned i=0;i<G_N_ELEMENTS(columns);i++) {
+      char *value=NULL;
+      gtk_tree_model_get(model,row,columns[i],&value,-1);
+      char *fold=g_utf8_casefold(value?value:"",-1);
+      bool match=fold && strstr(fold,needle);
+      g_free(fold);
+      g_free(value);
+      if (match) { return TRUE; }
+   }
+   return FALSE;
+}
+static void watched_filter_changed(GtkEditable *entry,gpointer data) {
+   GtkTreeModelFilter *filter=data;
+   g_object_set_data_full(G_OBJECT(filter),"watch-filter-text",
+      g_utf8_casefold(gtk_entry_get_text(GTK_ENTRY(entry)),-1),g_free);
+   gtk_tree_model_filter_refilter(filter);
+}
 static GtkWidget *watched_calls_panel(void) {
    GtkWidget *panel = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
    gtk_container_set_border_width(GTK_CONTAINER(panel), 10);
@@ -1803,19 +1833,41 @@ static GtkWidget *watched_calls_panel(void) {
    gtk_label_set_line_wrap(GTK_LABEL(note), TRUE);
    gtk_widget_set_halign(note, GTK_ALIGN_START);
    gtk_box_pack_start(GTK_BOX(panel), note, FALSE, FALSE, 0);
-   GtkListStore *store = gtk_list_store_new(WATCH_COLUMNS, G_TYPE_INT, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_BOOLEAN, G_TYPE_BOOLEAN,G_TYPE_STRING,G_TYPE_BOOLEAN);
-   GtkWidget *tree = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
+   GtkListStore *store = gtk_list_store_new(WATCH_COLUMNS, G_TYPE_INT, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_BOOLEAN, G_TYPE_BOOLEAN,G_TYPE_STRING,G_TYPE_BOOLEAN,G_TYPE_STRING);
+   GtkTreeModel *filter=gtk_tree_model_filter_new(GTK_TREE_MODEL(store),NULL);
+   gtk_tree_model_filter_set_visible_func(GTK_TREE_MODEL_FILTER(filter),watched_filter_visible,filter,NULL);
+   GtkWidget *tree = gtk_tree_view_new_with_model(filter);
+   GtkWidget *search=gtk_search_entry_new();
+   gtk_entry_set_placeholder_text(GTK_ENTRY(search),"Filter calls, mode, band, type or comment");
+   gtk_box_pack_start(GTK_BOX(panel),search,FALSE,FALSE,0);
+   g_signal_connect_object(search,"changed",G_CALLBACK(watched_filter_changed),filter,0);
+   g_object_unref(filter);
    g_object_unref(store);
    const char *headers[] = {
-      "Match", "Mode", "Band", "Type", "CQ only", "Auto-mark worked", "Worked"
+      "Match", "Mode", "Band", "Type", "CQ only", "Auto", "Worked", "Comment"
    };
    const int columns[] = {
-      WATCH_CALL, WATCH_MODE, WATCH_BAND, WATCH_TYPE,WATCH_CQ,WATCH_AUTO, WATCH_WORKED
+      WATCH_CALL, WATCH_MODE, WATCH_BAND, WATCH_TYPE,WATCH_CQ,WATCH_AUTO, WATCH_WORKED,WATCH_COMMENT
    };
 
    for (unsigned i = 0 ; i < G_N_ELEMENTS(columns) ; i++) {
-      GtkCellRenderer *renderer = i < 4 ? gtk_cell_renderer_text_new() : gtk_cell_renderer_toggle_new();
-      GtkTreeViewColumn *col = gtk_tree_view_column_new_with_attributes(headers[i], renderer, i < 4 ? "text" : "active", columns[i], NULL);
+      bool toggle=columns[i]==WATCH_CQ || columns[i]==WATCH_AUTO || columns[i]==WATCH_WORKED;
+      GtkCellRenderer *renderer=toggle?gtk_cell_renderer_toggle_new():gtk_cell_renderer_text_new();
+      GtkTreeViewColumn *col=gtk_tree_view_column_new_with_attributes(headers[i],renderer,toggle?"active":"text",columns[i],NULL);
+      if (toggle) {
+         gtk_tree_view_column_set_sizing(col,GTK_TREE_VIEW_COLUMN_FIXED);
+         gtk_tree_view_column_set_fixed_width(col,columns[i]==WATCH_CQ?72:64);
+         gtk_tree_view_column_set_expand(col,FALSE);
+         gtk_tree_view_column_set_alignment(col,0.5);
+         g_object_set(renderer,"xalign",0.5f,"activatable",FALSE,NULL);
+      } else {
+         gtk_tree_view_column_set_resizable(col,TRUE);
+         if (columns[i]==WATCH_COMMENT) {
+            gtk_tree_view_column_set_expand(col,TRUE);
+            gtk_tree_view_column_set_min_width(col,120);
+            g_object_set(renderer,"ellipsize",PANGO_ELLIPSIZE_END,NULL);
+         }
+      }
       gtk_tree_view_append_column(GTK_TREE_VIEW(tree), col);
    }
 

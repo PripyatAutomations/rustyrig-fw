@@ -48,16 +48,18 @@ bool rrclient_database_restart_required(void) {
 /* Additive watchlist migration preserves existing exact rules. */
 static bool watch_schema(void) {
    sqlite3_stmt *q=NULL;
-   bool type=false,cq=false;
-   if(sqlite3_prepare_v2(client_db,"PRAGMA table_info(watched_calls)",-1,&q,NULL)!=SQLITE_OK)return false;
-   while(sqlite3_step(q)==SQLITE_ROW) {
+   bool type=false,cq=false,comment=false;
+   if (sqlite3_prepare_v2(client_db,"PRAGMA table_info(watched_calls)",-1,&q,NULL)!=SQLITE_OK) { return false; }
+   while (sqlite3_step(q)==SQLITE_ROW) {
       const char *name=(const char*)sqlite3_column_text(q,1);
-      if(name && !strcmp(name,"match_type"))type=true;
-      if(name && !strcmp(name,"cq_only"))cq=true;
+      if (name && !strcmp(name,"match_type")) { type=true; }
+      if (name && !strcmp(name,"cq_only")) { cq=true; }
+      if (name && !strcmp(name,"comment")) { comment=true; }
    }
    sqlite3_finalize(q);
-   if(!type && sqlite3_exec(client_db,"ALTER TABLE watched_calls ADD COLUMN match_type TEXT NOT NULL DEFAULT 'Exact'",NULL,NULL,NULL)!=SQLITE_OK)return false;
-   if(!cq && sqlite3_exec(client_db,"ALTER TABLE watched_calls ADD COLUMN cq_only INTEGER NOT NULL DEFAULT 0 CHECK(cq_only IN (0,1))",NULL,NULL,NULL)!=SQLITE_OK)return false;
+   if (!type && sqlite3_exec(client_db,"ALTER TABLE watched_calls ADD COLUMN match_type TEXT NOT NULL DEFAULT 'Exact'",NULL,NULL,NULL)!=SQLITE_OK) { return false; }
+   if (!cq && sqlite3_exec(client_db,"ALTER TABLE watched_calls ADD COLUMN cq_only INTEGER NOT NULL DEFAULT 0 CHECK(cq_only IN (0,1))",NULL,NULL,NULL)!=SQLITE_OK) { return false; }
+   if (!comment && sqlite3_exec(client_db,"ALTER TABLE watched_calls ADD COLUMN comment TEXT NOT NULL DEFAULT ''",NULL,NULL,NULL)!=SQLITE_OK) { return false; }
    return true;
 }
 
@@ -1262,7 +1264,7 @@ void rrclient_database_watched_calls_foreach(void (*callback) (const rrclient_wa
    }
    sqlite3_stmt *q = NULL;
 
-   if (sqlite3_prepare_v2(client_db, "SELECT id,callsign,mode,band,auto_mark_worked,worked,match_type,cq_only FROM watched_calls "
+   if (sqlite3_prepare_v2(client_db, "SELECT id,callsign,mode,band,auto_mark_worked,worked,match_type,cq_only,comment FROM watched_calls "
       "ORDER BY callsign COLLATE NOCASE,mode COLLATE NOCASE,band COLLATE NOCASE", -1, &q, NULL) != SQLITE_OK) {
       g_warning("Unable to list watched calls: %s", sqlite3_errmsg(client_db));
 
@@ -1277,7 +1279,8 @@ void rrclient_database_watched_calls_foreach(void (*callback) (const rrclient_wa
          .auto_mark_worked = sqlite3_column_int(q, 4) != 0,
          .worked = sqlite3_column_int(q, 5) != 0,
          .match_type = (const char*)sqlite3_column_text(q,6),
-         .cq_only = sqlite3_column_int(q,7)!=0
+         .cq_only = sqlite3_column_int(q,7)!=0,
+         .comment = (const char *)sqlite3_column_text(q,8)
       };
       callback(&entry, user);   /* String pointers valid only during callback. */
    }
@@ -1285,13 +1288,18 @@ void rrclient_database_watched_calls_foreach(void (*callback) (const rrclient_wa
 }
 
 bool rrclient_database_watched_call_save(int id, const char *callsign, const char *mode, const char *band, bool auto_mark_worked, bool worked, const char *match_type, bool cq_only) {
+   return rrclient_database_watched_call_save_comment(id,callsign,mode,band,auto_mark_worked,worked,match_type,cq_only,NULL);
+}
+
+bool rrclient_database_watched_call_save_comment(int id, const char *callsign, const char *mode, const char *band, bool auto_mark_worked, bool worked, const char *match_type, bool cq_only, const char *comment) {
    if (!client_db || id < 0 || !callsign || !*callsign || !mode || !*mode || !band || !*band) {
       return false;
    }
    sqlite3_stmt *q = NULL;
    const char *sql = id ?
       "UPDATE watched_calls SET callsign=?1,mode=?2,band=?3,"
-      "auto_mark_worked=?4,worked=?5,match_type=?6,cq_only=?7 WHERE id=?8" : "INSERT INTO watched_calls(callsign,mode,band,auto_mark_worked,worked,match_type,cq_only)" " VALUES(?1,?2,?3,?4,?5,?6,?7)";
+      "auto_mark_worked=?4,worked=?5,match_type=?6,cq_only=?7,comment=COALESCE(?8,comment) WHERE id=?9" :
+      "INSERT INTO watched_calls(callsign,mode,band,auto_mark_worked,worked,match_type,cq_only,comment) VALUES(?1,?2,?3,?4,?5,?6,?7,COALESCE(?8,''))";
 
    if (sqlite3_prepare_v2(client_db, sql, -1, &q, NULL) != SQLITE_OK) {
       g_warning("Unable to prepare watched call: %s", sqlite3_errmsg(client_db));
@@ -1305,8 +1313,10 @@ bool rrclient_database_watched_call_save(int id, const char *callsign, const cha
    sqlite3_bind_int(q, 5, worked);
    sqlite3_bind_text(q,6,match_type?match_type:"Exact",-1,SQLITE_TRANSIENT);
    sqlite3_bind_int(q,7,cq_only);
+   if (comment) { sqlite3_bind_text(q,8,comment,-1,SQLITE_TRANSIENT); }
+   else { sqlite3_bind_null(q,8); }
    if (id) {
-      sqlite3_bind_int(q, 8, id);
+      sqlite3_bind_int(q, 9, id);
    }
    bool ok = sqlite3_step(q) == SQLITE_DONE && (!id || sqlite3_changes(client_db) == 1);
 

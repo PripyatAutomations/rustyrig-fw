@@ -52,10 +52,12 @@ typedef struct {
    int id;
    const char *callsign, *mode, *band;
    bool auto_mark_worked, worked, cq_only;
-   const char *match_type;
+   const char *match_type, *comment;
 } rrclient_watched_call_t;
 void rrclient_database_watched_calls_foreach(void (*callback) (const rrclient_watched_call_t *, void *), void *user);
 bool rrclient_database_watched_call_save(int id, const char *callsign, const char *mode, const char *band, bool auto_mark_worked, bool worked, const char *match_type, bool cq_only);
+/* NULL comment preserves the previous comment on updates. */
+bool rrclient_database_watched_call_save_comment(int id, const char *callsign, const char *mode, const char *band, bool auto_mark_worked, bool worked, const char *match_type, bool cq_only, const char *comment);
 bool rrclient_database_watched_call_delete(int id);
 
 bool rrclient_database_audio_profile_save(const char *name, const char *const *ids, const char *routes, size_t count);
