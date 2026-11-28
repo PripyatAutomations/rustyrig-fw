@@ -708,6 +708,7 @@ static void routing_layout_auto(gboolean reset) {
 #define ROUTING_SERIAL_H 108.
 typedef struct {
    char id[256], profile[128], rig[32], display_path[320];
+   char pin_profile[2][128], pin_rig[2][32];
    unsigned slot;
    gboolean virtual;
    double x, y;
@@ -841,21 +842,42 @@ static void routing_serial_refresh(void) {
    routing_serial_count = 0;
    unsigned vindex = 0, tindex = 0;
 
-   for (unsigned i = 0 ; i < RR_SERCOM_VRIG_MAX ; i++) {
-      char *key = g_strdup_printf("serial.vrig.%u.profile", i);
-      char *profile = rrclient_database_setting_get(key);
-      g_free(key);
-      key = g_strdup_printf("serial.vrig.%u.rig", i);
-      char *rig = rrclient_database_setting_get(key);
-      g_free(key);
-
-      if ((profile && *profile && rig && *rig) || i == 0) {
+   for (unsigned i = 0; i < RR_SERCOM_VRIG_MAX; i++) {
+      char *profile[2], *rig[2];
+      gboolean bound = FALSE;
+      for (unsigned k = 0; k < 2; k++) {
+         char *key = g_strdup_printf("serial.vrig.%u.%s.profile", i, k ? "gps" : "cat");
+         profile[k] = rrclient_database_setting_get(key);
+         g_free(key);
+         key = g_strdup_printf("serial.vrig.%u.%s.rig", i, k ? "gps" : "cat");
+         rig[k] = rrclient_database_setting_get(key);
+         g_free(key);
+         if (!profile[k]) {
+            key = g_strdup_printf("serial.vrig.%u.profile", i);
+            profile[k] = rrclient_database_setting_get(key);
+            g_free(key);
+         }
+         if (!rig[k]) {
+            key = g_strdup_printf("serial.vrig.%u.rig", i);
+            rig[k] = rrclient_database_setting_get(key);
+            g_free(key);
+         }
+         bound |= profile[k] && *profile[k] && rig[k] && *rig[k];
+      }
+      if (bound || i == 0) {
          char id[64];
          g_snprintf(id, sizeof(id), "serial.vrig%u", i);
-         routing_serial_add(id, profile ? profile : "", rig ? rig : "", i, TRUE, vindex++);
+         routing_serial_add(id, "", "", i, TRUE, vindex++);
+         routing_serial_node_t *n = &routing_serial_nodes[routing_serial_count - 1];
+         for (unsigned k = 0; k < 2; k++) {
+            g_strlcpy(n->pin_profile[k], profile[k] ? profile[k] : "", sizeof(n->pin_profile[k]));
+            g_strlcpy(n->pin_rig[k], rig[k] ? rig[k] : "", sizeof(n->pin_rig[k]));
+         }
       }
-      g_free(profile);
-      g_free(rig);
+      for (unsigned k = 0; k < 2; k++) {
+         g_free(profile[k]);
+         g_free(rig[k]);
+      }
    }
 
    if (!routing_rx_snapshot) {
@@ -930,7 +952,7 @@ static void routing_serial_bind(guint source, guint dest) {
       return;
    }
    rr_sercom_vrig_bind_t request = {
-      .slot = v->slot
+      .slot = v->slot, .pins = 1u << routing_serial_kind
    };
    g_strlcpy(request.profile, r->profile, sizeof(request.profile));
    g_strlcpy(request.rig, r->rig, sizeof(request.rig));
@@ -941,9 +963,9 @@ static void routing_serial_bind(guint source, guint dest) {
    event_emit_message(&msg);
 }
 
-static void routing_serial_unbind(guint slot) {
+static void routing_serial_unbind(guint wire) {
    rr_sercom_vrig_bind_t req = {
-      .slot = slot
+      .slot = wire / 2u, .pins = 1u << (wire % 2u)
    };
    rr_event_message_t msg = {
       .name = RR_SERCOM_VRIG_BIND_REQUEST,
@@ -952,25 +974,29 @@ static void routing_serial_unbind(guint slot) {
    event_emit_message(&msg);
 }
 
-/* CAT and GPS currently form a single binding per virtual rig. Return the actual slot even when either one of its two dashed curves is selected. */
+/* Encode the slot and pin independently for wire removal. */
 static gboolean routing_serial_link_at(double x, double y, guint *slot) {
    const double limit = CLAMP((graph_touch_pointer ? 20. : 12.) / MAX(.01, graph_scale), 8., 28.);
 
    for (guint i = 0 ; i < routing_serial_count ; i++) {
       const routing_serial_node_t *n = &routing_serial_nodes[i];
 
-      if (!n->virtual || !n->profile[0] || !n->rig[0]) {
+      if (!n->virtual) {
          continue;
       }
 
       for (guint j = 0 ; j < routing_serial_count ; j++) {
          const routing_serial_node_t *dst = &routing_serial_nodes[j];
 
-         if (dst->virtual || strcmp(n->profile, dst->profile) || strcmp(n->rig, dst->rig)) {
+         if (dst->virtual) {
             continue;
          }
 
          for (guint k = 0 ; k < 2 ; k++) {
+            if (!n->pin_profile[k][0] || !n->pin_rig[k][0] ||
+                strcmp(n->pin_profile[k], dst->profile) || strcmp(n->pin_rig[k], dst->rig)) {
+               continue;
+            }
             double x0 = n->x + ROUTING_SERIAL_W, x1 = dst->x;
             double y0 = n->y + 62. + k * 26., y1 = dst->y + 62. + k * 26.;
             for (guint tstep = 0 ; tstep <= 48 ; tstep++) {
@@ -979,7 +1005,7 @@ static gboolean routing_serial_link_at(double x, double y, guint *slot) {
                                       t,&px,&py);
 
                if (hypot(px - x, py - y) < limit) {
-                  *slot = n->slot;
+                  *slot = n->slot * 2u + k;
 
                   return TRUE;
                }
@@ -1033,14 +1059,6 @@ static const char *routing_serial_full_path(const routing_serial_node_t *n) {
       return n->display_path;
    }
 
-   for (guint j = 0 ; j < routing_serial_count ; j++) {
-      const routing_serial_node_t *r = &routing_serial_nodes[j];
-
-      if (!r->virtual && !strcmp(r->profile, n->profile) && !strcmp(r->rig, n->rig) && r->display_path[0]) {
-         return r->display_path;
-      }
-   }
-
    return "";
 }
 
@@ -1048,18 +1066,22 @@ static void routing_serial_draw(cairo_t *cr) {
    for (guint i = 0 ; i < routing_serial_count ; i++) {
       const routing_serial_node_t *n = &routing_serial_nodes[i];
 
-      if (!n->virtual || !n->profile[0] || !n->rig[0]) {
+      if (!n->virtual) {
          continue;
       }
 
       for (guint j = 0 ; j < routing_serial_count ; j++) {
          const routing_serial_node_t *dst = &routing_serial_nodes[j];
 
-         if (dst->virtual || strcmp(n->profile, dst->profile) || strcmp(n->rig, dst->rig)) {
+         if (dst->virtual) {
             continue;
          }
 
          for (guint k = 0 ; k < 2 ; k++) {
+            if (!n->pin_profile[k][0] || !n->pin_rig[k][0] ||
+                strcmp(n->pin_profile[k], dst->profile) || strcmp(n->pin_rig[k], dst->rig)) {
+               continue;
+            }
             routing_serial_line(cr, n->x + ROUTING_SERIAL_W, n->y + 62. + k * 26., dst->x, dst->y + 62. + k * 26.);
          }
       }
@@ -1096,13 +1118,9 @@ static void routing_serial_draw(cairo_t *cr) {
       cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
 
       if (n->virtual) {
-         const char *path = routing_serial_full_path(n), *slash = strchr(path, '/');
-
-         if (*path) {
-            g_snprintf(label, sizeof(label), "%.*s", slash ? (int)(slash - path) : (int)strlen(path), path);
-         } else {
-            g_strlcpy(label, n->profile[0] ? "Identity unavailable" : "Unbound: drag to rig", sizeof(label));
-         }
+         g_snprintf(label, sizeof(label), "CAT: %s  GPS: %s",
+                    n->pin_profile[0][0] ? "bound" : "free",
+                    n->pin_profile[1][0] ? "bound" : "free");
       } else {
          g_strlcpy(label, "Remote rig controls", sizeof(label));
       }
@@ -2989,7 +3007,7 @@ static gboolean routing_serial_wire_menu(GdkEventButton *event, double x, double
       return FALSE;
    }
    GtkWidget *menu = gtk_menu_new();
-   GtkWidget *item = gtk_menu_item_new_with_label("Disconnect CAT / GPS binding");
+   GtkWidget *item = gtk_menu_item_new_with_label("Disconnect serial connection");
    gtk_widget_set_size_request(item, -1, 48);
    g_object_set_data(G_OBJECT(item), "rr-serial-slot", GUINT_TO_POINTER(slot));
    g_signal_connect(item, "activate", G_CALLBACK(routing_serial_wire_remove), NULL);

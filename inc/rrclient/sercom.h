@@ -15,10 +15,14 @@ bool rr_sercom_info(const char *name, rr_sercom_info_t *info);
 #define RR_SERCOM_VRIG_BIND_REQUEST "client.serial.vrig.bind.request"
 #define RR_SERCOM_VRIG_BIND_RESULT "client.serial.vrig.bind.result"
 #define RR_SERCOM_VRIG_MAX 8
+#define RR_SERCOM_VRIG_CAT 1u
+#define RR_SERCOM_VRIG_GPS 2u
+#define RR_SERCOM_VRIG_BOTH 3u
 typedef struct {
    unsigned slot;
    char profile[128];
    char rig[32];                /* rig0, rig1, ... */
+   unsigned pins;              /* zero = both (legacy manager), otherwise mask */
 } rr_sercom_vrig_bind_t;
 typedef struct {
    unsigned slot;

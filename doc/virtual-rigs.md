@@ -12,7 +12,7 @@ The **Virtual Rigs** toolbar button opens a movable panel. For each `vrigN`, sel
 
 The Routing canvas shows virtual-rig CAT and GPS pins alongside the underlying rig targets. Black circles and **black dashed connections** represent *logical serial bindings*, distinct from PCM audio wires and green effect-control wires. Drag CAT to CAT or GPS to GPS to bind a virtual rig to a target. Moving the virtual-rig blocks saves their position without modifying a binding. Touch uses larger invisible hit regions; long-press opens context menus where supported.
 
-A virtual rig's CAT and GPS endpoints currently bind **together** to the same server profile and rig. Separate audio RX/TX routes remain independent and should not be confused with CAT/PTT permission. A graph link does not confer transmit rights. The server still validates control privileges and PTT.
+CAT and GPS graph wires are independently bound and disconnected. The legacy manager's Bind action still binds both ports together. Old paired settings are inherited until an individual port is explicitly changed. Separate audio RX/TX routes remain independent and should not be confused with CAT/PTT permission. A graph link does not confer transmit rights. The server still validates control privileges and PTT.
 
 ## Multi-server safety
 
@@ -22,7 +22,7 @@ The runtime `ws_conn` variable has been removed. Core handlers read the current 
 
 ## Future extensions
 
-Individual CAT and GPS pin rebinding, per-virtual-rig PipeWire/PulseAudio input/output devices, independent CAT/VFO arbitration, and multiple simultaneous TX encoders/mixers remain separate follow-on features. A virtual rig should eventually expose `vrigN.rx`, `vrigN.tx`, `ttyCATN`, and `ttyGPSN` together.
+Per-virtual-rig PipeWire/PulseAudio input/output devices, independent CAT/VFO arbitration, and multiple simultaneous TX encoders/mixers remain separate follow-on features. A virtual rig should eventually expose `vrigN.rx`, `vrigN.tx`, `ttyCATN`, and `ttyGPSN` together.
 
 For the shared Routing pin/wire legend (including yellow COS and red PTT), see
 [Routing pin colors](routing-pin-colors.md).

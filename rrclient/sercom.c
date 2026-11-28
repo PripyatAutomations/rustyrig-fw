@@ -1641,221 +1641,187 @@ static bool vrig_valid(const char *rig) {
    return true;
 }
 
+/* Explicit empty settings suppress the legacy paired binding after disconnect.
+ * A missing per-pin setting inherits the old configuration. */
+static char *vrig_setting(unsigned slot, unsigned pin, const char *field) {
+   char *key = g_strdup_printf("serial.vrig.%u.%s.%s", slot, pin ? "gps" : "cat", field);
+   char *value = rrclient_database_setting_get(key);
+   g_free(key);
+   if (!value) {
+      key = g_strdup_printf("serial.vrig.%u.%s", slot, field);
+      value = rrclient_database_setting_get(key);
+      g_free(key);
+   }
+   return value;
+}
+
+static void vrig_save(unsigned slot, unsigned pin, const char *field, const char *value) {
+   char *key = g_strdup_printf("serial.vrig.%u.%s.%s", slot, pin ? "gps" : "cat", field);
+   rrclient_database_setting_set(key, value);
+   g_free(key);
+}
+
 static void vrig_restore(void) {
-   for (unsigned i = 0 ; i < RR_SERCOM_VRIG_MAX ; i++) {
-      char *key = g_strdup_printf("serial.vrig.%u.profile", i);
-      char *profile = rrclient_database_setting_get(key);
-      g_free(key);
-      key = g_strdup_printf("serial.vrig.%u.rig", i);
-      char *rig = rrclient_database_setting_get(key);
-      g_free(key);
-
-      if (profile && *profile && vrig_valid(rig)) {
-         char cat[32], gps[32], cat_svc[64], gps_svc[64];
-         g_snprintf(cat, sizeof(cat), "ttyCAT%u", i);
-         g_snprintf(gps, sizeof(gps), "ttyGPS%u", i);
-         g_snprintf(cat_svc, sizeof(cat_svc), "%s.cat@38400", rig);
-         g_snprintf(gps_svc, sizeof(gps_svc), "%s.gps-out@4800", rig);
-         key = g_strdup_printf("serial.%s", cat);
-
-         if (!cfg_get(key) || !strcmp(cfg_get(key), cat_svc)) {
-            dict_add(cfg, key, cat_svc);
+   for (unsigned i = 0; i < RR_SERCOM_VRIG_MAX; i++) {
+      for (unsigned j = 0; j < 2; j++) {
+         char *profile = vrig_setting(i, j, "profile");
+         char *rig = vrig_setting(i, j, "rig");
+         if (profile && *profile && vrig_valid(rig)) {
+            char key[64], service[96];
+            g_snprintf(key, sizeof(key), "serial.tty%s%u", j ? "GPS" : "CAT", i);
+            g_snprintf(service, sizeof(service), "%s.%s@%u", rig, j ? "gps-out" : "cat", j ? 4800 : 38400);
+            if (!cfg_get(key) || !strcmp(cfg_get(key), service)) {
+               dict_add(cfg, key, service);
+            }
          }
-         g_free(key);
-         key = g_strdup_printf("serial.%s", gps);
-
-         if (!cfg_get(key) || !strcmp(cfg_get(key), gps_svc)) {
-            dict_add(cfg, key, gps_svc);
-         }
-         g_free(key);
+         g_free(profile);
+         g_free(rig);
       }
-      g_free(profile);
-      g_free(rig);
    }
 }
 
 static void vrig_apply_profiles(void) {
-   for (unsigned i = 0 ; i < RR_SERCOM_VRIG_MAX ; i++) {
-      char *key = g_strdup_printf("serial.vrig.%u.profile", i);
-      char *profile = rrclient_database_setting_get(key);
-      g_free(key);
-      key = g_strdup_printf("serial.vrig.%u.rig", i);
-      char *rig = rrclient_database_setting_get(key);
-      g_free(key);
-
-      if (profile && *profile && vrig_valid(rig)) {
-         const char *prefix[] = {
-            "ttyCAT", "ttyGPS"
-         };
-
-         for (unsigned j = 0 ; j < 2 ; j++) {
-            char port[32], service[64];
-            g_snprintf(port, sizeof(port), "%s%u", prefix[j], i);
-            g_snprintf(service, sizeof(service), j ? "%s.gps-out" : "%s.cat", rig);
+   for (unsigned i = 0; i < RR_SERCOM_VRIG_MAX; i++) {
+      for (unsigned j = 0; j < 2; j++) {
+         char *profile = vrig_setting(i, j, "profile");
+         char *rig = vrig_setting(i, j, "rig");
+         if (profile && *profile && vrig_valid(rig)) {
+            char port[32], service[80];
+            g_snprintf(port, sizeof(port), "tty%s%u", j ? "GPS" : "CAT", i);
+            g_snprintf(service, sizeof(service), "%s.%s", rig, j ? "gps-out" : "cat");
             serial_binding_t *b = binding(port);
-
             if (b && !strcmp(b->service, service)) {
                g_strlcpy(b->profile, profile, sizeof(b->profile));
             }
          }
+         g_free(profile);
+         g_free(rig);
       }
-      g_free(profile);
-      g_free(rig);
    }
 }
 
 static void vrig_bind_request(const rr_event_message_t *message, void *unused) {
    (void)unused;
-   rr_sercom_vrig_bind_result_t result = {
-      0
-   };
-
+   rr_sercom_vrig_bind_result_t result = {0};
    if (!message || !message->payload || message->length != sizeof(rr_sercom_vrig_bind_t)) {
       return;
    }
    const rr_sercom_vrig_bind_t *req = message->payload;
    result.slot = req->slot;
-
-   if (req->slot >= RR_SERCOM_VRIG_MAX || !memchr(req->profile, 0, sizeof(req->profile)) || !memchr(req->rig, 0, sizeof(req->rig))) {
+   unsigned pins = req->pins ? req->pins : RR_SERCOM_VRIG_BOTH;
+   if (req->slot >= RR_SERCOM_VRIG_MAX || (pins & ~RR_SERCOM_VRIG_BOTH) ||
+       !memchr(req->profile, 0, sizeof(req->profile)) || !memchr(req->rig, 0, sizeof(req->rig))) {
       g_strlcpy(result.detail, "Invalid virtual rig request", sizeof(result.detail));
       goto reply;
    }
-
-   char *key = g_strdup_printf("serial.vrig.%u.profile", req->slot);
-   char *saved_profile = rrclient_database_setting_get(key);
-   g_free(key);
-   key = g_strdup_printf("serial.vrig.%u.rig", req->slot);
-   char *saved_rig = rrclient_database_setting_get(key);
-   g_free(key);
-
-   char cat[32], gps[32];
-   g_snprintf(cat, sizeof(cat), "ttyCAT%u", req->slot);
-   g_snprintf(gps, sizeof(gps), "ttyGPS%u", req->slot);
-   const char *names[2] = {
-      cat, gps
-   };
-   bool owned = saved_profile && *saved_profile && vrig_valid(saved_rig);
-
-   /* Numbered ports may also be configured manually. A virtual rig must never silently steal or disconnect those endpoints. */
-   for (unsigned j = 0 ; j < 2 ; j++) {
-      serial_binding_t *b = binding(names[j]);
+   bool disconnect = !req->profile[0] && !req->rig[0];
+   if (!disconnect && (!req->profile[0] || !vrig_valid(req->rig) || !rrclient_connection_find(req->profile))) {
+      g_strlcpy(result.detail, "Invalid virtual rig or server profile", sizeof(result.detail));
+      goto reply;
+   }
+   char *profiles[2] = {NULL, NULL}, *rigs[2] = {NULL, NULL};
+   char names[2][32], services[2][80];
+   bool owned[2] = {false, false}, changed[2] = {false, false};
+   for (unsigned j = 0; j < 2; j++) {
+      if (!(pins & (1u << j))) {
+         continue;
+      }
+      profiles[j] = vrig_setting(req->slot, j, "profile");
+      rigs[j] = vrig_setting(req->slot, j, "rig");
+      owned[j] = profiles[j] && *profiles[j] && vrig_valid(rigs[j]);
+      g_snprintf(names[j], sizeof(names[j]), "tty%s%u", j ? "GPS" : "CAT", req->slot);
       char expected[80];
-      g_snprintf(expected, sizeof(expected), "%s.%s", owned ? saved_rig : "", j ? "gps-out" : "cat");
-
-      if (b && (!owned || strcmp(b->service, expected) || strcmp(b->profile, saved_profile))) {
+      g_snprintf(expected, sizeof(expected), "%s.%s", owned[j] ? rigs[j] : "", j ? "gps-out" : "cat");
+      serial_binding_t *b = binding(names[j]);
+      if (b && (!owned[j] || strcmp(b->service, expected) || strcmp(b->profile, profiles[j]))) {
          g_snprintf(result.detail, sizeof(result.detail), "%s is manually configured; detach it first", names[j]);
          goto done;
       }
+      g_snprintf(services[j], sizeof(services[j]), "%s.%s", req->rig, j ? "gps-out" : "cat");
    }
-
-   if (!req->profile[0] && !req->rig[0]) {
-      for (unsigned j = 0 ; j < 2 ; j++) {
-         if (binding(names[j])) {
-            rr_sercom_disconnect(names[j]);
-         }
-         key = g_strdup_printf("serial.%s", names[j]);
-         dict_del(cfg, key);
-         g_free(key);
-      }
-
-      key = g_strdup_printf("serial.vrig.%u.profile", req->slot);
-      rrclient_database_setting_set(key, "");
-      g_free(key);
-      key = g_strdup_printf("serial.vrig.%u.rig", req->slot);
-      rrclient_database_setting_set(key, "");
-      g_free(key);
-      result.success = true;
-      g_snprintf(result.detail, sizeof(result.detail), "vrig%u disconnected", req->slot);
-      goto done;
-   }
-
-   if (!req->profile[0] || !vrig_valid(req->rig) || !rrclient_connection_find(req->profile)) {
-      g_strlcpy(result.detail, "Invalid virtual rig or server profile", sizeof(result.detail));
-      goto done;
-   }
-
-   char service[2][80];
-   bool changed[2] = {
-      false, false
-   };
-
-   for (unsigned j = 0 ; j < 2 ; j++) {
-      g_snprintf(service[j], sizeof(service[j]), "%s.%s", req->rig, j ? "gps-out" : "cat");
-      serial_binding_t *b = binding(names[j]);
-
-      if (b && !strcmp(b->service, service[j]) && !strcmp(b->profile, req->profile)) {
+   for (unsigned j = 0; j < 2; j++) {
+      if (!(pins & (1u << j))) {
          continue;
       }
-
+      serial_binding_t *b = binding(names[j]);
+      if (!disconnect && b && !strcmp(b->service, services[j]) && !strcmp(b->profile, req->profile)) {
+         continue;
+      }
       if (b) {
          rr_sercom_disconnect(names[j]);
       }
       changed[j] = true;
+      if (disconnect) {
+         continue;
+      }
       char full[96];
-      g_snprintf(full, sizeof(full), "%s@%u", service[j], j ? 4800 : 38400);
-
+      g_snprintf(full, sizeof(full), "%s@%u", services[j], j ? 4800 : 38400);
       if (!rr_sercom_attach(names[j], full, NULL)) {
          g_snprintf(result.detail, sizeof(result.detail), "Could not attach %s (PTY/config error)", names[j]);
          goto rollback;
       }
       b = binding(names[j]);
-
       if (b) {
          g_strlcpy(b->profile, req->profile, sizeof(b->profile));
       }
    }
-
-   /* Publish the new mapping only once both PTYs are usable. */
-   for (unsigned j = 0 ; j < 2 ; j++) {
-      char full[96];
-      g_snprintf(full, sizeof(full), "%s@%u", service[j], j ? 4800 : 38400);
-      key = g_strdup_printf("serial.%s", names[j]);
-      dict_add(cfg, key, full);
-      g_free(key);
+   for (unsigned j = 0; j < 2; j++) {
+      if (!(pins & (1u << j))) {
+         continue;
+      }
+      char key[64], full[96];
+      g_snprintf(key, sizeof(key), "serial.%s", names[j]);
+      if (disconnect) {
+         dict_del(cfg, key);
+      } else {
+         g_snprintf(full, sizeof(full), "%s@%u", services[j], j ? 4800 : 38400);
+         dict_add(cfg, key, full);
+      }
+      vrig_save(req->slot, j, "profile", req->profile);
+      vrig_save(req->slot, j, "rig", req->rig);
    }
-
-   key = g_strdup_printf("serial.vrig.%u.profile", req->slot);
-   rrclient_database_setting_set(key, req->profile);
-   g_free(key);
-   key = g_strdup_printf("serial.vrig.%u.rig", req->slot);
-   rrclient_database_setting_set(key, req->rig);
-   g_free(key);
+   /* Keep the legacy manager's combined keys meaningful only for a combined request.
+    * Independent overrides remain authoritative even when legacy keys are present. */
+   if (pins == RR_SERCOM_VRIG_BOTH) {
+      char key[64];
+      g_snprintf(key, sizeof(key), "serial.vrig.%u.profile", req->slot);
+      rrclient_database_setting_set(key, req->profile);
+      g_snprintf(key, sizeof(key), "serial.vrig.%u.rig", req->slot);
+      rrclient_database_setting_set(key, req->rig);
+   }
    result.success = true;
-   g_snprintf(result.detail, sizeof(result.detail), "vrig%u bound to %s / %s", req->slot, req->profile, req->rig);
+   g_snprintf(result.detail, sizeof(result.detail), "vrig%u %s %s", req->slot,
+              pins == RR_SERCOM_VRIG_BOTH ? "CAT/GPS" : pins == RR_SERCOM_VRIG_CAT ? "CAT" : "GPS",
+              disconnect ? "disconnected" : "bound");
    goto done;
-
 rollback:
-
-   /* A failed second attachment must not leave the first port retargeted. Restore the previous saved mapping when possible; otherwise fail closed. */
-   for (unsigned j = 0 ; j < 2 ; j++) {
+   for (unsigned j = 0; j < 2; j++) {
       if (!changed[j]) {
          continue;
       }
-
       if (binding(names[j])) {
          rr_sercom_disconnect(names[j]);
       }
-
-      if (owned) {
+      if (owned[j]) {
          char full[96];
-         g_snprintf(full, sizeof(full), "%s.%s@%u", saved_rig, j ? "gps-out" : "cat", j ? 4800 : 38400);
-
+         g_snprintf(full, sizeof(full), "%s.%s@%u", rigs[j], j ? "gps-out" : "cat", j ? 4800 : 38400);
          if (rr_sercom_attach(names[j], full, NULL)) {
             serial_binding_t *b = binding(names[j]);
-
             if (b) {
-               g_strlcpy(b->profile, saved_profile, sizeof(b->profile));
+               g_strlcpy(b->profile, profiles[j], sizeof(b->profile));
             }
          } else {
             Log(LOG_WARN, "serial", "vrig%u rollback: %s unavailable (fail closed)", req->slot, names[j]);
          }
       }
    }
-
 done:
-   g_free(saved_profile);
-   g_free(saved_rig);
+   for (unsigned j = 0; j < 2; j++) {
+      g_free(profiles[j]);
+      g_free(rigs[j]);
+   }
 reply:
+   ;
    rr_event_message_t response = {
       .name = RR_SERCOM_VRIG_BIND_RESULT,
       .payload = &result, .length = sizeof(result)
