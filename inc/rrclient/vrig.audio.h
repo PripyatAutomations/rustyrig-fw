@@ -18,6 +18,10 @@ void rr_vrig_audio_init(void);
 void rr_vrig_audio_shutdown(void);
 void rr_vrig_audio_request(const rr_vrig_audio_request_t *request);
 #include <rrclient/audio.engine.h>
+#define RR_VRIG_PCM_INPUT_MAX 32
+/* Thread-safe copy of configured sources, including offline endpoints. */
+size_t rr_vrig_rx_sources(unsigned slot,char (*sources)[64],size_t capacity);
+bool rr_vrig_rx_wants(const char *source);
 #define RR_VRIG_RX_ROUTE "client.routing.vrig.rx.route"
 typedef struct {
    unsigned slot;

@@ -2535,6 +2535,7 @@ static gboolean audio_osc_pump(gpointer unused) {
       }
       for(unsigned ch=0;ch<2;ch++) {
          char name[64];audio_osc_pin_name(slot,ch,name);
+         if (rr_vrig_rx_wants(name)) { low_needed=TRUE; }
          for(size_t i=0;i<modem_count;i++)
             if(!strcmp(modems[i].source,name))low_needed=TRUE;
          for(unsigned i=0;i<RR_AUDIO_EFFECT_MAX;i++) {
@@ -2554,6 +2555,8 @@ static gboolean audio_osc_pump(gpointer unused) {
          if(low_needed) {
             int16_t mono[320];
             for(unsigned i=0;i<320;i++)mono[i]=low[i*2+ch];
+            const rr_pcm_stream_format_t format={16000,1,RR_PCM_S16LE};
+            rr_vrig_rx_feed(name,mono,320,&format);
             audio_lv2_feed(name,mono,sizeof(mono));
             rr_local_modem_feed(name,mono,320);
             if(bus==1 && rx_engine)rr_audio_engine_push(rx_engine,name,mono,320);

@@ -1198,9 +1198,11 @@ static void routing_serial_draw(cairo_t *cr) {
    for (guint i = 0 ; i < routing_serial_count ; i++) {
       const routing_serial_node_t *n = &routing_serial_nodes[i];
       if (n->virtual && graph_snapshot) {
-         char key[80];g_snprintf(key,sizeof(key),"audio.vrig.%u.rx.source",n->slot);
-         char *source=rrclient_database_setting_get(key);
-         for (guint j=0;source && j<graph_snapshot->node_count;j++) {
+         char sources[RR_VRIG_PCM_INPUT_MAX][64];
+         size_t count=rr_vrig_rx_sources(n->slot,sources,G_N_ELEMENTS(sources));
+         for (size_t k=0;k<count;k++) {
+         const char *source=sources[k];
+         for (guint j=0;j<graph_snapshot->node_count;j++) {
             const rr_ag_view_node_t *node=&graph_snapshot->nodes[j];
             if (!strcmp(source,node->id)) {
                double px,py;routing_serial_pin_position(n,4,&px,&py);
@@ -1211,7 +1213,7 @@ static void routing_serial_draw(cairo_t *cr) {
                break;
             }
          }
-         g_free(source);
+         }
       }
       if (n->modem) {
          double px,py;
@@ -3182,6 +3184,16 @@ static void routing_vrig_export(GtkCheckMenuItem *item,gpointer unused) {
       .enabled=gtk_check_menu_item_get_active(item)};
    rr_vrig_audio_request(&req);
 }
+static void routing_vrig_rx_remove(GtkMenuItem *item,gpointer unused) {
+   (void)unused;
+   rr_vrig_rx_route_t req={.slot=GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(item),"slot")),.connect=FALSE};
+   const char *source=g_object_get_data(G_OBJECT(item),"source");
+   if (source) {
+      g_strlcpy(req.source,source,sizeof(req.source));
+      rr_vrig_rx_request(&req);
+      routing_queue();
+   }
+}
 static gboolean routing_serial_context_menu(GdkEventButton *event, double x, double y) {
    for (guint i = 0 ; i < routing_serial_count ; i++) {
       const routing_serial_node_t *n = &routing_serial_nodes[i];
@@ -3201,6 +3213,17 @@ static gboolean routing_serial_context_menu(GdkEventButton *event, double x, dou
          g_object_set_data(G_OBJECT(export),"slot",GUINT_TO_POINTER(n->slot));
          g_signal_connect(export,"toggled",G_CALLBACK(routing_vrig_export),NULL);
          gtk_menu_shell_append(GTK_MENU_SHELL(menu),export);
+         char sources[RR_VRIG_PCM_INPUT_MAX][64];
+         size_t count=rr_vrig_rx_sources(n->slot,sources,G_N_ELEMENTS(sources));
+         for (size_t j=0;j<count;j++) {
+            char *label=g_strdup_printf("Disconnect PCM RX: %s",sources[j]);
+            GtkWidget *item=gtk_menu_item_new_with_label(label);
+            g_free(label);
+            g_object_set_data(G_OBJECT(item),"slot",GUINT_TO_POINTER(n->slot));
+            g_object_set_data_full(G_OBJECT(item),"source",g_strdup(sources[j]),g_free);
+            g_signal_connect(item,"activate",G_CALLBACK(routing_vrig_rx_remove),NULL);
+            gtk_menu_shell_append(GTK_MENU_SHELL(menu),item);
+         }
          gtk_menu_shell_append(GTK_MENU_SHELL(menu), gtk_separator_menu_item_new());
          const char *labels[] = {
             "Configure CAT PTY…", "Configure GPS PTY…", "Disconnect Virtual Rig"

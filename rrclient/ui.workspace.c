@@ -23,6 +23,7 @@
 #include <rrclient/local.bridge.h>
 #include <rrclient/local.modem.h>
 #include <rrclient/sercom.h>
+#include <rrclient/vrig.audio.h>
 #include <rrclient/spectrum.af.h>
 #include <rrclient/config.layers.h>
 #include <rrclient/objects.h>
@@ -246,7 +247,7 @@ static bool patch_output(int pin){
 static bool patch_pin_valid(const rr_ag_view_node_t *n,int pin){
    if (!n || pin<0 || pin>=PIN_COUNT) { return false; }
    if (patch_serial_slot(n->id,true)>=0) {
-      return pin==PIN_SERIAL_RX || pin==PIN_SERIAL_TX;
+      return pin==PIN_SERIAL_RX || pin==PIN_SERIAL_TX || pin==PIN_IN_L;
    }
    if (patch_serial_slot(n->id,false)>0) {
       if (pin==PIN_SERIAL_RX || pin==PIN_SERIAL_TX || pin==PIN_IN_L) { return true; }
@@ -716,6 +717,20 @@ static void patch_draw(tui_window_t *w,int rows,int cols,void *unused){
          patch_paint_wire(c,cells,patch_branch(x1+1,y1,x2-1,y2,used,net),0xc0c0c0,used,net,(patch_point_t){x1+1,y1});
       }
    }
+   for (unsigned v=0;v<RR_SERCOM_VRIG_MAX;v++) {
+      char id[64],sources[RR_VRIG_PCM_INPUT_MAX][64];
+      g_snprintf(id,sizeof(id),"vrig%u",v);
+      int b=patch_find(id);
+      if (b<0) { continue; }
+      size_t count=rr_vrig_rx_sources(v,sources,G_N_ELEMENTS(sources));
+      for (size_t k=0;k<count;k++) {
+         int a=patch_find(sources[k]),x1,y1,x2,y2;
+         if (a<0 || !patch_pin_point(&patch_pos[a],PIN_OUT_L,&x1,&y1) ||
+             !patch_pin_point(&patch_pos[b],PIN_IN_L,&x2,&y2)) { continue; }
+         unsigned net=patch_net(a,PIN_OUT_L);
+         patch_paint_wire(c,cells,patch_branch(x1+1,y1,x2-1,y2,used,net),0x53cbd5,used,net,(patch_point_t){x1+1,y1});
+      }
+   }
    int origin=patch_find(patch_source),target=patch_find(patch_selected);
    if(origin>=0&&patch_output(patch_source_pin)){
       int x1=patch_pos[origin].x+PATCH_W-1,y1=patch_pos[origin].y;
@@ -763,7 +778,8 @@ static void patch_draw(tui_window_t *w,int rows,int cols,void *unused){
          rrui_canvas_text(c,x+1,y+3,PATCH_W-2,"                 PTT",0xf06060);
          rrui_canvas_text(c,x+1,y+4,PATCH_W-2,"SER RX        SER TX",0xc0c0c0);
       } else if (patch_serial_slot(p->id,true)>=0) {
-         rrui_canvas_text(c,x+1,y+2,PATCH_W-2,"Serial interface",color);
+         rrui_canvas_text(c,x+1,y+1,PATCH_W-2,"PCM RX",0x53cbd5);
+         rrui_canvas_text(c,x+1,y+2,PATCH_W-2,p->id,color);
          rrui_canvas_text(c,x+1,y+3,PATCH_W-2,"                    ",color);
          rrui_canvas_text(c,x+1,y+4,PATCH_W-2,"RX                TX",0xc0c0c0);
       } else if (gate && gate->sign) {
@@ -835,6 +851,16 @@ static bool patch_connect(const char *source,const char *target,int out,int in){
        !patch_output(out) || patch_output(in) ||
        !rrui_shape_pins_compatible(&patch_ports[out],&patch_ports[in])) {
       patch_notice("Select compatible output and input ports."); return false;
+   }
+   if (patch_ports[out].type==PATCH_AUDIO && patch_serial_slot(target,true)>=0 && in==PIN_IN_L) {
+      rr_vrig_rx_route_t req={.slot=(unsigned)patch_serial_slot(target,true),.connect=true};
+      if (patch_serial_slot(source,false)>0) { g_snprintf(req.source,sizeof(req.source),"%s.tx",source); }
+      else if (g_str_has_prefix(source,"osc.")) { g_snprintf(req.source,sizeof(req.source),"%s.%c",source,out==PIN_OUT_R?'Q':'I'); }
+      else if (g_str_has_prefix(source,"proc.lv2.") && patch_node(source)->channels==2) { g_snprintf(req.source,sizeof(req.source),"%s.%c",source,out==PIN_OUT_R?'R':'L'); }
+      else { g_strlcpy(req.source,source,sizeof(req.source)); }
+      rr_vrig_rx_request(&req);
+      routing_request();
+      return true;
    }
    if (patch_ports[out].type==PATCH_SERIAL) {
       int v=patch_serial_slot(source,true),m=patch_serial_slot(target,false);
