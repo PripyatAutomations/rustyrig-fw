@@ -2029,9 +2029,10 @@ static GtkWidget *client_audio_setup_panel(void) {
 GtkWidget *init_config_tab(void) {
    GtkWidget *nw = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
 
+   GtkWidget *settings = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
    GtkWidget *header = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
    gtk_container_set_border_width(GTK_CONTAINER(header), 6);
-   gtk_box_pack_start(GTK_BOX(nw), header, FALSE, FALSE, 6);
+   gtk_box_pack_start(GTK_BOX(settings), header, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(header), gtk_label_new("Filter:"), FALSE, FALSE, 0);
    GtkWidget *search = gtk_search_entry_new();
    gtk_entry_set_width_chars(GTK_ENTRY(search), 20);
@@ -2047,10 +2048,11 @@ GtkWidget *init_config_tab(void) {
    cfg_list_state_t *filter_state = g_object_get_data(G_OBJECT(cfg_panel), "cfg-list-state");
    g_signal_connect(search, "changed", G_CALLBACK(cfg_editor_filter_changed), filter_state);
    gtk_widget_set_vexpand(cfg_panel, TRUE);
+   gtk_box_pack_start(GTK_BOX(settings), cfg_panel, TRUE, TRUE, 0);
    GtkWidget *sections = gtk_notebook_new();
    gtk_widget_set_vexpand(sections, TRUE);
    gtk_box_pack_start(GTK_BOX(nw), sections, TRUE, TRUE, 0);
-   gtk_notebook_append_page(GTK_NOTEBOOK(sections), cfg_panel, gtk_label_new("Settings"));
+   gtk_notebook_append_page(GTK_NOTEBOOK(sections), settings, gtk_label_new("Settings"));
    gtk_notebook_append_page(GTK_NOTEBOOK(sections), cfg_theme_panel(), gtk_label_new("Theme"));
    gtk_notebook_append_page(GTK_NOTEBOOK(sections), client_audio_setup_panel(), gtk_label_new("Audio Devices"));
    gtk_notebook_append_page(GTK_NOTEBOOK(sections), watched_calls_panel(), gtk_label_new("Watched Calls"));
