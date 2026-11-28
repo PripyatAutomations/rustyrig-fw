@@ -37,6 +37,9 @@ typedef void (*fwdsp_processor_output_cb)(const char *name, const void *samples,
 /* Encoded frames from client-local TX encoders. The shared manager knows no rrclient connection; its owner forwards frames using negotiated media. */
 typedef void (*fwdsp_encoded_output_cb)(const char codec[5], const void *data, size_t len, bool setup, void *user_data);
 void fwdsp_set_encoded_output_callback(fwdsp_encoded_output_cb callback, void *user_data);
+/* Named local TX encoders never emit through the legacy focus-selected callback. */
+typedef void (*fwdsp_named_encoded_output_cb)(const char *identity,const char codec[5],const void *data,size_t len,bool setup,void *user);
+void fwdsp_set_named_encoded_output_callback(fwdsp_named_encoded_output_cb callback,void *user);
 /* Replay cached codec setup packets when a TX media channel becomes ready. */
 void fwdsp_replay_client_tx_headers(const char codec[5]);
 

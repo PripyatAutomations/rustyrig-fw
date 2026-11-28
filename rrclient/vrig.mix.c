@@ -30,7 +30,7 @@ bool rr_vrig_mix_open(unsigned slot,rr_vrig_mix_output_fn output,void *user) {
    m->slot=slot;
    m->output=output;
    m->user=user;
-   m->engine=rr_audio_engine_new_rate(48000,mix_output,m);
+   m->engine=rr_audio_engine_new_rate(16000,mix_output,m);
    bool ok=m->engine && rr_audio_engine_start(m->engine);
    if (!ok) {
       rr_audio_engine_free(m->engine);

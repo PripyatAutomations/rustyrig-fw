@@ -490,6 +490,27 @@ bool rrclient_media_rx_has_tx(const char *rx_uuid) {
    return false;
 }
 
+const struct rr_client_media_chan *rrclient_media_tx_for_rx(const char *rx_uuid) {
+   if (!rx_uuid || !*rx_uuid) { return NULL; }
+   const struct rr_client_media_chan *rx=media_known_find(rx_uuid),*match=NULL;
+   if (!rx || rx->subsystem!=RR_BINFRAME_SUBSYS_AUDIO || rx->direction!=RR_BINFRAME_DIR_RX ||
+       rx->vfo==RR_BINFRAME_VFO_NA) { return NULL; }
+   for (unsigned i=0;i<RR_MEDIA_MAX_CHANS;i++) {
+      const struct rr_client_media_chan *tx=&known_chans[i];
+      if (!tx->uuid[0] || tx->subsystem!=RR_BINFRAME_SUBSYS_AUDIO || tx->direction!=RR_BINFRAME_DIR_TX ||
+          !tx->subscribed || !tx->stream_valid || tx->disabled || !tx->codec[0] ||
+          (tx->room[0] && !tx->joined) || tx->vfo!=rx->vfo) { continue; }
+      const char *rc=rx->control_room[0]?rx->control_room:rx->room;
+      const char *tc=tx->control_room[0]?tx->control_room:tx->room;
+      bool same=rx->rig_uuid[0] && tx->rig_uuid[0] ? !strcmp(rx->rig_uuid,tx->rig_uuid) :
+         rc[0] && tc[0] && ws_room_same_rig(rc,tc);
+      if (!same) { continue; }
+      if (match) { return NULL; } /* Never guess between two negotiated renditions. */
+      match=tx;
+   }
+   return match;
+}
+
 bool rrclient_media_rx_is_active_rx(const char *rx_uuid) {
    const struct rr_client_media_chan *rx = media_known_find(rx_uuid);
 

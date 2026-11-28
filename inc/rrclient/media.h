@@ -19,6 +19,8 @@ void rrclient_media_refresh(rrconn_t *connection);
 bool rrclient_media_local_tx(const char *uuid);
 /* True only when this RX media resource advertises a matching TX audio channel. */
 bool rrclient_media_rx_has_tx(const char *rx_uuid);
+/* Core, in the owning connection context. Exact VFO, unambiguous negotiated channel. */
+const struct rr_client_media_chan *rrclient_media_tx_for_rx(const char *rx_uuid);
 /* Is this RX resource the currently selected, negotiated TX destination? */
 bool rrclient_media_rx_is_active_tx(const char *rx_uuid);
 /* Whether this RX media channel represents the selected radio's RX endpoint. */

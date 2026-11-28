@@ -32,4 +32,11 @@ typedef struct {
 size_t rr_vrig_tx_sources(unsigned slot,char (*sources)[64],size_t capacity);
 void rr_vrig_rx_request(const rr_vrig_rx_route_t *request);
 void rr_vrig_rx_feed(const char *source,const void *pcm,size_t frames,const rr_pcm_stream_format_t *format);
+#define RR_VRIG_TX_DESTINATION "client.routing.vrig.tx.destination"
+typedef struct {
+   unsigned slot;
+   char profile[512],rx_uuid[64]; /* empty pair disconnects */
+} rr_vrig_tx_destination_t;
+bool rr_vrig_tx_destination(unsigned slot,rr_vrig_tx_destination_t *out);
+void rr_vrig_tx_destination_request(const rr_vrig_tx_destination_t *request);
 #endif

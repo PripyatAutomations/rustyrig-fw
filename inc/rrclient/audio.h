@@ -86,6 +86,9 @@ void audio_local_rx_stop(const char *id);
 /* Core-thread modem PCM TX ingress. Never keys PTT; requires active, authorized TX media and a confirmed PTT state before forwarding. */
 bool audio_modem_tx_pcm(unsigned slot, const char *ptt_target, const int16_t *pcm, size_t frames);
 bool audio_modem_tx_allowed(const char *target);
+/* Core-only slot mixer handoff; NULL PCM performs readiness/teardown checks. */
+void audio_vrig_tx_tick(unsigned slot,const int16_t *mono,size_t frames);
+void audio_vrig_tx_reset(unsigned slot);
 /* Internal source patch interface. Producers register their PCM format, route into tx.mix, then push samples; no source touches the encoder. */
 bool audio_tx_source_register(const char *id, const rr_pcm_stream_format_t *format);
 bool audio_tx_source_route(const char *id, bool connected);

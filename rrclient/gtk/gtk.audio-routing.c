@@ -733,7 +733,7 @@ static void routing_layout_auto(gboolean reset) {
  * stream transported to the server. */
 #define ROUTING_SERIAL_MAX_TARGETS 32
 #define ROUTING_SERIAL_W 210.
-#define ROUTING_SERIAL_H 230.
+#define ROUTING_SERIAL_H 244.
 typedef struct {
    char id[256], profile[128], rig[32], display_path[320];
    char pin_profile[2][128], pin_rig[2][32];
@@ -976,12 +976,12 @@ static void routing_serial_pin_position(const routing_serial_node_t *n,unsigned 
       *x=pos->x+(k==3?RR_GTK_GRAPH_NODE_W:0.);
       *y=pos->y+43.;
    } else {
-      *x=n->x+(n->virtual && k<3?ROUTING_SERIAL_W:0.);
+      *x=n->x+(n->virtual && (k<3 || k==6)?ROUTING_SERIAL_W:0.);
       *y=n->y+62.+k*26.;
    }
 }
 static gboolean routing_serial_pin_valid(const routing_serial_node_t *n, unsigned k) {
-   return n->virtual ? k < 6 : n->modem ? routing_modems_visible && k >= 2 && k < 4 : k < 2;
+   return n->virtual ? k < 7 : n->modem ? routing_modems_visible && k >= 2 && k < 4 : k < 2;
 }
 static gboolean routing_serial_pin_hit(double x, double y, gint *index, guint *kind, gboolean *virtual) {
    double radius = routing_pin_radius();
@@ -991,7 +991,7 @@ static gboolean routing_serial_pin_hit(double x, double y, gint *index, guint *k
 
    for (guint i = 0 ; i < routing_serial_count ; i++) {
       const routing_serial_node_t *n = &routing_serial_nodes[i];
-      for (guint k = 0 ; k < 6 ; k++) {
+      for (guint k = 0 ; k < 7 ; k++) {
          if (!routing_serial_pin_valid(n, k)) { continue; }
          double px,py;
          routing_serial_pin_position(n,k,&px,&py);
@@ -1199,6 +1199,27 @@ static void routing_serial_draw(cairo_t *cr) {
    for (guint i = 0 ; i < routing_serial_count ; i++) {
       const routing_serial_node_t *n = &routing_serial_nodes[i];
       if (n->virtual && graph_snapshot) {
+         rr_vrig_tx_destination_t destination;
+         if (rr_vrig_tx_destination(n->slot,&destination) && routing_rx_snapshot) {
+            for (guint j=0;j<routing_rx_snapshot->count;j++) {
+               const struct rrclient_rx_stream *rx=&routing_rx_snapshot->streams[j];
+               if (strcmp(rx->server,destination.profile) || strcmp(rx->uuid,destination.rx_uuid)) { continue; }
+               char id[64];
+               g_snprintf(id,sizeof(id),"rig.%08x.tx",g_str_hash(rx->id));
+               for (guint k=0;k<graph_snapshot->node_count;k++) {
+                  const rr_ag_view_node_t *node=&graph_snapshot->nodes[k];
+                  if (strcmp(node->id,id) && !(rx->active_rx && rx->active_tx && !strcmp(node->id,"rig.sink"))) { continue; }
+                  double px,py;
+                  routing_serial_pin_position(n,6,&px,&py);
+                  double x=routing_node_x(node),y=routing_node_y(node)+68.;
+                  cairo_set_source_rgb(cr,.30,.77,.92);
+                  cairo_set_line_width(cr,2.);
+                  cairo_move_to(cr,px,py);cairo_curve_to(cr,(x+px)/2,py,(x+px)/2,y,x,y);cairo_stroke(cr);
+                  break;
+               }
+               break;
+            }
+         }
          char sources[RR_VRIG_PCM_INPUT_MAX][64];
          for (unsigned direction=0;direction<2;direction++) {
          size_t count=direction?rr_vrig_tx_sources(n->slot,sources,G_N_ELEMENTS(sources)):rr_vrig_rx_sources(n->slot,sources,G_N_ELEMENTS(sources));
@@ -1280,12 +1301,12 @@ static void routing_serial_draw(cairo_t *cr) {
       cairo_move_to(cr, n->x + 12, n->y + 42);
       cairo_show_text(cr, label);
 
-      for (guint k = 0 ; k < 6 ; k++) {
+      for (guint k = 0 ; k < 7 ; k++) {
          if (!routing_serial_pin_valid(n,k)) { continue; }
          char port[64];
 
          if (k>=4) {
-            g_strlcpy(port,k==4?"PCM RX IN":"PCM TX IN",sizeof(port));
+            g_strlcpy(port,k==4?"PCM RX IN":k==5?"PCM TX IN":"PCM TX OUT",sizeof(port));
          } else if (k >= 2) {
             g_snprintf(port, sizeof(port), "%s", n->virtual ? (k==2 ? "Serial TX" : "Serial RX") : (k==2 ? "Serial RX" : "Serial TX"));
          } else if (n->virtual) {
@@ -1302,7 +1323,7 @@ static void routing_serial_draw(cairo_t *cr) {
          else { cairo_set_source_rgb(cr,.88,.92,.94); }
          cairo_arc(cr, px, py, 7., 0, 2 * G_PI);
          cairo_fill(cr);
-         if (k>=4 || k < 2 || (n->virtual ? k==3 : k==2)) {
+         if ((k>=4 && k<6) || k < 2 || (n->virtual ? k==3 : k==2)) {
             cairo_set_source_rgb(cr, .04, .05, .06);
             cairo_arc(cr, px, py, 5.3, 0, 2 * G_PI);
             cairo_fill(cr);
@@ -3182,6 +3203,11 @@ static void routing_vrig_rx_remove(GtkMenuItem *item,gpointer unused) {
       routing_queue();
    }
 }
+static void routing_vrig_tx_remove(GtkMenuItem *item,gpointer unused) {
+   (void)unused;
+   rr_vrig_tx_destination_t req={.slot=GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(item),"slot"))};
+   rr_vrig_tx_destination_request(&req);
+}
 static gboolean routing_serial_context_menu(GdkEventButton *event, double x, double y) {
    for (guint i = 0 ; i < routing_serial_count ; i++) {
       const routing_serial_node_t *n = &routing_serial_nodes[i];
@@ -3201,6 +3227,13 @@ static gboolean routing_serial_context_menu(GdkEventButton *event, double x, dou
          g_object_set_data(G_OBJECT(export),"slot",GUINT_TO_POINTER(n->slot));
          g_signal_connect(export,"toggled",G_CALLBACK(routing_vrig_export),NULL);
          gtk_menu_shell_append(GTK_MENU_SHELL(menu),export);
+         rr_vrig_tx_destination_t target;
+         if (rr_vrig_tx_destination(n->slot,&target)) {
+            GtkWidget *disconnect=gtk_menu_item_new_with_label("Disconnect PCM TX output");
+            g_object_set_data(G_OBJECT(disconnect),"slot",GUINT_TO_POINTER(n->slot));
+            g_signal_connect(disconnect,"activate",G_CALLBACK(routing_vrig_tx_remove),NULL);
+            gtk_menu_shell_append(GTK_MENU_SHELL(menu),disconnect);
+         }
          char sources[RR_VRIG_PCM_INPUT_MAX][64];
          for (unsigned direction=0;direction<2;direction++) {
          size_t count=direction?rr_vrig_tx_sources(n->slot,sources,G_N_ELEMENTS(sources)):rr_vrig_rx_sources(n->slot,sources,G_N_ELEMENTS(sources));
@@ -8043,7 +8076,23 @@ static gboolean routing_graph_released(GtkWidget *widget, GdkEventButton *event,
          guint kind = 0;
          gboolean is_virtual = FALSE;
 
-         if (routing_serial_kind>=4 && graph_snapshot) {
+         if (routing_serial_kind==6 && graph_snapshot && routing_rx_snapshot) {
+            for (guint j=0;j<graph_snapshot->node_count;j++) {
+               const rr_ag_view_node_t *node=&graph_snapshot->nodes[j];
+               if (node->type!=RR_AG_SINK || hypot(gx-routing_node_x(node),gy-routing_node_y(node)-68.)>routing_pin_radius()*2.) { continue; }
+               for (guint k=0;k<routing_rx_snapshot->count;k++) {
+                  const struct rrclient_rx_stream *rx=&routing_rx_snapshot->streams[k];
+                  char id[64];
+                  g_snprintf(id,sizeof(id),"rig.%08x.tx",g_str_hash(rx->id));
+                  if (!rx->active_tx || (strcmp(node->id,id) && !(rx->active_rx && !strcmp(node->id,"rig.sink")))) { continue; }
+                  rr_vrig_tx_destination_t req={.slot=routing_serial_nodes[routing_serial_drag].slot};
+                  g_strlcpy(req.profile,rx->server,sizeof(req.profile));
+                  g_strlcpy(req.rx_uuid,rx->uuid,sizeof(req.rx_uuid));
+                  rr_vrig_tx_destination_request(&req);
+                  break;
+               }
+            }
+         } else if (routing_serial_kind>=4 && graph_snapshot) {
             gint src=-1,ch=0;
             gboolean mixer=FALSE;
             if (graph_port_at(gx,gy,&src,&ch,&mixer) && src>=0 && !mixer) {

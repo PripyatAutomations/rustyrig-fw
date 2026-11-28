@@ -61,6 +61,12 @@ static bool fwdsp_has_server_media(void) {
 static GMainContext *fwdsp_reactor_context;
 static fwdsp_encoded_output_cb client_encoded_output;
 static void *client_encoded_user;
+static fwdsp_named_encoded_output_cb named_encoded_output;
+static void *named_encoded_user;
+void fwdsp_set_named_encoded_output_callback(fwdsp_named_encoded_output_cb callback,void *user) {
+   named_encoded_output=callback;
+   named_encoded_user=user;
+}
 void fwdsp_set_encoded_output_callback(fwdsp_encoded_output_cb callback, void *user_data) {
    client_encoded_output = callback;
    client_encoded_user = user_data;
@@ -633,12 +639,18 @@ static void fwdsp_parse_read(struct fwdsp_io_conn *ctx) {
           * callbacks are handled separately above. */
          if (!fwdsp_has_server_media()) {
             /* Client-local fwdsp TX codec frames belong on its negotiated media channel. The caller applies PTT, stream and queue gates. */
-            if (client_encoded_output && ctx->sp->role == FWDSP_ROLE_CODEC && ctx->sp->is_tx && !ctx->sp->is_video && ctx->sp->refcount > 0) {
+            if (ctx->sp->role == FWDSP_ROLE_CODEC && ctx->sp->is_tx && !ctx->sp->is_video && ctx->sp->refcount > 0) {
                char codec[5] = {
                   0
                };
                memcpy(codec, ctx->sp->pl_id, 4);
-               client_encoded_output(codec, ctx->recv->data + FWDSP_FRAME_HEADER_SIZE, frame_len, is_header, client_encoded_user);
+               if (ctx->sp->local_lifetime && ctx->sp->channel_uuid[0]) {
+                  if (named_encoded_output) {
+                     named_encoded_output(ctx->sp->channel_uuid,codec,ctx->recv->data+FWDSP_FRAME_HEADER_SIZE,frame_len,is_header,named_encoded_user);
+                  }
+               } else if (client_encoded_output) {
+                  client_encoded_output(codec, ctx->recv->data + FWDSP_FRAME_HEADER_SIZE, frame_len, is_header, client_encoded_user);
+               }
             }
             g_byte_array_remove_range(ctx->recv, 0, total_len);
             continue;
@@ -942,7 +954,7 @@ static int fwdsp_find_offset(const char *id, bool is_tx) {
    }
 
    for (int i = 0 ; i < max_subprocs ; i++) {
-      if (fwdsp_subprocs[i].role != FWDSP_ROLE_CODEC) {
+      if (fwdsp_subprocs[i].role != FWDSP_ROLE_CODEC || (is_tx && fwdsp_subprocs[i].local_lifetime)) {
          continue;
       }
 

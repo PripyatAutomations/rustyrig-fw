@@ -40,6 +40,8 @@
 #include <rrclient/audio.h>
 #include <rrclient/vrig.audio.h>
 #include <rrclient/vrig.mix.h>
+#include <rrclient/sercom.h>
+#include <rrclient/connection.state.h>
 #include <rrclient/local.bridge.h>
 #include <rrclient/spectrum.af.h>
 #include <rrclient/local.modem.h>
@@ -896,6 +898,117 @@ static void client_speaker_pcm(const void *samples, size_t len) {
 
 /* fwdsp's encoded TX output is shared by microphone and modem. Forward it on the *negotiated* media channel, not the input source's stream identifier. This
  * sends the identical wire frames for both. */
+/* Core-owned independent TX encoders. Each slot is bound to an exact
+ * connection, channel UUID, negotiated stream and codec, never UI focus. */
+typedef struct {
+   char identity[32],codec[5],channel[64];
+   rrconn_t *connection;
+   uint8_t stream;
+   uint32_t sequence;
+} vrig_encoder_t;
+static vrig_encoder_t vrig_encoders[RR_SERCOM_VRIG_MAX];
+void audio_vrig_tx_reset(unsigned slot) {
+   if (slot>=RR_SERCOM_VRIG_MAX) { return; }
+   vrig_encoder_t *e=&vrig_encoders[slot];
+   if (e->codec[0]) { fwdsp_codec_stop_channel_immediate(e->codec,true,e->identity); }
+   memset(e,0,sizeof(*e));
+}
+static bool vrig_owns_channel(const struct rr_client_media_chan *channel) {
+   rrconn_t *conn=rrclient_connection_context();
+   const char *profile=conn?rrclient_connection_name(conn):NULL;
+   if (!profile || !channel) { return false; }
+   for (unsigned i=0;i<RR_SERCOM_VRIG_MAX;i++) {
+      rr_vrig_tx_destination_t dest;
+      if (!rr_vrig_tx_destination(i,&dest) || strcmp(dest.profile,profile)) { continue; }
+      const struct rr_client_media_chan *tx=rrclient_media_tx_for_rx(dest.rx_uuid);
+      if (tx && !strcmp(tx->uuid,channel->uuid)) { return true; }
+   }
+   return false;
+}
+typedef struct {
+   unsigned slot;
+   rr_vrig_tx_destination_t dest;
+   const int16_t *pcm;
+   size_t frames;
+   const char *codec;
+   const void *data;
+   size_t len;
+   bool setup;
+} vrig_tx_work_t;
+static const struct rr_client_media_chan *vrig_tx_ready(const vrig_tx_work_t *w) {
+   rrconn_t *conn=rrclient_connection_context();
+   if (!audio_enabled || !rrclient_connection_is_connected(conn)) { return NULL; }
+   const struct rr_client_media_chan *tx=rrclient_media_tx_for_rx(w->dest.rx_uuid);
+   if (!tx || !rrclient_media_local_tx(tx->uuid)) { return NULL; }
+   /* One encoder owns each negotiated stream; competing slot wires fail closed. */
+   for (unsigned i=0;i<w->slot;i++) {
+      rr_vrig_tx_destination_t other;
+      if (!rr_vrig_tx_destination(i,&other) || strcmp(other.profile,w->dest.profile)) { continue; }
+      const struct rr_client_media_chan *channel=rrclient_media_tx_for_rx(other.rx_uuid);
+      if (channel && !strcmp(channel->uuid,tx->uuid)) { return NULL; }
+   }
+   return tx;
+}
+static void vrig_tx_tick_connection(void *data) {
+   vrig_tx_work_t *w=data;
+   vrig_encoder_t *e=&vrig_encoders[w->slot];
+   const struct rr_client_media_chan *tx=vrig_tx_ready(w);
+   rrconn_t *conn=rrclient_connection_context();
+   if (!tx) { audio_vrig_tx_reset(w->slot);return; }
+   if (e->connection!=conn || strcmp(e->channel,tx->uuid) || strcmp(e->codec,tx->codec) || e->stream!=tx->stream) {
+      audio_vrig_tx_reset(w->slot);
+   }
+   if (!w->pcm || w->frames!=320) { return; }
+   if (!e->codec[0]) {
+      g_snprintf(e->identity,sizeof(e->identity),"vrig-tx-%u",w->slot);
+      g_strlcpy(e->codec,tx->codec,sizeof(e->codec));
+      g_strlcpy(e->channel,tx->uuid,sizeof(e->channel));
+      e->connection=conn;
+      e->stream=tx->stream;
+      if (fwdsp_codec_start_local(e->codec,true,e->identity)<0) {
+         audio_vrig_tx_reset(w->slot);return;
+      }
+   }
+   if (!fwdsp_write_channel_samples(e->codec,true,e->identity,w->pcm,w->frames*sizeof(int16_t))) {
+      audio_vrig_tx_reset(w->slot);
+   }
+}
+void audio_vrig_tx_tick(unsigned slot,const int16_t *mono,size_t frames) {
+   if (slot>=RR_SERCOM_VRIG_MAX) { return; }
+   vrig_tx_work_t work={.slot=slot,.pcm=mono,.frames=frames};
+   if (!rr_vrig_tx_destination(slot,&work.dest)) { audio_vrig_tx_reset(slot);return; }
+   rrconn_t *conn=rrclient_connection_find(work.dest.profile);
+   if (!rrclient_connection_is_connected(conn)) { audio_vrig_tx_reset(slot);return; }
+   rrclient_connection_dispatch(conn,vrig_tx_tick_connection,&work);
+}
+static void vrig_tx_encoded_connection(void *data) {
+   vrig_tx_work_t *w=data;
+   vrig_encoder_t *e=&vrig_encoders[w->slot];
+   const struct rr_client_media_chan *tx=vrig_tx_ready(w);
+   rrconn_t *conn=rrclient_connection_context();
+   if (!tx || conn!=e->connection || strcmp(tx->uuid,e->channel) || tx->stream!=e->stream ||
+       strcmp(tx->codec,e->codec) || strcmp(w->codec,e->codec)) { return; }
+   uint8_t *frame=NULL;
+   int n=rr_binframe_frame(&frame,RR_BINFRAME_SUBSYS_AUDIO,w->codec,RR_BINFRAME_DIR_TX,
+      tx->vfo,tx->rig,tx->stream,++e->sequence,mono_us(),w->data,w->len);
+   if (n>0) { rrclient_send_tx_audio_frame(conn,frame,(size_t)n,w->setup); }
+   free(frame);
+}
+static void audio_vrig_encoded(const char *identity,const char codec[5],const void *data,size_t len,bool setup,void *unused) {
+   (void)unused;
+   if (!identity || !data || !len || len>RR_BINFRAME_MAX_PAYLOAD) { return; }
+   for (unsigned slot=0;slot<RR_SERCOM_VRIG_MAX;slot++) {
+      vrig_encoder_t *e=&vrig_encoders[slot];
+      if (!e->identity[0] || strcmp(identity,e->identity) || strcmp(codec,e->codec)) { continue; }
+      vrig_tx_work_t work={.slot=slot,.codec=codec,.data=data,.len=len,.setup=setup};
+      if (!rr_vrig_tx_destination(slot,&work.dest)) { return; }
+      rrconn_t *conn=rrclient_connection_find(work.dest.profile);
+      if (conn==e->connection && rrclient_connection_is_connected(conn)) {
+         rrclient_connection_dispatch(conn,vrig_tx_encoded_connection,&work);
+      }
+      return;
+   }
+}
 static uint32_t tx_frame_sequence;
 static char tx_frame_channel[64];
 static void audio_tx_encoded(const char codec[5], const void *data, size_t len, bool setup, void *unused) {
@@ -913,6 +1026,7 @@ static void audio_tx_encoded(const char codec[5], const void *data, size_t len, 
       channel->subsystem != RR_BINFRAME_SUBSYS_AUDIO || strncmp(channel->codec, codec, 4) || strncmp(tx_codec, codec, 4)) {
       return;
    }
+   if (vrig_owns_channel(channel)) { return; }
    /* Setup packets must travel even before PTT so the remote decoder can initialize. Media packets require an asserted radio PTT. */
    char vfo[2] = {
       vfo_state_get_active(), 0
@@ -4133,6 +4247,7 @@ bool audio_init(void) {
 
    /* Register before starting the first encoder so early codec headers are not discarded by the shared fwdsp manager. */
    fwdsp_set_encoded_output_callback(audio_tx_encoded, NULL);
+   fwdsp_set_named_encoded_output_callback(audio_vrig_encoded,NULL);
 
    if (fwdsp_init()) {
       Log(LOG_CRIT, "audio", "Unable to initialize fwdsp manager for client audio");
@@ -4491,6 +4606,7 @@ void ws_audio_shutdown(void) {
       g_atomic_int_set(&tx_pcm_queued, 0);
    }
    fwdsp_set_encoded_output_callback(NULL, NULL);
+   fwdsp_set_named_encoded_output_callback(NULL,NULL);
    tx_frame_sequence = 0;
    tx_frame_channel[0] = 0;
    rrclient_local_bridge_disconnect();
