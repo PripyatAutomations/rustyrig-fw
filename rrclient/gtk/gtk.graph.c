@@ -300,6 +300,7 @@ void rr_gtk_graph_draw(cairo_t *cr, const rr_gtk_graph_node_t *nodes, guint n_no
          continue;
       }
       const rr_gtk_graph_node_t *a = &nodes[e->from], *b = &nodes[e->to];
+      if (a->hidden || b->hidden) { continue; }
       gboolean bypass = e->kind == RR_GTK_GRAPH_BYPASS;
       gboolean control = e->kind == RR_GTK_GRAPH_CONTROL;
       gboolean cos = e->kind == RR_GTK_GRAPH_COS;
@@ -351,9 +352,11 @@ void rr_gtk_graph_draw(cairo_t *cr, const rr_gtk_graph_node_t *nodes, guint n_no
 
    cairo_set_dash(cr, NULL, 0, 0);
 
+   /* Paint the primary face before any supplemental ports, regardless of snapshot order. */
+   for (unsigned pass=0;pass<2;pass++) {
    for (guint i = 0 ; i < n_nodes ; i++) {
       const rr_gtk_graph_node_t *n = &nodes[i];
-      if (n->hidden) { continue; }
+      if (n->hidden || (!!n->ports_only)!=(pass==1)) { continue; }
       if (!n->ports_only) {
       cairo_set_source_rgb(cr, n->stale ? .23 : n->failed ? .40 : n->selected ? .20 : .15, n->stale ? .24 : n->failed ? .18 : n->selected ? .38 : .25, n->stale
          ? .26 : n->failed ? .18 : n->selected ? .56 : .34);
@@ -567,5 +570,6 @@ void rr_gtk_graph_draw(cairo_t *cr, const rr_gtk_graph_node_t *nodes, guint n_no
          cairo_move_to(cr, n->x + 10, n->y + 102);
          cairo_show_text(cr, "BYPASS");
       }
+   }
    }
 }

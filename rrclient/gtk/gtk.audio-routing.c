@@ -1197,6 +1197,14 @@ static void routing_serial_draw(cairo_t *cr) {
    for (guint i = 0 ; i < routing_serial_count ; i++) {
       const routing_serial_node_t *n = &routing_serial_nodes[i];
       if (n->modem) {
+         double px,py;
+         routing_serial_pin_position(n,2,&px,&py);
+         cairo_set_source_rgb(cr,.84,.93,.96);
+         cairo_set_font_size(cr,8.);
+         cairo_move_to(cr,px+10.,py+28.);
+         cairo_show_text(cr,"PCM RX");
+         cairo_move_to(cr,px+RR_GTK_GRAPH_NODE_W-48.,py+28.);
+         cairo_show_text(cr,"PCM TX");
          for (unsigned k=2;k<4;k++) {
             if (!routing_serial_pin_valid(n,k)) { continue; }
             double px,py;
@@ -1769,6 +1777,7 @@ static void routing_graph_bounds(double *width, double *height) {
 
    for (guint i = 0 ; i < routing_serial_count ; i++) {
       const routing_serial_node_t *n = &routing_serial_nodes[i];
+      if (n->modem) { continue; }
       max_x = MAX(max_x, n->x + ROUTING_SERIAL_W + GRAPH_LAYOUT_MARGIN);
       max_y = MAX(max_y, n->y + ROUTING_SERIAL_H + GRAPH_LAYOUT_MARGIN);
    }
@@ -2403,7 +2412,7 @@ static gboolean routing_graph_draw(GtkWidget *widget, cairo_t *cr, gpointer unus
             lv2_subtitles[i][0] ? lv2_subtitles[i] :
             n->rig[0] ? n->rig :
             g_str_has_prefix(n->id, "modem") ?
-            (source ? "" : "Modem") :
+            "" :
             g_str_has_prefix(n->id, "rig.") ? "Rig TX audio / PTT" :
             g_str_has_prefix(n->id,"control.") ? "Numeric control" :
             n->type == RR_AG_PROCESSOR ? "Audio processor" :
@@ -2991,7 +3000,7 @@ static void routing_block_action(GtkMenuItem *item, gpointer unused) {
       for (guint i = 0 ; i < routing_serial_count ; i++) {
          const routing_serial_node_t *n = &routing_serial_nodes[i];
 
-         if (strcmp(n->id, id)) {
+         if (n->modem || strcmp(n->id, id)) {
             continue;
          }
          const char *path = routing_serial_full_path(n);
@@ -6624,7 +6633,7 @@ static void routing_marquee_update(void) {
    for (guint i = 0 ; i < routing_serial_count ; i++) {
       const routing_serial_node_t *n = &routing_serial_nodes[i];
 
-      if (routing_marquee_contains(n->x, n->y, ROUTING_SERIAL_W, ROUTING_SERIAL_H)) {
+      if (!n->modem && routing_marquee_contains(n->x, n->y, ROUTING_SERIAL_W, ROUTING_SERIAL_H)) {
          routing_graph_select(n->id, TRUE);
       }
    }
@@ -6779,7 +6788,7 @@ static void routing_marquee_draw(cairo_t *cr) {
    for (guint i = 0 ; i < routing_serial_count ; i++) {
       const routing_serial_node_t *n = &routing_serial_nodes[i];
 
-      if (routing_graph_is_selected(n->id)) {
+      if (!n->modem && routing_graph_is_selected(n->id)) {
          cairo_rectangle(cr, n->x - 3., n->y - 3., ROUTING_SERIAL_W + 6., ROUTING_SERIAL_H + 6.);
       }
    }
